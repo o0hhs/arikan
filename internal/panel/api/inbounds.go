@@ -176,11 +176,17 @@ func (h *handlers) lastAuto(ctx context.Context) (map[int64]db.InboundEvent, err
 	return out, nil
 }
 
-func (h *handlers) viewInbound(in db.Inbound, last map[int64]db.InboundEvent) InboundView {
+func (h *handlers) viewInbound(ctx context.Context, in db.Inbound, last map[int64]db.InboundEvent) InboundView {
 	info, _ := presets.Get(in.Preset)
 	v := InboundView{ID: in.ID, NodeID: in.NodeID, Name: in.Name, Preset: in.Preset, Title: info.Title, Port: in.Port, Enabled: in.Enabled != 0,
 		DisplayName: in.DisplayName, SubName: domain.ProxyName(in), Config: in.Config, Status: "unknown", UpdatedAt: time.Unix(in.UpdatedAt, 0).UTC(),
 		AutoPort: in.AutoPort != 0, AutoSNI: in.AutoSni != 0, Outbound: in.Outbound, Listen: in.Listen}
+	// The listener template holds the inbound's own key material (a REALITY private key, a
+	// protocol password): a key that may only read sees the connection without it. The
+	// fields parsed out of it below are not secret and stay.
+	if hidesSecrets(ctx) {
+		v.Config = ""
+	}
 	if in.PoolID.Valid {
 		id := in.PoolID.Int64
 		v.PoolID = &id
@@ -256,7 +262,7 @@ func (h *handlers) listInbounds(ctx context.Context, _ *struct{}) (*inboundsOutp
 	}
 	out := &inboundsOutput{Body: make([]InboundView, 0, len(rows))}
 	for _, in := range rows {
-		out.Body = append(out.Body, h.viewInbound(in, last))
+		out.Body = append(out.Body, h.viewInbound(ctx, in, last))
 	}
 	return out, nil
 }
@@ -285,7 +291,7 @@ func (h *handlers) createInbound(ctx context.Context, in *createInboundInput) (*
 	if err != nil {
 		return nil, inboundError(err, false)
 	}
-	v := h.viewInbound(row, nil)
+	v := h.viewInbound(ctx, row, nil)
 	h.d.Changes.SlotsChanged()
 	h.audit(ctx, sessionOf(ctx).AdminID, "inbound.create", "inbound", row.Name, map[string]any{"preset": row.Preset, "type": v.Type, "port": row.Port})
 	return &inboundOutput{Body: v}, nil
@@ -297,7 +303,7 @@ func (h *handlers) copyInbound(ctx context.Context, in *copyInboundInput) (*inbo
 	if err != nil {
 		return nil, inboundError(err, b.Dest != "")
 	}
-	v := h.viewInbound(row, nil)
+	v := h.viewInbound(ctx, row, nil)
 	h.d.Changes.SlotsChanged()
 	h.audit(ctx, sessionOf(ctx).AdminID, "inbound.copy", "inbound", v.Name, map[string]any{"node_id": row.NodeID, "port": row.Port, "source_id": in.ID})
 	return &inboundOutput{Body: v}, nil
@@ -349,7 +355,7 @@ func (h *handlers) updateInbound(ctx context.Context, in *patchInboundInput) (*i
 	if err != nil {
 		return nil, err
 	}
-	return &inboundOutput{Body: h.viewInbound(row, last)}, nil
+	return &inboundOutput{Body: h.viewInbound(ctx, row, last)}, nil
 }
 
 // inboundError maps the domain's refusals of an inbound change to the API's codes. dest:

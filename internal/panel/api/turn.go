@@ -78,11 +78,15 @@ type turnPatchInput struct {
 	}
 }
 
+// The whole TURN setup is the session's, reads included: the view names where the entry
+// sends clients (client_host), the VK calls they join and the binary the node runs
+// (binary_path goes into the command line of its server). A leaked key must not learn or
+// move the way into a network where only calls get through.
 func (h *handlers) registerTurn() {
 	tags := []string{"node"}
-	huma.Register(h.api, huma.Operation{OperationID: "get-node-turn", Method: http.MethodGet, Path: "/api/v1/nodes/{id}/turn", Summary: "VK TURN ноды", Tags: tags}, h.getTurn)
-	huma.Register(h.api, huma.Operation{OperationID: "save-node-turn", Method: http.MethodPatch, Path: "/api/v1/nodes/{id}/turn", Summary: "Настроить VK TURN на ноде", Tags: tags}, h.patchTurn)
-	huma.Register(h.api, huma.Operation{OperationID: "delete-node-turn", Method: http.MethodDelete, Path: "/api/v1/nodes/{id}/turn", Summary: "Убрать VK TURN с ноды", Tags: tags, DefaultStatus: http.StatusNoContent}, h.deleteTurn)
+	huma.Register(h.api, huma.Operation{OperationID: "get-node-turn", Metadata: sessionOnly, Extensions: sessionOnlyExt, Method: http.MethodGet, Path: "/api/v1/nodes/{id}/turn", Summary: "VK TURN ноды", Tags: tags}, h.getTurn)
+	huma.Register(h.api, huma.Operation{OperationID: "save-node-turn", Metadata: sessionOnly, Extensions: sessionOnlyExt, Method: http.MethodPatch, Path: "/api/v1/nodes/{id}/turn", Summary: "Настроить VK TURN на ноде", Tags: tags}, h.patchTurn)
+	huma.Register(h.api, huma.Operation{OperationID: "delete-node-turn", Metadata: sessionOnly, Extensions: sessionOnlyExt, Method: http.MethodDelete, Path: "/api/v1/nodes/{id}/turn", Summary: "Убрать VK TURN с ноды", Tags: tags, DefaultStatus: http.StatusNoContent}, h.deleteTurn)
 }
 
 // turnError turns the package's refusal into the field the form shows.

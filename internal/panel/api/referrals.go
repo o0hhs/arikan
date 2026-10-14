@@ -81,8 +81,8 @@ func (h *handlers) registerReferrals() {
 	tags := []string{"referrals"}
 	huma.Register(h.api, huma.Operation{OperationID: "get-referrals", Method: http.MethodGet, Path: "/api/v1/referrals", Summary: "Реферальная программа", Tags: tags, Metadata: sessionOnly, Extensions: sessionOnlyExt}, h.getReferrals)
 	huma.Register(h.api, huma.Operation{OperationID: "update-referrals", Method: http.MethodPatch, Path: "/api/v1/referrals", Summary: "Изменить реферальную программу", Tags: tags, Metadata: sessionOnly, Extensions: sessionOnlyExt}, h.updateReferrals)
-	huma.Register(h.api, huma.Operation{OperationID: "list-referral-rewards", Method: http.MethodGet, Path: "/api/v1/referrals/rewards", Summary: "Начисления по реферальной программе", Tags: tags}, h.listReferralRewards)
-	huma.Register(h.api, huma.Operation{OperationID: "list-referral-links", Method: http.MethodGet, Path: "/api/v1/referrals/links", Summary: "Приглашения и приглашённые", Tags: tags}, h.listReferralLinks)
+	huma.Register(h.api, huma.Operation{OperationID: "list-referral-rewards", Metadata: sessionOnly, Extensions: sessionOnlyExt, Method: http.MethodGet, Path: "/api/v1/referrals/rewards", Summary: "Начисления по реферальной программе", Tags: tags}, h.listReferralRewards)
+	huma.Register(h.api, huma.Operation{OperationID: "list-referral-links", Metadata: sessionOnly, Extensions: sessionOnlyExt, Method: http.MethodGet, Path: "/api/v1/referrals/links", Summary: "Приглашения и приглашённые", Tags: tags}, h.listReferralLinks)
 }
 
 func (h *handlers) getReferrals(ctx context.Context, _ *struct{}) (*referralsOutput, error) {
