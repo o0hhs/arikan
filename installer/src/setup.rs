@@ -18,14 +18,14 @@ use crate::system::{self, Proto};
 use crate::{DIR, acme, docker, hello, host, panelfs, release};
 
 /// Present from the first file written until the last step is done: a server with it and
-/// a .env is an install that stopped half way, and `mikan install` continues it.
+/// a .env is an install that stopped half way, and `arikan install` continues it.
 const UNFINISHED: &str = ".installing";
 
 fn unfinished(root: &Path) -> bool {
     root.join(".env").exists() && root.join(UNFINISHED).exists()
 }
 
-/// The flags of `mikan install`; the installer asks for what they leave out.
+/// The flags of `arikan install`; the installer asks for what they leave out.
 #[derive(clap::Args, Clone, Debug, Default)]
 pub struct Options {
     /// Default language of the panel: en or ru
@@ -206,7 +206,7 @@ impl Step {
         match self {
             Step::Packages => "Package manager",
             Step::Docker => "Docker",
-            Step::Image => "mikan image",
+            Step::Image => "Arikan image",
             Step::Files => "Files in /opt/mikan",
             Step::Bootstrap => "Admin and secret links",
             Step::System => "Network tuning and firewall",
@@ -255,7 +255,7 @@ fn port80(plan: &Plan) -> Option<Port80> {
     }
     let who = system::port_owner(80, Proto::Tcp)?;
     // The panel of the attempt before this one.
-    if who == "mikan" {
+    if who == "Arikan" {
         return None;
     }
     let Some(front) = acme::Front::from_process(&who) else { return Some(Port80::Other(who)) };
@@ -282,7 +282,7 @@ pub fn execute(plan: Plan, tx: Sender<Event>) {
                 Err((CURRENT.with(std::cell::Cell::get), anyhow!("the installer stopped unexpectedly: {}", why.unwrap_or_default())))
             })
         }
-        Ok(None) => Err((Step::Packages, anyhow!("another mikan operation is running: wait for it to finish and run the installer again"))),
+        Ok(None) => Err((Step::Packages, anyhow!("another Arikan operation is running: wait for it to finish and run the installer again"))),
         Err(e) => Err((Step::Packages, e)),
     };
     if let Err((step, e)) = result {
@@ -382,12 +382,12 @@ fn run(plan: &Plan, tx: &Sender<Event>) -> StepResult<()> {
             image.clone()
         } else {
             let m = release::latest()?;
-            note(tx, Step::Image, format!("mikan {}, signed release", m.version));
+            note(tx, Step::Image, format!("Arikan {}, signed release", m.version));
             docker::pull(&m.reference(), progress)?;
             m.reference()
         };
         let version = image_version(&image)?;
-        note(tx, Step::Image, format!("mikan {version}"));
+        note(tx, Step::Image, format!("Arikan {version}"));
         if !node {
             note(tx, Step::Image, "PostgreSQL 18");
             docker::pull_postgres(progress)?;
@@ -418,7 +418,7 @@ fn run(plan: &Plan, tx: &Sender<Event>) -> StepResult<()> {
         // new one does not open it. The data are never removed for the admin.
         if !node && !plan.resume && docker::volume_mountpoint(docker::PG_VOLUME).is_some() {
             bail!(
-                "the Docker volume {v} holds the database of an earlier mikan, whose password was in the .env that is gone, so this install cannot open it. To keep those data, put the old .env and compose.yaml back in {DIR} (every mikan backup archive has them) and run the installer again; if they are not needed: docker volume rm {v}, then run the installer again",
+                "the Docker volume {v} holds the database of an earlier Arikan, whose password was in the .env that is gone, so this install cannot open it. To keep those data, put the old .env and compose.yaml back in {DIR} (every arikan backup archive has them) and run the installer again; if they are not needed: docker volume rm {v}, then run the installer again",
                 v = docker::PG_VOLUME
             );
         }
@@ -441,7 +441,7 @@ fn run(plan: &Plan, tx: &Sender<Event>) -> StepResult<()> {
         Some((c, p)) => (
             s,
             anyhow!(
-                "{e:#}\n\nThe admin was created before this: login {}, password {p} (shown once, keep it). The install continues where it stopped: mikan install",
+                "{e:#}\n\nThe admin was created before this: login {}, password {p} (shown once, keep it). The install continues where it stopped: arikan install",
                 c.login
             ),
         ),
@@ -530,7 +530,7 @@ fn bootstrap(plan: &Plan, tx: &Sender<Event>) -> Result<Credentials> {
     let known = docker::admin_once(&["url"], None)?;
     if known.status.success() {
         let c = credentials_from_url(&known, None);
-        note(tx, Step::Bootstrap, "the admin exists from the earlier attempt: a new password with mikan reset-password");
+        note(tx, Step::Bootstrap, "the admin exists from the earlier attempt: a new password with arikan reset-password");
         return Ok(c);
     }
     let login = token(1, LOWER) + &token(11, LOWER_DIGITS);
@@ -552,7 +552,7 @@ fn bootstrap(plan: &Plan, tx: &Sender<Event>) -> Result<Credentials> {
     Ok(c)
 }
 
-/// What `mikan admin url` printed: the address on stdout, "Login: x" on stderr.
+/// What `arikan admin url` printed: the address on stdout, "Login: x" on stderr.
 fn credentials_from_url(out: &std::process::Output, password: Option<String>) -> Credentials {
     let url = String::from_utf8_lossy(&out.stdout).lines().rev().find(|l| l.starts_with("https://")).unwrap_or_default().trim().to_owned();
     let login = String::from_utf8_lossy(&out.stderr).lines().find_map(|l| l.strip_prefix("Login: ")).unwrap_or_default().trim().to_owned();
@@ -612,7 +612,7 @@ pub fn image_version(image: &str) -> Result<String> {
 fn node_host(image: &str, key: &str) -> Option<String> {
     let out = sandboxed()
         .env("MIKAN_NODE_JOIN", key)
-        .args(["-e", "MIKAN_NODE_JOIN", "--entrypoint", "/usr/local/bin/mikan-node", image, "key-host"])
+        .args(["-e", "MIKAN_NODE_JOIN", "--entrypoint", "/usr/local/bin/arikan-node", image, "key-host"])
         .output()
         .ok()?;
     let host = String::from_utf8_lossy(&out.stdout).trim().to_owned();
@@ -622,8 +622,8 @@ fn node_host(image: &str, key: &str) -> Option<String> {
 /// What a node with port 80 held by another program needs for its public certificate: the
 /// node takes the port only while Let's Encrypt checks it. None when the port is free.
 pub fn node_port80(owner: Option<&str>, host: Option<&str>) -> Option<String> {
-    let who = owner.filter(|w| !matches!(*w, "mikan" | "mikan-node"))?;
-    let command = format!("mikan cert proxy {}", host.unwrap_or("<the node's domain>"));
+    let who = owner.filter(|w| !matches!(*w, "Arikan" | "Arikan-node"))?;
+    let command = format!("arikan cert proxy {}", host.unwrap_or("<the node's domain>"));
     Some(match acme::Front::from_process(who) {
         Some(front) => format!(
             "Let's Encrypt: {} holds port 80, where it checks this node for its public certificate. To pass those checks on to the node, run: {command}",
@@ -640,7 +640,7 @@ pub fn node_port80(owner: Option<&str>, host: Option<&str>) -> Option<String> {
 pub fn node_port(image: &str, key: &str) -> Result<u16> {
     let out = sandboxed()
         .env("MIKAN_NODE_JOIN", key)
-        .args(["-e", "MIKAN_NODE_JOIN", "--entrypoint", "/usr/local/bin/mikan-node", image, "key-port"])
+        .args(["-e", "MIKAN_NODE_JOIN", "--entrypoint", "/usr/local/bin/arikan-node", image, "key-port"])
         .output()?;
     let port = String::from_utf8_lossy(&out.stdout).trim().parse().ok();
     match port {
@@ -666,11 +666,11 @@ fn write_files_in(root: &Path, plan: &Plan, image: &str, version: &str, api_port
     use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
     let env_path = root.join(".env");
     if env_path.exists() && !(plan.resume && unfinished(root)) {
-        bail!("mikan is already installed in {}", root.display());
+        bail!("Arikan is already installed in {}", root.display());
     }
     fs::create_dir_all(root)?;
     // Before the first file, so that an install that stops from here on is known as such.
-    write_private(&root.join(UNFINISHED), b"an install of mikan did not finish: run `mikan install` to continue\n")?;
+    write_private(&root.join(UNFINISHED), b"an install of Arikan did not finish: run `arikan install` to continue\n")?;
     match fs::DirBuilder::new().mode(0o700).create(root.join("backups")) {
         Ok(()) => {}
         Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
@@ -716,7 +716,7 @@ pub fn postgres_env(env: &mut EnvFile) -> Result<()> {
     }
     if env.get("MIKAN_DATABASE_URL").is_none() {
         let password = env.get("MIKAN_POSTGRES_PASSWORD").context("postgres password missing")?;
-        let url = format!("postgresql://mikan:{password}@localhost/mikan?host=/run/postgresql");
+        let url = format!("postgresql://Arikan:{password}@localhost/Arikan?host=/run/postgresql");
         env.set("MIKAN_DATABASE_URL", &url)?;
     }
     Ok(())
@@ -742,7 +742,7 @@ pub fn wait_ready(node_port: Option<u16>, limit: Duration) -> Result<()> {
                 .output()
                 .map(|o| String::from_utf8_lossy(&o.stdout).into_owned())
                 .unwrap_or_default();
-            return Err(anyhow!("mikan did not start in {} s. Its last logs:\n{}", limit.as_secs(), logs.trim_end()));
+            return Err(anyhow!("Arikan did not start in {} s. Its last logs:\n{}", limit.as_secs(), logs.trim_end()));
         }
         thread::sleep(pause);
         if node_port.is_none() {
@@ -763,20 +763,20 @@ pub fn summary(o: &Outcome, with_password: bool) -> String {
                 None => "The panel connects within 30 seconds: see its Nodes page.".to_owned(),
             };
             format!(
-                "mikan {} node is running and waits for its panel on port {p}.\n{contact}\nCommands on this server: mikan (menu), mikan status, mikan doctor, mikan update",
+                "Arikan {} node is running and waits for its panel on port {p}.\n{contact}\nCommands on this server: Arikan (menu), arikan status, arikan doctor, arikan update",
                 o.version
             )
         }
         None => {
             let password = if o.password.is_empty() {
-                "not known: the admin was made by the attempt before this one; set a new password with: mikan reset-password".to_owned()
+                "not known: the admin was made by the attempt before this one; set a new password with: arikan reset-password".to_owned()
             } else if with_password {
                 format!("{}   ← shown once, keep it in a password manager", o.password)
             } else {
-                "shown on the installer's last screen only; a new one: mikan reset-password".to_owned()
+                "shown on the installer's last screen only; a new one: arikan reset-password".to_owned()
             };
             format!(
-                "mikan {} is running.\n\n  Panel     {}\n  Login     {}\n  Password  {password}\n\nCommands on this server: mikan (menu), mikan status, mikan doctor, mikan update",
+                "Arikan {} is running.\n\n  Panel     {}\n  Login     {}\n  Password  {password}\n\nCommands on this server: Arikan (menu), arikan status, arikan doctor, arikan update",
                 o.version, o.url, o.login
             )
         }
@@ -788,12 +788,12 @@ pub fn summary(o: &Outcome, with_password: bool) -> String {
     text
 }
 
-/// Whether an install stopped half way here: `mikan install` continues it.
+/// Whether an install stopped half way here: `arikan install` continues it.
 pub fn unfinished_install() -> bool {
     unfinished(Path::new(DIR))
 }
 
-/// `mikan install`: the TUI in a terminal, the plain mode with --yes or without one. On
+/// `arikan install`: the TUI in a terminal, the plain mode with --yes or without one. On
 /// an installed server it opens the menu, or with --yes updates: the one-line install
 /// is also how a server of 0.3.8 and before moves to this installer. An install that
 /// stopped half way is continued, in the plain mode, from what its .env says.
@@ -809,12 +809,12 @@ pub fn install(opts: Options) -> Result<()> {
             None => None,
         };
         if join == Some(false) {
-            bail!("this server runs a mikan panel: a node of another panel needs a server of its own");
+            bail!("this server runs a Arikan panel: a node of another panel needs a server of its own");
         }
         if join.is_none() && crate::tui::interactive() && !opts.yes {
             return crate::tui::menu();
         }
-        crate::out(&format!("mikan is already installed in {DIR}: updating it."));
+        crate::out(&format!("Arikan is already installed in {DIR}: updating it."));
         let args = crate::update::UpdateArgs { target: opts.image_tar.or(opts.image), ..Default::default() };
         crate::update::update(&args, &mut crate::out, &mut |_| {})?;
         // The panel's node command run again on a node (a second try, a new key): the key
@@ -933,7 +933,7 @@ mod tests {
         assert!(password.bytes().all(|b| b.is_ascii_alphanumeric()));
         assert_eq!(
             env.get("MIKAN_DATABASE_URL"),
-            Some(format!("postgresql://mikan:{password}@localhost/mikan?host=/run/postgresql").as_str())
+            Some(format!("postgresql://Arikan:{password}@localhost/Arikan?host=/run/postgresql").as_str())
         );
         postgres_env(&mut env).unwrap();
         assert_eq!(env.render(), before, "live credentials must never rotate");
@@ -978,13 +978,13 @@ mod tests {
     }
 
     // A first install leaves the marker of an unfinished one until the last step removes
-    // it; a second `mikan install` on such a server continues with what .env chose.
+    // it; a second `arikan install` on such a server continues with what .env chose.
     #[test]
     fn an_install_that_stopped_is_continued_not_refused_and_not_redone() {
         let root = tmpdir("resume");
         let mut p = plan();
         // nginx holds port 80: the panel answers Let's Encrypt on a local port behind it
-        write_files_in(&root, &p, "ghcr.io/o0hhs/mikan@sha256:aa", "0.4.4", None, Some(18080)).unwrap();
+        write_files_in(&root, &p, "ghcr.io/o0hhs/arikan@sha256:aa", "0.4.4", None, Some(18080)).unwrap();
         assert!(unfinished(&root), "the marker is there from the first file");
         let env = EnvFile::load(root.join(".env")).unwrap();
         assert_eq!(env.get("PANEL_PORT"), Some("21355"));
@@ -997,7 +997,7 @@ mod tests {
         p = Plan::from(&Options { port: Some(30000), ..Default::default() }).resumed(&env);
         assert!(p.resume);
         assert_eq!(p.port, 21355);
-        write_files_in(&root, &p, "ghcr.io/o0hhs/mikan@sha256:bb", "0.4.5", None, None).unwrap();
+        write_files_in(&root, &p, "ghcr.io/o0hhs/arikan@sha256:bb", "0.4.5", None, None).unwrap();
         let again = EnvFile::load(root.join(".env")).unwrap();
         assert_eq!((again.get("PANEL_PORT"), again.get("MIKAN_VERSION")), (Some("21355"), Some("0.4.5")));
         assert_eq!(again.get("MIKAN_ACME_LISTEN"), None, "port 80 is free now: the panel takes it");
@@ -1013,7 +1013,7 @@ mod tests {
         let root = tmpdir("resume-node");
         let key = "mikan1.AbC_-9";
         let p = Plan::from(&Options { join: Some(key.into()), ..Default::default() });
-        write_files_in(&root, &p, "ghcr.io/o0hhs/mikan", "0.4.4", Some(25305), None).unwrap();
+        write_files_in(&root, &p, "ghcr.io/o0hhs/arikan", "0.4.4", Some(25305), None).unwrap();
         let env = EnvFile::load(root.join(".env")).unwrap();
         assert_eq!((env.get("MIKAN_MODE"), env.get("NODE_API_PORT"), env.get("MIKAN_NODE_JOIN")), (Some("node"), Some("25305"), Some(key)));
         assert_eq!(fs::read_to_string(root.join("compose.yaml")).unwrap(), docker::NODE_COMPOSE);
@@ -1042,7 +1042,7 @@ mod tests {
         assert!(after_tui.contains("  Panel     https://h:1/x/\n  Login     l\n"), "no link and login after the screen");
         assert!(!after_tui.contains("p4ssw0rd") && after_tui.contains("last screen only"));
         let lost = Outcome { password: String::new(), ..shown.clone() };
-        assert!(summary(&lost, true).contains("mikan reset-password") && !summary(&lost, true).contains("shown once"));
+        assert!(summary(&lost, true).contains("arikan reset-password") && !summary(&lost, true).contains("shown once"));
         // a rule for Let's Encrypt left to the admin comes last
         let report = acme::Report::other("apache2");
         let with_acme = summary(&Outcome { acme: Some(report.clone()), ..shown }, false);
@@ -1074,14 +1074,14 @@ mod tests {
             Outcome { hello: Some(vec![(system::Level::Error, "The panel could not reach port 31234 here".into())]), ..silent.clone() };
         assert!(summary(&blocked, true).contains("\n✗ The panel could not reach port 31234 here\n"));
         let behind = Outcome { port80: node_port80(Some("nginx"), Some("node.example.com")), ..silent };
-        assert!(summary(&behind, true).ends_with("To pass those checks on to the node, run: mikan cert proxy node.example.com"));
+        assert!(summary(&behind, true).ends_with("To pass those checks on to the node, run: arikan cert proxy node.example.com"));
     }
 
     #[test]
     fn a_node_behind_a_web_server_is_told_the_command() {
         assert_eq!(node_port80(None, Some("node.example.com")), None);
-        assert_eq!(node_port80(Some("mikan-node"), None), None);
-        assert!(node_port80(Some("caddy"), None).unwrap().ends_with("mikan cert proxy <the node's domain>"));
+        assert_eq!(node_port80(Some("Arikan-node"), None), None);
+        assert!(node_port80(Some("caddy"), None).unwrap().ends_with("arikan cert proxy <the node's domain>"));
         assert!(node_port80(Some("apache2"), None).unwrap().contains("port 80 is taken (apache2)"));
     }
 

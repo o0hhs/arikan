@@ -1,4 +1,4 @@
-//! mikan: installs the mikan VPN panel, or a node of one, and manages it from the
+//! Arikan: installs the Arikan VPN panel, or a node of one, and manages it from the
 //! server's shell. Without a command it opens the installer on a fresh server and the
 //! menu on an installed one; every menu action is a command too.
 
@@ -30,7 +30,7 @@ use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
 
-/// Where mikan lives on the server.
+/// Where Arikan lives on the server.
 pub const DIR: &str = "/opt/mikan";
 
 /// This installer's version: the release tag it was built from, "dev" otherwise.
@@ -40,9 +40,9 @@ pub fn version() -> &'static str {
 
 #[derive(Parser)]
 #[command(
-    name = "mikan",
+    name = "arikan",
     version = version(),
-    about = "mikan VPN panel: the installer and the server's menu",
+    about = "Arikan VPN panel: the installer and the server's menu",
     after_help = "Without a command: the installer on a fresh server, the menu on an installed one."
 )]
 struct Cli {
@@ -125,7 +125,7 @@ enum Cmd {
     PostUpdate,
     /// Restart the containers
     Restart,
-    /// Stop mikan and remove the command; the data stays in /opt/mikan
+    /// Stop Arikan and remove the command; the data stays in /opt/mikan
     Uninstall {
         /// Do not ask
         #[arg(long, short = 'y')]
@@ -156,7 +156,7 @@ enum AddonCmd {
 #[derive(Subcommand)]
 enum CertCmd {
     /// Install a certificate: the chain and its key. Fits a renewal hook:
-    /// certbot ... --deploy-hook "mikan cert set --cert $RENEWED_LINEAGE/fullchain.pem --key $RENEWED_LINEAGE/privkey.pem"
+    /// certbot ... --deploy-hook "arikan cert set --cert $RENEWED_LINEAGE/fullchain.pem --key $RENEWED_LINEAGE/privkey.pem"
     Set {
         /// The chain, leaf first (fullchain.pem)
         #[arg(long)]
@@ -164,7 +164,7 @@ enum CertCmd {
         /// The private key (privkey.pem)
         #[arg(long)]
         key: PathBuf,
-        /// A node's own certificate instead of the panel's (mikan node list)
+        /// A node's own certificate instead of the panel's (arikan node list)
         #[arg(long)]
         node: Option<u32>,
     },
@@ -229,7 +229,7 @@ fn main() -> ExitCode {
         Some(Cmd::PostUpdate) => update::converge(&mut out),
         Some(Cmd::Restart) => ops::restart(),
         Some(Cmd::Uninstall { yes }) => {
-            if yes || ops::confirm("Stop mikan and remove the mikan command? The data stays in /opt/mikan.") {
+            if yes || ops::confirm("Stop Arikan and remove the Arikan command? The data stays in /opt/mikan.") {
                 ops::uninstall().map(|panel| {
                     if panel {
                         out(&format!(
@@ -249,7 +249,7 @@ fn main() -> ExitCode {
     match result {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
-            let _ = writeln!(std::io::stderr(), "mikan: {e:#}");
+            let _ = writeln!(std::io::stderr(), "Arikan: {e:#}");
             ExitCode::FAILURE
         }
     }

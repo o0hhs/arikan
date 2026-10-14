@@ -3,6 +3,23 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
+## 0.5.1.2
+### en
+**The fork is now called Arikan.** The name, the image and the server command change; the panel, the data and the subscription links do not.
+- The image is **`ghcr.io/o0hhs/arikan`** and the releases live in [o0hhs/arikan](https://github.com/o0hhs/arikan). Servers set up with earlier versions keep updating: GitHub redirects the old addresses, and the panel's own update channel moves with the image.
+- The server command is **`arikan`** (`arikan update`, `arikan status`, …). A server installed before the rename keeps working: the compose files, host scripts and the old command name still find their binaries inside the image.
+- **An unofficial fork, said plainly.** The notice sits at the top of the README, in the panel (Settings → System → About) and in every release description: Arikan is not affiliated with or supported by the mikan project — its author supports it, and the original mikan stays at [Miroshka000/mikan](https://github.com/Miroshka000/mikan).
+- **mikan's art is gone**: the fork's own placeholder banner and mark stand in for the mandarin until the new design arrives; the screenshots go with it.
+- What intentionally keeps the old name because live servers depend on it: the `/opt/mikan` directory, the `MIKAN_*` environment variables, the compose project and its Docker volumes, the `mikan:` keys and `mikan.client` fields of listener templates, the `mikan-addon.json` manifest and the `mikan_*` metrics.
+
+### ru
+**Теперь форк называется Arikan.** Меняются название, образ и команда на сервере; панель, данные и ссылки подписок — нет.
+- Образ — **`ghcr.io/o0hhs/arikan`**, релизы — в [o0hhs/arikan](https://github.com/o0hhs/arikan). Серверы, поставленные ранними версиями, продолжают обновляться: GitHub перенаправляет старые адреса, а канал обновлений панели переезжает вместе с образом.
+- Команда на сервере — **`arikan`** (`arikan update`, `arikan status`, …). Сервер, установленный до переименования, продолжает работать: compose-файлы, host-скрипты и старое имя команды по-прежнему находят свои бинарники внутри образа.
+- **Неофициальный форк — сказано прямо.** Пометка стоит в начале README, в самой панели («Настройки → Система → О программе») и в описании каждого релиза: Arikan не связан с проектом mikan и не поддерживается им — поддержка у автора форка, а сам mikan остаётся в [Miroshka000/mikan](https://github.com/Miroshka000/mikan).
+- **Графика mikan убрана**: до нового дизайна её место занимают собственные баннер и знак форка, скриншоты удалены вместе с ней.
+- Что намеренно осталось под старым именем, потому что от него зависят живые серверы: каталог `/opt/mikan`, переменные окружения `MIKAN_*`, compose-проект и его тома Docker, ключи `mikan:` и поля `mikan.client` в шаблонах листенеров, манифест `mikan-addon.json` и метрики `mikan_*`.
+
 ## 0.5.1.1
 ### en
 The fork's own release: everything of upstream 0.5.1.0 (the addon marketplace, the bot as an addon, public node certificates and checks, speed limits, devices, trials) together with the features below. Servers on a stock mikan move to it with the fork's installer, `scripts/install-fork.sh`.

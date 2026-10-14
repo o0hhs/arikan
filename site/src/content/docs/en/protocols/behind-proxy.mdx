@@ -22,14 +22,14 @@ If the node listens on localhost only and no port for clients is set, clients wi
 
 ```nginx
 stream {
-    map $ssl_preread_server_name $mikan {
+    map $ssl_preread_server_name $Arikan {
         www.microsoft.com  127.0.0.1:444;   # VLESS · REALITY, camouflage site
         default            127.0.0.1:4430;  # your site
     }
     server {
         listen 443;
         ssl_preread on;
-        proxy_pass $mikan;
+        proxy_pass $Arikan;
     }
 }
 ```

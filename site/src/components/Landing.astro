@@ -1,10 +1,10 @@
 ---
 import { Image } from 'astro:assets';
 import { Code } from '@astrojs/starlight/components';
-import mandarin from '../assets/mandarin.webp';
+import logo from '../assets/logo.webp';
 import Goals from './Goals.astro';
 import goals from '../../../.github/goals.json';
-import { installCommand, links, protocolMatrix, strings, type Lang, type Screen } from '../landing';
+import { installCommand, links, protocolMatrix, strings, type Lang } from '../landing';
 
 interface Props {
 	lang: Lang;
@@ -14,12 +14,6 @@ const { lang } = Astro.props;
 const t = strings[lang];
 const docs = (path: string) => `${import.meta.env.BASE_URL}${lang === 'en' ? 'en/' : ''}${path}`;
 
-// The README screenshots, one set per language.
-const shots = import.meta.glob<{ default: ImageMetadata }>('../../../.github/assets/screens/*/*.webp', {
-	eager: true,
-});
-const shot = (name: string) => shots[`../../../.github/assets/screens/${lang}/${name}.webp`].default;
-const screens = Object.keys(t.screens.items) as Screen[];
 // The goals still collecting money: a badge in the hero and a strip right under it.
 const collecting = goals.items.filter((g) => g.status === 'open').length;
 ---
@@ -55,7 +49,7 @@ const collecting = goals.items.filter((g) => g.status === 'open').length;
 			</div>
 		</div>
 		<div class="hero-art">
-			<Image src={mandarin} alt={t.hero.art} widths={[210, 420]} sizes="(min-width: 50rem) 300px, 168px" loading="eager" fetchpriority="high" class="fruit" />
+			<Image src={logo} alt={t.hero.art} widths={[210, 420]} sizes="(min-width: 50rem) 300px, 168px" loading="eager" fetchpriority="high" class="mark" />
 			<span class="shade" aria-hidden="true"></span>
 		</div>
 	</section>
@@ -74,42 +68,6 @@ const collecting = goals.items.filter((g) => g.status === 'open').length;
 			</section>
 		) : null
 	}
-
-	<section class="block" aria-labelledby="screens-title">
-		<header class="block-head">
-			<h2 id="screens-title">{t.screens.title}</h2>
-			<p>{t.screens.lead}</p>
-		</header>
-		<div class="shots">
-			<div class="shot-tabs" role="radiogroup" aria-label={t.screens.label}>
-				{
-					screens.map((s, i) => (
-						<>
-							<input type="radio" name="shot" id={`shot-${s}`} value={s} checked={i === 0} />
-							<label for={`shot-${s}`}>{t.screens.items[s][0]}</label>
-						</>
-					))
-				}
-			</div>
-			{
-				screens.map((s, i) => (
-					<figure class="shot" data-shot={s}>
-						<div class="frame">
-							<Image
-								src={shot(s)}
-								alt={`mikan · ${t.screens.items[s][0]}`}
-								format="webp"
-								widths={[720, 1080, 1600, 2160]}
-								sizes="(min-width: 72rem) 1056px, calc(100vw - 2rem)"
-								loading={i === 0 ? 'eager' : 'lazy'}
-							/>
-						</div>
-						<figcaption>{t.screens.items[s][1]}</figcaption>
-					</figure>
-				))
-			}
-		</div>
-	</section>
 
 	<section class="block" aria-labelledby="features-title">
 		<header class="block-head">
@@ -171,11 +129,7 @@ const collecting = goals.items.filter((g) => g.status === 'open').length;
 			<p>{t.phones.text}</p>
 			<a class="more" href={t.phones.href}>{t.phones.link}</a>
 		</div>
-		<div class="phones-art">
-			<Image src={shot('phone-subscription')} alt={t.phones.alts[0]} widths={[260, 390, 520]} sizes="(min-width: 50rem) 260px, 42vw" class="phone" />
-			<Image src={shot('phone-dashboard')} alt={t.phones.alts[1]} widths={[260, 390, 520]} sizes="(min-width: 50rem) 260px, 42vw" class="phone phone-back" />
-		</div>
-	</section>
+		</section>
 
 	<section class="block cta" aria-labelledby="cta-title">
 		<div class="cta-main">
@@ -240,14 +194,14 @@ const collecting = goals.items.filter((g) => g.status === 'open').length;
 		width: 168px;
 	}
 
-	.fruit {
+	.mark {
 		display: block;
 		width: 100%;
 		height: auto;
 		position: relative;
 		z-index: 1;
 		animation: float 7s ease-in-out infinite;
-		filter: drop-shadow(0 18px 24px rgba(160, 70, 10, 0.18));
+		filter: drop-shadow(0 18px 24px rgba(20, 30, 45, 0.22));
 	}
 
 	.shade {
@@ -257,7 +211,7 @@ const collecting = goals.items.filter((g) => g.status === 'open').length;
 		bottom: -6%;
 		height: 9%;
 		border-radius: 50%;
-		background: rgba(140, 60, 10, 0.2);
+		background: rgba(20, 30, 45, 0.22);
 		filter: blur(6px);
 		animation: shade 7s ease-in-out infinite;
 	}
@@ -470,104 +424,6 @@ const collecting = goals.items.filter((g) => g.status === 'open').length;
 	/* The strip comes right after the hero: closer than the other blocks. */
 	.funding {
 		margin-top: calc(var(--gap) * 0.6);
-	}
-
-	/* ---------- screenshots ---------- */
-
-	.shot-tabs {
-		position: relative;
-		display: inline-flex;
-		flex-wrap: wrap;
-		gap: 0.25rem;
-		padding: 0.25rem;
-		margin-bottom: 1rem;
-		border: 1px solid var(--mk-hairline);
-		border-radius: 14px;
-		background: var(--mk-surface);
-	}
-
-	.shot-tabs input {
-		position: absolute;
-		opacity: 0;
-		width: 1px;
-		height: 1px;
-	}
-
-	.shot-tabs label {
-		padding: 0.5rem 0.875rem;
-		border-radius: 10px;
-		font-size: 0.9375rem;
-		font-weight: 500;
-		color: var(--mk-muted);
-		cursor: pointer;
-		transition:
-			background-color 0.2s var(--mk-ease),
-			color 0.2s var(--mk-ease);
-	}
-
-	.shot-tabs label:hover {
-		color: var(--mk-ink);
-	}
-
-	.shot-tabs input:checked + label {
-		background: var(--mk-fill);
-		color: var(--mk-on-fill);
-	}
-
-	.shot-tabs input:focus-visible + label {
-		outline: 2px solid var(--mk-accent);
-		outline-offset: 2px;
-	}
-
-	.shot {
-		display: none;
-		margin: 0;
-	}
-
-	.shot[data-shot='dashboard'] {
-		display: block;
-	}
-
-	.shots:has(input:checked) .shot {
-		display: none;
-	}
-
-	.shots:has(#shot-dashboard:checked) [data-shot='dashboard'],
-	.shots:has(#shot-users:checked) [data-shot='users'],
-	.shots:has(#shot-inbounds:checked) [data-shot='inbounds'],
-	.shots:has(#shot-telegram:checked) [data-shot='telegram'],
-	.shots:has(#shot-settings:checked) [data-shot='settings'] {
-		display: block;
-		animation: appear 0.35s var(--mk-ease);
-	}
-
-	@keyframes appear {
-		from {
-			opacity: 0;
-			transform: translateY(6px);
-		}
-	}
-
-	.frame {
-		border-radius: var(--mk-radius-lg);
-		overflow: hidden;
-		border: 1px solid var(--mk-hairline);
-		box-shadow: var(--mk-shadow-lg);
-		background: var(--mk-surface-2);
-		aspect-ratio: 2160 / 1350;
-	}
-
-	.frame :global(img) {
-		display: block;
-		width: 100%;
-		height: auto;
-	}
-
-	figcaption {
-		margin-top: 1rem;
-		font-size: 0.9375rem;
-		color: var(--mk-muted);
-		max-width: 40rem;
 	}
 
 	/* ---------- features ---------- */

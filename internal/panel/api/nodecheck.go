@@ -186,7 +186,7 @@ func (h *handlers) checkResult(ctx context.Context, n db.Node, items []CheckItem
 		nodeVersion = "v" + hv.Health.Version
 	}
 	versions := "panel v" + h.d.Version + ", node " + nodeVersion + " (" + kind + ")"
-	return &checkOutput{Body: CheckView{At: at, Items: items, Report: reportText("mikan node check", versions, at, items, secrets)}}, nil
+	return &checkOutput{Body: CheckView{At: at, Items: items, Report: reportText("arikan node check", versions, at, items, secrets)}}, nil
 }
 
 func (h *handlers) helloItem(id int64) CheckItem {
@@ -582,5 +582,5 @@ func (h *handlers) checkServer(ctx context.Context, _ *struct{}) (*checkOutput, 
 	if paths, err := h.d.Settings.Paths(ctx); err == nil {
 		secrets = append(secrets, paths.Admin, paths.Sub)
 	}
-	return &checkOutput{Body: CheckView{At: at, Items: items, Report: reportText("mikan server check", "panel v"+h.d.Version, at, items, secrets)}}, nil
+	return &checkOutput{Body: CheckView{At: at, Items: items, Report: reportText("arikan server check", "panel v"+h.d.Version, at, items, secrets)}}, nil
 }

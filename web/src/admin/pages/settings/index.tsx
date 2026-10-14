@@ -7,6 +7,7 @@ import { ThemeCard } from "../../../components/theme";
 import { PageHeader, Skeleton } from "../../../components/ui";
 import { t, type Key } from "../../../i18n";
 import { SETTINGS_PARTS, SETTINGS_TABS, type SettingsSearch } from "../../search";
+import { AboutCard } from "./about";
 import { AutoCard, LanguageCard, ServiceCard, UpdatesCard } from "./general";
 import { ServerCheckCard } from "../node-check";
 import { GoalsCard } from "./goals";
@@ -97,6 +98,7 @@ export function SettingsPage() {
               ) : tab === "system" ? (
                 <>
                   <UpdatesCard />
+                  <AboutCard />
                   <ServerCheckCard />
                   <GoalsCard />
                   <AutoCard s={s} />

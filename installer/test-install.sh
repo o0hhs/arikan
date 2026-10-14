@@ -1,15 +1,15 @@
 #!/bin/sh
 # Tests of the one-line install (install.sh): the release index, and the latest release
 # when the index cannot be had or believed. Run ONLY inside a disposable Linux container
-# or CI runner: it writes /usr/local/bin/mikan. curl is replaced by a stand-in that serves
+# or CI runner: it writes /usr/local/bin/arikan. curl is replaced by a stand-in that serves
 # files from a directory, and the script's release key by a key made here.
 set -eu
 [ "${MIKAN_INSTALLER_TEST:-}" = 1 ] || { echo 'Set MIKAN_INSTALLER_TEST=1 inside a disposable container' >&2; exit 1; }
 [ "$(id -u)" = 0 ] || { echo 'Run as root: install.sh installs to /usr/local/bin' >&2; exit 1; }
-[ ! -e /usr/local/bin/mikan ] || { echo '/usr/local/bin/mikan already exists; refusing to touch it' >&2; exit 1; }
+[ ! -e /usr/local/bin/arikan ] || { echo '/usr/local/bin/arikan already exists; refusing to touch it' >&2; exit 1; }
 here=$(cd "$(dirname "$0")" && pwd)
 tmp=$(mktemp -d)
-trap 'rm -rf "$tmp" /usr/local/bin/mikan' EXIT INT TERM
+trap 'rm -rf "$tmp" /usr/local/bin/arikan' EXIT INT TERM
 mkdir -p "$tmp/bin" "$tmp/www"
 export TEST_STATE="$tmp"
 export PATH="$tmp/bin:$PATH"
@@ -43,15 +43,15 @@ pub=$(openssl pkey -in "$tmp/key.pem" -pubout | sed -n 2p)
 sed "s|^MCowBQYDK2VwAyEAayuo0yLe0M0N5QQPaxkjAA0ltZcXSG7LRANrgyFAhUg=\$|$pub|" "$here/install.sh" >"$tmp/install.sh"
 grep -q "^$pub\$" "$tmp/install.sh"
 
-releases="$tmp/www/github.com/o0hhs/mikanaddons/releases"
+releases="$tmp/www/github.com/o0hhs/arikan/releases"
 sign() { openssl pkeyutl -sign -inkey "$tmp/key.pem" -rawin -in "$1" | base64 | tr -d '\n' >"$1.sig"; }
 # release VERSION [MANIFEST-VERSION]: the installer and its signed manifest under vVERSION.
 release() {
   d="$releases/download/v$1"
   mkdir -p "$d"
-  printf '#!/bin/sh\necho "mikan %s $*" >"$TEST_STATE/ran"\n' "$1" >"$d/mikan-$arch"
-  sum=$(sha256sum "$d/mikan-$arch" | cut -d' ' -f1)
-  printf '{\n  "version": "%s",\n  "installer": {\n    "%s": {\n      "url": "https://github.com/o0hhs/mikanaddons/releases/download/v%s/mikan-%s",\n      "sha256": "%s"\n    }\n  }\n}\n' \
+  printf '#!/bin/sh\necho "Arikan %s $*" >"$TEST_STATE/ran"\n' "$1" >"$d/arikan-$arch"
+  sum=$(sha256sum "$d/arikan-$arch" | cut -d' ' -f1)
+  printf '{\n  "version": "%s",\n  "installer": {\n    "%s": {\n      "url": "https://github.com/o0hhs/arikan/releases/download/v%s/arikan-%s",\n      "sha256": "%s"\n    }\n  }\n}\n' \
     "${2:-$1}" "$arch" "$1" "$arch" "$sum" >"$d/manifest.json"
   sign "$d/manifest.json"
 }
@@ -65,15 +65,15 @@ index() {
   sign "$releases/download/updates/index.json"
 }
 
-# run WANT: install.sh installs and starts mikan WANT.
+# run WANT: install.sh installs and starts Arikan WANT.
 run() {
-  rm -f /usr/local/bin/mikan "$tmp/ran" "$tmp/urls"
+  rm -f /usr/local/bin/arikan "$tmp/ran" "$tmp/urls"
   if ! sh "$tmp/install.sh" --join KEY >"$tmp/output" 2>&1; then
     cat "$tmp/output" >&2
-    echo "install.sh failed, want mikan $1" >&2
+    echo "install.sh failed, want Arikan $1" >&2
     exit 1
   fi
-  [ "$(cat "$tmp/ran")" = "mikan $1 install --join KEY" ] || { cat "$tmp/output" >&2; echo "ran $(cat "$tmp/ran"), want mikan $1" >&2; exit 1; }
+  [ "$(cat "$tmp/ran")" = "Arikan $1 install --join KEY" ] || { cat "$tmp/output" >&2; echo "ran $(cat "$tmp/ran"), want Arikan $1" >&2; exit 1; }
 }
 
 for v in 0.4.5 0.4.9 0.4.10 0.5.0.0 0.5.0.1 0.5.0.9 0.5.0.10 0.5.0.2-rc.1; do release "$v"; done
@@ -104,10 +104,10 @@ run 0.5.0.0
 grep -q 'lists no stable release' "$tmp/output"
 index "{\"releases\":[$(entry 0.6.0 stable)]}"
 run 0.5.0.0
-grep -q 'the manifest of mikan 0.6.0 is unavailable' "$tmp/output"
+grep -q 'the manifest of Arikan 0.6.0 is unavailable' "$tmp/output"
 release 0.6.0 0.6.1
 run 0.5.0.0
-grep -q 'the manifest of mikan 0.6.0 is unavailable' "$tmp/output"
+grep -q 'the manifest of Arikan 0.6.0 is unavailable' "$tmp/output"
 rm -rf "$releases/download/updates"
 run 0.5.0.0
 grep -q 'the release index is unavailable' "$tmp/output"
@@ -115,8 +115,8 @@ grep -q 'the release index is unavailable' "$tmp/output"
 # The latest release is checked as before: a bad signature installs nothing.
 latest 0.4.5
 cp "$releases/download/v0.5.0.0/manifest.json.sig" "$releases/latest/download/manifest.json.sig"
-rm -f /usr/local/bin/mikan "$tmp/ran"
+rm -f /usr/local/bin/arikan "$tmp/ran"
 if sh "$tmp/install.sh" >"$tmp/output" 2>&1; then echo 'a bad signature must fail' >&2; exit 1; fi
 grep -q 'nothing is installed' "$tmp/output"
-[ ! -e /usr/local/bin/mikan ] && [ ! -e "$tmp/ran" ]
+[ ! -e /usr/local/bin/arikan ] && [ ! -e "$tmp/ran" ]
 echo 'install.sh: ok'

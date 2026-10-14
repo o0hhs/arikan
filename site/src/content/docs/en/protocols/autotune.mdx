@@ -1,9 +1,9 @@
 ---
 title: Automatic fixes against blocking
-description: How mikan notices a blocked protocol and moves the port or changes the REALITY camouflage site by itself.
+description: How Arikan notices a blocked protocol and moves the port or changes the REALITY camouflage site by itself.
 ---
 
-mikan watches whether real clients can reach each protocol. If a port gets blocked along the way, the panel moves the protocol to a free HTTPS port. If the REALITY camouflage site stops working, it picks a new one near the server. Clients get the changes with their next subscription update (apps refresh it hourly), and until then the "Auto" group in the app routes around the broken connection.
+Arikan watches whether real clients can reach each protocol. If a port gets blocked along the way, the panel moves the protocol to a free HTTPS port. If the REALITY camouflage site stops working, it picks a new one near the server. Clients get the changes with their next subscription update (apps refresh it hourly), and until then the "Auto" group in the app routes around the broken connection.
 
 ## Where to turn it on
 
@@ -45,11 +45,11 @@ Separately from blocking, every 15 seconds the panel checks whether another prog
 
 ## When automatic fixes don't work
 
-- A connection **behind a proxy**: the port and site don't change, otherwise the proxy would lose its clients. See [Behind a proxy](/mikanaddons/en/protocols/behind-proxy/).
+- A connection **behind a proxy**: the port and site don't change, otherwise the proxy would lose its clients. See [Behind a proxy](/arikan/en/protocols/behind-proxy/).
 - Hysteria2 with a port range.
 - One-key protocols: Shadowsocks-2022, Sudoku, Snell.
 - The switch is off in the settings or on the connection.
 
 ## Where you see it
 
-In the connection list: "Devices that cannot reach it: N of M", "Port changed automatically" and "Camouflage site changed automatically" with the reason. Every change is written to the audit log. The notifications "Autotune changed a connection" and "Autotune could not restore a connection" arrive in Telegram if an admin chat is connected, see [Alerts](/mikanaddons/en/operations/alerts/).
+In the connection list: "Devices that cannot reach it: N of M", "Port changed automatically" and "Camouflage site changed automatically" with the reason. Every change is written to the audit log. The notifications "Autotune changed a connection" and "Autotune could not restore a connection" arrive in Telegram if an admin chat is connected, see [Alerts](/arikan/en/operations/alerts/).

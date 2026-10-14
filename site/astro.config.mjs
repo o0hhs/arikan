@@ -4,18 +4,18 @@ import starlight from '@astrojs/starlight';
 import starlightLinksValidator from 'starlight-links-validator';
 import changelog from './integrations/changelog.mjs';
 
-// GitHub Pages serves the fork at o0hhs.github.io/mikanaddons/. Links inside the docs are
-// written with the base (/mikanaddons/...), and the link validator checks them on every build.
+// GitHub Pages serves the fork at o0hhs.github.io/arikan/. Links inside the docs are
+// written with the base (/arikan/...), and the link validator checks them on every build.
 export default defineConfig({
 	site: 'https://o0hhs.github.io',
-	base: '/mikanaddons',
+	base: '/arikan',
 	trailingSlash: 'always',
 	integrations: [
 		changelog(),
 		starlight({
-			title: 'mikan',
+			title: 'Arikan',
 			description:
-				'VPN-панель на ядре mihomo: установка одной командой, ноды и каскады, Telegram-бот с оплатой. Свободная, GPL-3.0.',
+				'Arikan — неофициальный форк mikan: VPN-панель на ядре mihomo, установка одной командой, ноды и каскады, Telegram-бот с оплатой. Свободная, GPL-3.0.',
 			logo: { src: './src/assets/logo.webp', alt: '' },
 			favicon: '/favicon.png',
 			defaultLocale: 'root',
@@ -23,7 +23,7 @@ export default defineConfig({
 				root: { label: 'Русский', lang: 'ru' },
 				en: { label: 'English', lang: 'en' },
 			},
-			editLink: { baseUrl: 'https://github.com/o0hhs/mikanaddons/edit/main/site/' },
+			editLink: { baseUrl: 'https://github.com/o0hhs/arikan/edit/main/site/' },
 			lastUpdated: false,
 			credits: false,
 			customCss: [

@@ -156,7 +156,7 @@ func fetch(ctx context.Context, o Options, id, url string) (nodeapi.DiagItem, *t
 	if err != nil {
 		return fail(id, nodeapi.LinkUnknown, err), nil
 	}
-	req.Header.Set("User-Agent", "mikan-diag")
+	req.Header.Set("User-Agent", "arikan-diag")
 	sent := o.Now()
 	resp, err := o.HTTP.Do(req)
 	if err != nil {

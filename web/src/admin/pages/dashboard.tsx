@@ -210,7 +210,7 @@ function ServerCard() {
       {n && !n.ok ? (
         <div className="banner err mb-4" role="alert">
           <span>
-            {t("dashboard.nodeUnreachable")} <span className="mono whitespace-nowrap">mikan logs node</span>
+            {t("dashboard.nodeUnreachable")} <span className="mono whitespace-nowrap">arikan logs node</span>
           </span>
         </div>
       ) : null}

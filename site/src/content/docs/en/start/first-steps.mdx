@@ -16,7 +16,7 @@ https://vpn.example.com:PORT/SECRET-PATH/
 The port is random and the path is 24 characters. Any other path on this port answers with an empty "404 Not Found", so the panel cannot be found without the link. The installer shows the login and password. If you lost the link, run this on the server:
 
 ```bash
-mikan url
+arikan url
 ```
 
 ## Protect the sign-in
@@ -38,7 +38,7 @@ A fresh installation already has four connections (the **Protocols** section):
 | TUIC v5 | 8443/udp | another QUIC protocol |
 | VLESS · REALITY · Vision | 8443/tcp | for older clients without XHTTP |
 
-Each one can be turned on, turned off, configured or deleted. A new one is added with the **Add a connection** button: pick a preset, change the port if you like, and the keys are created for you. All presets and settings are described in [Protocol presets](/mikanaddons/en/protocols/presets/).
+Each one can be turned on, turned off, configured or deleted. A new one is added with the **Add a connection** button: pick a preset, change the port if you like, and the keys are created for you. All presets and settings are described in [Protocol presets](/arikan/en/protocols/presets/).
 
 :::note
 Changing the port or the camouflage reconnects this protocol's clients for a few seconds. Clients get the changes with their next subscription update, which apps do once an hour.
@@ -48,7 +48,7 @@ Changing the port or the camouflage reconnects this protocol's clients for a few
 
 <Steps>
 
-1. Open **Plans** and adjust the plan: traffic per period, duration, number of devices, when to reset traffic. More in [Plans and users](/mikanaddons/en/billing/plans/).
+1. Open **Plans** and adjust the plan: traffic per period, duration, number of devices, when to reset traffic. More in [Plans and users](/arikan/en/billing/plans/).
 
 2. In **Users** click "New user", enter a name, a contact if you want, and pick a plan.
 
@@ -60,15 +60,15 @@ Changing the port or the camouflage reconnects this protocol's clients for a few
 
 ## What next
 
-- [Domain and certificates](/mikanaddons/en/start/domain/): if you installed without a domain or want your own certificate.
-- [Telegram bot](/mikanaddons/en/billing/telegram/): so subscribers can see their expiry date and renew on their own.
-- [Nodes](/mikanaddons/en/nodes/nodes/): more servers in other countries.
+- [Domain and certificates](/arikan/en/start/domain/): if you installed without a domain or want your own certificate.
+- [Telegram bot](/arikan/en/billing/telegram/): so subscribers can see their expiry date and renew on their own.
+- [Nodes](/arikan/en/nodes/nodes/): more servers in other countries.
 
 ## If you lose access
 
 | What happened | Command on the server |
 |---|---|
-| no panel link | `mikan url` |
-| forgot the password | `mikan reset-password`: a new password, and all sessions and API keys are revoked |
-| the link may have leaked | `mikan reset-path`: a new link, and the old one stops working in a few seconds |
-| lost the phone with 2FA | a recovery code at sign-in, or `mikan disable-2fa` |
+| no panel link | `arikan url` |
+| forgot the password | `arikan reset-password`: a new password, and all sessions and API keys are revoked |
+| the link may have leaked | `arikan reset-path`: a new link, and the old one stops working in a few seconds |
+| lost the phone with 2FA | a recovery code at sign-in, or `arikan disable-2fa` |

@@ -56,15 +56,15 @@ pub fn listen_port(value: &str) -> Option<u16> {
     value.strip_prefix("127.0.0.1:")?.parse().ok()
 }
 
-/// What `mikan cert proxy` does about port 80 on an installed panel or node.
+/// What `arikan cert proxy` does about port 80 on an installed panel or node.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Port80 {
-    /// Port 80 is mikan's: free between challenges, or mikan's own. A MIKAN_ACME_LISTEN
+    /// Port 80 is Arikan's: free between challenges, or Arikan's own. A MIKAN_ACME_LISTEN
     /// left from a web server that has gone goes too (drop).
     Own { drop: bool },
-    /// nginx or Caddy holds it: the rule passes the challenge to mikan on port.
+    /// nginx or Caddy holds it: the rule passes the challenge to Arikan on port.
     Front(Front, u16),
-    /// Something mikan cannot configure holds it.
+    /// Something Arikan cannot configure holds it.
     Other(String),
 }
 
@@ -73,7 +73,8 @@ pub enum Port80 {
 pub fn port80(owner: Option<&str>, listen: Option<&str>, free: impl FnOnce() -> u16) -> Port80 {
     let set = listen.map(str::trim).filter(|l| !l.is_empty() && *l != ":80");
     match owner {
-        None | Some("mikan" | "mikan-node") => Port80::Own { drop: set.is_some() },
+        // The legacy names are processes of images from before the rename.
+        None | Some("arikan" | "arikan-node" | "mikan" | "mikan-node") => Port80::Own { drop: set.is_some() },
         Some(who) => match Front::from_process(who) {
             Some(front) => Port80::Front(front, set.and_then(listen_port).unwrap_or_else(free)),
             None => Port80::Other(who.to_owned()),
@@ -82,7 +83,7 @@ pub fn port80(owner: Option<&str>, listen: Option<&str>, free: impl FnOnce() -> 
 }
 
 /// What to add by hand when the admin keeps the web server's config to themselves: the
-/// block, where it goes, and the line of .env that makes mikan answer behind it.
+/// block, where it goes, and the line of .env that makes Arikan answer behind it.
 pub fn manual_text(front: Front, domain: &str, port: u16) -> String {
     let (place, block) = match front {
         Front::Nginx => (
@@ -95,7 +96,7 @@ pub fn manual_text(front: Front, domain: &str, port: u16) -> String {
         "Add this {place}
 
 {block}
-Then set MIKAN_ACME_LISTEN={} in {}/.env and run: mikan restart",
+Then set MIKAN_ACME_LISTEN={} in {}/.env and run: arikan restart",
         listen(port),
         crate::DIR
     )
@@ -138,7 +139,7 @@ impl Report {
     /// One line for the install's step.
     pub fn note(&self) -> String {
         match (&self.added, &self.manual) {
-            (Some(file), _) => format!("{} passes Let's Encrypt to mikan ({})", self.front, file.display()),
+            (Some(file), _) => format!("{} passes Let's Encrypt to Arikan ({})", self.front, file.display()),
             _ if self.front_known() => format!("{} holds port 80: add its rule for Let's Encrypt (shown at the end)", self.front),
             _ => format!("port 80 is taken ({}): no Let's Encrypt until it is free", self.front),
         }
@@ -153,12 +154,12 @@ impl Report {
         let m = self.manual.as_ref()?;
         if !self.front_known() {
             return Some(format!(
-                "Let's Encrypt: {}. Free port 80 and mikan gets its certificate by itself: it tries again on its own. Until then it works with a self-signed certificate.",
+                "Let's Encrypt: {}. Free port 80 and Arikan gets its certificate by itself: it tries again on its own. Until then it works with a self-signed certificate.",
                 m.why
             ));
         }
         Some(format!(
-            "Let's Encrypt: {}. Add this {}, then reload {}:\n\n{}\nUntil then mikan works with a self-signed certificate; it tries again by itself.",
+            "Let's Encrypt: {}. Add this {}, then reload {}:\n\n{}\nUntil then Arikan works with a self-signed certificate; it tries again by itself.",
             m.why, m.place, self.front, m.snippet
         ))
     }
@@ -268,7 +269,7 @@ pub fn nginx_server(domain: &str, port: u16, ipv6: bool) -> String {
 /// The file the installer writes: the server block, and who wrote it.
 fn nginx_file(domain: &str, port: u16, ipv6: bool) -> String {
     format!(
-        "# Written by the mikan installer: Let's Encrypt checks {domain} here for mikan's certificate.\n{}",
+        "# Written by the Arikan installer: Let's Encrypt checks {domain} here for Arikan's certificate.\n{}",
         nginx_server(domain, port, ipv6)
     )
 }
@@ -490,8 +491,8 @@ fn nginx(run: &mut dyn Run, domain: &str, port: u16, consent: bool) -> Report {
         place: "as a new file in nginx's config (in conf.d, or sites-enabled)".into(),
         snippet: nginx_server(domain, port, ipv6),
     };
-    let name = format!("mikan-acme-{domain}.conf");
-    let ours = |f: &Path| f.file_name().is_some_and(|n| n.to_string_lossy().starts_with("mikan-acme-"));
+    let name = format!("arikan-acme-{domain}.conf");
+    let ours = |f: &Path| f.file_name().is_some_and(|n| n.to_string_lossy().starts_with("arikan-acme-"));
     // A server block for the domain is there already: a second one would take its requests
     // (or be ignored), so the rule goes into it, one line of the admin's.
     if let Ok(conf) = &conf
@@ -545,11 +546,11 @@ fn nginx(run: &mut dyn Run, domain: &str, port: u16, consent: bool) -> Report {
 // ---- Caddy ----
 
 fn caddy_begin(domain: &str) -> String {
-    format!("# mikan: Let's Encrypt checks {domain} here for the panel's certificate (written by the installer)")
+    format!("# Arikan: Let's Encrypt checks {domain} here for the panel's certificate (written by the installer)")
 }
 
 fn caddy_end(domain: &str) -> String {
-    format!("# mikan: end of {domain}")
+    format!("# Arikan: end of {domain}")
 }
 
 /// A plain-HTTP site for domain: Caddy gets no certificate for it, so it does not compete
@@ -645,7 +646,7 @@ fn caddyfile_from(args: Option<&[String]>, cwd: Option<&Path>, exists: &dyn Fn(&
             return Err("Caddy runs from the config last given to its API (--resume)".into());
         }
         // Without --config Caddy reads the Caddyfile of its working directory.
-        None => cwd.map(|d| d.join("Caddyfile")).ok_or("Caddy runs without a config file mikan can find")?,
+        None => cwd.map(|d| d.join("Caddyfile")).ok_or("Caddy runs without a config file Arikan can find")?,
     };
     let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
     let caddyfile = match adapter.as_deref() {
@@ -695,7 +696,7 @@ fn caddy(run: &mut dyn Run, domain: &str, port: u16, consent: bool, file: Result
     }
     new.push_str(&caddy_block(domain, port));
     let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-    let backup = path.with_file_name(format!("{name}.mikan-{}.bak", stamp()));
+    let backup = path.with_file_name(format!("{name}.arikan-{}.bak", stamp()));
     let change = match Change::write(&path, &new, &backup) {
         Ok(c) => c,
         Err(e) => return report(manual(format!("{shown} cannot be written ({e})"), &shown)),
@@ -715,11 +716,12 @@ fn caddy(run: &mut dyn Run, domain: &str, port: u16, consent: bool, file: Result
 mod tests {
     use super::*;
 
-    // `mikan cert proxy` on a node or a panel: who holds port 80 decides, and a port chosen
+    // `arikan cert proxy` on a node or a panel: who holds port 80 decides, and a port chosen
     // before stays (the web server's rule points there).
     #[test]
     fn port80_is_decided_by_its_holder() {
         assert_eq!(port80(None, None, || 18080), Port80::Own { drop: false });
+        assert_eq!(port80(Some("arikan-node"), Some(":80"), || 18080), Port80::Own { drop: false });
         assert_eq!(port80(Some("mikan-node"), Some(":80"), || 18080), Port80::Own { drop: false });
         assert_eq!(port80(None, Some("127.0.0.1:18081"), || 18080), Port80::Own { drop: true }, "the web server has gone");
         assert_eq!(port80(Some("nginx"), None, || 18085), Port80::Front(Front::Nginx, 18085));
@@ -803,10 +805,10 @@ mod tests {
         assert!(!name_covers("*.example.com", "example.com"));
         assert!(name_covers(".example.com", "example.com") && name_covers(".example.com", "a.example.com"));
         assert!(!name_covers("_", "vpn.example.com") && !name_covers("example.com", "vpn.example.com"));
-        assert!(glob("/etc/nginx/conf.d/*.conf", "/etc/nginx/conf.d/mikan-acme-vpn.example.com.conf"));
-        assert!(glob("/etc/nginx/sites-enabled/*", "/etc/nginx/sites-enabled/mikan-acme-x.conf"));
+        assert!(glob("/etc/nginx/conf.d/*.conf", "/etc/nginx/conf.d/arikan-acme-vpn.example.com.conf"));
+        assert!(glob("/etc/nginx/sites-enabled/*", "/etc/nginx/sites-enabled/arikan-acme-x.conf"));
         assert!(!glob("/etc/nginx/conf.d/*.conf", "/etc/nginx/conf.d/x.conf.bak"));
-        assert!(!glob("/etc/nginx/sites-enabled/*", "/etc/nginx/sites-enabled/.mikan-acme-x.conf.1.bak"), "a dot file is hidden");
+        assert!(!glob("/etc/nginx/sites-enabled/*", "/etc/nginx/sites-enabled/.arikan-acme-x.conf.1.bak"), "a dot file is hidden");
         assert!(!glob("/etc/nginx/*.conf", "/etc/nginx/snippets/x.conf"), "* stops at /");
     }
 
@@ -841,7 +843,7 @@ mod tests {
         let root = layout("nginx-ok");
         let mut run = Fake::default().on("nginx -T", Ok(&dump(&root, DEFAULT_SITE))).on("nginx -t", Ok("")).on("nginx -s reload", Ok(""));
         let r = nginx(&mut run, "vpn.example.com", 18081, true);
-        let file = root.join("conf.d/mikan-acme-vpn.example.com.conf");
+        let file = root.join("conf.d/arikan-acme-vpn.example.com.conf");
         assert_eq!(r.added.as_deref(), Some(file.as_path()), "{r:?}");
         assert!(r.manual.is_none() && r.text().is_none());
         assert_eq!(fs::read_to_string(&file).unwrap(), nginx_file("vpn.example.com", 18081, true), "IPv6 like the others");
@@ -852,14 +854,14 @@ mod tests {
         assert!(fs::read_to_string(&file).unwrap().contains("127.0.0.1:18082"));
         let kept: Vec<_> = fs::read_dir(root.join("conf.d")).unwrap().flatten().map(|e| e.file_name().into_string().unwrap()).collect();
         assert_eq!(kept.len(), 2);
-        assert!(kept.iter().any(|n| n.starts_with(".mikan-acme-vpn.example.com.conf.") && n.ends_with(".bak")));
+        assert!(kept.iter().any(|n| n.starts_with(".arikan-acme-vpn.example.com.conf.") && n.ends_with(".bak")));
         fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]
     fn a_failed_test_or_reload_puts_the_config_back() {
         let root = layout("nginx-fail");
-        let file = root.join("conf.d/mikan-acme-vpn.example.com.conf");
+        let file = root.join("conf.d/arikan-acme-vpn.example.com.conf");
         let mut run = Fake::default().on("nginx -T", Ok(&dump(&root, DEFAULT_SITE))).on("nginx -t", Err("nginx: [emerg] duplicate listen"));
         let r = nginx(&mut run, "vpn.example.com", 18081, true);
         assert!(r.added.is_none() && !file.exists(), "a new file is removed");
@@ -887,7 +889,7 @@ mod tests {
         assert!(r.added.is_none());
         assert_eq!(run.calls, ["nginx -T"], "nothing tested or reloaded: nginx's own files are not touched");
         let m = r.manual.unwrap();
-        let snippet = root.join("snippets/mikan-acme-vpn.example.com.conf");
+        let snippet = root.join("snippets/arikan-acme-vpn.example.com.conf");
         assert_eq!(m.snippet, format!("include {};\n", snippet.display()));
         assert!(m.place.contains("sites-enabled/default"), "{}", m.place);
         assert_eq!(fs::read_to_string(&snippet).unwrap(), nginx_location(18081, ""));

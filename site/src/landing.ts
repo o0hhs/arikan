@@ -2,10 +2,10 @@
 // src/content/docs (Russian) and src/content/docs/en (English).
 
 export const links = {
-	github: 'https://github.com/o0hhs/mikanaddons',
-	releases: 'https://github.com/o0hhs/mikanaddons/releases',
-	issues: 'https://github.com/o0hhs/mikanaddons/issues',
-	license: 'https://github.com/o0hhs/mikanaddons/blob/main/LICENSE',
+	github: 'https://github.com/o0hhs/arikan',
+	releases: 'https://github.com/o0hhs/arikan/releases',
+	issues: 'https://github.com/o0hhs/arikan/issues',
+	license: 'https://github.com/o0hhs/arikan/blob/main/LICENSE',
 	sponsor: 'https://web.tribute.tg/d/REA',
 	mihomo: 'https://github.com/MetaCubeX/mihomo',
 };
@@ -13,10 +13,9 @@ export const links = {
 // Two lines, so the command fits the hero without wrapping in odd places; bash reads the
 // trailing backslash as one command when it is pasted.
 export const installCommand =
-	'curl -fsSL https://github.com/o0hhs/mikanaddons/releases/latest/download/install.sh \\\n  | sudo bash';
+	'curl -fsSL https://github.com/o0hhs/arikan/releases/latest/download/install.sh \\\n  | sudo bash';
 
 export type Lang = 'ru' | 'en';
-export type Screen = 'dashboard' | 'users' | 'inbounds' | 'telegram' | 'settings';
 
 const docs = (lang: Lang, path: string) => `${import.meta.env.BASE_URL}${lang === 'en' ? 'en/' : ''}${path}`;
 
@@ -28,19 +27,7 @@ export const strings = {
 			requirements: 'Ubuntu 22.04+ или Debian 12+, amd64 или arm64. Установщик сам ставит Docker и в конце выдаёт ссылку на админку.',
 			primary: 'Установить',
 			secondary: 'Как это устроено',
-			art: 'Мандарин, символ mikan',
-		},
-		screens: {
-			title: 'Одна панель на всё',
-			lead: 'Настоящие экраны mikan. Есть светлая и тёмная темы, русский и английский интерфейс.',
-			label: 'Экраны панели',
-			items: {
-				dashboard: ['Обзор', 'Онлайн, трафик за сутки и состояние каждого подключения на одном экране.'],
-				users: ['Пользователи', 'Тарифы, сроки, трафик и устройства каждого подписчика, фильтры и действия над группой.'],
-				inbounds: ['Подключения', 'Протоколы с портами и маскировкой. Видно, какие приложения получают каждый из них.'],
-				telegram: ['Telegram', 'Бот настраивается прямо в панели: меню, тексты, уведомления и рассылки, с предпросмотром.'],
-				settings: ['Настройки', 'Подписка, маршрутизация для Clash, безопасность входа и импорт из других панелей.'],
-			} satisfies Record<Screen, [string, string]>,
+			art: 'Логотип Arikan',
 		},
 		features: {
 			title: 'Что внутри',
@@ -82,7 +69,7 @@ export const strings = {
 				},
 				{
 					title: 'Переезд с других панелей',
-					text: 'Импорт пользователей из Marzban, PasarGuard и Remnawave. Старые ссылки подписок работают, когда старый домен указывает на mikan.',
+					text: 'Импорт пользователей из Marzban, PasarGuard и Remnawave. Старые ссылки подписок работают, когда старый домен указывает на Arikan.',
 					href: docs('ru', 'operations/import/'),
 				},
 				{
@@ -117,24 +104,24 @@ export const strings = {
 		},
 		cta: {
 			title: 'Поставить на свой сервер',
-			text: 'Одна команда на чистом сервере. Дальше всё делается в панели, а команда mikan открывает меню управления.',
+			text: 'Одна команда на чистом сервере. Дальше всё делается в панели, а команда arikan открывает меню управления.',
 			docs: 'Читать про установку',
 			sponsorTitle: 'Поддержать проект',
-			sponsorText: 'mikan бесплатный и с открытым кодом. Если панель вам пригодилась, автора можно поддержать.',
+			sponsorText: 'Arikan — бесплатный, с открытым кодом. Если панель вам пригодилась, автора можно поддержать.',
 			sponsor: 'Поддержать на Tribute',
 			goals: 'На что собираем',
 			github: 'Код на GitHub',
 		},
 		header: {
 			label: 'Проект',
-			githubLabel: 'GitHub: исходный код mikan',
+			githubLabel: 'GitHub: исходный код Arikan',
 			support: 'Поддержать',
 			supportLabel: 'Поддержать проект на Tribute',
 			otherLanguage: 'English version',
 		},
 		footer: {
 			label: 'Ссылки проекта',
-			license: 'mikan: свободная программа под GNU GPL v3. Внутри mihomo (GPL-3.0).',
+			license: 'Arikan — неофициальный форк mikan, свободная программа под GNU GPL v3. Внутри mihomo (GPL-3.0).',
 			releases: 'Релизы',
 			issues: 'Сообщить о проблеме',
 			sponsor: 'Поддержать',
@@ -147,19 +134,7 @@ export const strings = {
 			requirements: 'Ubuntu 22.04+ or Debian 12+, amd64 or arm64. The installer sets up Docker by itself and prints your admin link at the end.',
 			primary: 'Install',
 			secondary: 'How it works',
-			art: 'A mandarin, the mikan mascot',
-		},
-		screens: {
-			title: 'One panel for all of it',
-			lead: 'Real screens of mikan. Light and dark themes, Russian and English interface.',
-			label: 'Panel screens',
-			items: {
-				dashboard: ['Overview', 'Who is online, traffic for the day and the state of every protocol on one screen.'],
-				users: ['Users', 'Plans, terms, traffic and devices of every subscriber, with filters and bulk actions.'],
-				inbounds: ['Protocols', 'Protocols with their ports and camouflage, and which apps get each of them.'],
-				telegram: ['Telegram', 'The bot is set up right in the panel: menu, texts, notices and broadcasts, with a preview.'],
-				settings: ['Settings', 'Subscription, routing for Clash apps, sign-in security and imports from other panels.'],
-			} satisfies Record<Screen, [string, string]>,
+			art: 'The Arikan logo',
 		},
 		features: {
 			title: 'What is inside',
@@ -201,7 +176,7 @@ export const strings = {
 				},
 				{
 					title: 'Moving from other panels',
-					text: 'Import users from Marzban, PasarGuard and Remnawave. Old subscription links keep working once the old domain points to mikan.',
+					text: 'Import users from Marzban, PasarGuard and Remnawave. Old subscription links keep working once the old domain points to Arikan.',
 					href: docs('en', 'operations/import/'),
 				},
 				{
@@ -236,24 +211,24 @@ export const strings = {
 		},
 		cta: {
 			title: 'Put it on your server',
-			text: 'One command on a fresh server. Everything else happens in the panel, and the mikan command opens the management menu.',
+			text: 'One command on a fresh server. Everything else happens in the panel, and the arikan command opens the management menu.',
 			docs: 'Read about the install',
 			sponsorTitle: 'Support the project',
-			sponsorText: 'mikan is free and open source. If the panel is useful to you, you can support its author.',
+			sponsorText: 'Arikan is free and open source. If the panel is useful to you, you can support its author.',
 			sponsor: 'Support on Tribute',
 			goals: 'What we collect for',
 			github: 'Code on GitHub',
 		},
 		header: {
 			label: 'Project',
-			githubLabel: 'GitHub: the mikan source code',
+			githubLabel: 'GitHub: the Arikan source code',
 			support: 'Support',
 			supportLabel: 'Support the project on Tribute',
 			otherLanguage: 'Русская версия',
 		},
 		footer: {
 			label: 'Project links',
-			license: 'mikan is free software under the GNU GPL v3. It embeds mihomo (GPL-3.0).',
+			license: 'Arikan is an unofficial fork of mikan, free software under the GNU GPL v3. It embeds mihomo (GPL-3.0).',
 			releases: 'Releases',
 			issues: 'Report a problem',
 			sponsor: 'Sponsor',

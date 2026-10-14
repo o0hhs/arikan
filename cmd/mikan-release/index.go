@@ -284,7 +284,7 @@ func mustJSON(v any) []byte {
 // release key the clients carry.
 func legacyCheckFile(args []string) error {
 	if len(args) != 1 {
-		return errors.New("usage: mikan-release legacy-check manifest.json")
+		return errors.New("usage: arikan-release legacy-check manifest.json")
 	}
 	data, err := os.ReadFile(args[0])
 	if err != nil {

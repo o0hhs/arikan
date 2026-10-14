@@ -23,14 +23,14 @@ pub fn interactive() -> bool {
     std::io::stdin().is_terminal() && std::io::stdout().is_terminal()
 }
 
-/// `mikan` without a command: the installer on a fresh server, the menu on an installed one.
+/// `Arikan` without a command: the installer on a fresh server, the menu on an installed one.
 pub fn start() -> Result<()> {
     let installed = Path::new(crate::DIR).join(".env").exists();
     if !interactive() {
         if installed {
-            bail!("the menu needs a terminal; the commands are in mikan --help");
+            bail!("the menu needs a terminal; the commands are in Arikan --help");
         }
-        bail!("the installer needs a terminal; for scripts: mikan install --yes (see mikan install --help)");
+        bail!("the installer needs a terminal; for scripts: arikan install --yes (see arikan install --help)");
     }
     if crate::setup::unfinished_install() {
         // The menu of a half-installed server has nothing to show: the install goes on.
@@ -139,7 +139,7 @@ mod tests {
     use super::*;
 
     fn frame(f: &mut Frame) {
-        f.render_widget(Paragraph::new("mikan"), f.area());
+        f.render_widget(Paragraph::new("Arikan"), f.area());
     }
 
     // Another program writes over the screen: a plain draw leaves its text, the one after
@@ -154,10 +154,10 @@ mod tests {
         t.backend().assert_buffer_lines(["xxxxxxxxxxxx", "xxxxxxxxxxxx"]);
         invalidate(&mut t);
         t.draw(frame).unwrap();
-        t.backend().assert_buffer_lines(["mikan       ", "            "]);
+        t.backend().assert_buffer_lines(["Arikan      ", "            "]);
         // and the frames after it are diffs again
         t.backend_mut().draw([(11, 1, &junk)].into_iter()).unwrap();
         t.draw(frame).unwrap();
-        t.backend().assert_buffer_lines(["mikan       ", "           x"]);
+        t.backend().assert_buffer_lines(["Arikan      ", "           x"]);
     }
 }

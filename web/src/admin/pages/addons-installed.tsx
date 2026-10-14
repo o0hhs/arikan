@@ -178,7 +178,7 @@ function GroupSkeleton() {
   );
 }
 
-/** Where an addon of the marketplace comes from: checked by mikan, a source's, or the admin's own. */
+/** Where an addon of the marketplace comes from: checked by the official catalog, a source's, or the admin's own. */
 function SourceMark({ a }: { a: MarketInstalled }) {
   if (a.source === "official") return <span className="tag">{t("addons.official")}</span>;
   if (a.origin) return <OriginMark origin={a.origin} />;

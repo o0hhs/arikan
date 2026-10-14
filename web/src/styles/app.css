@@ -325,6 +325,15 @@
   .tg-swatch.danger { background: #e0564f; }
   .tg-swatch:not(.primary):not(.success):not(.danger) { background: rgba(40, 60, 30, 0.45); }
 
+  /* Performance mode (html[data-perf], lib/perf.ts): the device cannot afford the
+     animation work. Every motion drops to its end at once, the glass stops blurring
+     (the single heaviest effect), and the drifting backdrop gives way to the flat
+     background token. The layout and the data are untouched. */
+  html[data-perf="1"] *, html[data-perf="1"] *::before, html[data-perf="1"] *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+  html[data-perf="1"] .glass, html[data-perf="1"] [class*="glass"] { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+  html[data-perf="1"] .atmo { display: none; }
+  html[data-perf="1"] .reveal { opacity: 1 !important; transform: none !important; }
+
   .sk { display: block; height: 12px; border-radius: 6px; background: linear-gradient(90deg, var(--ink-50) 0%, var(--ink-100) 40%, var(--ink-50) 80%); background-size: 300% 100%; animation: shimmer 1.4s ease-in-out infinite; }
   .state-box { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px; padding: 64px 24px 72px; max-width: 520px; margin: 0 auto; }
   .state-box h2 { font: 500 20px/28px var(--font-display-stack); letter-spacing: -0.02em; }

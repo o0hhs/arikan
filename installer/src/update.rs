@@ -1,4 +1,4 @@
-//! `mikan update`: to the latest release, or to an image the admin names, with a backup
+//! `arikan update`: to the latest release, or to an image the admin names, with a backup
 //! first. A panel already on PostgreSQL goes back to its previous image when the new one
 //! cannot migrate the database, or does not start on an unchanged schema; otherwise it
 //! stays stopped with its data preserved. Nodes always go back. The daily timer, the
@@ -40,7 +40,7 @@ use crate::panelfs::{self, Dir};
 use crate::release::Channel;
 use crate::{DIR, addon, backup, clock, docker, host, net, release, setup, signals};
 
-/// What `mikan update` was asked for.
+/// What `arikan update` was asked for.
 #[derive(clap::Args, Clone, Debug, Default)]
 pub struct UpdateArgs {
     /// An image (ghcr.io/…@sha256:…) or an image archive (.tar.gz) instead of the latest release
@@ -83,7 +83,7 @@ fn report(install: &Install, phase: Phase, version: &str, from: &str, error: &st
         d.with_context(|| format!("{} is not there", update_rel(install.node)))?.write("status.json", body.to_string().as_bytes(), 0o644)
     });
     if let Err(e) = sent {
-        eprintln!("mikan: cannot tell the panel how the update went: {e:#}");
+        eprintln!("Arikan: cannot tell the panel how the update went: {e:#}");
     }
 }
 
@@ -128,12 +128,12 @@ fn policy_channel(data: &[u8]) -> Channel {
         .unwrap_or(Channel::Stable)
 }
 
-/// This server's channel; stable on a server mikan is not installed on yet.
+/// This server's channel; stable on a server Arikan is not installed on yet.
 pub fn channel_here() -> Channel {
     Install::load().map_or(Channel::Stable, |i| channel(&i))
 }
 
-/// How many releases one `mikan update` goes through at most, one after another.
+/// How many releases one `arikan update` goes through at most, one after another.
 const MAX_HOPS: u32 = 5;
 
 /// Which hop of an update this command is (0 for the first): set by the update that
@@ -183,7 +183,7 @@ fn next_hop(newest: Option<&str>, daily: bool, at: &mut Attempt, say: &mut dyn F
     let hop = match after_hop(newest, hop_number()) {
         After::Done => return Ok(()),
         After::Stop => {
-            let more = format!("mikan {} is out still: run mikan update again to go on.", newest.unwrap_or_default());
+            let more = format!("Arikan {} is out still: run arikan update again to go on.", newest.unwrap_or_default());
             say(&more);
             // The panel waits for the release it asked for: this is not the end it expects.
             if at.upto.is_some() {
@@ -193,7 +193,7 @@ fn next_hop(newest: Option<&str>, daily: bool, at: &mut Attempt, say: &mut dyn F
         }
         After::Next(n) => n,
     };
-    say(&format!("mikan {} runs; going on towards mikan {}.", at.version, newest.unwrap_or_default()));
+    say(&format!("Arikan {} runs; going on towards Arikan {}.", at.version, newest.unwrap_or_default()));
     let mut child = Command::new(host::BIN);
     child.arg("update").env(lock::HELD_ENV, "1").env(HOP_ENV, hop.to_string());
     if let Some(upto) = &at.upto {
@@ -204,7 +204,7 @@ fn next_hop(newest: Option<&str>, daily: bool, at: &mut Attempt, say: &mut dyn F
     }
     at.handed_off = true;
     if !child.status()?.success() {
-        bail!("mikan {} runs, the update to the next release did not finish; retry mikan update", at.version);
+        bail!("Arikan {} runs, the update to the next release did not finish; retry arikan update", at.version);
     }
     Ok(())
 }
@@ -314,7 +314,7 @@ pub fn update(a: &UpdateArgs, say: &mut dyn FnMut(&str), progress: &mut dyn FnMu
         match lock::acquire(wait, say)? {
             Some(g) => Some(g),
             None => {
-                say("Another mikan operation is running: this automatic check skips its turn.");
+                say("Another Arikan operation is running: this automatic check skips its turn.");
                 return Ok(());
             }
         }
@@ -532,7 +532,7 @@ fn update_to(a: &UpdateArgs, say: &mut dyn FnMut(&str), progress: &mut dyn FnMut
     // it; an image named by hand is checked here, before anything changes.
     if !install.node && install.env.get("MIKAN_DATABASE_URL").is_none() && !release::moves_sqlite(&target.version) {
         bail!(
-            "mikan {} no longer moves the database from SQLite: update to mikan {} first, it moves it to PostgreSQL (`mikan update` with no image goes there by itself); nothing was changed",
+            "Arikan {} no longer moves the database from SQLite: update to Arikan {} first, it moves it to PostgreSQL (`arikan update` with no image goes there by itself); nothing was changed",
             target.version,
             release::LAST_SQLITE_MOVE
         );
@@ -577,7 +577,7 @@ fn resolve_target(
         match upto_step(current, upto) {
             Step::Refuse(why) => bail!(why),
             Step::Already => {
-                say(&format!("mikan {current} is the release asked for."));
+                say(&format!("Arikan {current} is the release asked for."));
                 return Ok(None);
             }
             Step::Go => {}
@@ -608,14 +608,14 @@ fn resolve_target(
                 let newest = found.newest.unwrap_or_default();
                 if a.check {
                     say(&format!(
-                        "mikan {newest} is out, but mikan {current} cannot update to it directly and no release in between is listed."
+                        "Arikan {newest} is out, but Arikan {current} cannot update to it directly and no release in between is listed."
                     ));
                     return Ok(None);
                 }
-                bail!("mikan {newest} is out, but mikan {current} cannot update to it directly and no release in between is listed");
+                bail!("Arikan {newest} is out, but Arikan {current} cannot update to it directly and no release in between is listed");
             }
             if already_current(&m.version, current, a.check || install.node || docker::panel_healthy()) {
-                say(&format!("mikan {current} is the latest release."));
+                say(&format!("Arikan {current} is the latest release."));
                 if !a.check && self_update(&m, say) {
                     follow_new_command(say);
                 }
@@ -624,9 +624,9 @@ fn resolve_target(
             if a.check {
                 match &found.newest {
                     Some(newest) => {
-                        say(&format!("mikan {newest} is out, this server runs {current}: it updates through mikan {} first.", m.version))
+                        say(&format!("Arikan {newest} is out, this server runs {current}: it updates through Arikan {} first.", m.version))
                     }
-                    None => say(&format!("mikan {} is out, this server runs {current}.", m.version)),
+                    None => say(&format!("Arikan {} is out, this server runs {current}.", m.version)),
                 }
                 if let Some(notes) = m.notes.get("en") {
                     say(notes);
@@ -634,7 +634,7 @@ fn resolve_target(
                 return Ok(None);
             }
             let ahead = found.newest;
-            say(&format!("Updating mikan {current} → {}", m.version));
+            say(&format!("Updating Arikan {current} → {}", m.version));
             at.version.clone_from(&m.version);
             at.started = true;
             report(install, Phase::Running, &m.version, current, "");
@@ -644,14 +644,14 @@ fn resolve_target(
             // that was signed for.
             let v = setup::image_version(&reference)?;
             if v.trim_start_matches('v') != m.version {
-                bail!("the image is mikan {v}, the signed release says {}", m.version);
+                bail!("the image is Arikan {v}, the signed release says {}", m.version);
             }
             let version = m.version.clone();
             Target { image: reference, version, manifest: Some(m), ahead }
         }
     };
     if a.check {
-        say(&format!("{} is mikan {}; this server runs {current}.", target.image, target.version));
+        say(&format!("{} is Arikan {}; this server runs {current}.", target.image, target.version));
         return Ok(None);
     }
     Ok(Some(target))
@@ -675,7 +675,7 @@ fn hand_off(target: &Target, daily: bool, at: &mut Attempt, say: &mut dyn FnMut(
         at.handed_off = true;
         let status = child.status()?;
         if !status.success() {
-            bail!("the upgraded installer could not finish the update; retry mikan update");
+            bail!("the upgraded installer could not finish the update; retry arikan update");
         }
         return Ok(true);
     }
@@ -800,9 +800,9 @@ fn recover(
             e.context("the data of the stopped panel could not be saved; the update stopped and the panel runs again")
         }
         Recovery::RestorePrevious => match restore_previous(root, &install.env, &snapshot.env, &snapshot.compose, footing.was_postgres) {
-            Ok(()) => e.context(format!("the update could not prepare the database; mikan {current} runs again")),
+            Ok(()) => e.context(format!("the update could not prepare the database; Arikan {current} runs again")),
             Err(back) => e.context(format!(
-                "the update could not prepare the database, and mikan {current} did not start again ({back:#}); backup: {saved}"
+                "the update could not prepare the database, and Arikan {current} did not start again ({back:#}); backup: {saved}"
             )),
         },
         // The previous version is tried on what this update left: on PostgreSQL already
@@ -810,20 +810,20 @@ fn recover(
         // start only when the schema did not move.
         Recovery::RollBack => {
             let what = if step == Failed::Migrate { "could not migrate the database" } else { "did not start" };
-            say(&format!("mikan {version} {what}: going back to {current}"));
+            say(&format!("Arikan {version} {what}: going back to {current}"));
             let before = Before { env: &snapshot.env, compose: &snapshot.compose, saved: &snapshot.saved, current };
-            roll_back(install, &before, &format!("mikan {version} {what}: {e:#}"))
+            roll_back(install, &before, &format!("Arikan {version} {what}: {e:#}"))
         }
         // A failed import may have committed before losing its response. Never fall
         // back to stale SQLite or restore a snapshot implicitly after this.
         Recovery::LeaveStopped => e.context(format!(
-            "database migration did not finish; panel stays stopped, original SQLite and PostgreSQL preserved. Run mikan update again; backup: {saved}"
+            "database migration did not finish; panel stays stopped, original SQLite and PostgreSQL preserved. Run arikan update again; backup: {saved}"
         )),
         // Going back from SQLite would lose every write since the import, and an older
         // binary refuses a newer schema.
         Recovery::StopPanel => {
             let _ = docker::compose_run(&["stop", "panel"]);
-            e.context(format!("PostgreSQL is preserved and the panel is stopped. No automatic database rollback is safe; retry mikan update after fixing startup. Backup: {saved}"))
+            e.context(format!("PostgreSQL is preserved and the panel is stopped. No automatic database rollback is safe; retry arikan update after fixing startup. Backup: {saved}"))
         }
         // Decided before anything changed (preflight), or nothing to undo.
         Recovery::Keep | Recovery::Skip | Recovery::Refuse => e,
@@ -834,7 +834,7 @@ fn recover(
 /// next hop of the chain starts.
 fn finish(install: &Install, target: Target, daily: bool, at: &mut Attempt, say: &mut dyn FnMut(&str)) -> Result<()> {
     seal_when_current(Path::new(DIR), install.node, say);
-    say(&format!("mikan {} is running.", target.version));
+    say(&format!("Arikan {} is running.", target.version));
     if let Some(m) = &target.manifest
         && self_update(m, say)
     {
@@ -857,7 +857,7 @@ enum Step {
 
 fn upto_step(current: &str, upto: &str) -> Step {
     if release::newer(current, upto) {
-        Step::Refuse(format!("mikan {upto} is older than the mikan {current} this server runs: a server does not go back"))
+        Step::Refuse(format!("Arikan {upto} is older than the Arikan {current} this server runs: a server does not go back"))
     } else if release::newer(upto, current) {
         Step::Go
     } else {
@@ -884,7 +884,7 @@ fn start(install: &Install, root: &Path) -> Result<()> {
     setup::wait_ready(install.node_port(), Duration::from_secs(90))
 }
 
-/// The schema versions `mikan database migrate` reports: before and after it ran.
+/// The schema versions `arikan database migrate` reports: before and after it ran.
 fn schema_change(out: &str) -> Option<(u64, u64)> {
     let line = out.lines().find_map(|l| l.trim().strip_prefix("PostgreSQL schema version: "))?;
     let (from, to) = line.split_once(" -> ")?;
@@ -927,16 +927,16 @@ fn roll_back(install: &mut Install, before: &Before, why: &str) -> anyhow::Error
         start(install, root)
     })();
     match back {
-        Ok(()) => anyhow::anyhow!("{why}; mikan {current} runs again (backup: {saved})"),
+        Ok(()) => anyhow::anyhow!("{why}; Arikan {current} runs again (backup: {saved})"),
         Err(e) => {
             let stopped = if install.node {
                 ""
             } else {
                 let _ = docker::compose_run(&["stop", "panel"]);
-                ", so the panel is stopped (an older mikan refuses a schema a newer one moved forward)"
+                ", so the panel is stopped (an older Arikan refuses a schema a newer one moved forward)"
             };
             anyhow::anyhow!(
-                "{why}; and mikan {current} does not start either ({e:#}){stopped}. The data from before the update are in {saved}: mikan restore {saved}"
+                "{why}; and Arikan {current} does not start either ({e:#}){stopped}. The data from before the update are in {saved}: arikan restore {saved}"
             )
         }
     }
@@ -954,7 +954,7 @@ struct Before<'a> {
 
 /// What the move from SQLite to PostgreSQL needs before anything stops: disk for the
 /// archives, the dump and the new database (three times the panel's data, at least
-/// 1 GiB) where mikan and Docker keep them, and memory for PostgreSQL beside the panel.
+/// 1 GiB) where Arikan and Docker keep them, and memory for PostgreSQL beside the panel.
 fn room_to_move(root: &Path) -> std::result::Result<(), String> {
     let data = crate::system::tree_bytes(&root.join("data/panel"));
     let docker_dir = Path::new("/var/lib/docker");
@@ -1006,7 +1006,7 @@ pub fn converge(say: &mut dyn FnMut(&str)) -> Result<()> {
     if !install.node && install.env.get("MIKAN_DATABASE_URL").is_none() {
         // post-update must never activate the PostgreSQL compose over a live SQLite
         // installation. `update` is the only operation that performs the cutover.
-        say("This SQLite installation needs mikan update before its compose file can change.");
+        say("This SQLite installation needs arikan update before its compose file can change.");
         return Ok(());
     }
     // Where systemd is: a server without it has no units to bring up to date.
@@ -1044,7 +1044,7 @@ pub fn converge(say: &mut dyn FnMut(&str)) -> Result<()> {
 fn follow_new_command(say: &mut dyn FnMut(&str)) {
     let done = Command::new(host::BIN).arg("post-update").env(lock::HELD_ENV, "1").status();
     if !done.is_ok_and(|s| s.success()) {
-        say("The new mikan command could not finish setting up: run `mikan update` once more.");
+        say("The new Arikan command could not finish setting up: run `arikan update` once more.");
     }
 }
 
@@ -1067,11 +1067,11 @@ fn self_update(m: &release::Manifest, say: &mut dyn FnMut(&str)) -> bool {
     });
     match result {
         Ok(()) => {
-            say(&format!("The mikan command is {} now too.", m.version));
+            say(&format!("The Arikan command is {} now too.", m.version));
             true
         }
         Err(e) => {
-            say(&format!("The mikan command stays as it is: {e:#}"));
+            say(&format!("The Arikan command stays as it is: {e:#}"));
             false
         }
     }
@@ -1182,7 +1182,7 @@ mod tests {
         let old = "MIKAN_IMAGE=old-image\nMIKAN_VERSION=0.4.4\nPANEL_PORT=21355\n";
         let now = EnvFile::from_text(
             "x",
-            "MIKAN_IMAGE=new-image\nMIKAN_VERSION=0.5.0.1\nPANEL_PORT=21355\nMIKAN_POSTGRES_PASSWORD=made\nMIKAN_DATABASE_URL=postgresql://mikan:made@localhost/mikan?host=/run/postgresql\n",
+            "MIKAN_IMAGE=new-image\nMIKAN_VERSION=0.5.0.1\nPANEL_PORT=21355\nMIKAN_POSTGRES_PASSWORD=made\nMIKAN_DATABASE_URL=postgresql://Arikan:made@localhost/Arikan?host=/run/postgresql\n",
         );
         let env = previous_env(Path::new("/opt/mikan"), &now, old).unwrap();
         assert_eq!(env.render(), format!("{old}MIKAN_POSTGRES_PASSWORD=made\n"));
@@ -1481,7 +1481,7 @@ mod tests {
         assert!(got.fallback.is_some() && got.newest.is_none());
         for upto in ["0.5.0.3", "0.5.0.1.1", "0.6.0.0"] {
             let err = release::find_upto_with("0.5.0.1", Channel::Stable, upto, &key, &fetch).unwrap_err();
-            assert!(format!("{err:#}").contains("not the mikan"), "{upto}: {err:#}");
+            assert!(format!("{err:#}").contains("not the Arikan"), "{upto}: {err:#}");
         }
         // an index that is there but says nothing of the release is a refusal, not a reason to look elsewhere
         let files = signed_files(&signer, &["0.5.0.2"], r#"{"schema":1,"releases":[]}"#);
@@ -1557,7 +1557,7 @@ mod tests {
         };
         for v in releases {
             let body = format!(
-                r#"{{"version":"{v}","published":"2026-10-04T10:00:00Z","image":"ghcr.io/o0hhs/mikan","digest":"sha256:{}","installer":{{}}}}"#,
+                r#"{{"version":"{v}","published":"2026-10-04T10:00:00Z","image":"ghcr.io/o0hhs/arikan","digest":"sha256:{}","installer":{{}}}}"#,
                 "a".repeat(64)
             );
             put(format!("https://github.com/{}/releases/download/v{v}/manifest.json", release::REPO), body.into_bytes());

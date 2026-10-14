@@ -2,7 +2,7 @@
 //! as their own compose project so panel updates never touch them. Payment adapters speak
 //! protocol 1; bots, pages and the rest protocol 2, which also gives them a token to call the
 //! panel's API for addons. The panel has no Docker socket: it asks through files in its data
-//! directory (internal/panel/addons), and `mikan update --requested` hands the requests here.
+//! directory (internal/panel/addons), and `arikan update --requested` hands the requests here.
 //!
 //!   addons/requests/<seq>-<id>.json  the panel: {"action": "install" | "remove", "id", "at"},
 //!                        for an addon of the admin's own also "source" (custom | external)
@@ -62,7 +62,7 @@ const REQUESTS_PER_RUN: usize = 64;
 const COMPOSE_DIR: &str = "/opt/mikan/addons";
 /// The state root trusts: the panel cannot see or change it.
 const ROOT_STATE: &str = "/opt/mikan/addons/state.json";
-/// What `mikan addon load` took: digest → the image ID to run it by. root's own.
+/// What `Arikan addon load` took: digest → the image ID to run it by. root's own.
 const LOADED: &str = "/opt/mikan/addons/loaded.json";
 const PROJECT: &str = "mikan-addons";
 /// The bridge network of custom addons, also the name of its interface (≤ 15 characters).
@@ -218,7 +218,7 @@ pub struct State {
     /// one runs, for the panel to listen there too.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub panel_api_bridge: String,
-    /// The version of mikan that wrote this state: the panel holds back what needs a newer host.
+    /// The version of Arikan that wrote this state: the panel holds back what needs a newer host.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub host_version: String,
 }
@@ -365,11 +365,11 @@ fn load_from(root_state: &Path) -> Result<State> {
     };
     let mut s: State = serde_json::from_slice(&raw).context("the adapters' state is malformed")?;
     if !s.panel_api.is_empty() && !loopback(&s.panel_api) {
-        eprintln!("mikan: the panel's API address {:?} in the state is not sound: ignored", s.panel_api);
+        eprintln!("Arikan: the panel's API address {:?} in the state is not sound: ignored", s.panel_api);
         s.panel_api.clear();
     }
     if !s.panel_api_bridge.is_empty() && !bridge_api(&s.panel_api_bridge) {
-        eprintln!("mikan: the panel's API address on the bridge {:?} in the state is not sound: ignored", s.panel_api_bridge);
+        eprintln!("Arikan: the panel's API address on the bridge {:?} in the state is not sound: ignored", s.panel_api_bridge);
         s.panel_api_bridge.clear();
     }
     for a in s.adapters.values_mut().filter(|a| a.protocol == 0) {
@@ -384,7 +384,7 @@ fn load_from(root_state: &Path) -> Result<State> {
     s.adapters.retain(|id, a| {
         let ok = sound(id, a);
         if !ok {
-            eprintln!("mikan: the adapter {id:?} in the state is not sound: ignored");
+            eprintln!("Arikan: the adapter {id:?} in the state is not sound: ignored");
         }
         ok
     });
@@ -468,7 +468,7 @@ pub fn compose_yaml(
     panel_api: &str,
     panel_api_bridge: &str,
 ) -> String {
-    let mut y = String::from("# Written by `mikan addon`: changes here are lost.\nname: mikan-addons\n\nservices:\n");
+    let mut y = String::from("# Written by `arikan addon`: changes here are lost.\nname: mikan-addons\n\nservices:\n");
     let mut bridged = false;
     for (id, a) in adapters {
         let custom = a.source == CUSTOM;
@@ -591,7 +591,7 @@ fn up(state: &mut State, say: &mut dyn FnMut(&str)) -> Result<()> {
 }
 
 /// Makes sure the engine has the addon's image, since compose never pulls: there already,
-/// loaded by `mikan addon load`, or pulled now. Gives the ID to run a loaded image by where
+/// loaded by `Arikan addon load`, or pulled now. Gives the ID to run a loaded image by where
 /// the engine keeps no digest for it (the classic image store); None runs image@digest.
 fn fetch(a: &Installed, say: &mut dyn FnMut(&str)) -> Result<Option<String>> {
     let reference = format!("{}@{}", a.image, a.digest);
@@ -634,7 +634,7 @@ fn bridge() -> Result<Ipv4Addr> {
 fn parse_network(s: &str) -> Result<Ipv4Addr> {
     let mut words = s.split_whitespace();
     if words.next() != Some("bridge") || words.next() != Some("false") {
-        bail!("the network {NETWORK} is not mikan's (a bridge without traffic between its containers): docker network rm {NETWORK}");
+        bail!("the network {NETWORK} is not Arikan's (a bridge without traffic between its containers): docker network rm {NETWORK}");
     }
     words
         .filter_map(|w| w.parse::<Ipv4Addr>().ok())
@@ -679,7 +679,7 @@ fn delete_args(door: Door) -> Vec<String> {
     args
 }
 
-/// What an admin types to open the door by hand (mikan doctor).
+/// What an admin types to open the door by hand (arikan doctor).
 pub fn allow_command(door: Door) -> String {
     format!("ufw {}", allow_args(door).join(" "))
 }
@@ -730,7 +730,7 @@ fn firewall_plan(have: &[Door], want: Option<Door>) -> Vec<Vec<String>> {
 
 /// Opens the panel's API on the bridge in ufw while a custom addon runs (panel_api_bridge is
 /// set), closes it when none does, and replaces it when the gateway or the port moved. Does
-/// nothing without an active ufw, or when the install keeps mikan out of it (MIKAN_UFW=0).
+/// nothing without an active ufw, or when the install keeps Arikan out of it (MIKAN_UFW=0).
 /// A rule that cannot be made is told, not fatal: the addons run and only cannot call the
 /// panel, which doctor says.
 fn sync_firewall(panel_api_bridge: &str, say: &mut dyn FnMut(&str)) {
@@ -1221,8 +1221,8 @@ fn remember_loaded(digest: &str, id: &str) -> Result<()> {
     panelfs::write_root(Path::new(LOADED), serde_json::to_string_pretty(&m)?.as_bytes())
 }
 
-/// `mikan addon load <tar>`: an addon's image from an archive (`docker save image@digest`;
-/// the mikan release carries the official bot's) for a server that cannot reach the registry.
+/// `Arikan addon load <tar>`: an addon's image from an archive (`docker save image@digest`;
+/// the Arikan release carries the official bot's) for a server that cannot reach the registry.
 /// Taken only when the archive's index.json names the digest the signed catalog pins.
 pub fn load(tar: &Path, id: Option<&str>, panel: &str, say: &mut dyn FnMut(&str)) -> Result<()> {
     if let Some(id) = id
@@ -1250,7 +1250,7 @@ pub fn load(tar: &Path, id: Option<&str>, panel: &str, say: &mut dyn FnMut(&str)
     Ok(())
 }
 
-/// `mikan addon list`: what runs here and what the marketplace offers.
+/// `Arikan addon list`: what runs here and what the marketplace offers.
 pub fn list(panel: &str) -> Result<()> {
     let state = load_state()?;
     if state.adapters.is_empty() {
@@ -1278,7 +1278,7 @@ pub fn list(panel: &str) -> Result<()> {
     Ok(())
 }
 
-/// Stops every adapter (mikan uninstall, a restore); the state stays with the data.
+/// Stops every adapter (arikan uninstall, a restore); the state stays with the data.
 pub fn down() {
     if Path::new(COMPOSE_DIR).join("compose.yml").exists() {
         let _ = compose(&["down", "--remove-orphans"]);
@@ -1287,7 +1287,7 @@ pub fn down() {
     sync_firewall("", &mut crate::out);
 }
 
-/// The bridge goes with mikan (mikan uninstall), after the addons are down.
+/// The bridge goes with Arikan (arikan uninstall), after the addons are down.
 pub fn drop_network() {
     let _ = crate::system::succeeds("docker", &["network", "rm", NETWORK]);
 }
@@ -2003,7 +2003,7 @@ fe80::1 21355/tcp on mikan-addons ALLOW       Anywhere (v6)
         assert!(!loopback("127.0.0.1:+8080") && !loopback("127.0.0.1:08080") && loopback("127.0.0.1:8080"));
     }
 
-    // A network called mikan-addons is used only when it is the bridge mikan makes.
+    // A network called mikan-addons is used only when it is the bridge Arikan makes.
     #[test]
     fn the_bridge_network() {
         assert_eq!(parse_network("bridge false 172.18.0.1 \n").unwrap(), Ipv4Addr::new(172, 18, 0, 1));
@@ -2117,7 +2117,7 @@ fe80::1 21355/tcp on mikan-addons ALLOW       Anywhere (v6)
         (tar, top, config)
     }
 
-    // `mikan addon load` takes an archive only for the digest the signed catalog pins, and
+    // `Arikan addon load` takes an archive only for the digest the signed catalog pins, and
     // only when every link from that digest to the config hashes right.
     #[test]
     fn an_archive_is_checked_against_the_catalog() {

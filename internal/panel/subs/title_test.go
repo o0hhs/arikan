@@ -75,8 +75,8 @@ func TestFileName(t *testing.T) {
 		"Mikan · Вася":   "Mikan · Вася",
 		"VPN/RU: 30 дн.": "VPN RU  30 дн.",
 		`a\b*c?"d"<e>|`:  "a b c  d  e",
-		" \t\n":          "mikan",
-		"":               "mikan",
+		" \t\n":          "arikan",
+		"":               "arikan",
 	} {
 		if got := fileName(in); got != want {
 			t.Errorf("fileName(%q) = %q, want %q", in, got, want)

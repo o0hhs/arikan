@@ -1,15 +1,15 @@
-// mikan-release makes the signed manifest of a release and the signed release index (used
+// arikan-release makes the signed manifest of a release and the signed release index (used
 // by .github/workflows/release.yml), checks a manifest against what the clients in the
 // field read (legacy.go), and makes the release signing key.
 //
-//	mikan-release keygen -out release-signing.pem
-//	RELEASE_SIGNING_KEY="$(cat key.pem)" mikan-release manifest -version 0.3.9 \
-//	    -image ghcr.io/o0hhs/mikan -digest sha256:… \
-//	    -asset x86_64=dist/mikan-x86_64 -asset aarch64=dist/mikan-aarch64 \
+//	arikan-release keygen -out release-signing.pem
+//	RELEASE_SIGNING_KEY="$(cat key.pem)" arikan-release manifest -version 0.3.9 \
+//	    -image ghcr.io/o0hhs/arikan -digest sha256:… \
+//	    -asset x86_64=dist/arikan-x86_64 -asset aarch64=dist/arikan-aarch64 \
 //	    -min-installer-file .github/min-installer -out dist
-//	mikan-release verify dist/manifest.json
-//	mikan-release legacy-check dist/manifest.json
-//	RELEASE_SIGNING_KEY="$(cat key.pem)" mikan-release index -version 0.5.0.1 \
+//	arikan-release verify dist/manifest.json
+//	arikan-release legacy-check dist/manifest.json
+//	RELEASE_SIGNING_KEY="$(cat key.pem)" arikan-release index -version 0.5.0.1 \
 //	    -from-file .github/upgrade-from -in updates/index.json -out dist
 package main
 
@@ -98,6 +98,14 @@ var (
 	architectures = []string{"x86_64", "aarch64"}
 	languages     = []string{"en", "ru"}
 )
+
+// forkNotice opens every release description: what this product is and is not. The
+// upstream notice terms (NOTICE.md, section 7(c)) want a modified version marked as
+// changed and as different from the original wherever it presents itself.
+const forkNotice = "> **Arikan** — неофициальный форк [mikan](https://github.com/Miroshka000/mikan). " +
+	"Не связан с проектом mikan и не поддерживается им. Поддержка — только у автора форка.\n>\n" +
+	"> **Arikan** is an unofficial fork of [mikan](https://github.com/Miroshka000/mikan). " +
+	"Not affiliated with or supported by the mikan project. Support comes only from the fork's author."
 
 // readVersionFile reads a version from a file the release workflow passes on every
 // release (the minimum installer, the lowest version to update from): absent or holding
@@ -214,7 +222,8 @@ func makeManifest(args []string) error {
 	if err := os.MkdirAll(*out, 0o755); err != nil {
 		return err
 	}
-	notes := m.Notes["en"]
+	// Every release description says what this build is: an unofficial fork, on its own.
+	notes := forkNotice + "\n\n" + m.Notes["en"]
 	if ru := m.Notes["ru"]; ru != "" {
 		notes += "\n\n<details><summary>Русский</summary>\n\n" + ru + "\n\n</details>"
 	}

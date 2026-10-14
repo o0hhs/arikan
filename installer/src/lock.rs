@@ -16,9 +16,9 @@ use std::time::Duration;
 
 use anyhow::{Context, Result};
 
-pub const FILE: &str = "/run/mikan.lock";
+pub const FILE: &str = "/run/arikan.lock";
 
-/// Set for the child of a process that holds the lock, which is only ever mikan itself
+/// Set for the child of a process that holds the lock, which is only ever Arikan itself
 /// (the new installer after an update): it works under its parent's lock.
 pub const HELD_ENV: &str = "MIKAN_LOCK_HELD";
 
@@ -71,7 +71,7 @@ pub fn acquire_at(path: &Path, wait: Wait, say: &mut dyn FnMut(&str)) -> Result<
                 Err(TryLockError::WouldBlock) if wait == Wait::Skip => return Ok(None),
                 Err(TryLockError::WouldBlock) => {
                     if !told {
-                        say("Another mikan operation is running: waiting for it to finish.");
+                        say("Another Arikan operation is running: waiting for it to finish.");
                         told = true;
                     }
                     thread::sleep(Duration::from_secs(1));

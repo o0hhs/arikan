@@ -15,7 +15,7 @@ func manifest(t *testing.T) []byte {
 	t.Helper()
 	data, err := json.Marshal(Manifest{
 		Version: "0.3.9", Published: time.Unix(1_800_000_000, 0).UTC(),
-		Image: "ghcr.io/o0hhs/mikan", Digest: "sha256:" + strings.Repeat("ab", 32),
+		Image: "ghcr.io/o0hhs/arikan", Digest: "sha256:" + strings.Repeat("ab", 32),
 		Installer: map[string]Asset{"x86_64": {URL: "https://example.com/mikan-x86_64", SHA256: strings.Repeat("cd", 32)}},
 		Notes:     map[string]string{"en": "- faster", "ru": "- быстрее"},
 	})
@@ -34,7 +34,7 @@ func TestParse(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if m.Ref() != "ghcr.io/o0hhs/mikan@sha256:"+strings.Repeat("ab", 32) || m.Notes["ru"] != "- быстрее" {
+	if m.Ref() != "ghcr.io/o0hhs/arikan@sha256:"+strings.Repeat("ab", 32) || m.Notes["ru"] != "- быстрее" {
 		t.Fatalf("manifest: %+v", m)
 	}
 
@@ -86,9 +86,9 @@ func TestParseImageAndInstallers(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, image := range []string{
-		"ghcr.io/o0hhs/mikan-node", "ghcr.io/o0hhs/tools/mikan_x.1",
+		"ghcr.io/o0hhs/arikan-node", "ghcr.io/o0hhs/tools/mikan_x.1",
 	} {
-		if err := accept([]byte(strings.Replace(good, "ghcr.io/o0hhs/mikan", image, 1))); err != nil {
+		if err := accept([]byte(strings.Replace(good, "ghcr.io/o0hhs/arikan", image, 1))); err != nil {
 			t.Errorf("%s: %v", image, err)
 		}
 	}
@@ -97,7 +97,7 @@ func TestParseImageAndInstallers(t *testing.T) {
 		"ghcr.io/o0hhs/../x", "ghcr.io/o0hhs/Mikan", "ghcr.io/o0hhs/mi kan", "ghcr.io/o0hhs/m$x",
 		`ghcr.io/o0hhs/m\nx`, "ghcr.io/miroshka0001/mikan", "ghcr.io/mikan",
 	} {
-		if accept([]byte(strings.Replace(good, "ghcr.io/o0hhs/mikan", image, 1))) == nil {
+		if accept([]byte(strings.Replace(good, "ghcr.io/o0hhs/arikan", image, 1))) == nil {
 			t.Errorf("image %q accepted", image)
 		}
 	}

@@ -1,16 +1,20 @@
 import clsx from "clsx";
 import { useEffect, useState } from "react";
 import logo from "../assets/logo.webp";
+import { usePerf } from "../lib/perf";
 
 /**
  * The backdrop behind the glass, "dawn": warm light from the left — mandarin, rose,
  * honey — and cool from the right — lilac, sky. The two drift apart slowly; paper grain
- * on top. `calm` keeps it still (the subscription page, see .atmo.calm in app.css).
+ * on top. `calm` keeps it still (the subscription page, see .atmo.calm in app.css); the
+ * performance mode keeps its own: with the blurred glass over drifting glows the browser
+ * redraws every card every frame, which is what weak devices cannot afford.
  */
 export function Atmosphere({ calm }: { calm?: boolean }) {
   const idle = useIdle();
+  const [perf] = usePerf();
   return (
-    <div className={clsx("atmo", calm && "calm", idle && "idle")} aria-hidden>
+    <div className={clsx("atmo", (calm || perf) && "calm", idle && "idle")} aria-hidden>
       <span className="glow glow-warm" />
       <span className="glow glow-cool" />
       <span className="pattern" />

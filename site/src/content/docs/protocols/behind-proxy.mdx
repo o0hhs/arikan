@@ -22,14 +22,14 @@ description: Протоколы за nginx stream или HAProxy на одном
 
 ```nginx
 stream {
-    map $ssl_preread_server_name $mikan {
+    map $ssl_preread_server_name $Arikan {
         www.microsoft.com  127.0.0.1:444;   # VLESS · REALITY, сайт маскировки
         default            127.0.0.1:4430;  # ваш сайт
     }
     server {
         listen 443;
         ssl_preread on;
-        proxy_pass $mikan;
+        proxy_pass $Arikan;
     }
 }
 ```

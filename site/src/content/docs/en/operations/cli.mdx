@@ -1,52 +1,52 @@
 ---
-title: The mikan command
-description: Reference for the mikan server management command.
+title: The Arikan command
+description: Reference for the Arikan server management command.
 ---
 
-Running `mikan` with no arguments opens a menu in the terminal: status, updates, logs, access, REALITY sites, nodes, backups. The same actions are available as commands. Run them as root.
+Running `Arikan` with no arguments opens a menu in the terminal: status, updates, logs, access, REALITY sites, nodes, backups. The same actions are available as commands. Run them as root.
 
 ## Server
 
 | Command | What it does |
 |---|---|
-| `mikan status` | containers, CPU and memory, panel state, available update |
-| `mikan doctor` | check the panel's or node's server, a hint on every line, see below |
-| `mikan logs [panel\|node]` | live logs, <kbd>Ctrl</kbd>+<kbd>C</kbd> stops |
-| `mikan restart` | restart the containers |
-| `mikan update [--check]` | update now, a backup first, rollback on failure. `--check` only checks |
-| `mikan install [flags]` | install; on an installed server it opens the menu |
-| `mikan uninstall [-y]` | stop and remove the command, data stays in `/opt/mikan` |
+| `arikan status` | containers, CPU and memory, panel state, available update |
+| `arikan doctor` | check the panel's or node's server, a hint on every line, see below |
+| `arikan logs [panel\|node]` | live logs, <kbd>Ctrl</kbd>+<kbd>C</kbd> stops |
+| `arikan restart` | restart the containers |
+| `arikan update [--check]` | update now, a backup first, rollback on failure. `--check` only checks |
+| `arikan install [flags]` | install; on an installed server it opens the menu |
+| `arikan uninstall [-y]` | stop and remove the command, data stays in `/opt/mikan` |
 
-`mikan doctor` works on a panel's server and on a node's server. It checks Docker and the containers, that the ports are listening, ufw rules for the node API port, the panel port and the protocol ports, time sync (`timedatectl` and the HTTP Date header from github.com, 30 s tolerance), DNS, outbound HTTPS to github.com and ghcr.io (needed for updates), disk (✗ under 500 MiB, ! under 2 GiB) and memory. On a node it also re-sends the hello to the panel and prints the result. Each line is marked ✓, ! or ✗ and has a fix line; if anything is ✗, the command exits with a non-zero code. `mikan status` suggests `mikan doctor` when something is wrong. This is the tool for when the panel cannot reach the node at all. The same set of checks for the panel's server is in the panel itself: the "Check server" button in **Settings → System**.
+`arikan doctor` works on a panel's server and on a node's server. It checks Docker and the containers, that the ports are listening, ufw rules for the node API port, the panel port and the protocol ports, time sync (`timedatectl` and the HTTP Date header from github.com, 30 s tolerance), DNS, outbound HTTPS to github.com and ghcr.io (needed for updates), disk (✗ under 500 MiB, ! under 2 GiB) and memory. On a node it also re-sends the hello to the panel and prints the result. Each line is marked ✓, ! or ✗ and has a fix line; if anything is ✗, the command exits with a non-zero code. `arikan status` suggests `arikan doctor` when something is wrong. This is the tool for when the panel cannot reach the node at all. The same set of checks for the panel's server is in the panel itself: the "Check server" button in **Settings → System**.
 
 ## Access
 
 | Command | What it does |
 |---|---|
-| `mikan url` | the panel link and login |
-| `mikan reset-password` | a new administrator password, all sessions and API keys are revoked |
-| `mikan reset-path` | a new secret link, the old one stops working |
-| `mikan disable-2fa` | turn off 2FA if the phone is lost |
+| `arikan url` | the panel link and login |
+| `arikan reset-password` | a new administrator password, all sessions and API keys are revoked |
+| `arikan reset-path` | a new secret link, the old one stops working |
+| `arikan disable-2fa` | turn off 2FA if the phone is lost |
 
 ## Backups
 
 | Command | What it does |
 |---|---|
-| `mikan backup` | a backup into `/opt/mikan/backups` |
-| `mikan restore FILE [-y] [--no-db-snapshot]` | restore from a backup, see [Backups](/mikanaddons/en/operations/backups/) |
+| `arikan backup` | a backup into `/opt/mikan/backups` |
+| `arikan restore FILE [-y] [--no-db-snapshot]` | restore from a backup, see [Backups](/arikan/en/operations/backups/) |
 
 ## Nodes and connections
 
 | Command | What it does |
 |---|---|
-| `mikan node list` | the panel's nodes |
-| `mikan node add --name NAME --host IP [--domain D] [--api-port P]` | add a node and get a key |
-| `mikan node key NODE` | a new node key, the old one stops working |
-| `mikan node set NODE [--name] [--host] [--domain] [--enabled=true\|false]` | change a node |
-| `mikan join [KEY] [--panel-ip IP]` | on a node: accept a new key from the panel |
-| `mikan inbound list` | connections |
-| `mikan inbound add PRESET [--port PORT] [--node N]` | add a connection; without a preset it shows the list |
-| `mikan inbound set NAME --port PORT [--node N]` | change the port, keys and masking stay |
+| `arikan node list` | the panel's nodes |
+| `arikan node add --name NAME --host IP [--domain D] [--api-port P]` | add a node and get a key |
+| `arikan node key NODE` | a new node key, the old one stops working |
+| `arikan node set NODE [--name] [--host] [--domain] [--enabled=true\|false]` | change a node |
+| `arikan join [KEY] [--panel-ip IP]` | on a node: accept a new key from the panel |
+| `arikan inbound list` | connections |
+| `arikan inbound add PRESET [--port PORT] [--node N]` | add a connection; without a preset it shows the list |
+| `arikan inbound set NAME --port PORT [--node N]` | change the port, keys and masking stay |
 
 The panel's own node has number 1, and its address and domain are changed in the panel settings.
 
@@ -54,18 +54,18 @@ The panel's own node has number 1, and its address and domain are changed in the
 
 | Command | What it does |
 |---|---|
-| `mikan cert set --cert fullchain.pem --key privkey.pem [--node N]` | your own certificate for the panel or a node |
-| `mikan cert show [--node N]` | what is installed now |
-| `mikan cert clear [--node N]` | go back to the automatic certificate (for a node: self-signed) |
-| `mikan cert proxy <domain>` | nginx or Caddy holds port 80: pass the certificate authority's checks through it to the panel or node (the rule is backed up, the config tested and reloaded) |
+| `arikan cert set --cert fullchain.pem --key privkey.pem [--node N]` | your own certificate for the panel or a node |
+| `arikan cert show [--node N]` | what is installed now |
+| `arikan cert clear [--node N]` | go back to the automatic certificate (for a node: self-signed) |
+| `arikan cert proxy <domain>` | nginx or Caddy holds port 80: pass the certificate authority's checks through it to the panel or node (the rule is backed up, the config tested and reloaded) |
 
 ## REALITY masking sites
 
 | Command | What it does |
 |---|---|
-| `mikan targets scan [--node N] [--json]` | find suitable sites near the server |
-| `mikan targets check --dest HOST:PORT [--sni NAME]` | check a site |
-| `mikan targets apply --dest HOST:PORT [--sni NAME] (--all \| --inbound NAME) [--force]` | set the site for all connections or for one |
+| `arikan targets scan [--node N] [--json]` | find suitable sites near the server |
+| `arikan targets check --dest HOST:PORT [--sni NAME]` | check a site |
+| `arikan targets apply --dest HOST:PORT [--sni NAME] (--all \| --inbound NAME) [--force]` | set the site for all connections or for one |
 
 For an IP address in `--dest`, `--sni` is required. The site is checked before it is applied, and `--force` skips the check.
 
@@ -73,6 +73,6 @@ For an IP address in `--dest`, `--sni` is required. The site is checked before i
 
 | Command | What it does |
 |---|---|
-| `mikan addon list` | what is running and what is in the catalog |
-| `mikan addon install ID` | install or update an adapter |
-| `mikan addon remove ID` | stop and remove, settings and payments in the panel stay |
+| `arikan addon list` | what is running and what is in the catalog |
+| `arikan addon install ID` | install or update an adapter |
+| `arikan addon remove ID` | stop and remove, settings and payments in the panel stay |

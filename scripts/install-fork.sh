@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 #
-# mikan-форк: одна команда вместо прежней, переход с обычного mikan на форк без потерь.
+# Arikan: одна команда вместо прежней, переход с обычного mikan на этот форк без потерь.
 #
-#   curl -fsSL https://raw.githubusercontent.com/o0hhs/mikanaddons/main/scripts/install-fork.sh \
-#     | sudo bash -s -- --image ghcr.io/o0hhs/mikan:0.5.99.99
+#   curl -fsSL https://raw.githubusercontent.com/o0hhs/arikan/main/scripts/install-fork.sh \
+#     | sudo bash -s -- --image ghcr.io/o0hhs/arikan:0.5.99.99
 #
 # Что он делает и почему так:
 #
@@ -20,7 +20,7 @@
 #     стартовать («schema 17 is newer than this binary supports»).
 #
 #   * Автообновление больше не опасно: адрес релизов этого форка (internal/release/release.go,
-#     Repo = o0hhs/mikanaddons) и его ключ подписи свои, поэтому панель ищет обновления у нас,
+#     Repo = o0hhs/arikan) и его ключ подписи свои, поэтому панель ищет обновления у нас,
 #     а не у апстрима, и сама себя на обычный mikan не заменит. Скрипт, напротив, оставляет
 #     обновления включёнными; версию форка он всё равно сверяет и предупреждает, если она не
 #     новее стоящей.
@@ -99,7 +99,7 @@ usage() {
   cat <<'EOF'
 
 Ключи:
-  --image ОБРАЗ          образ форка (или FORK_IMAGE=... в окружении)
+  --image ОБРАЗ          образ Arikan (или FORK_IMAGE=... в окружении)
   --rollback АРХИВ        вернуться на обычный mikan из копии базы
   --dry-run              ничего не менять, только показать
   --trace                показать каждую команду (когда нужно понять, где оно встало)
@@ -107,7 +107,7 @@ usage() {
                          апстримным адресом релизов; в актуальной сборке оно своё и не опасно)
   --yes                  не спрашивать подтверждения
 Примеры:
-  curl -fsSL <url> | sudo bash -s -- --image ghcr.io/o0hhs/mikan:0.5.99.99
+  curl -fsSL <url> | sudo bash -s -- --image ghcr.io/o0hhs/arikan:0.5.99.99
   curl -fsSL <url> | sudo bash -s -- --rollback /opt/mikan/data/panel/backup-*.dump
 EOF
 }
@@ -239,7 +239,7 @@ if [ ! -f "$MIKAN_DIR/compose.yaml" ]; then
 
 mikan не найден в $MIKAN_DIR.
 
-Форк — это тот же mikan, только с реферальной программой, поэтому с нуля его ставят так же,
+Arikan — это тот же mikan, только с реферальной программой, поэтому с нуля его ставят так же,
 как обычный mikan, а потом переключают образ:
 
   1) установка обычного mikan (Docker, файрвол, compose, панель):
@@ -356,7 +356,7 @@ STOCK_VERSION=$(dc exec -T panel mikan version 2>/dev/null | tr -d '[:space:]' |
 FORK_VERSION=$(docker run --rm --entrypoint mikan "$FORK_IMAGE" version 2>/dev/null | tr -d '[:space:]' || true)
 ok "сейчас ${STOCK_VERSION:-?}, в форке ${FORK_VERSION:-?}"
 if [ -n "$STOCK_VERSION" ] && [ -n "$FORK_VERSION" ] && ! newer_than "$FORK_VERSION" "$STOCK_VERSION"; then
-  warn "версия форка не новее стоящей — такую сборку панель не предложит обновить себе"
+  warn "версия Arikan не новее стоящей — такую сборку панель не предложит обновить себе"
   warn "пересобери образ: docker buildx build --build-arg VERSION=0.5.99.99 -t <образ> . && docker push <образ>"
 fi
 if [ "$DISABLE_AUTO_UPDATE" = 1 ]; then
@@ -365,7 +365,7 @@ if [ "$DISABLE_AUTO_UPDATE" = 1 ]; then
   switch_off auto_update || ok "автообновление выключено"
   switch_off nodes_follow_panel || ok "автообновление нод выключено"
 else
-  info "автообновление оставлено включённым: у этой сборки адрес релизов и ключ свои (o0hhs/mikanaddons)"
+  info "автообновление оставлено включённым: у этой сборки адрес релизов и ключ свои (o0hhs/arikan)"
 fi
 
 step "4/7. Резервная копия"
@@ -434,7 +434,7 @@ cat <<EOF
 
   Включить программу: Панель → Платежи → Рефералы (тумблер, правила, тарифы).
   Метки кампаний: ссылка вида t.me/<бот>?start=camp_<метка>; статистика на той же странице.
-  Обновления: панель сама смотрит релизы o0hhs/mikanaddons; обновить можно кнопкой или `mikan update`.
+  Обновления: панель сама смотрит релизы o0hhs/arikan; обновить можно кнопкой или `arikan update`.
   Откат: та же команда с --rollback $BACKUP_NAME
 
   Образ прежней версии  $OLD_IMAGE

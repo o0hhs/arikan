@@ -460,7 +460,7 @@ func panelURL(ctx context.Context, set *settings.Settings) (string, error) {
 		return "", err
 	}
 	if ep.URL() == "" || p.Admin == "" {
-		return "", errors.New("the panel is not set up: run `mikan admin bootstrap`")
+		return "", errors.New("the panel is not set up: run `arikan admin bootstrap`")
 	}
 	return ep.URL() + "/" + p.Admin + "/", nil
 }

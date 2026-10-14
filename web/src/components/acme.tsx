@@ -53,7 +53,7 @@ export function AcmeProblem({
   className?: string;
 }) {
   const text = tMaybe(`errors.acme.${code}`) ?? t("errors.acme.acme_failed");
-  // mikan configures nginx and Caddy itself; another program on port 80 it cannot.
+  // Arikan configures nginx and Caddy itself; another program on port 80 it cannot.
   const proxy = host && (code === "port80_busy" || code === "port80_foreign") && (!holder || PROXIES.has(holder.toLowerCase()));
   return (
     <div className={className} role="alert">
@@ -62,7 +62,7 @@ export function AcmeProblem({
       {retryAt ? <p className="mt-1 text-xs text-[var(--ink-600)]">{t("certs.retryAt", { at: when(retryAt) })}</p> : null}
       {proxy ? (
         <>
-          <CommandToCopy command={`mikan cert proxy ${host}`} label={t(node ? "certs.proxyOnNode" : "certs.proxyOnServer")} />
+          <CommandToCopy command={`arikan cert proxy ${host}`} label={t(node ? "certs.proxyOnNode" : "certs.proxyOnServer")} />
           <p className="mt-1 text-xs text-[var(--ink-500)]">{t("certs.proxyNote")}</p>
         </>
       ) : null}
@@ -71,7 +71,7 @@ export function AcmeProblem({
   );
 }
 
-/** Web servers on port 80 `mikan cert proxy` adds its rule to (openresty is nginx). */
+/** Web servers on port 80 `arikan cert proxy` adds its rule to (openresty is nginx). */
 const PROXIES = new Set(["nginx", "openresty", "caddy"]);
 
 type Attempt = Schemas["Attempt"];

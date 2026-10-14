@@ -132,12 +132,12 @@ mod tests {
 
     #[test]
     fn keeps_unknown_lines_and_order() {
-        let mut e = EnvFile::parse("x".into(), "MIKAN_IMAGE=mikan:0.3.8\n# note\nPANEL_PORT=21355\nMIKAN_UFW=1\n");
-        assert_eq!(e.get("MIKAN_IMAGE"), Some("mikan:0.3.8"));
+        let mut e = EnvFile::parse("x".into(), "MIKAN_IMAGE=Arikan:0.3.8\n# note\nPANEL_PORT=21355\nMIKAN_UFW=1\n");
+        assert_eq!(e.get("MIKAN_IMAGE"), Some("Arikan:0.3.8"));
         assert_eq!(e.get("MIKAN"), None);
-        e.set("MIKAN_IMAGE", "ghcr.io/o0hhs/mikan@sha256:abc").unwrap();
+        e.set("MIKAN_IMAGE", "ghcr.io/o0hhs/arikan@sha256:abc").unwrap();
         e.set("MIKAN_VERSION", "0.3.9").unwrap();
-        assert_eq!(e.render(), "MIKAN_IMAGE=ghcr.io/o0hhs/mikan@sha256:abc\n# note\nPANEL_PORT=21355\nMIKAN_UFW=1\nMIKAN_VERSION=0.3.9\n");
+        assert_eq!(e.render(), "MIKAN_IMAGE=ghcr.io/o0hhs/arikan@sha256:abc\n# note\nPANEL_PORT=21355\nMIKAN_UFW=1\nMIKAN_VERSION=0.3.9\n");
         assert!(e.set("X", "a\nb").is_err());
     }
 
@@ -146,7 +146,7 @@ mod tests {
     #[test]
     fn values_compose_reads_as_written() {
         let mut e = EnvFile::parse("x".into(), "");
-        for ok in ["ghcr.io/o0hhs/mikan@sha256:ab12", "0.4.4-rc.1+b2", "mikan1.AbC_-9", "21355", ""] {
+        for ok in ["ghcr.io/o0hhs/arikan@sha256:ab12", "0.4.4-rc.1+b2", "mikan1.AbC_-9", "21355", ""] {
             e.set("K", ok).unwrap();
         }
         for bad in ["a$HOME", "${X}", "a b", "a #b", "\"q\"", "'q'", "a`b", "a\\b", "a;b", "a\nb", "img?x=1", "a&b", "a%20b"] {
@@ -160,7 +160,7 @@ mod tests {
     fn the_dsn_takes_its_query_and_nothing_compose_reinterprets() {
         let mut e = EnvFile::parse("x".into(), "");
         for ok in
-            ["postgresql://mikan:Ab9@localhost/mikan?host=/run/postgresql", "postgres://u:p%40ss@h/db?sslmode=require&connect_timeout=10"]
+            ["postgresql://arikan:Ab9@localhost/arikan?host=/run/postgresql", "postgres://u:p%40ss@h/db?sslmode=require&connect_timeout=10"]
         {
             e.set("MIKAN_DATABASE_URL", ok).unwrap();
             assert_eq!(e.get("MIKAN_DATABASE_URL"), Some(ok));

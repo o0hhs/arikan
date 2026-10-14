@@ -11,7 +11,7 @@ import (
 )
 
 // selfDump makes a database backup the way the host's own backups do: by running this
-// binary's `mikan database backup FILE` (pg_dump, custom format, the panel's schema). The
+// binary's `arikan database backup FILE` (pg_dump, custom format, the panel's schema). The
 // command reads MIKAN_DATABASE_URL from the panel's environment.
 func selfDump(ctx context.Context, path string) error {
 	exe, err := os.Executable()

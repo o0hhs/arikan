@@ -1,4 +1,4 @@
-//! Backups and restore. A backup is a tar.gz of what mikan keeps in /opt/mikan: .env,
+//! Backups and restore. A backup is a tar.gz of what Arikan keeps in /opt/mikan: .env,
 //! compose.yaml, a consistent copy of the panel's database, its certificates and the node's
 //! data. It holds every secret of the server, so it is born private: the directory is 0700
 //! and the archive is created 0600 before tar writes a byte into it.
@@ -23,7 +23,7 @@ use crate::ops::Install;
 use crate::panelfs::{self, Dir};
 use crate::{DIR, docker, setup, signals, system};
 
-/// The kinds of archive mikan makes on its own; the admin's are "mikan".
+/// The kinds of archive Arikan makes on its own; the admin's are "arikan".
 pub const PRE_UPDATE: &str = "pre-update";
 /// An update that moves SQLite to PostgreSQL: the archives with the original SQLite. A
 /// failed move leaves .env on PostgreSQL, so its retries are "pre-update" and can never
@@ -45,9 +45,9 @@ fn keep(kind: &str) -> Option<usize> {
 const DUMP: &str = "data/panel/backup.dump";
 const SQLITE_COPY: &str = "data/panel/backup.db";
 const RESTORE_DUMP: &str = "data/panel/restore.dump";
-const SQLITE: &str = "data/panel/mikan.db";
-const SQLITE_WAL: &str = "data/panel/mikan.db-wal";
-const SQLITE_SHM: &str = "data/panel/mikan.db-shm";
+const SQLITE: &str = "data/panel/Arikan.db";
+const SQLITE_WAL: &str = "data/panel/Arikan.db-wal";
+const SQLITE_SHM: &str = "data/panel/Arikan.db-shm";
 
 /// The name in data/panel of one of the paths above.
 fn panel_name(rel: &str) -> &str {
@@ -85,7 +85,7 @@ fn ensure_room(root: &Path, postgres: bool) -> Result<()> {
 }
 
 /// What a restore may put back, below /opt/mikan: the settings, and the data of the panel
-/// and the node. Anything else in an archive is not a mikan backup.
+/// and the node. Anything else in an archive is not a arikan backup.
 const TOP: [&str; 2] = [".env", "compose.yaml"];
 
 /// The backups' directory, private.
@@ -206,7 +206,7 @@ fn exists(root: &Path, rel: &str) -> bool {
 
 /// The backup the admin asks for.
 pub fn backup(say: &mut dyn FnMut(&str)) -> Result<PathBuf> {
-    backup_as("mikan", say)
+    backup_as("arikan", say)
 }
 
 /// A backup of the database (a consistent copy while the panel runs), certificates and
@@ -300,7 +300,7 @@ fn check_listing(names: &str, verbose: &str) -> Result<()> {
         bail!("the archive has an entry that is not a plain file or directory: {}", l.trim());
     }
     if let Some(n) = names.iter().find(|n| !allowed_name(n)) {
-        bail!("the archive has a path a mikan backup does not: {n}");
+        bail!("the archive has a path a arikan backup does not: {n}");
     }
     Ok(())
 }
@@ -375,7 +375,7 @@ fn verify_tree(dir: &Path, depth: usize) -> Result<()> {
 fn plan(stage: &Path) -> Result<Vec<(PathBuf, &'static str)>> {
     let items = plan_items(stage);
     if !items.iter().any(|(_, r)| *r == ".env") {
-        bail!("the archive has no .env: it is not a mikan backup");
+        bail!("the archive has no .env: it is not a arikan backup");
     }
     Ok(items)
 }
@@ -386,7 +386,7 @@ fn plan(stage: &Path) -> Result<Vec<(PathBuf, &'static str)>> {
 fn plan_database(stage: &Path) -> Result<Vec<(PathBuf, &'static str)>> {
     let items: Vec<_> = plan_items(stage).into_iter().filter(|(_, r)| *r == RESTORE_DUMP).collect();
     if items.is_empty() {
-        bail!("the archive has neither .env nor the panel's PostgreSQL dump: it is not a mikan backup");
+        bail!("the archive has neither .env nor the panel's PostgreSQL dump: it is not a arikan backup");
     }
     Ok(items)
 }
@@ -429,7 +429,7 @@ fn fit_to_panel(items: &mut Vec<(PathBuf, &'static str)>, archived: &mut EnvFile
     if current.get("MIKAN_DATABASE_URL").is_none() {
         items.retain(|(_, r)| *r != "compose.yaml");
         if items.iter().any(|(_, r)| *r == RESTORE_DUMP) {
-            bail!("this server still runs SQLite and the backup holds a PostgreSQL database: run mikan update first, then restore");
+            bail!("this server still runs SQLite and the backup holds a PostgreSQL database: run arikan update first, then restore");
         }
     }
     if !items.iter().any(|(_, r)| [SQLITE, RESTORE_DUMP].contains(r)) {
@@ -442,7 +442,7 @@ fn fit_to_panel(items: &mut Vec<(PathBuf, &'static str)>, archived: &mut EnvFile
         && !crate::release::moves_sqlite(version)
     {
         bail!(
-            "this backup is of mikan 0.4 (SQLite), and mikan {version} no longer moves SQLite to PostgreSQL: restore it on a server of mikan {}",
+            "this backup is of Arikan 0.4 (SQLite), and Arikan {version} no longer moves SQLite to PostgreSQL: restore it on a server of Arikan {}",
             crate::release::LAST_SQLITE_MOVE
         );
     }
@@ -604,7 +604,7 @@ pub fn restore(file: &Path, no_db_snapshot: bool, say: &mut dyn FnMut(&str)) -> 
     } else {
         if !postgres {
             bail!(
-                "the archive holds only a panel's PostgreSQL database; this server is a node or still runs SQLite (run mikan update first)"
+                "the archive holds only a panel's PostgreSQL database; this server is a node or still runs SQLite (run arikan update first)"
             );
         }
         let items = plan_database(&stage.0)?;
@@ -613,12 +613,12 @@ pub fn restore(file: &Path, no_db_snapshot: bool, say: &mut dyn FnMut(&str)) -> 
     };
 
     let _critical = signals::critical();
-    say("Stopping mikan");
+    say("Stopping Arikan");
     crate::addon::down();
     docker::compose_run(&["stop"])?;
     let again = |say: &mut dyn FnMut(&str)| {
         if let Err(e) = docker::compose_run(&["up", "-d"]) {
-            say(&format!("mikan did not start again: {e:#}"));
+            say(&format!("Arikan did not start again: {e:#}"));
         }
         if !install.node
             && let Err(e) = crate::addon::resume(say)
@@ -642,7 +642,7 @@ pub fn restore(file: &Path, no_db_snapshot: bool, say: &mut dyn FnMut(&str)) -> 
             again(say);
             let hint = if dump && postgres {
                 format!(
-                    ". If PostgreSQL itself is broken and its current data are not needed, save only the files first: mikan restore --no-db-snapshot {}",
+                    ". If PostgreSQL itself is broken and its current data are not needed, save only the files first: arikan restore --no-db-snapshot {}",
                     file.display()
                 )
             } else {
@@ -658,7 +658,7 @@ pub fn restore(file: &Path, no_db_snapshot: bool, say: &mut dyn FnMut(&str)) -> 
     }
     let started = (|| -> Result<()> {
         if postgres {
-            // The backup may carry the compose file of an older mikan: it gets the current one.
+            // The backup may carry the compose file of an older Arikan: it gets the current one.
             docker::ensure_compose(root, false)?;
             panelfs::layout(root, true)?;
             docker::postgres_ready()?;
@@ -685,7 +685,7 @@ pub fn restore(file: &Path, no_db_snapshot: bool, say: &mut dyn FnMut(&str)) -> 
     if let Err(e) = started {
         let _ = docker::compose_run(&["stop", "panel"]);
         return Err(e.context(format!(
-            "the backup is in place but mikan does not start; the data before it are in {}: mikan restore {}",
+            "the backup is in place but Arikan does not start; the data before it are in {}: arikan restore {}",
             snap.display(),
             snap.display()
         )));
@@ -740,7 +740,7 @@ mod tests {
     fn a_backup_is_private_from_its_first_byte() {
         let root = tmpdir("private");
         file(&root, ".env", "MIKAN_IMAGE=x\n");
-        file(&root, "compose.yaml", "name: mikan\n");
+        file(&root, "compose.yaml", "name: Arikan\n");
         file(&root, "data/panel/backup.db", "db");
         file(&root, "data/node/state.json", "{}");
         let dir = backups_dir(&root).unwrap();
@@ -752,12 +752,12 @@ mod tests {
         let a = pack(
             &root,
             &dir,
-            "mikan",
+            "arikan",
             &[".env".into(), "compose.yaml".into(), "data/panel/backup.db".into(), "data/node".into()],
             Squeeze::Normal,
         )
         .unwrap();
-        let b = pack(&root, &dir, "mikan", &[".env".into()], Squeeze::Fast).unwrap();
+        let b = pack(&root, &dir, "arikan", &[".env".into()], Squeeze::Fast).unwrap();
         assert_ne!(a, b, "two backups of one second must not share a name");
         assert_eq!(fs::metadata(&a).unwrap().permissions().mode() & 0o777, 0o600);
         // the archive is what restore accepts, the fast one too
@@ -765,7 +765,7 @@ mod tests {
         check_archive(&b).unwrap();
         // a failed tar leaves no file
         let before = fs::read_dir(&dir).unwrap().count();
-        assert!(pack(&root, &dir, "mikan", &["no-such-file".into()], Squeeze::Normal).is_err());
+        assert!(pack(&root, &dir, "arikan", &["no-such-file".into()], Squeeze::Normal).is_err());
         assert_eq!(fs::read_dir(&dir).unwrap().count(), before, "a broken archive stayed");
         fs::remove_dir_all(&root).unwrap();
     }
@@ -780,7 +780,7 @@ mod tests {
         file(&root, "data/node/update/status.json", r#"{"state":"running"}"#);
         file(&root, "data/node/update/request", r#"{"version":"0.5.0.2"}"#);
         let dir = backups_dir(&root).unwrap();
-        let a = pack(&root, &dir, "mikan", &[".env".into(), "data/node".into()], Squeeze::Normal).unwrap();
+        let a = pack(&root, &dir, "arikan", &[".env".into(), "data/node".into()], Squeeze::Normal).unwrap();
         let listing = Command::new("tar").arg("-tzf").arg(&a).output().unwrap();
         let names = String::from_utf8_lossy(&listing.stdout);
         assert!(names.contains("data/node/state.json"), "{names}");
@@ -794,18 +794,18 @@ mod tests {
         for n in 1..=8 {
             fs::write(dir.join(format!("pre-update-2026100{n}-000000.tar.gz")), "x").unwrap();
         }
-        fs::write(dir.join("mikan-20260101-000000.tar.gz"), "mine").unwrap();
+        fs::write(dir.join("arikan-20260101-000000.tar.gz"), "mine").unwrap();
         fs::write(dir.join("pre-restore-20260101-000000.tar.gz"), "snap").unwrap();
         // the original SQLite of the move to PostgreSQL, older than every retry after it
         fs::write(dir.join("pre-postgres-20260101-000000.tar.gz"), "sqlite").unwrap();
         prune(&dir, PRE_UPDATE);
-        prune(&dir, "mikan");
+        prune(&dir, "arikan");
         let mut left: Vec<String> = fs::read_dir(&dir).unwrap().map(|e| e.unwrap().file_name().into_string().unwrap()).collect();
         left.sort();
         assert_eq!(left.iter().filter(|n| n.starts_with("pre-update-")).count(), 5);
         assert!(left.contains(&"pre-update-20261008-000000.tar.gz".to_string()), "the newest stays");
         assert!(!left.contains(&"pre-update-20261001-000000.tar.gz".to_string()), "the oldest goes");
-        for kept in ["mikan-20260101-000000.tar.gz", "pre-restore-20260101-000000.tar.gz", "pre-postgres-20260101-000000.tar.gz"] {
+        for kept in ["arikan-20260101-000000.tar.gz", "pre-restore-20260101-000000.tar.gz", "pre-postgres-20260101-000000.tar.gz"] {
             assert!(left.contains(&kept.to_string()), "{kept}");
         }
         for n in 2..=5 {
@@ -840,13 +840,13 @@ mod tests {
         file(
             &d,
             ".env",
-            "MIKAN_DATABASE_URL=postgresql://mikan:old@localhost/mikan?host=/run/postgresql\nMIKAN_POSTGRES_PASSWORD=old\nMIKAN_IMAGE=archived\nPANEL_PORT=1\n",
+            "MIKAN_DATABASE_URL=postgresql://Arikan:old@localhost/Arikan?host=/run/postgresql\nMIKAN_POSTGRES_PASSWORD=old\nMIKAN_IMAGE=archived\nPANEL_PORT=1\n",
         );
         file(&d, "compose.yaml", "archived compose");
         file(&d, "data/panel/backup.dump", "pgdump");
         let current = EnvFile::from_text(
             "x",
-            "MIKAN_IMAGE=live\nMIKAN_VERSION=0.5.0.1\nMIKAN_POSTGRES_PASSWORD=live\nMIKAN_DATABASE_URL=postgresql://mikan:live@localhost/mikan?host=/run/postgresql\n",
+            "MIKAN_IMAGE=live\nMIKAN_VERSION=0.5.0.1\nMIKAN_POSTGRES_PASSWORD=live\nMIKAN_DATABASE_URL=postgresql://Arikan:live@localhost/Arikan?host=/run/postgresql\n",
         );
         let mut items = plan(&d).unwrap();
         let mut archived = EnvFile::load(d.join(".env")).unwrap();
@@ -861,7 +861,7 @@ mod tests {
         let sqlite = EnvFile::from_text("x", "MIKAN_IMAGE=old\nMIKAN_VERSION=0.4.4\nMIKAN_POSTGRES_PASSWORD=kept\n");
         let mut archived = EnvFile::load(d.join(".env")).unwrap();
         let err = fit_to_panel(&mut plan(&d).unwrap(), &mut archived, &sqlite).unwrap_err();
-        assert!(format!("{err}").contains("mikan update first"), "{err}");
+        assert!(format!("{err}").contains("arikan update first"), "{err}");
         fs::remove_file(d.join("data/panel/backup.dump")).unwrap();
         file(&d, "data/panel/backup.db", "sqlite copy");
         let mut items = plan(&d).unwrap();
@@ -876,7 +876,7 @@ mod tests {
         fit_to_panel(&mut plan(&d).unwrap(), &mut archived, &current).unwrap();
         let newer = EnvFile::from_text(
             "x",
-            "MIKAN_IMAGE=live\nMIKAN_VERSION=0.5.1.0\nMIKAN_POSTGRES_PASSWORD=live\nMIKAN_DATABASE_URL=postgresql://mikan:live@localhost/mikan?host=/run/postgresql\n",
+            "MIKAN_IMAGE=live\nMIKAN_VERSION=0.5.1.0\nMIKAN_POSTGRES_PASSWORD=live\nMIKAN_DATABASE_URL=postgresql://Arikan:live@localhost/Arikan?host=/run/postgresql\n",
         );
         let mut archived = EnvFile::load(d.join(".env")).unwrap();
         let err = fit_to_panel(&mut plan(&d).unwrap(), &mut archived, &newer).unwrap_err();
@@ -893,13 +893,13 @@ mod tests {
     fn a_files_only_snapshot_holds_no_stale_database() {
         let root = tmpdir("no-db");
         server(&root);
-        file(&root, ".env", "MIKAN_DATABASE_URL=postgresql://mikan:p@localhost/mikan?host=/run/postgresql\n");
+        file(&root, ".env", "MIKAN_DATABASE_URL=postgresql://Arikan:p@localhost/Arikan?host=/run/postgresql\n");
         file(&root, DUMP, "interrupted dump");
         let snap = archive_stopped(&root, PRE_RESTORE, false).unwrap();
         let out = Command::new("tar").arg("-tzf").arg(&snap).output().unwrap();
         let names = String::from_utf8_lossy(&out.stdout);
         assert!(names.lines().any(|n| n == ".env") && names.lines().any(|n| n == "data/panel/tls/stale.key"), "{names}");
-        assert!(!names.lines().any(|n| n.starts_with("data/panel/mikan.db") || n == DUMP), "{names}");
+        assert!(!names.lines().any(|n| n.starts_with("data/panel/Arikan.db") || n == DUMP), "{names}");
         fs::remove_dir_all(&root).unwrap();
     }
 
@@ -979,7 +979,7 @@ mod tests {
         file(&d, "data/panel/tls/panel.key", "k");
         let items = plan(&d).unwrap();
         let to: Vec<&str> = items.iter().map(|(_, r)| *r).collect();
-        assert!(to.contains(&"data/panel/mikan.db") && to.contains(&"data/panel/tls"), "{to:?}");
+        assert!(to.contains(&"data/panel/Arikan.db") && to.contains(&"data/panel/tls"), "{to:?}");
         fs::remove_dir_all(&d).unwrap();
     }
 
@@ -988,12 +988,12 @@ mod tests {
         let d = tmpdir("postgres-plan");
         file(&d, ".env", "MIKAN_DATABASE_URL=postgresql://x\n");
         file(&d, "data/panel/backup.dump", "pgdump");
-        file(&d, "data/panel/mikan.db", "old sqlite");
+        file(&d, "data/panel/Arikan.db", "old sqlite");
         file(&d, "addons/state.json", "{}");
         let items = plan(&d).unwrap();
         let to: Vec<&str> = items.iter().map(|(_, r)| *r).collect();
         assert!(to.contains(&"data/panel/restore.dump"));
-        assert!(!to.contains(&"data/panel/mikan.db"));
+        assert!(!to.contains(&"data/panel/Arikan.db"));
         assert!(to.contains(&"addons/state.json"));
         fs::remove_dir_all(d).unwrap();
     }
@@ -1004,21 +1004,21 @@ mod tests {
         server(&root);
         let stage = root.join("stage");
         file(&stage, ".env", "RESTORED=1\n");
-        file(&stage, "data/panel/mikan.db", "checkpointed pages");
-        file(&stage, "data/panel/mikan.db-wal", "committed payment after checkpoint");
+        file(&stage, "data/panel/Arikan.db", "checkpointed pages");
+        file(&stage, "data/panel/Arikan.db-wal", "committed payment after checkpoint");
         let items = plan(&stage).unwrap();
-        assert!(items.iter().any(|(_, to)| *to == "data/panel/mikan.db-wal"));
+        assert!(items.iter().any(|(_, to)| *to == "data/panel/Arikan.db-wal"));
         swap(&root, &items).unwrap();
-        assert_eq!(fs::read_to_string(root.join("data/panel/mikan.db-wal")).unwrap(), "committed payment after checkpoint");
-        assert_eq!(fs::read_to_string(root.join("data/panel/mikan.db")).unwrap(), "checkpointed pages");
+        assert_eq!(fs::read_to_string(root.join("data/panel/Arikan.db-wal")).unwrap(), "committed payment after checkpoint");
+        assert_eq!(fs::read_to_string(root.join("data/panel/Arikan.db")).unwrap(), "checkpointed pages");
         fs::remove_dir_all(root).unwrap();
     }
 
     fn server(root: &Path) {
         file(root, ".env", "OLD=1\n");
         file(root, "compose.yaml", "old compose");
-        file(root, "data/panel/mikan.db", "old db");
-        file(root, "data/panel/mikan.db-wal", "old wal");
+        file(root, "data/panel/Arikan.db", "old db");
+        file(root, "data/panel/Arikan.db-wal", "old wal");
         file(root, "data/panel/tls/stale.key", "stale");
         file(root, "data/panel/update/status.json", "{}");
         file(root, "data/node/old", "old node");
@@ -1037,8 +1037,8 @@ mod tests {
         swap(&root, &items).unwrap();
         assert_eq!(fs::read_to_string(root.join(".env")).unwrap(), "NEW=1\n");
         assert_eq!(fs::read_to_string(root.join("compose.yaml")).unwrap(), "old compose", "not in the backup: stays");
-        assert_eq!(fs::read_to_string(root.join("data/panel/mikan.db")).unwrap(), "new db");
-        assert!(!root.join("data/panel/mikan.db-wal").exists(), "the old database's journal is gone");
+        assert_eq!(fs::read_to_string(root.join("data/panel/Arikan.db")).unwrap(), "new db");
+        assert!(!root.join("data/panel/Arikan.db-wal").exists(), "the old database's journal is gone");
         assert!(root.join("data/panel/tls/fresh.key").exists() && !root.join("data/panel/tls/stale.key").exists(), "no stale certificate");
         assert!(root.join("data/node/new").exists() && !root.join("data/node/old").exists());
         assert!(root.join("data/panel/update/status.json").exists(), "what the backup does not hold stays");
@@ -1064,7 +1064,7 @@ mod tests {
         assert_eq!(fs::read_to_string(root.join("data/node/old")).unwrap(), "old node");
         assert!(!root.join("data/node/new").exists());
         assert_eq!(fs::read_to_string(root.join("data/panel/tls/stale.key")).unwrap(), "stale");
-        assert_eq!(fs::read_to_string(root.join("data/panel/mikan.db")).unwrap(), "old db");
+        assert_eq!(fs::read_to_string(root.join("data/panel/Arikan.db")).unwrap(), "old db");
         fs::remove_dir_all(&root).unwrap();
     }
 
@@ -1076,7 +1076,7 @@ mod tests {
         assert!(snap.starts_with(root.join("backups")));
         let out = Command::new("tar").arg("-tzf").arg(&snap).output().unwrap();
         let names = String::from_utf8_lossy(&out.stdout);
-        for want in [".env", "compose.yaml", "data/panel/mikan.db", "data/panel/mikan.db-wal", "data/panel/tls/stale.key", "data/node/old"]
+        for want in [".env", "compose.yaml", "data/panel/Arikan.db", "data/panel/Arikan.db-wal", "data/panel/tls/stale.key", "data/node/old"]
         {
             assert!(names.lines().any(|n| n == want), "{want} is not in {names}");
         }
@@ -1084,7 +1084,7 @@ mod tests {
         check_archive(&snap).unwrap();
         let stage = tmpdir("snapshot-stage");
         extract(&snap, &stage).unwrap();
-        assert!(plan(&stage).unwrap().iter().any(|(_, r)| *r == "data/panel/mikan.db"));
+        assert!(plan(&stage).unwrap().iter().any(|(_, r)| *r == "data/panel/Arikan.db"));
         fs::remove_dir_all(&stage).unwrap();
         fs::remove_dir_all(&root).unwrap();
     }

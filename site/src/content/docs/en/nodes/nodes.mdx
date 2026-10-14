@@ -16,12 +16,12 @@ A node accepts client connections, and mihomo runs inside it. One node always ru
    - **Server IP**.
    - **Domain**, optional: used instead of the IP in Hysteria2 and TUIC links, and the panel orders the node's certificate for it. Without a domain, the certificate is issued for the IP.
    - **API port**, random by default.
-   - **Name in status channel**, optional: see [Notifications](/mikanaddons/en/operations/alerts/).
+   - **Name in status channel**, optional: see [Notifications](/arikan/en/operations/alerts/).
 
 2. Click "Add and get the key". The panel shows a command with the connection key:
 
    ```bash
-   curl -fsSL https://github.com/o0hhs/mikanaddons/releases/latest/download/install.sh | sudo bash -s -- --join KEY
+   curl -fsSL https://github.com/o0hhs/arikan/releases/latest/download/install.sh | sudo bash -s -- --join KEY
    ```
 
 3. Run it as root on the node's server. The installer sets up Docker and the node and opens the ports, including 80/tcp, which is needed for the node's certificate check. Then it waits up to 75 seconds for the panel to reach the node and prints the result in the terminal, for example "✓ The panel connected to this node." If it did not work, it names the reason and the fix, for example: "✗ The panel could not reach port 31234 here: timed out. Open the port in the hoster's firewall panel; ufw: ufw allow 31234/tcp". A failed check does not fail the install.
@@ -31,14 +31,14 @@ A node accepts client connections, and mihomo runs inside it. One node always ru
 </Steps>
 
 :::caution[The key is shown once]
-The panel stores only the key's fingerprint. If you lose it, the "Change key" button in the node card menu issues a new one, and the old one stops working immediately. On the node's server, the new key is accepted by `mikan join KEY`.
+The panel stores only the key's fingerprint. If you lose it, the "Change key" button in the node card menu issues a new one, and the old one stops working immediately. On the node's server, the new key is accepted by `arikan join KEY`.
 :::
 
 The key carries the panel's address: when the node starts, it reports itself to the panel with a signed request, and the panel dials the node back at once. Keys from older panels have no panel address, so there is no such check for them and the node works as before. If the node's server goes out to the internet from a different IP than the one set in the panel, both the terminal and the panel say so: "the node reported from IP Y, the panel has X". Fix the address in **Configure**.
 
 The key contains the node's private key. To keep it out of the process list, you can pass it through the `MIKAN_JOIN_KEY` variable. The `--panel-ip IP` flag opens the node's API port only to the panel's address.
 
-You can also add a node from the panel's server: `mikan node add --name NAME --host IP` prints the key.
+You can also add a node from the panel's server: `arikan node add --name NAME --host IP` prints the key.
 
 ## Node card
 
@@ -48,30 +48,30 @@ The **Certificate** row shows which certificate is in use right now: a public on
 
 - **Configure**: name, address, domain, and the "Serves clients" switch. A node that is turned off does not accept connections and disappears from subscriptions.
 - **Check node**: a full check with a list and hints, see [If a node does not connect](#if-a-node-does-not-connect).
-- **WARP**: exit to the internet through Cloudflare, see [WARP](/mikanaddons/en/nodes/warp/).
-- **Cascade**: where the node sends other nodes' traffic, see [Cascades](/mikanaddons/en/nodes/cascades/).
+- **WARP**: exit to the internet through Cloudflare, see [WARP](/arikan/en/nodes/warp/).
+- **Cascade**: where the node sends other nodes' traffic, see [Cascades](/arikan/en/nodes/cascades/).
 - **Speed**: a check of the node's connection.
-- **Certificate**: your own TLS certificate for Hysteria2, TUIC, AnyTLS, TrustTunnel and VLESS TLS. It wins over the public one, see [Domain and certificates](/mikanaddons/en/start/domain/#node-certificate).
-- **Delete**: removes the node from the panel. The server itself is cleaned with `mikan uninstall` on it. A node that carries a cascade or the bot's connection to Telegram cannot be deleted while it is in use.
+- **Certificate**: your own TLS certificate for Hysteria2, TUIC, AnyTLS, TrustTunnel and VLESS TLS. It wins over the public one, see [Domain and certificates](/arikan/en/start/domain/#node-certificate).
+- **Delete**: removes the node from the panel. The server itself is cleaned with `arikan uninstall` on it. A node that carries a cascade or the bot's connection to Telegram cannot be deleted while it is in use.
 
 ## Node certificate
 
 The panel itself orders a public certificate for each remote node: for its domain if it has one, otherwise for its IP (a six-day Let's Encrypt certificate, renewed automatically). The certificate authority checks the node on port 80 (HTTP-01). The node opens port 80 only for the few seconds of a check and releases it after.
 
-- **Port 80/tcp** must be open on the node's server. The installer opens it in ufw, and `mikan update` opens it on nodes installed earlier. Open your hosting provider's firewall yourself.
+- **Port 80/tcp** must be open on the node's server. The installer opens it in ufw, and `arikan update` opens it on nodes installed earlier. Open your hosting provider's firewall yourself.
 - If port 80 on the node is held by another program, the panel says so and names it. For nginx and Caddy one command on the node's server is enough; the panel shows it with the node's address:
 
   ```bash
-  mikan cert proxy node.example.com
+  arikan cert proxy node.example.com
   ```
 
-  It adds a rule for `/.well-known/acme-challenge/` only to nginx or Caddy (the config is backed up, tested and reloaded, other sites are left alone), sets `MIKAN_ACME_LISTEN` and restarts the node. Then press Retry on the node's card. `mikan doctor` on the node checks port 80 too and suggests this command. Once port 80 is free again, the same command gives it back to the node.
+  It adds a rule for `/.well-known/acme-challenge/` only to nginx or Caddy (the config is backed up, tested and reloaded, other sites are left alone), sets `MIKAN_ACME_LISTEN` and restarts the node. Then press Retry on the node's card. `arikan doctor` on the node checks port 80 too and suggests this command. Once port 80 is free again, the same command gives it back to the node.
 - With a public certificate, links carry no pin and no "insecure": the node's TLS protocols also appear in sing-box apps, and TUIC checks the certificate. Links switch only after the node has taken the new certificate.
 - A node older than the panel cannot get a public certificate: the card says "update the node". It keeps working on the self-signed certificate with a pin.
 - Your own certificate uploaded with the **Certificate** button wins over the public one.
 - The certificate authority is chosen in **Settings → Security → Panel certificate** and is shared by the panel and all nodes.
 
-The order in which a certificate is chosen, the errors and the "Check the certificate" button are described in [Domain and certificates](/mikanaddons/en/start/domain/#node-certificate).
+The order in which a certificate is chosen, the errors and the "Check the certificate" button are described in [Domain and certificates](/arikan/en/start/domain/#node-certificate).
 
 ## Server order
 
@@ -84,10 +84,10 @@ When the panel cannot reach a node, the card shows the concrete reason and what 
 | Reason | What happened | What to do |
 |---|---|---|
 | Timed out | the API port does not answer: the hoster's firewall or ufw closed it, or the server is off | open the port in the hoster's control panel; on the server `ufw allow PORT/tcp` |
-| Connection refused | the server answers, but nothing listens on the port: the node is not installed, stopped or crashed | `mikan status`, `mikan logs node`, or run the install command |
+| Connection refused | the server answers, but nothing listens on the port: the node is not installed, stopped or crashed | `arikan status`, `arikan logs node`, or run the install command |
 | No route | the IP cannot be reached: the address is wrong or the server is off | the "Change address" button |
 | Name not found | DNS does not know the node's name | check the domain's record or use the IP |
-| Key does not fit | the key is outdated or belongs to another node or panel | "Reissue key", then `mikan join NEW_KEY` on the node |
+| Key does not fit | the key is outdated or belongs to another node or panel | "Reissue key", then `arikan join NEW_KEY` on the node |
 | Another program answered | something other than the node answers on this port, for example a web server | free the port or change the API port |
 
 If the node's clock differs from the panel's by 30 seconds or more, the card warns: REALITY and TLS connections break because of it. Turn on time sync on the node's server: `timedatectl set-ntp true`. Older nodes do not report their time, so there is no warning for them.
@@ -103,11 +103,11 @@ The **Check node** button is in the card menu, and on a failing card it is shown
 - protocols: how many are running out of how many, and for each failed one its port and reason, for example "port busy";
 - TCP reachability of each TCP protocol's port from the panel's side;
 - the node's own look at its server: DNS, internet, access to GitHub and GHCR (needed for updates), disk and memory. The node cannot see ufw, the port reachability check above covers it;
-- the cascade: for an entry node, whether entry → exit → internet works and where it breaks, see [Cascades](/mikanaddons/en/nodes/cascades/#checking-a-cascade). If other nodes go out through this one, its relay port is shown too.
+- the cascade: for an entry node, whether entry → exit → internet works and where it breaks, see [Cascades](/arikan/en/nodes/cascades/#checking-a-cascade). If other nodes go out through this one, its relay port is shown too.
 
 For old nodes, the lines that need newer data are marked "skipped" with a hint to update the node.
 
-The **Copy a report for the chat** button copies a plain-text report where IPs, domains, the API port and keys are masked. It is safe to paste into the [support chat](/mikanaddons/en/support/).
+The **Copy a report for the chat** button copies a plain-text report where IPs, domains, the API port and keys are masked. It is safe to paste into the [support chat](/arikan/en/support/).
 
 ### Check from Russia
 
@@ -121,7 +121,7 @@ The result is cached for 2 minutes, and one check runs at a time.
 
 ### If the panel cannot reach the node at all
 
-Log in to the node's server and run `mikan doctor`, see [The mikan command](/mikanaddons/en/operations/cli/#server). For the panel's own server there is a "Check server" button in **Settings → System**: it does the same in the panel.
+Log in to the node's server and run `arikan doctor`, see [The Arikan command](/arikan/en/operations/cli/#server). For the panel's own server there is a "Check server" button in **Settings → System**: it does the same in the panel.
 
 ## Updating nodes from the panel
 
@@ -132,7 +132,7 @@ The **Nodes follow the panel** switch in **Settings → General → Updates**: a
 A node installs only signed releases and never rolls back to an older version.
 
 :::note[Nodes on 0.5.0.1 and older]
-They need the `mikan update` command once on their server, and the panel shows it on the card. After that they update from the panel.
+They need the `arikan update` command once on their server, and the panel shows it on the card. After that they update from the panel.
 :::
 
 ## Share the channel evenly

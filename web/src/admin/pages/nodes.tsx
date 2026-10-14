@@ -27,7 +27,8 @@ import { WarpDrawer } from "./node-warp";
 type Node = Schemas["NodeInfo"];
 type Joined = { id: number; name: string; key: string; command: string };
 
-/** What a server before 0.5.0.2 runs once by hand: from then on the panel updates it. */
+/** What a server installed by an older version runs once by hand (its command predates
+ * this fork's rename, so it is still "mikan"): from then on the panel updates it. */
 const OLD_NODE_COMMAND = "mikan update";
 
 /** The panel can update this node itself and it is behind. */

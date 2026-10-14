@@ -9,7 +9,7 @@ use serde::Deserialize;
 use crate::system::Level;
 
 fn agent(timeout: Duration, v4_only: bool) -> ureq::Agent {
-    let mut cfg = ureq::Agent::config_builder().timeout_global(Some(timeout)).user_agent(format!("mikan-installer/{}", crate::version()));
+    let mut cfg = ureq::Agent::config_builder().timeout_global(Some(timeout)).user_agent(format!("arikan-installer/{}", crate::version()));
     if v4_only {
         cfg = cfg.ip_family(ureq::config::IpFamily::Ipv4Only);
     }
@@ -63,7 +63,7 @@ pub fn probe(url: &str, timeout: Duration) -> Result<Probe> {
     let agent: ureq::Agent = ureq::Agent::config_builder()
         .timeout_global(Some(timeout))
         .http_status_as_error(false)
-        .user_agent(format!("mikan-installer/{}", crate::version()))
+        .user_agent(format!("arikan-installer/{}", crate::version()))
         .build()
         .into();
     let resp = agent.get(url).call()?;
