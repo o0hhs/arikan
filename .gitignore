@@ -4,6 +4,7 @@
 web/dist/
 installer/target/
 node_modules/
+*.tsbuildinfo
 
 # runtime data and secrets (the release signing key never enters the repo)
 *.pem
