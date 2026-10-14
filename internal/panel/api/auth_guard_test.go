@@ -110,12 +110,12 @@ func TestTOTPCodeIsSpentAcrossRestarts(t *testing.T) {
 	if ok, err := restart().spendTOTPCode(ctx, admin.ID, key.Secret(), code, now); err != nil || ok {
 		t.Fatalf("the same code after a restart: %v %v, want a refusal", ok, err)
 	}
-	// The next step's code is a new code and works.
-	next, err := totp.GenerateCode(key.Secret(), now.Add(31*time.Second))
+	// The next step's code is a new code and works (the clock moves one step: 30 s).
+	next, err := totp.GenerateCode(key.Secret(), now.Add(30*time.Second))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if ok, err := restart().spendTOTPCode(ctx, admin.ID, key.Secret(), next, now.Add(31*time.Second)); err != nil || !ok {
+	if ok, err := restart().spendTOTPCode(ctx, admin.ID, key.Secret(), next, now.Add(30*time.Second)); err != nil || !ok {
 		t.Fatalf("the next code: %v %v", ok, err)
 	}
 }

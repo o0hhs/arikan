@@ -156,7 +156,7 @@ func (h *handlers) registerInbounds() {
 	huma.Register(h.api, huma.Operation{OperationID: "copy-inbound", Method: http.MethodPost, Path: "/api/v1/inbounds/{id}/copy", Summary: "Копировать подключение: тот же ключ и маскировка, свой порт и сайт", Tags: []string{"inbounds"}, DefaultStatus: http.StatusCreated}, h.copyInbound)
 	huma.Register(h.api, huma.Operation{OperationID: "validate-inbound", Method: http.MethodPost, Path: "/api/v1/inbounds/validate", Summary: "Проверить шаблон листенера без сохранения", Tags: []string{"inbounds"}}, h.validateInbound)
 	huma.Register(h.api, huma.Operation{OperationID: "update-inbound", Method: http.MethodPatch, Path: "/api/v1/inbounds/{id}", Summary: "Изменить подключение", Tags: []string{"inbounds"}}, h.updateInbound)
-	huma.Register(h.api, huma.Operation{OperationID: "delete-inbound", Method: http.MethodDelete, Path: "/api/v1/inbounds/{id}", Summary: "Удалить подключение", Tags: []string{"inbounds"}, DefaultStatus: http.StatusNoContent}, h.deleteInbound)
+	huma.Register(h.api, huma.Operation{OperationID: "delete-inbound", Metadata: sessionOnly, Extensions: sessionOnlyExt, Method: http.MethodDelete, Path: "/api/v1/inbounds/{id}", Summary: "Удалить подключение", Tags: []string{"inbounds"}, DefaultStatus: http.StatusNoContent}, h.deleteInbound)
 }
 
 func (h *handlers) listPresets(context.Context, *struct{}) (*presetsOutput, error) {
@@ -287,6 +287,13 @@ func (h *handlers) validateInbound(ctx context.Context, in *validateInboundInput
 
 func (h *handlers) createInbound(ctx context.Context, in *createInboundInput) (*inboundOutput, error) {
 	b := in.Body
+	// A custom template carries the client endpoint and the listener's own keys inside it:
+	// like the same field of an edit (updateInbound), not for a key.
+	if b.Config != "" {
+		if err := requireSession(ctx, "config"); err != nil {
+			return nil, err
+		}
+	}
 	row, err := h.d.Inbounds.Create(ctx, domain.NewInbound{NodeID: b.NodeID, Preset: b.Preset, Port: b.Port, Dest: b.Dest, Config: b.Config})
 	if err != nil {
 		return nil, inboundError(err, false)
@@ -327,6 +334,26 @@ func (h *handlers) updateInbound(ctx context.Context, in *patchInboundInput) (*i
 			return nil, err
 		}
 		p.Client = &domain.ClientEndpoint{Server: c.Server, Port: c.Port, SNI: c.SNI}
+	}
+	// What the listener tells clients (its template, with a client endpoint inside, and the
+	// mask's name), where their traffic leaves from and what counts it: the session's, like
+	// the client endpoint itself. A leaked key must not re-point or re-dress a listener.
+	for _, f := range []struct {
+		name string
+		set  bool
+	}{
+		{"config", b.Config != nil},
+		{"dest", b.Dest != nil},
+		{"server_name", b.ServerName != nil},
+		{"outbound", b.Outbound != nil},
+		{"exit_node_id", b.ExitNodeID != nil},
+		{"pool_id", b.PoolID != nil},
+	} {
+		if f.set {
+			if err := requireSession(ctx, f.name); err != nil {
+				return nil, err
+			}
+		}
 	}
 	prev, row, err := h.d.Inbounds.Update(ctx, in.ID, p)
 	if err != nil {

@@ -11944,7 +11944,8 @@
         "summary": "Удалить подключение",
         "tags": [
           "inbounds"
-        ]
+        ],
+        "x-session-only": true
       },
       "patch": {
         "operationId": "update-inbound",
@@ -12407,7 +12408,8 @@
         "summary": "Порядок серверов в подписке",
         "tags": [
           "node"
-        ]
+        ],
+        "x-session-only": true
       }
     },
     "/api/v1/nodes/update-all": {

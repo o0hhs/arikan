@@ -71,9 +71,9 @@ func (k *keyHarness) asKey(key, method, path string, body any) (*http.Response, 
 }
 
 // A leaked "full" key must not turn the panel against its owner: where clients are sent
-// (including the way in through VK calls), who the bot talks to, the nodes' keys, the way
-// out, the updates, the invites. These are the admin's session only; the same field of a
-// request a key may otherwise make is refused too.
+// (including the way in through VK calls), what a listener puts in their apps, who the bot
+// talks to, the nodes' keys, the way out, the updates, the invites. These are the admin's
+// session only; the same field of a request a key may otherwise make is refused too.
 func TestFullKeyCannotTakeOverThePanel(t *testing.T) {
 	k := newKeyHarness(t)
 	ctx := context.Background()
@@ -99,11 +99,16 @@ func TestFullKeyCannotTakeOverThePanel(t *testing.T) {
 		"save-node-turn":   {http.MethodPatch, "/nodes/1/turn", map[string]any{"client_host": "attacker.example"}},
 		"delete-node-turn": {http.MethodDelete, "/nodes/1/turn", nil},
 		"delete-node":      {http.MethodDelete, "/nodes/1", nil},
+		"order-nodes":      {http.MethodPut, "/nodes/order", map[string]any{"ids": []int64{1}}},
 		"update-node-warp": {http.MethodPatch, "/nodes/1/warp", map[string]any{"enabled": false}},
 		"delete-node-warp": {http.MethodDelete, "/nodes/1/warp", nil},
 		// Invite codes, and who came through them.
 		"list-referral-rewards": {http.MethodGet, "/referrals/rewards", nil},
 		"list-referral-links":   {http.MethodGet, "/referrals/links", nil},
+		// A listener goes away whole, and a custom template carries a client endpoint
+		// inside it.
+		"delete-inbound":        {http.MethodDelete, "/inbounds/" + idOf(ins[0].ID), nil},
+		"create-custom-inbound": {http.MethodPost, "/inbounds", map[string]any{"preset": "custom", "config": "listeners: []"}},
 		// A code field is a script an addon runs.
 		"update-addon": {http.MethodPatch, "/addons/telegram", map[string]any{"settings": map[string]any{"script": "print(1)"}}},
 		// Code nothing signed vouches for, run on the server.
@@ -160,6 +165,24 @@ func TestFullKeyCannotTakeOverThePanel(t *testing.T) {
 	}
 	if after, _ := k.st.Q.GetInbound(ctx, ins[0].ID); after != ins[0] {
 		t.Fatal("a refused request changed the inbound")
+	}
+	// What the listener tells clients, where their traffic leaves from and what counts it:
+	// also the session's, one field at a time.
+	for field, body := range map[string]map[string]any{
+		"config":       {"config": "listeners: []\n"},
+		"dest":         {"dest": "evil.example:443"},
+		"server_name":  {"server_name": "evil.example"},
+		"outbound":     {"outbound": "direct"},
+		"exit_node_id": {"exit_node_id": 2},
+		"pool_id":      {"pool_id": 1},
+	} {
+		resp, out := k.asKey(k.full, http.MethodPatch, "/inbounds/"+idOf(ins[0].ID), body)
+		if resp.StatusCode != http.StatusForbidden || !strings.Contains(string(out), "session_only") || !strings.Contains(string(out), field) {
+			t.Errorf("inbound %s with a full key: %d %s", field, resp.StatusCode, out)
+		}
+	}
+	if after, _ := k.st.Q.GetInbound(ctx, ins[0].ID); after != ins[0] {
+		t.Fatal("a refused field changed the inbound")
 	}
 	if resp, body := k.asKey(k.full, http.MethodPatch, "/inbounds/"+idOf(ins[0].ID), map[string]any{"display_name": "Renamed"}); resp.StatusCode != http.StatusOK {
 		t.Fatalf("the rest of the inbound is open to a key: %d %s", resp.StatusCode, body)
@@ -377,7 +400,11 @@ func TestTOTPEnableSpendsTheCode(t *testing.T) {
 	if resp, out := h.login(password, code); resp.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("the setup code opened a session: %d %s", resp.StatusCode, out)
 	}
-	next, err := totp.GenerateCode(setup.Secret, h.now.Add(31*time.Second))
+	// The step has rolled over: the same secret gives a new code, and it lets in — the row
+	// remembers only the step that was spent. The clock moves exactly 30 s: one step, not
+	// two, whatever phase of a step it was at.
+	h.now = h.now.Add(30 * time.Second)
+	next, err := totp.GenerateCode(setup.Secret, h.now)
 	if err != nil {
 		t.Fatal(err)
 	}
