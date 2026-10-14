@@ -4,6 +4,7 @@ import { useSettings } from "../../../api/hooks";
 import { SectionNav } from "../../../components/layout";
 import { QueryBoundary } from "../../../components/query";
 import { ThemeCard } from "../../../components/theme";
+import { PerfCard } from "../../../components/perf";
 import { PageHeader, Skeleton } from "../../../components/ui";
 import { t, type Key } from "../../../i18n";
 import { SETTINGS_PARTS, SETTINGS_TABS, type SettingsSearch } from "../../search";
@@ -74,6 +75,7 @@ export function SettingsPage() {
                   <ServiceCard s={s} />
                   <LanguageCard s={s} />
                   <ThemeCard />
+                  <PerfCard />
                 </>
               ) : tab === "subscription" ? (
                 <>

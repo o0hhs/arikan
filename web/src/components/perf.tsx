@@ -1,3 +1,4 @@
+import clsx from "clsx";
 import { Gauge } from "lucide-react";
 import { t } from "../i18n";
 import { SwitchRow } from "./switch";
@@ -7,16 +8,15 @@ import { usePerf } from "../lib/perf";
  * The performance mode's switch in the sidebar: one tap for the device the panel is
  * opened on, the state of this browser alone.
  */
-export function PerfSwitch() {
+export function PerfSwitch({ className }: { className?: string }) {
   const [on, set] = usePerf();
-  const label = t("perf.title");
   return (
     <button
       type="button"
-      className="icon-btn perf-btn"
+      className={clsx("icon-btn perf-btn", className)}
       aria-pressed={on}
       title={on ? t("perf.onTitle") : t("perf.offTitle")}
-      aria-label={label}
+      aria-label={t("perf.title")}
       onClick={() => set(!on)}
     >
       <Gauge size={18} aria-hidden />

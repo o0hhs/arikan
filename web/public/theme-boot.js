@@ -18,4 +18,9 @@
   var root = document.documentElement;
   root.setAttribute("data-theme", theme);
   root.setAttribute("data-tone", dark.indexOf(theme) >= 0 ? "dark" : "light");
+  // The performance mode (src/lib/perf.ts) before the first paint, like the theme: no
+  // animation ever draws when the device asked to skip them.
+  try {
+    if (localStorage.getItem("mikan-perf") === "1") root.setAttribute("data-perf", "1");
+  } catch (e) {}
 })();

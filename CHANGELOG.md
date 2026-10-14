@@ -10,6 +10,7 @@ the signed manifest, and the panel shows the one in its language.
 - The server command is **`arikan`** (`arikan update`, `arikan status`, …). A server installed before the rename keeps working: the compose files, host scripts and the old command name still find their binaries inside the image.
 - **An unofficial fork, said plainly.** The notice sits at the top of the README, in the panel (Settings → System → About) and in every release description: Arikan is not affiliated with or supported by the mikan project — its author supports it, and the original mikan stays at [Miroshka000/mikan](https://github.com/Miroshka000/mikan).
 - **mikan's art is gone**: the fork's own placeholder banner and mark stand in for the mandarin until the new design arrives; the screenshots go with it.
+- **Performance mode for weak devices** (the gauge button in the sidebar, or Settings → General): the interface drops its animations and the glass blur for a flat, instant one, and the background polling slows to every 45–90 seconds, so an old laptop or a phone carries the panel comfortably. The choice is the browser's own and travels nowhere.
 - What intentionally keeps the old name because live servers depend on it: the `/opt/mikan` directory, the `MIKAN_*` environment variables, the compose project and its Docker volumes, the `mikan:` keys and `mikan.client` fields of listener templates, the `mikan-addon.json` manifest and the `mikan_*` metrics.
 
 ### ru
@@ -18,6 +19,7 @@ the signed manifest, and the panel shows the one in its language.
 - Команда на сервере — **`arikan`** (`arikan update`, `arikan status`, …). Сервер, установленный до переименования, продолжает работать: compose-файлы, host-скрипты и старое имя команды по-прежнему находят свои бинарники внутри образа.
 - **Неофициальный форк — сказано прямо.** Пометка стоит в начале README, в самой панели («Настройки → Система → О программе») и в описании каждого релиза: Arikan не связан с проектом mikan и не поддерживается им — поддержка у автора форка, а сам mikan остаётся в [Miroshka000/mikan](https://github.com/Miroshka000/mikan).
 - **Графика mikan убрана**: до нового дизайна её место занимают собственные баннер и знак форка, скриншоты удалены вместе с ней.
+- **Режим производительности для слабых устройств** (кнопка-спидометр в сайдбаре или «Настройки → Общие»): интерфейс без анимаций и размытий — мгновенный и плоский, а фоновый опрос данных входит в рит раз в 45–90 секунд, чтобы старый ноутбук или телефон спокойно держали панель. Выбор живёт в самом браузере и больше никуда не уходит.
 - Что намеренно осталось под старым именем, потому что от него зависят живые серверы: каталог `/opt/mikan`, переменные окружения `MIKAN_*`, compose-проект и его тома Docker, ключи `mikan:` и поля `mikan.client` в шаблонах листенеров, манифест `mikan-addon.json` и метрики `mikan_*`.
 
 ## 0.5.1.1
