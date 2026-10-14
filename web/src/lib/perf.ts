@@ -58,6 +58,15 @@ function subscribe(f: () => void) {
   };
 }
 
+/**
+ * Follows every change of the mode in the code that has no component to re-render (the query
+ * client's defaults in admin/main.tsx). A switch made in another tab arrives as a "storage"
+ * event and is not heard here.
+ */
+export function onPerfChange(f: () => void): () => void {
+  return subscribe(f);
+}
+
 /** The mode of this browser, and its switch; the toggle re-renders whoever reads it. */
 export function usePerf(): [boolean, (on: boolean) => void] {
   const on = useSyncExternalStore(subscribe, getPerf);
