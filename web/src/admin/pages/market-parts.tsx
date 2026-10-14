@@ -5,7 +5,7 @@ import { t } from "../../i18n";
 import { unofficialLabel, type MarketOrigin } from "./market-common";
 
 // The small pieces the addons tabs, their dialogs and the sources drawer all show for an
-// addon that mikan has not checked: the warning with the shield and the mark of its source.
+// addon that Arikan has not checked: the warning with the shield and the mark of its source.
 
 /** A warning (or an error) about trust: the shield, then the words. The parent supplies the margin. */
 export function ShieldBanner({ tone = "warn", role, className, children }: { tone?: "warn" | "err"; role?: "note" | "alert" | "status"; className?: string; children: ReactNode }) {

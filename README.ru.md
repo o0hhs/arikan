@@ -2,15 +2,15 @@
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset=".github/assets/banner-ru-dark.svg">
-  <img alt="mikan — VPN-панель на ядре mihomo" src=".github/assets/banner-ru-light.svg" width="100%">
+  <img alt="Arikan — VPN-панель на ядре mihomo" src=".github/assets/banner-ru-light.svg" width="100%">
 </picture>
 
 <br>
 
 **Быстрая и красивая VPN-панель на ядре [mihomo](https://github.com/MetaCubeX/mihomo): ставится одной командой и не требует присмотра.**
 
-[![Релиз](https://img.shields.io/github/v/release/o0hhs/mikanaddons?color=f07a2e&label=релиз&style=flat-square)](https://github.com/o0hhs/mikanaddons/releases)
-[![Образ](https://img.shields.io/badge/ghcr.io-o0hhs%2Fmikan-2b8c9e?style=flat-square&logo=docker&logoColor=white)](https://github.com/o0hhs/mikanaddons/pkgs/container/mikan)
+[![Релиз](https://img.shields.io/github/v/release/o0hhs/arikan?color=f07a2e&label=релиз&style=flat-square)](https://github.com/o0hhs/arikan/releases)
+[![Образ](https://img.shields.io/badge/ghcr.io-o0hhs%2Farikan-2b8c9e?style=flat-square&logo=docker&logoColor=white)](https://github.com/o0hhs/arikan/pkgs/container/arikan)
 [![Лицензия](https://img.shields.io/badge/лицензия-GPL--3.0-2f9e6b?style=flat-square)](LICENSE)
 [![mihomo](https://img.shields.io/badge/ядро-mihomo%201.19.32-9e8eff?style=flat-square)](https://github.com/MetaCubeX/mihomo)
 
@@ -22,12 +22,15 @@
 
 ---
 
+> [!IMPORTANT]
+> **Неофициальный форк.** Arikan не связан с проектом mikan и не поддерживается им. Поддержка — только у автора форка.
+
 ## Установка
 
 На чистом сервере с Ubuntu 22.04+ или Debian 12+ (amd64 или arm64):
 
 ```bash
-curl -fsSL https://github.com/o0hhs/mikanaddons/releases/latest/download/install.sh | sudo bash
+curl -fsSL https://github.com/o0hhs/arikan/releases/latest/download/install.sh | sudo bash
 ```
 
 Установщик по шагам:
@@ -36,30 +39,30 @@ curl -fsSL https://github.com/o0hhs/mikanaddons/releases/latest/download/install
 3. Подбирает сайты для маскировки REALITY рядом с сервером.
 4. В конце выдаёт ссылку на админку.
 
-Меню управления потом открывается командой `mikan`.
+Меню управления потом открывается командой `arikan`.
 
-Нода для уже работающей панели: страница **Ноды** в панели (или `mikan node add`) выдаёт команду с ключом:
+Нода для уже работающей панели: страница **Ноды** в панели (или `arikan node add`) выдаёт команду с ключом:
 
 ```bash
-curl -fsSL https://github.com/o0hhs/mikanaddons/releases/latest/download/install.sh | sudo bash -s -- --join КЛЮЧ
+curl -fsSL https://github.com/o0hhs/arikan/releases/latest/download/install.sh | sudo bash -s -- --join КЛЮЧ
 ```
 
-Без вопросов, для скриптов: `… | sudo bash -s -- --yes --lang ru --domain vpn.example.com --email you@example.com` (все флаги: `mikan install --help`).
+Без вопросов, для скриптов: `… | sudo bash -s -- --yes --lang ru --domain vpn.example.com --email you@example.com` (все флаги: `arikan install --help`).
 
-### Переход с обычного mikan
+### Переход с обычного Arikan
 
 Уже стоит панель апстрима — переезд это просто переключение образа, данные остаются как были: форк добавляет только свои новые таблицы (все пустые), ни одна существующая строка не переписывается, а недостающие миграции панель применяет сама при первом старте.
 
-**1. Обычный mikan.** Если панель ещё не стоит, сначала штатная установка — она же ставит Docker, файрвол и compose:
+**1. Обычный Arikan.** Если панель ещё не стоит, сначала штатная установка — она же ставит Docker, файрвол и compose:
 
 ```bash
 curl -fsSL https://github.com/Miroshka000/mikan/releases/latest/download/install.sh | sudo bash
 ```
 
-**2. Переключение на форк.** Тег берётся со страницы [релизов форка](https://github.com/o0hhs/mikanaddons/releases):
+**2. Переключение на форк.** Тег берётся со страницы [релизов форка](https://github.com/o0hhs/arikan/releases):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/o0hhs/mikanaddons/main/scripts/install-fork.sh | sudo bash -s -- --image ghcr.io/o0hhs/mikan:<тег>
+curl -fsSL https://raw.githubusercontent.com/o0hhs/arikan/main/scripts/install-fork.sh | sudo bash -s -- --image ghcr.io/o0hhs/arikan:<тег>
 ```
 
 Что делает скрипт (`scripts/install-fork.sh`):
@@ -70,17 +73,17 @@ curl -fsSL https://raw.githubusercontent.com/o0hhs/mikanaddons/main/scripts/inst
 - сверяет схему базы и число клиентов, тарифов, платежей: проверка не прошла — скрипт сам откатывается;
 - автообновление оставляет включённым: у форка свой адрес релизов и свой ключ подписи, панель не «вернёт себя» на апстрим. Ключ `--disable-auto-update` нужен только для старых сборок форка, у которых адрес релизов ещё указывал на апстрим.
 
-Посмотреть, что скрипт собирается сделать, не меняя ничего: тот же запрос с `--dry-run`. Если образ не скачивается — откройте пакет: GitHub → Packages → mikan → Package settings → Change visibility → Public (скрипт сам подскажет это на неудаче).
+Посмотреть, что скрипт собирается сделать, не меняя ничего: тот же запрос с `--dry-run`. Если образ не скачивается — откройте пакет: GitHub → Packages → arikan → Package settings → Change visibility → Public (скрипт сам подскажет это на неудаче).
 
 **3. После перехода.** На странице **Платежи** включите реферальную программу («Рефералы») и создайте метки кампаний. Всё остальное — пользователи, тарифы, платежи, ноды, ссылки подписок — без изменений.
 
-**Откат на обычный mikan** — та же команда с копией, снятой до перехода (платежи, клиенты и тарифы вернутся к состоянию на её момент; данные реферальной программы и меток кампаний в копию не входят):
+**Откат на обычный Arikan** — та же команда с копией, снятой до перехода (платежи, клиенты и тарифы вернутся к состоянию на её момент; данные реферальной программы и меток кампаний в копию не входят):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/o0hhs/mikanaddons/main/scripts/install-fork.sh | sudo bash -s -- --rollback /opt/mikan/data/panel/backup-<дата>-before-fork.dump
+curl -fsSL https://raw.githubusercontent.com/o0hhs/arikan/main/scripts/install-fork.sh | sudo bash -s -- --rollback /opt/mikan/data/panel/backup-<дата>-before-fork.dump
 ```
 
-## Чем форк отличается от официального mikan
+## Чем форк отличается от официального Arikan
 
 Официальный mikan живёт в [Miroshka000/mikan](https://github.com/Miroshka000/mikan). Этот репозиторий — форк: панель апстрима со всем, что она умеет, плюс несколько своих вещей. За апстримом следят: его релизы переносятся сюда, поэтому исправления и новинки официальной панели здесь тоже появляются (сейчас перенесён 0.5.1.0).
 
@@ -91,19 +94,19 @@ curl -fsSL https://raw.githubusercontent.com/o0hhs/mikanaddons/main/scripts/inst
 - **Домен подписки** (Настройки → Подписка): ссылки подписок на своём домене или поддомене, отдельно от адреса панели. Сертификат панели выпускается сразу с этим именем, а можно отдать домен своему прокси или CDN — он даже не обязан указывать на сервер. Переезд панели больше не ломает ссылки: вслед за ними меняется только DNS.
 - **Копирование протоколов** (Протоколы → протокол → Копировать): поднять тот же протокол с теми же ключами и маскировкой на другом порту или на другой ноде, поменяв только порт и, у REALITY, сайт маскировки.
 - **VK TURN** (карточка ноды → ⋯ → VK TURN): там, где белый список пропускает только звонки, нода несёт выбранное подключение через TURN-серверы звонков VK, а в подписке оно появляется ещё раз — обычным сервером на адресе самого клиента.
-- **Завершение переезда панели**: после восстановления из бэкапа на новом сервере `mikan admin migrate` назначает новый адрес, сохраняет ссылки подписок и проверяет ноды — они принимают переехавшую панель без перерегистрации.
-- **Свой канал обновлений**: образ `ghcr.io/o0hhs/mikan`, релизы на этой странице, манифест подписан ключом форка, и `mikan update` с кнопкой **Обновить** ходят сюда, а не к апстриму. Документация — [o0hhs.github.io/mikanaddons](https://o0hhs.github.io/mikanaddons).
+- **Завершение переезда панели**: после восстановления из бэкапа на новом сервере `arikan admin migrate` назначает новый адрес, сохраняет ссылки подписок и проверяет ноды — они принимают переехавшую панель без перерегистрации.
+- **Свой канал обновлений**: образ `ghcr.io/o0hhs/arikan`, релизы на этой странице, манифест подписан ключом форка, и `arikan update` с кнопкой **Обновить** ходят сюда, а не к апстриму. Документация — [o0hhs.github.io/arikan](https://o0hhs.github.io/arikan).
 
 О том, как апстрим относится к чужим сборкам, — честно написано в разделе [«Форки и чужие сборки»](#-форки-и-чужие-сборки): сверьте то, что запускаете, и запускайте то, чей код можно прочитать.
 
-## Почему mikan
+## Почему Arikan
 
 <table>
 <tr>
 <td width="50%" valign="top">
 
 ### 🛡️ Сама переживает блокировки
-mikan следит, доходят ли реальные клиенты до каждого протокола:
+Arikan следит, доходят ли реальные клиенты до каждого протокола:
 - если по дороге заблокировали порт, панель переносит протокол на свободный HTTPS-порт;
 - если сайт маскировки REALITY перестал подходить, подбирает новый рядом с сервером.
 
@@ -141,7 +144,7 @@ mihomo встроен как библиотека, поэтому трафик �
 <tr>
 <td valign="top">
 
-### 🪶 Лёгкая, как мандарин
+### 🪶 Лёгкая, как пёрышко
 Go и PostgreSQL, три небольших контейнера. На рабочем сервере с клиентами:
 - панель — **~14 МБ ОЗУ**;
 - база — **~50 МБ ОЗУ**;
@@ -180,7 +183,7 @@ REST API с документацией прямо в панели, ключи с
 Подписчики активируют их в Telegram Mini App и видят историю активаций. Бонусный трафик
 можно начислить в основной баланс или выбранный пул. Скидочные счета доступны только
 через способы оплаты с поддержкой возврата: Telegram Stars и адаптеры, которые заявили
-такую возможность. Тогда Mikan сможет вернуть оплату, если резерв промокода истёк до
+такую возможность. Тогда Arikan сможет вернуть оплату, если резерв промокода истёк до
 подтверждения платежа провайдером.
 
 ## Реферальная программа
@@ -198,25 +201,6 @@ REST API с документацией прямо в панели, ключи с
 каждой кампании, сколько людей пришло, сколько купило и сколько продлило. Статистика на
 той же странице **Платежи**, так что окупаемость кампании видно прямо в панели, а не только
 в рекламной сети.
-
-## Скриншоты
-
-<table>
-<tr>
-<td width="50%"><img src=".github/assets/screens/ru/dashboard.webp" alt="Обзор"></td>
-<td width="50%"><img src=".github/assets/screens/ru/users.webp" alt="Пользователи"></td>
-</tr>
-<tr>
-<td><img src=".github/assets/screens/ru/inbounds.webp" alt="Протоколы"></td>
-<td><img src=".github/assets/screens/ru/telegram.webp" alt="Telegram-бот"></td>
-</tr>
-</table>
-
-<p align="center">
-<img src=".github/assets/screens/ru/phone-subscription.webp" alt="Страница подписки" width="260">
-&nbsp;&nbsp;
-<img src=".github/assets/screens/ru/phone-dashboard.webp" alt="Обзор на телефоне" width="260">
-</p>
 
 ## Протоколы
 
@@ -248,8 +232,8 @@ REST API с документацией прямо в панели, ключи с
 
 ```mermaid
 flowchart LR
-    A[Браузер] -- HTTPS, секретная ссылка --> P[панель mikan<br>пользователи · тарифы · подписки]
-    P -- unix-сокет / TLS с пиннингом --> N1[нода mikan<br>внутри mihomo]
+    A[Браузер] -- HTTPS, секретная ссылка --> P[панель Arikan<br>пользователи · тарифы · подписки]
+    P -- unix-сокет / TLS с пиннингом --> N1[нода Arikan<br>внутри mihomo]
     P -- TLS с пиннингом --> N2[удалённая нода]
     C[VPN-приложения] -- REALITY · QUIC · … --> N1
     C --> N2
@@ -260,22 +244,22 @@ flowchart LR
 
 ## Управление сервером
 
-Команда `mikan` открывает меню. Команды можно вызывать и напрямую, они на английском:
+Команда `arikan` открывает меню. Команды можно вызывать и напрямую, они на английском:
 
 | Команда | Что делает |
 |---|---|
-| `mikan status` | контейнеры, версии, состояние, доступное обновление |
-| `mikan logs [panel\|node]` | логи в реальном времени |
-| `mikan url` | ссылка на админку |
-| `mikan reset-password` · `reset-path` · `disable-2fa` | вернуть доступ |
-| `mikan update` | обновить сейчас: сначала бэкап, при сбое откат |
-| `mikan backup` · `restore FILE` | бэкапы в `/opt/mikan/backups` |
-| `mikan admin migrate --public-host IP` | завершить переезд панели после восстановления на новом сервере: новый адрес, ссылки те же, ноды проверяются |
-| `mikan node …` · `mikan inbound …` | ноды и протоколы |
-| `mikan targets scan` · `apply` | сайты для маскировки REALITY рядом с сервером |
-| `mikan join КЛЮЧ` | на ноде: взять новый ключ из панели |
-| `mikan restart` | перезапустить контейнеры |
-| `mikan uninstall` | остановить и удалить команду, данные остаются |
+| `arikan status` | контейнеры, версии, состояние, доступное обновление |
+| `arikan logs [panel\|node]` | логи в реальном времени |
+| `arikan url` | ссылка на админку |
+| `arikan reset-password` · `reset-path` · `disable-2fa` | вернуть доступ |
+| `arikan update` | обновить сейчас: сначала бэкап, при сбое откат |
+| `arikan backup` · `restore FILE` | бэкапы в `/opt/mikan/backups` |
+| `arikan admin migrate --public-host IP` | завершить переезд панели после восстановления на новом сервере: новый адрес, ссылки те же, ноды проверяются |
+| `arikan node …` · `arikan inbound …` | ноды и протоколы |
+| `arikan targets scan` · `apply` | сайты для маскировки REALITY рядом с сервером |
+| `arikan join КЛЮЧ` | на ноде: взять новый ключ из панели |
+| `arikan restart` | перезапустить контейнеры |
+| `arikan uninstall` | остановить и удалить команду, данные остаются |
 
 ## Обновления
 
@@ -294,7 +278,7 @@ flowchart LR
 ## Сборка из исходников
 
 ```bash
-docker buildx build -t mikan:dev .            # образ панели и ноды
+docker buildx build -t arikan:dev .            # образ панели и ноды
 cd web && pnpm install && pnpm dev            # админка с горячей перезагрузкой
 MIKAN_TEST_DATABASE_URL=postgres://… go test ./...   # Go 1.27, тестовая PostgreSQL 18 и pg_dump
 cd installer && cargo test                    # установщик (Rust)
@@ -319,8 +303,8 @@ cd installer && cargo test                    # установщик (Rust)
 
 ## Лицензия
 
-mikan — свободная программа под [GNU GPL v3](LICENSE) с дополнительными условиями из [NOTICE.md](NOTICE.md): сохранять указание авторства, не выдавать изменённую версию за оригинал, права на название и логотип не передаются. Copyright (C) 2026 Miroshka and Mikan. Внутри [mihomo](https://github.com/MetaCubeX/mihomo) (GPL-3.0), часть кода взята из [3x-ui](https://github.com/MHSanaei/3x-ui) (GPL-3.0). Шрифты: Unbounded, Onest, JetBrains Mono (SIL OFL 1.1).
+Arikan — форк mikan, свободная программа под [GNU GPL v3](LICENSE) с дополнительными условиями из [NOTICE.md](NOTICE.md): сохранять указание авторства, не выдавать изменённую версию за оригинал, права на исходное название и логотип не передаются. Copyright (C) 2026 Miroshka and Mikan. Внутри [mihomo](https://github.com/MetaCubeX/mihomo) (GPL-3.0), часть кода взята из [3x-ui](https://github.com/MHSanaei/3x-ui) (GPL-3.0). Шрифты: Unbounded, Onest, JetBrains Mono (SIL OFL 1.1).
 
 <div align="center">
-<sub>Сделано с 🍊</sub>
+<sub>Arikan — неофициальный форк mikan</sub>
 </div>

@@ -1,5 +1,5 @@
 //! The menu of an installed server: status, updates, logs, access, REALITY sites, nodes
-//! and backups. Every action is a `mikan` command too.
+//! and backups. Every action is a `Arikan` command too.
 
 use std::collections::VecDeque;
 use std::path::PathBuf;
@@ -66,7 +66,7 @@ impl Section {
             Section::Backups => "The database, certificates and settings, in /opt/mikan/backups.",
             Section::Join => "The node reaches its panel with the key from the panel's Nodes page.",
             Section::Uninstall => {
-                "Stops mikan and removes the mikan command, the update timer and the kernel tuning. The data and backups stay in /opt/mikan."
+                "Stops Arikan and removes the Arikan command, the update timer and the kernel tuning. The data and backups stay in /opt/mikan."
             }
         }
     }
@@ -109,7 +109,7 @@ fn job(f: impl FnOnce() -> anyhow::Result<String> + Send + 'static) -> Job {
     Task::start(move || f().map_err(|e| format!("{e:#}")))
 }
 
-/// Runs `mikan admin …` in the panel and returns what it printed.
+/// Runs `arikan admin …` in the panel and returns what it printed.
 fn admin_text(args: &[&str]) -> anyhow::Result<String> {
     let out = docker::check(docker::admin(args, None)?)?;
     let mut text = String::from_utf8_lossy(&out.stdout).trim_end().to_owned();
@@ -221,7 +221,7 @@ impl Menu {
     pub fn farewell(&self) -> Option<String> {
         let mut parts = self.notes.clone();
         if self.gone {
-            parts.push(format!("mikan is stopped and the mikan command removed. The data and backups stay in {}.", crate::DIR));
+            parts.push(format!("Arikan is stopped and the Arikan command removed. The data and backups stay in {}.", crate::DIR));
         }
         (!parts.is_empty()).then(|| parts.join("\n\n"))
     }
@@ -398,7 +398,7 @@ impl Menu {
                 } else {
                     let f = self.backups[self.pick - 1].clone();
                     let name = f.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-                    ask(&format!("Replace the current data with {name}? mikan restarts."), Act::Restore(f))
+                    ask(&format!("Replace the current data with {name}? Arikan restarts."), Act::Restore(f))
                 }
             }
             Section::Sites => match self.scan.done() {
@@ -418,7 +418,7 @@ impl Menu {
                 if self.gone {
                     return;
                 }
-                self.prompt = ask("Stop mikan and remove the mikan command? The data stays.", Act::Uninstall);
+                self.prompt = ask("Stop Arikan and remove the Arikan command? The data stays.", Act::Uninstall);
             }
             Section::Logs => {}
         }
@@ -452,7 +452,7 @@ impl Menu {
                     let out = docker::check(docker::admin(&["node", "key", value.as_str()], None)?)?;
                     let key = String::from_utf8_lossy(&out.stdout).trim().to_owned();
                     Ok(format!(
-                        "The old key no longer works. On the node's server run `mikan join` and paste this key when asked (it holds the node's private key, so it stays out of the command line):\n\n{key}"
+                        "The old key no longer works. On the node's server run `arikan join` and paste this key when asked (it holds the node's private key, so it stays out of the command line):\n\n{key}"
                     ))
                 }),
             ),
@@ -621,7 +621,7 @@ impl Screen for Menu {
         let area = f.area();
         if area.width < 72 || area.height < 22 {
             f.render_widget(
-                Paragraph::new(vec![Line::from("mikan".fg(ACCENT).bold()), Line::from(dim("Make the terminal at least 72×22."))]),
+                Paragraph::new(vec![Line::from("Arikan".fg(ACCENT).bold()), Line::from(dim("Make the terminal at least 72×22."))]),
                 area,
             );
             return;
@@ -644,7 +644,7 @@ impl Screen for Menu {
         let block = Block::bordered()
             .border_type(BorderType::Rounded)
             .border_style(Style::new().fg(FAINT))
-            .title(Line::from(vec![Span::raw(" "), "●".fg(ACCENT), Span::raw(" "), "mikan".bold(), Span::raw(" ")]))
+            .title(Line::from(vec![Span::raw(" "), "●".fg(ACCENT), Span::raw(" "), "Arikan".bold(), Span::raw(" ")]))
             .title(Line::from(dim(format!(" {kind} {} ", self.version))).right_aligned())
             .title_bottom(widgets::keys(keys))
             .padding(Padding::new(2, 2, 1, 0));
@@ -749,11 +749,11 @@ impl Menu {
             }
             Some(Ok(m)) if release::newer(&m.version, &self.version) => lines.push(Line::from(vec![
                 Span::styled("● ", Style::new().fg(ACCENT)),
-                Span::raw(format!("mikan {} is out: see Update.", m.version)),
+                Span::raw(format!("Arikan {} is out: see Update.", m.version)),
             ])),
             Some(Ok(_)) => lines.push(Line::from(vec![
                 Span::styled("✓ ", Style::new().fg(OK)),
-                Span::raw(format!("mikan {} is the latest release.", self.version)),
+                Span::raw(format!("Arikan {} is the latest release.", self.version)),
             ])),
         }
         f.render_widget(Paragraph::new(lines), area);

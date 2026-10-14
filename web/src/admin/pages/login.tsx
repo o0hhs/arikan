@@ -82,7 +82,7 @@ export function LoginPage() {
         <div className="mb-8 flex items-center gap-3">
           <Logo size={40} />
           <div>
-            <div className="font-display text-[22px] leading-7 font-semibold tracking-tight">mikan</div>
+            <div className="font-display text-[22px] leading-7 font-semibold tracking-tight">Arikan</div>
             <div className="text-[13px] text-[var(--ink-500)]">{t("login.subtitle")}</div>
           </div>
         </div>
@@ -145,7 +145,7 @@ export function LoginPage() {
           </button>
         ) : (
           <p className="mt-6 text-center text-xs text-[var(--ink-500)]">
-            {t("login.forgot")} <span className="mono">mikan reset-password</span>
+            {t("login.forgot")} <span className="mono">arikan reset-password</span>
           </p>
         )}
       </motion.form>

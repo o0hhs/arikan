@@ -113,7 +113,7 @@ impl<'a> Card<'a> {
     pub fn draw(&self, f: &mut Frame) -> Option<Rect> {
         let area = f.area();
         if area.width < 60 || area.height < 20 {
-            let msg = Paragraph::new(vec![Line::from("mikan".fg(ACCENT).bold()), Line::from(dim("Make the terminal at least 60×20."))]);
+            let msg = Paragraph::new(vec![Line::from("Arikan".fg(ACCENT).bold()), Line::from(dim("Make the terminal at least 60×20."))]);
             f.render_widget(msg, area);
             return None;
         }
@@ -129,7 +129,7 @@ impl<'a> Card<'a> {
         let mut block = Block::bordered()
             .border_type(BorderType::Rounded)
             .border_style(Style::new().fg(FAINT))
-            .title(Line::from(vec![Span::raw(" "), "●".fg(ACCENT), Span::raw(" "), "mikan".bold(), Span::raw(" ")]))
+            .title(Line::from(vec![Span::raw(" "), "●".fg(ACCENT), Span::raw(" "), "Arikan".bold(), Span::raw(" ")]))
             .padding(Padding::new(3, 3, 1, 0));
         match self.step {
             Some((i, n)) => block = block.title(Line::from(dim(format!(" {i} of {n} "))).right_aligned()),

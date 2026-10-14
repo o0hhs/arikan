@@ -1,4 +1,4 @@
-//! REALITY camouflage sites. The panel's `mikan admin targets` finds and checks them from
+//! REALITY camouflage sites. The panel's `arikan admin targets` finds and checks them from
 //! the node itself; the installer points every REALITY inbound at one.
 
 use std::thread;
@@ -30,7 +30,7 @@ pub struct Target {
     pub sni: String,
 }
 
-/// What `mikan admin targets scan --json` prints.
+/// What `arikan admin targets scan --json` prints.
 #[derive(Deserialize, Debug, Clone, Default)]
 pub struct Scan {
     pub ip: String,
@@ -56,7 +56,7 @@ pub fn check(site: &Site) -> Result<Site> {
 /// Said when the camouflage is someone else's site: hosters and filters notice a name that
 /// does not lead to the server's address (GitHub issue #67).
 pub const FOREIGN: &str = "⚠ This is someone else's site next to your server: hosters and filters notice a name \
-    that does not lead to the server's address. With a domain of your own pointed here, pick it in mikan → REALITY sites.";
+    that does not lead to the server's address. With a domain of your own pointed here, pick it in Arikan → REALITY sites.";
 
 /// Points every REALITY inbound at site; returns what the panel reports. own is the
 /// panel's own domain, when it has one: anything else gets the FOREIGN note.

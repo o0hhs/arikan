@@ -1,5 +1,5 @@
 // The API reference: rendered from the OpenAPI spec the server exports at build time
-// (`mikan openapi`), so it always matches the panel it ships with.
+// (`arikan openapi`), so it always matches the panel it ships with.
 import { Copy, Download, Play, Search } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { basePath } from "../../api/client";
@@ -124,7 +124,7 @@ function download(version: string | undefined) {
   const url = URL.createObjectURL(new Blob([JSON.stringify(doc, null, 2)], { type: "application/json" }));
   const a = document.createElement("a");
   a.href = url;
-  a.download = "mikan-openapi.json";
+  a.download = "arikan-openapi.json";
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -158,7 +158,7 @@ function Intro() {
       <div className="api-h">{t("apiPage.prometheus")}</div>
       <p className="mb-2 text-xs text-[var(--ink-500)]">{t("apiPage.prometheusHint")}</p>
       <CodeBlock
-        code={`- job_name: mikan
+        code={`- job_name: arikan
   scheme: https
   metrics_path: ${new URL(base).pathname}/metrics
   authorization:

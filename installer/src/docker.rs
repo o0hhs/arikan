@@ -43,6 +43,9 @@ pub const POSTGRES_IMAGE: &str = postgres_image!();
 ///
 /// The panel answers Let's Encrypt on port 80, or where MIKAN_ACME_LISTEN says when a web
 /// server holds that port and passes the challenge on (see acme.rs).
+// The compose project keeps the name mikan: it prefixes the volumes (mikan_run,
+// mikan_pg-run) and the database lives in one of them — a renamed project would start a
+// second PostgreSQL on an existing server and leave the real data behind.
 pub const PANEL_COMPOSE: &str = concat!(
     r#"name: mikan
 
@@ -63,7 +66,7 @@ x-hardening: &hardening
 services:
   node:
     <<: *hardening
-    entrypoint: ["/usr/local/bin/mikan-node"]
+    entrypoint: ["/usr/local/bin/arikan-node"]
     environment:
       MIKAN_DATA_DIR: /data/node
       MIKAN_NODE_SOCKET: /run/mikan/node.sock
@@ -87,7 +90,7 @@ services:
     pids_limit: 512
     stop_grace_period: 45s
     healthcheck:
-      test: ["CMD", "/usr/local/bin/mikan", "health"]
+      test: ["CMD", "/usr/local/bin/arikan", "health"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -130,7 +133,7 @@ volumes:
 );
 
 /// The compose project's volume that holds the database (compose prefixes the project).
-pub const PG_VOLUME: &str = "mikan_pg-data";
+pub const PG_VOLUME: &str = "arikan_pg-data";
 
 /// A node of another panel, which drives it over its API port.
 pub const NODE_COMPOSE: &str = r#"name: mikan
@@ -149,7 +152,7 @@ services:
     logging:
       driver: json-file
       options: {max-size: "10m", max-file: "3"}
-    entrypoint: ["/usr/local/bin/mikan-node"]
+    entrypoint: ["/usr/local/bin/arikan-node"]
     environment:
       MIKAN_DATA_DIR: /data/node
       MIKAN_NODE_SOCKET: /run/mikan/node.sock
@@ -168,7 +171,7 @@ pub fn compose_text(node: bool) -> &'static str {
 }
 
 /// Makes compose.yaml the one this installer writes: it has been written once, at install,
-/// so a server installed by an older mikan keeps that one (the whole ./data mounted in both
+/// so a server installed by an older Arikan keeps that one (the whole ./data mounted in both
 /// containers, no limits) until this runs. Returns the text it replaced, for the caller to
 /// put back if the new one does not start; the old file also stays as compose.yaml.old.
 pub fn ensure_compose(root: &Path, node: bool) -> Result<Option<String>> {
@@ -194,7 +197,7 @@ pub fn put_compose(root: &Path, text: &str) -> Result<()> {
 }
 
 /// How long a question to the engine may take (a version, the containers, a health check):
-/// a wedged dockerd must not hang `mikan doctor`, the menu's status or a wait for the panel.
+/// a wedged dockerd must not hang `arikan doctor`, the menu's status or a wait for the panel.
 const ASK_LIMIT: Duration = Duration::from_secs(20);
 
 /// Runs a short docker command for up to limit; None when it failed to start, failed, or
@@ -303,7 +306,7 @@ fn forward(r: impl Read + Send + 'static, tx: mpsc::Sender<String>) -> thread::J
 const DISTRO_PACKAGES: [&str; 7] =
     ["docker.io", "docker-compose", "docker-compose-v2", "docker-doc", "podman-docker", "containerd", "runc"];
 
-/// Replaces a Docker that cannot run mikan (no compose v2) with Docker CE from
+/// Replaces a Docker that cannot run Arikan (no compose v2) with Docker CE from
 /// get.docker.com. The packages are removed, not purged: images, volumes and containers
 /// stay in /var/lib/docker and come back with the new engine.
 pub fn replace(mut line: impl FnMut(&str)) -> Result<()> {
@@ -420,14 +423,14 @@ pub fn compose_run(args: &[&str]) -> Result<Output> {
     Ok(out)
 }
 
-/// `mikan admin …` in the running panel. stdin is fed to the command when given.
+/// `arikan admin …` in the running panel. stdin is fed to the command when given.
 pub fn admin(args: &[&str], stdin: Option<&str>) -> Result<Output> {
-    let mut full = vec!["exec", "-T", "panel", "mikan", "admin"];
+    let mut full = vec!["exec", "-T", "panel", "arikan", "admin"];
     full.extend_from_slice(args);
     with_stdin(compose(&full), stdin)
 }
 
-/// `mikan admin …` in a one-off panel container, before the panel runs (bootstrap).
+/// `arikan admin …` in a one-off panel container, before the panel runs (bootstrap).
 pub fn admin_once(args: &[&str], stdin: Option<&str>) -> Result<Output> {
     let mut full = vec!["run", "--rm", "--no-deps", "-T", "panel", "admin"];
     full.extend_from_slice(args);
@@ -446,7 +449,7 @@ pub fn database(args: &[&str]) -> Result<Output> {
 /// A database command that outlives limit is stopped with its container (killing `compose
 /// run` alone leaves the container running); PostgreSQL rolls its transaction back.
 fn database_within(args: &[&str], limit: Duration) -> Result<Output> {
-    let name = format!("mikan-database-{}-{}", std::process::id(), crate::clock::Utc::now().stamp());
+    let name = format!("arikan-database-{}-{}", std::process::id(), crate::clock::Utc::now().stamp());
     let mut full = vec!["run", "--rm", "--no-deps", "-T", "--name", name.as_str(), "panel", "database"];
     full.extend_from_slice(args);
     let what = format!("docker compose run panel database {}", args.join(" "));
@@ -527,7 +530,7 @@ pub fn check(out: Output) -> Result<Output> {
         return Ok(out);
     }
     let err = String::from_utf8_lossy(&out.stderr);
-    let msg = err.lines().rev().find(|l| !l.trim().is_empty()).unwrap_or("failed").trim().trim_start_matches("mikan: ");
+    let msg = err.lines().rev().find(|l| !l.trim().is_empty()).unwrap_or("failed").trim().trim_start_matches("Arikan: ");
     bail!("{msg}")
 }
 
@@ -538,7 +541,7 @@ pub fn panel_healthy() -> bool {
 
 /// panel_healthy, given up after limit.
 pub fn panel_healthy_within(limit: Duration) -> bool {
-    ask(compose(&["exec", "-T", "panel", "mikan", "health"]), limit).is_some_and(|o| o.status.success())
+    ask(compose(&["exec", "-T", "panel", "arikan", "health"]), limit).is_some_and(|o| o.status.success())
 }
 
 #[derive(Deserialize, Debug, Clone, Default)]
@@ -633,7 +636,7 @@ mod tests {
     #[test]
     fn pull_progress() {
         let mut p = PullProgress::default();
-        assert_eq!(p.feed("0.3.9: Pulling from o0hhs/mikan"), None);
+        assert_eq!(p.feed("0.3.9: Pulling from o0hhs/arikan"), None);
         assert_eq!(p.feed("4f4fb700ef54: Pulling fs layer"), Some(0.0));
         assert_eq!(p.feed("a1b2c3d4e5f6: Already exists"), Some(0.5));
         assert_eq!(p.feed("4f4fb700ef54: Download complete"), Some(0.5));

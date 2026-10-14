@@ -163,7 +163,7 @@ func Serve(ctx context.Context, cfg config.Config, version string, web fs.FS) er
 		return err
 	}
 	if paths.Admin == "" {
-		logger.Warn("panel is not initialized yet: run `mikan admin bootstrap`")
+		logger.Warn("panel is not initialized yet: run `arikan admin bootstrap`")
 	}
 	subPort.SetHandler(p.SubOnly())
 	if port, _, err := settings.Get[int](ctx, settings.New(st.Q), settings.KeySubPort); err == nil {

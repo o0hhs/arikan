@@ -1,4 +1,4 @@
-//! `mikan doctor`: checks the server of a panel or a node and says what is wrong and what
+//! `arikan doctor`: checks the server of a panel or a node and says what is wrong and what
 //! to do about it. The checks that wait for the network (DNS, GitHub, GHCR) run beside the
 //! local ones, so that the whole run stays short.
 
@@ -108,7 +108,7 @@ pub fn run() -> Result<()> {
     let dns = background(|| "github.com:443".to_socket_addrs().map(|a| a.count()).map_err(|e| e.to_string()));
 
     let mut report = Report::default();
-    crate::out(&format!("mikan {}, {}", install.version(), if install.node { "node" } else { "panel" }));
+    crate::out(&format!("Arikan {}, {}", install.version(), if install.node { "node" } else { "panel" }));
 
     let engine = docker::version();
     report.add([docker_item(engine.as_deref())]);
@@ -154,20 +154,20 @@ fn docker_item(version: Option<&str>) -> Item {
 
 fn containers(services: Result<Vec<Service>, String>) -> Vec<Item> {
     match services {
-        Err(e) => vec![Item::error("Containers", e, "mikan restart")],
-        Ok(list) if list.is_empty() => vec![Item::error("Containers", "none exist", "mikan restart")],
+        Err(e) => vec![Item::error("Containers", e, "arikan restart")],
+        Ok(list) if list.is_empty() => vec![Item::error("Containers", "none exist", "arikan restart")],
         Ok(list) => list.iter().map(container).collect(),
     }
 }
 
 fn container(s: &Service) -> Item {
     let label = format!("Container {}", s.name);
-    let fix = format!("mikan restart; mikan logs {}", s.name);
+    let fix = format!("arikan restart; arikan logs {}", s.name);
     let status = if s.status.is_empty() { s.state.clone() } else { s.status.clone() };
     if s.state != "running" || s.status.contains("unhealthy") {
         Item::error(label, status, fix)
     } else if s.status.contains("starting") {
-        Item::warn(label, status, "wait a minute and run mikan doctor again; mikan logs ".to_owned() + &s.name)
+        Item::warn(label, status, "wait a minute and run arikan doctor again; arikan logs ".to_owned() + &s.name)
     } else {
         Item::ok(label, status)
     }
@@ -182,11 +182,11 @@ fn ports(install: &Install, engine: bool) -> Vec<Item> {
                 None => Item::error(
                     "API port",
                     format!("nothing listens on {p}/tcp, where the panel connects"),
-                    "mikan logs node; mikan restart",
+                    "arikan logs node; arikan restart",
                 ),
             },
             None => {
-                Item::error("API port", "NODE_API_PORT is not set in /opt/mikan/.env", "mikan join <new key from the panel's Nodes page>")
+                Item::error("API port", "NODE_API_PORT is not set in /opt/mikan/.env", "arikan join <new key from the panel's Nodes page>")
             }
         }];
     }
@@ -204,25 +204,25 @@ fn ports(install: &Install, engine: bool) -> Vec<Item> {
             (Some(p), Some(who)) => format!("does not answer on {p}/tcp ({who} listens there)"),
             (None, _) => "does not answer".to_owned(),
         };
-        Item::error("Panel", detail, "mikan logs panel; mikan restart")
+        Item::error("Panel", detail, "arikan logs panel; arikan restart")
     }]
 }
 
 /// Port 80, where Let's Encrypt checks the server before it gives a certificate: free for
-/// mikan, or a web server that passes the check on.
+/// Arikan, or a web server that passes the check on.
 fn port80_item(owner: Option<&str>, listen: Option<&str>) -> Item {
     const LABEL: &str = "Port 80";
-    const FIX: &str = "mikan cert proxy <the server's domain, as the panel shows it>";
+    const FIX: &str = "arikan cert proxy <the server's domain, as the panel shows it>";
     let behind = listen.map(str::trim).filter(|l| !l.is_empty() && *l != ":80").unwrap_or_default();
     match acme::port80(owner, listen, || 0) {
-        acme::Port80::Own { drop: false } => Item::ok(LABEL, "free: mikan answers Let's Encrypt there when it gets a certificate"),
+        acme::Port80::Own { drop: false } => Item::ok(LABEL, "free: Arikan answers Let's Encrypt there when it gets a certificate"),
         acme::Port80::Own { drop: true } => Item::warn(
             LABEL,
-            format!("free, yet mikan waits for Let's Encrypt on {behind} behind a web server that is gone: no public certificate"),
+            format!("free, yet Arikan waits for Let's Encrypt on {behind} behind a web server that is gone: no public certificate"),
             FIX,
         ),
         acme::Port80::Front(front, _) if !behind.is_empty() => {
-            Item::ok(LABEL, format!("{} holds it and passes Let's Encrypt to mikan on {behind}", front.name()))
+            Item::ok(LABEL, format!("{} holds it and passes Let's Encrypt to Arikan on {behind}", front.name()))
         }
         acme::Port80::Front(front, _) => {
             Item::warn(LABEL, format!("{} holds it, and Let's Encrypt checks the server there: no public certificate", front.name()), FIX)
@@ -230,7 +230,7 @@ fn port80_item(owner: Option<&str>, listen: Option<&str>) -> Item {
         acme::Port80::Other(who) => Item::warn(
             LABEL,
             format!("held by {who}, and Let's Encrypt checks the server there: no public certificate"),
-            "free port 80, or pass /.well-known/acme-challenge/ to mikan (MIKAN_ACME_LISTEN)",
+            "free port 80, or pass /.well-known/acme-challenge/ to Arikan (MIKAN_ACME_LISTEN)",
         ),
     }
 }
@@ -558,10 +558,10 @@ fn memory_item(available_mb: Option<u64>) -> Item {
 fn contact(port: Option<u16>, engine: bool) -> Vec<Item> {
     const LABEL: &str = "Panel contact";
     if !hello::path().exists() {
-        return vec![Item::ok(LABEL, "this node version does not report it; mikan update")];
+        return vec![Item::ok(LABEL, "this node version does not report it; arikan update")];
     }
     let fresh = engine
-        .then(|| capture(docker::compose(&["exec", "-T", "node", "/usr/local/bin/mikan-node", "hello"]), Duration::from_secs(30)))
+        .then(|| capture(docker::compose(&["exec", "-T", "node", "/usr/local/bin/arikan-node", "hello"]), Duration::from_secs(30)))
         .flatten()
         .and_then(|text| hello::parse(text.trim()).or_else(|| text.lines().rev().find_map(|l| hello::parse(l.trim()))));
     let (h, earlier) = match fresh {
@@ -571,12 +571,12 @@ fn contact(port: Option<u16>, engine: bool) -> Vec<Item> {
                 let at = h.at.clone();
                 (h, Some(at))
             }
-            None => return vec![Item::warn(LABEL, "the node's report cannot be read", "mikan logs node")],
+            None => return vec![Item::warn(LABEL, "the node's report cannot be read", "arikan logs node")],
         },
     };
     let mut items = Vec::new();
     if let Some(at) = earlier {
-        items.push(Item::warn(LABEL, format!("cannot ask the node now; its last result, from {at}:"), "mikan logs node"));
+        items.push(Item::warn(LABEL, format!("cannot ask the node now; its last result, from {at}:"), "arikan logs node"));
     }
     items.extend(hello::lines(&h, port).into_iter().map(|(level, text)| Item { level, label: LABEL.into(), detail: text, fix: None }));
     items
@@ -618,7 +618,7 @@ mod tests {
         assert!(gone.detail.contains("127.0.0.1:18080"), "{}", gone.detail);
         let bare = port80_item(Some("nginx"), None);
         assert_eq!(bare.level, Level::Warn);
-        assert!(bare.fix.as_deref().is_some_and(|f| f.starts_with("mikan cert proxy")), "{bare:?}");
+        assert!(bare.fix.as_deref().is_some_and(|f| f.starts_with("arikan cert proxy")), "{bare:?}");
         let passed = port80_item(Some("nginx"), Some("127.0.0.1:18080"));
         assert_eq!(passed.level, Level::Ok);
         assert!(passed.detail.contains("nginx holds it and passes"), "{}", passed.detail);
@@ -825,7 +825,7 @@ Anywhere                   ALLOW       10.0.0.0/8
         assert_eq!(container(&service("running", "Up 5 seconds (health: starting)")).level, Level::Warn);
         let sick = container(&service("running", "Up 2 minutes (unhealthy)"));
         assert_eq!(sick.level, Level::Error);
-        assert_eq!(sick.fix.as_deref(), Some("mikan restart; mikan logs node"));
+        assert_eq!(sick.fix.as_deref(), Some("arikan restart; arikan logs node"));
         assert_eq!(container(&service("exited", "Exited (1) 2 minutes ago")).level, Level::Error);
         assert_eq!(container(&service("restarting", "Restarting (1) 5 seconds ago")).level, Level::Error);
         assert_eq!(containers(Ok(Vec::new()))[0].level, Level::Error);
@@ -841,6 +841,6 @@ Anywhere                   ALLOW       10.0.0.0/8
         let t = Instant::now();
         assert_eq!(capture(slow, Duration::from_millis(300)), None);
         assert!(t.elapsed() < Duration::from_secs(5));
-        assert_eq!(capture(Command::new("/nonexistent/mikan-test"), Duration::from_secs(1)), None);
+        assert_eq!(capture(Command::new("/nonexistent/Arikan-test"), Duration::from_secs(1)), None);
     }
 }

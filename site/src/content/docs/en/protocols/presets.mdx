@@ -1,6 +1,6 @@
 ---
 title: Protocol presets
-description: Every mikan protocol, its default port, which apps receive it, and the main settings.
+description: Every Arikan protocol, its default port, which apps receive it, and the main settings.
 ---
 
 The **Protocols** section holds the protocols clients use to reach your nodes. Add a new one from a preset with the **Add** button: keys, passwords and certificates are created for you, and all you pick is the node and, if you like, the port.
@@ -16,7 +16,7 @@ The **Protocols** section holds the protocols clients use to reach your nodes. A
 | Trojan · REALITY | 2087/tcp | |
 | VLESS · TLS · XHTTP | 2443/tcp | plain TLS on a real certificate, answers strangers as a web server |
 | VLESS · TLS · Vision | 3443/tcp | works in almost every app |
-| VLESS · TLS · WebSocket | 2053/tcp | gets through on operators where only WS works, and through a CDN, see [behind a proxy](/mikanaddons/en/protocols/behind-proxy/#through-a-cdn) |
+| VLESS · TLS · WebSocket | 2053/tcp | gets through on operators where only WS works, and through a CDN, see [behind a proxy](/arikan/en/protocols/behind-proxy/#through-a-cdn) |
 | Hysteria2 | 443/udp | QUIC, a port range can be set |
 | Hysteria2 · Gecko | 2443/udp | Hysteria2 with Gecko obfuscation, Clash apps only |
 | TUIC v5 | 8443/udp | |
@@ -63,10 +63,10 @@ The **Configure** button opens the tabs "Main", "Masking" (XHTTP only) and "Conf
 - **Camouflage site (REALITY)**: `www.microsoft.com:443` by default. The buttons are "Check" and "Find near the server" (looks for sites in the same /24 network as the node). If the panel has a domain, you can pick your own domain. If an IP is given instead of a name, the "Site domain (SNI)" field is required.
 - **Obfuscation** for Hysteria2: Salamander or Gecko. Gecko cuts the QUIC handshake into pieces of random size with padding, against DPI that recognizes QUIC by packet sizes. Only Clash apps on mihomo 1.19.26+ receive it, so keep a plain Hysteria2 next to it.
 - **TLS fingerprint**: as in the settings (Chrome by default), Chrome, Firefox, Safari, iOS, Android, Edge, 360, QQ, a random browser, or "Own…" with any uTLS profile name, for example `chrome120`. The shared default is set in **Settings → Subscription**. Hysteria2 and TUIC have no fingerprint.
-- **Way out to the internet**: direct, [WARP](/mikanaddons/en/nodes/warp/) or [via a node](/mikanaddons/en/nodes/cascades/).
-- **Traffic pool**: if you have pools, a protocol can count against a separate limit, see [Pools and packages](/mikanaddons/en/billing/pools/).
-- **Behind a proxy (nginx, HAProxy)**: see [Behind a proxy](/mikanaddons/en/protocols/behind-proxy/).
-- **Automatic fixes**: switches for moving the port and changing the site, see [Automatic fixes](/mikanaddons/en/protocols/autotune/).
+- **Way out to the internet**: direct, [WARP](/arikan/en/nodes/warp/) or [via a node](/arikan/en/nodes/cascades/).
+- **Traffic pool**: if you have pools, a protocol can count against a separate limit, see [Pools and packages](/arikan/en/billing/pools/).
+- **Behind a proxy (nginx, HAProxy)**: see [Behind a proxy](/arikan/en/protocols/behind-proxy/).
+- **Automatic fixes**: switches for moving the port and changing the site, see [Automatic fixes](/arikan/en/protocols/autotune/).
 
 ## Copies
 
@@ -74,15 +74,15 @@ The **Copy** button makes another connection with the same template — the same
 
 ## Own config
 
-The "Own config" preset opens a YAML editor with a mihomo listener of type vless, vmess, trojan, hysteria2, tuic or anytls. mikan fills in the name, port, address, users and certificate itself. The "Check" button validates the config before saving.
+The "Own config" preset opens a YAML editor with a mihomo listener of type vless, vmess, trojan, hysteria2, tuic or anytls. Arikan fills in the name, port, address, users and certificate itself. The "Check" button validates the config before saving.
 
 ## From the command line
 
 ```bash
-mikan inbound list
-mikan inbound add                        # shows the list of presets
-mikan inbound add hysteria2 --port 20000-20100 --node 2
-mikan inbound set vless-xhttp --port 2443
+arikan inbound list
+arikan inbound add                        # shows the list of presets
+arikan inbound add hysteria2 --port 20000-20100 --node 2
+arikan inbound set vless-xhttp --port 2443
 ```
 
 On the panel server the new port is opened in ufw automatically, and the node picks up the changes within 30 seconds.
@@ -90,7 +90,7 @@ On the panel server the new port is opened in ufw automatically, and the node pi
 ## Camouflage sites from the command line
 
 ```bash
-mikan targets scan                       # find suitable sites near the server
-mikan targets check --dest www.example.com:443
-mikan targets apply --dest www.example.com:443 --all
+arikan targets scan                       # find suitable sites near the server
+arikan targets check --dest www.example.com:443
+arikan targets apply --dest www.example.com:443 --all
 ```

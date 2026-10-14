@@ -1,11 +1,11 @@
 ---
-title: Что такое mikan
+title: Что такое Arikan
 description: VPN-панель на ядре mihomo для своего VPN-сервиса. Из чего она состоит и как работает.
 ---
 
 import { LinkCard, CardGrid } from '@astrojs/starlight/components';
 
-mikan: панель для своего VPN-сервиса на ядре [mihomo](https://github.com/MetaCubeX/mihomo). В ней вы заводите протоколы и ноды, создаёте пользователей с тарифами, раздаёте подписки и продаёте доступ через Telegram-бота. Панель бесплатная, код открыт под GPL-3.0, интерфейс на русском и английском.
+Arikan: панель для своего VPN-сервиса на ядре [mihomo](https://github.com/MetaCubeX/mihomo). В ней вы заводите протоколы и ноды, создаёте пользователей с тарифами, раздаёте подписки и продаёте доступ через Telegram-бота. Панель бесплатная, код открыт под GPL-3.0, интерфейс на русском и английском.
 
 ## Из чего состоит
 
@@ -18,10 +18,10 @@ mikan: панель для своего VPN-сервиса на ядре [mihomo
 Панель и нода работают отдельно, поэтому обновление или перезапуск панели не роняет VPN. На сервере панели всегда есть своя нода, а удалённые ноды на других серверах подключаются по ключу.
 
 ```text
-Браузер ── HTTPS, секретная ссылка ──▶ панель mikan
+Браузер ── HTTPS, секретная ссылка ──▶ панель Arikan
                                         │  unix-сокет / TLS с пиннингом
                                         ▼
-VPN-приложения ── REALITY, QUIC… ──▶ ноды mikan (mihomo внутри)
+VPN-приложения ── REALITY, QUIC… ──▶ ноды Arikan (mihomo внутри)
        └──────── подписка ──────────▶ панель
 ```
 
@@ -44,6 +44,6 @@ VPN-приложения ── REALITY, QUIC… ──▶ ноды mikan (mihom
 ## С чего начать
 
 <CardGrid>
-	<LinkCard title="Установка" description="Одна команда на чистом сервере с Ubuntu или Debian." href="/mikanaddons/start/install/" />
-	<LinkCard title="Первые шаги" description="Вход в панель, первый пользователь и подключения." href="/mikanaddons/start/first-steps/" />
+	<LinkCard title="Установка" description="Одна команда на чистом сервере с Ubuntu или Debian." href="/arikan/start/install/" />
+	<LinkCard title="Первые шаги" description="Вход в панель, первый пользователь и подключения." href="/arikan/start/first-steps/" />
 </CardGrid>

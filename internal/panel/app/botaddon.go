@@ -54,7 +54,7 @@ func (b *botAddon) check(ctx context.Context) {
 	}
 	st, err := p.Addons.State()
 	if err != nil || st.HostVersion == "" {
-		return // a host before protocol 2 runs no bot addon: `mikan update` first
+		return // a host before protocol 2 runs no bot addon: `arikan update` first
 	}
 	if a, ok := st.Adapters[OfficialBot]; ok && a.KindOf() != addons.KindPayment {
 		if a.Status != "running" || !b.granted(ctx) {

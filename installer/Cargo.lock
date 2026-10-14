@@ -89,6 +89,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "arikan-installer"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "base64 0.23.1",
+ "clap",
+ "ed25519-dalek",
+ "libc",
+ "qrcode",
+ "ratatui",
+ "rustix",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "ureq",
+]
+
+[[package]]
 name = "atomic"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1090,24 +1108,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "488016bfae457b036d996092f6cb448677611ce4449e970ceaf42695203f218a"
 dependencies = [
  "autocfg",
-]
-
-[[package]]
-name = "mikan-installer"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "base64 0.23.1",
- "clap",
- "ed25519-dalek",
- "libc",
- "qrcode",
- "ratatui",
- "rustix",
- "serde",
- "serde_json",
- "sha2 0.11.0",
- "ureq",
 ]
 
 [[package]]

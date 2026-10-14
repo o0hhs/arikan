@@ -1,5 +1,5 @@
 //! The server's commands: what the menu does, for scripts and old habits (the bash
-//! `mikan` of 0.3.8 and before had the same names). Updates are in update.rs, backups in
+//! `Arikan` of 0.3.8 and before had the same names). Updates are in update.rs, backups in
 //! backup.rs.
 
 use std::fs;
@@ -25,7 +25,7 @@ impl Install {
         let env = EnvFile::load(Path::new(DIR).join(".env")).map_err(|e| {
             let missing = e.root_cause().downcast_ref::<std::io::Error>().is_some_and(|io| io.kind() == std::io::ErrorKind::NotFound);
             // Only a missing file means "not installed": a .env that cannot be read says why.
-            if missing { anyhow!("mikan is not installed here: run `mikan install`") } else { e }
+            if missing { anyhow!("Arikan is not installed here: run `arikan install`") } else { e }
         })?;
         let node = env.get("MIKAN_MODE") == Some("node");
         Ok(Self { env, node })
@@ -37,7 +37,7 @@ impl Install {
             return v.to_owned();
         }
         let service = if self.node { "node" } else { "panel" };
-        let bin = if self.node { "/usr/local/bin/mikan-node" } else { "mikan" };
+        let bin = if self.node { "/usr/local/bin/arikan-node" } else { "arikan" };
         docker::compose(&["exec", "-T", service, bin, "version"])
             .stderr(Stdio::null())
             .output()
@@ -68,10 +68,10 @@ impl Install {
     }
 }
 
-/// `mikan admin …` in the panel with the terminal attached; exits with its status.
+/// `arikan admin …` in the panel with the terminal attached; exits with its status.
 pub fn admin(args: &[&str]) -> Result<()> {
     Install::load()?.panel_only()?;
-    let mut full = vec!["exec", "-T", "panel", "mikan", "admin"];
+    let mut full = vec!["exec", "-T", "panel", "arikan", "admin"];
     full.extend_from_slice(args);
     let status = docker::compose(&full).status()?;
     if !status.success() {
@@ -85,10 +85,10 @@ const MAX_PEM: u64 = 64 << 10;
 
 /// Installs an own certificate: both files go to the panel on stdin, never on the
 /// command line or into another file; the panel checks them and serves them at once.
-/// `mikan cert proxy <domain>`: Let's Encrypt checks domain on port 80, which nginx or Caddy
-/// may hold on this server. The rule that passes the check to mikan goes into that web
-/// server (backed up, tested, reloaded; or shown when it cannot be added), and mikan
-/// answers on a local port behind it. With port 80 free again, mikan takes it back.
+/// `arikan cert proxy <domain>`: Let's Encrypt checks domain on port 80, which nginx or Caddy
+/// may hold on this server. The rule that passes the check to Arikan goes into that web
+/// server (backed up, tested, reloaded; or shown when it cannot be added), and Arikan
+/// answers on a local port behind it. With port 80 free again, Arikan takes it back.
 pub fn cert_proxy(domain: &str, yes: bool) -> Result<()> {
     let domain = domain.trim().trim_end_matches('.').to_ascii_lowercase();
     if !crate::net::valid_domain(&domain) && domain.parse::<IpAddr>().is_err() {
@@ -96,11 +96,11 @@ pub fn cert_proxy(domain: &str, yes: bool) -> Result<()> {
     }
     let mut install = Install::load()?;
     // recreate writes this release's compose file, which runs the panel on PostgreSQL: a
-    // panel still on SQLite moves there only through `mikan update`. Asked only where
+    // panel still on SQLite moves there only through `arikan update`. Asked only where
     // something is about to change.
     let movable = |install: &Install| -> Result<()> {
         if !install.node && install.env.get("MIKAN_DATABASE_URL").is_none() {
-            bail!("this panel still keeps its data in SQLite (mikan 0.4): run `mikan update` first, then this command");
+            bail!("this panel still keeps its data in SQLite (Arikan 0.4): run `arikan update` first, then this command");
         }
         Ok(())
     };
@@ -121,7 +121,7 @@ pub fn cert_proxy(domain: &str, yes: bool) -> Result<()> {
             Ok(())
         }
         acme::Port80::Other(who) => bail!(
-            "port 80 is held by {who}, which mikan cannot configure. Free port 80, or make {who} pass /.well-known/acme-challenge/ to 127.0.0.1:{port}, set MIKAN_ACME_LISTEN=127.0.0.1:{port} in {DIR}/.env and run: mikan restart",
+            "port 80 is held by {who}, which Arikan cannot configure. Free port 80, or make {who} pass /.well-known/acme-challenge/ to 127.0.0.1:{port}, set MIKAN_ACME_LISTEN=127.0.0.1:{port} in {DIR}/.env and run: arikan restart",
             port = acme::free_port()
         ),
         acme::Port80::Front(front, port) => {
@@ -140,7 +140,7 @@ pub fn cert_proxy(domain: &str, yes: bool) -> Result<()> {
                 return Ok(());
             }
             let report = acme::setup(front, &domain, port, true);
-            // The rule may be in, or left for the admin: mikan answers behind it either way.
+            // The rule may be in, or left for the admin: Arikan answers behind it either way.
             install.env.set("MIKAN_ACME_LISTEN", &acme::listen(port))?;
             install.env.save()?;
             recreate(&install)?;
@@ -158,7 +158,7 @@ pub fn cert_proxy(domain: &str, yes: bool) -> Result<()> {
 }
 
 /// Starts the containers again with what .env says now, through this release's compose
-/// file: one written by an older mikan may not pass MIKAN_ACME_LISTEN on.
+/// file: one written by an older Arikan may not pass MIKAN_ACME_LISTEN on.
 fn recreate(install: &Install) -> Result<()> {
     docker::ensure_compose(Path::new(DIR), install.node)?;
     docker::compose_run(&["up", "-d"])?;
@@ -186,7 +186,7 @@ pub fn cert_set(cert: &Path, key: &Path, node: Option<u32>) -> Result<()> {
     Ok(())
 }
 
-/// `mikan admin cert clear|show` for the panel or a node.
+/// `arikan admin cert clear|show` for the panel or a node.
 pub fn cert(cmd: &[&str], node: Option<u32>) -> Result<()> {
     let mut args = vec!["cert"];
     args.extend_from_slice(cmd);
@@ -207,7 +207,7 @@ pub fn inbound(args: &[String]) -> Result<()> {
     }
     let install = Install::load()?;
     install.panel_only()?;
-    let mut full = vec!["exec", "-T", "panel", "mikan", "admin", "inbound"];
+    let mut full = vec!["exec", "-T", "panel", "arikan", "admin", "inbound"];
     full.extend_from_slice(&args);
     // stdout is "port/network" when the port is on this server; messages are on stderr.
     let out = docker::compose(&full).stderr(Stdio::inherit()).output()?;
@@ -221,7 +221,7 @@ pub fn inbound(args: &[String]) -> Result<()> {
     // What the panel printed is a port to open, nothing more: it is checked before it is
     // handed to the firewall.
     if !host::valid_rule(&rule) {
-        eprintln!("mikan: the panel named {rule:?}, which is not a port to open: ufw is left alone");
+        eprintln!("Arikan: the panel named {rule:?}, which is not a port to open: ufw is left alone");
         return Ok(());
     }
     if install.ufw() && system::ufw_active() {
@@ -234,7 +234,7 @@ pub fn inbound(args: &[String]) -> Result<()> {
 pub fn status() -> Result<()> {
     let install = Install::load()?;
     let version = install.version();
-    crate::out(&format!("mikan {version}, {}", if install.node { "node" } else { "panel" }));
+    crate::out(&format!("Arikan {version}, {}", if install.node { "node" } else { "panel" }));
     let mut wrong = false;
     let services = docker::services()?;
     for s in &services {
@@ -249,17 +249,17 @@ pub fn status() -> Result<()> {
             Some(_) => crate::out(&format!("The node waits for its panel on port {p}.")),
             None => {
                 wrong = true;
-                crate::out(&format!("The node does not listen on port {p}: mikan logs node"));
+                crate::out(&format!("The node does not listen on port {p}: arikan logs node"));
             }
         }
     } else if docker::panel_healthy() {
         crate::out("The panel answers.");
     } else {
         wrong = true;
-        crate::out("The panel does not answer: mikan logs panel");
+        crate::out("The panel does not answer: arikan logs panel");
     }
     if wrong {
-        crate::out("Run mikan doctor for a full check with fixes.");
+        crate::out("Run arikan doctor for a full check with fixes.");
     }
     match release::find(Some(&version), crate::update::channel(&install)) {
         Ok(found) => {
@@ -270,10 +270,10 @@ pub fn status() -> Result<()> {
             let m = &found.manifest;
             match &found.newest {
                 Some(newest) if found.unreachable => {
-                    crate::out(&format!("mikan {newest} is out, but this version cannot update to it directly."))
+                    crate::out(&format!("Arikan {newest} is out, but this version cannot update to it directly."))
                 }
-                Some(newest) => crate::out(&format!("mikan {newest} is out: mikan update (through mikan {} first)", m.version)),
-                None if release::newer(&m.version, &version) => crate::out(&format!("mikan {} is out: mikan update", m.version)),
+                Some(newest) => crate::out(&format!("Arikan {newest} is out: arikan update (through Arikan {} first)", m.version)),
+                None if release::newer(&m.version, &version) => crate::out(&format!("Arikan {} is out: arikan update", m.version)),
                 None => crate::out("This is the latest release."),
             }
         }
@@ -362,7 +362,7 @@ pub fn join(key: &str, panel_ip: Option<IpAddr>) -> Result<()> {
     Ok(())
 }
 
-/// Stops mikan and removes what it put on the host; the data stays, a panel's database in
+/// Stops Arikan and removes what it put on the host; the data stays, a panel's database in
 /// its volume too. True for a panel.
 pub fn uninstall() -> Result<bool> {
     let panel = !Install::load()?.node;

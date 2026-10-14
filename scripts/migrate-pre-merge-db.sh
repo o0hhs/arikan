@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 #
-# mikan-форк: перевод сервера, собранного из ветки ДО мержа с апстримом (например
+# Arikan: перевод сервера, собранного из ветки ДО мержа с апстримом (например
 # feature/olcrtc), на релиз 0.5.1.1 — починка учёта миграций в базе.
 #
-#   curl -fsSL https://raw.githubusercontent.com/o0hhs/mikanaddons/main/scripts/migrate-pre-merge-db.sh \
+#   curl -fsSL https://raw.githubusercontent.com/o0hhs/arikan/main/scripts/migrate-pre-merge-db.sh \
 #     | sudo bash
 #
 # Зачем это нужно. В таких сборках миграции форка были пронумерованы 0016_referrals.sql и
@@ -26,8 +26,8 @@
 #
 # Порядок действий целиком:
 #   1. sudo bash migrate-pre-merge-db.sh          # этот скрипт: база готова к релизу
-#   2. sudo mikan update ghcr.io/o0hhs/mikan@sha256:5163b007...   # образ на релиз
-#   3. заменить /usr/local/bin/mikan установщиком из релиза        # новый ключ подписи
+#   2. sudo mikan update ghcr.io/o0hhs/arikan@sha256:…            # образ на релиз
+#   3. заменить host-команду установщиком из релиза (/usr/local/bin/arikan)
 #
 # Ключи:
 #   --check    только показать, что скрипт собирается делать (ничего не меняет)
@@ -43,8 +43,9 @@ set -Eeuo pipefail
 
 MIKAN_DIR=${MIKAN_DIR:-/opt/mikan}
 UPSTREAM_TAG=${UPSTREAM_TAG:-v0.5.1.1}
-REPO_RAW=${REPO_RAW:-https://raw.githubusercontent.com/o0hhs/mikanaddons}
-RELEASE_IMAGE=${RELEASE_IMAGE:-ghcr.io/o0hhs/mikan@sha256:5163b0070613d0c6ba011fa45d6c7cfcea66168a567b6aa1b84af6a6c22f2c6c}
+REPO_RAW=${REPO_RAW:-https://raw.githubusercontent.com/o0hhs/arikan}
+# TODO(at release time): pin the digest of the published arikan image here.
+RELEASE_IMAGE=${RELEASE_IMAGE:-ghcr.io/o0hhs/arikan@sha256:5163b0070613d0c6ba011fa45d6c7cfcea66168a567b6aa1b84af6a6c22f2c6c}
 
 # Почему всё перезапускается: переданный по пайпу скрипт (curl … | sudo bash -s -- …) bash читает
 # из stdin, и любая команда внутри наследует этот stdin. `docker compose exec` съедает остаток
@@ -273,7 +274,7 @@ cat <<EOF
   2. Заменить хостовый установщик на релизный — в старом ключ подписи прежний, и без этого
      автоматические обновления не увидят наших релизов (на arm64-сервере возьми mikan-aarch64,
      sha256 f337f159f375c9814bccd922f273dd2d859252c0ec7db74c3cda0d51f46a2ed1):
-       curl -fL -o /tmp/mikan-x86_64 https://github.com/o0hhs/mikanaddons/releases/download/v0.5.1.1/mikan-x86_64
+       curl -fL -o /tmp/arikan-x86_64 https://github.com/o0hhs/arikan/releases/download/v0.5.1.1/arikan-x86_64
        echo "0ca7c9adaa1692845923fb26ae115ada586cb87d65b2821f0720016c50ba0b12  /tmp/mikan-x86_64" | sha256sum -c -
        sudo cp -a /usr/local/bin/mikan /usr/local/bin/mikan.before-0511
        sudo install -m 0755 /tmp/mikan-x86_64 /usr/local/bin/mikan

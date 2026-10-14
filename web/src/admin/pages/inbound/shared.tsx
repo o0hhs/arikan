@@ -66,7 +66,7 @@ export function listenerError(e: string): string {
   return e;
 }
 
-/** Checks a template on the server (mikan's rules, then mihomo's parser on the node). */
+/** Checks a template on the server (Arikan's rules, then mihomo's parser on the node). */
 export function useValidate() {
   return useMutation({
     mutationFn: (body: Schemas["ValidateInboundInputBody"]) => unwrap(api.POST("/api/v1/inbounds/validate", { body })),

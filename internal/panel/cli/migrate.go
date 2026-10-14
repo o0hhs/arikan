@@ -22,7 +22,7 @@ import (
 	"mikan/internal/panel/store/db"
 )
 
-// migrateCmd finishes moving the panel to this server after `mikan restore`:
+// migrateCmd finishes moving the panel to this server after `arikan restore`:
 // it points the panel and subscription links at the new address while keeping
 // everything clients already hold — sub tokens, the subscription path, tariffs,
 // nodes and their identities (data/panel/tls migrates with the backup, so remote

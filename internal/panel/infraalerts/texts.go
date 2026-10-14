@@ -29,7 +29,7 @@ type texts struct {
 	inboundMoved    string
 	autotuneChanged string
 	autotuneStuck   string
-	// The TLS certificate going bad and coming back, and the Mikan update that failed.
+	// The TLS certificate going bad and coming back, and the Arikan update that failed.
 	tlsBad       string
 	tlsRecovered string
 	updateFailed string
@@ -75,7 +75,7 @@ var ruTexts = texts{
 	autotuneStuck:     "⚠️ <b>Автонастройка не восстановила подключение</b>: %s / %s (%s)",
 	tlsBad:            "🟡 <b>Проблема с TLS-сертификатом</b>",
 	tlsRecovered:      "🟢 <b>TLS-сертификат снова в порядке</b>",
-	updateFailed:      "🔴 <b>Ошибка обновления Mikan</b>",
+	updateFailed:      "🔴 <b>Ошибка обновления Arikan</b>",
 	nodeUpdateFailed:  "🔴 <b>Ошибка обновления ноды</b> ",
 	nodeUpdateRollout: ". Обновление остальных нод остановлено; ноду можно обновить снова на странице «Ноды».",
 
@@ -112,7 +112,7 @@ var enTexts = texts{
 	autotuneStuck:     "⚠️ <b>Autotune could not restore an inbound</b>: %s / %s (%s)",
 	tlsBad:            "🟡 <b>TLS certificate problem</b>",
 	tlsRecovered:      "🟢 <b>TLS certificate is healthy again</b>",
-	updateFailed:      "🔴 <b>Mikan update failed</b>",
+	updateFailed:      "🔴 <b>Arikan update failed</b>",
 	nodeUpdateFailed:  "🔴 <b>Node update failed</b> ",
 	nodeUpdateRollout: ". The rollout to the other nodes is stopped; the node can be updated again from the Nodes page.",
 

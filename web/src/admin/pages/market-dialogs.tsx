@@ -14,7 +14,7 @@ import { ADDON_ID_RE, PERMISSIONS, actsAsAdmin, installMarket, installPayment, s
 // The dialogs of the protocol 2 addons, shared by both tabs of the addons page: approving
 // what an addon may do, its details, and an addon of the admin's own. Each one gets exactly
 // the permissions the admin approved; an addon of a source or of the admin's own (a process on
-// the server) is code mikan has not seen, and says so everywhere.
+// the server) is code Arikan has not seen, and says so everywhere.
 
 /**
  * The server's queue is one for both kinds of addons: a request of either shows in both. Who

@@ -35,8 +35,8 @@ func newFixture(t *testing.T, changelog string) *fixture {
 	t.Setenv("RELEASE_SIGNING_KEY", string(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der})))
 	f := &fixture{t: t, pub: pub, priv: private, dir: t.TempDir()}
 	f.write("CHANGELOG.md", changelog)
-	f.write("mikan-x86_64", "installer x86_64")
-	f.write("mikan-aarch64", "installer aarch64")
+	f.write("arikan-x86_64", "installer x86_64")
+	f.write("arikan-aarch64", "installer aarch64")
 	return f
 }
 
@@ -51,9 +51,9 @@ func (f *fixture) write(name, content string) string {
 
 // args are a complete manifest command for version; extra flags go after them.
 func (f *fixture) args(version string, extra ...string) []string {
-	return append([]string{"-version", version, "-image", "ghcr.io/o0hhs/mikan", "-digest", "sha256:" + strings.Repeat("a", 64),
+	return append([]string{"-version", version, "-image", "ghcr.io/o0hhs/arikan", "-digest", "sha256:" + strings.Repeat("a", 64),
 		"-changelog", filepath.Join(f.dir, "CHANGELOG.md"), "-out", filepath.Join(f.dir, "release"),
-		"-asset", "x86_64=" + filepath.Join(f.dir, "mikan-x86_64"), "-asset", "aarch64=" + filepath.Join(f.dir, "mikan-aarch64")}, extra...)
+		"-asset", "x86_64=" + filepath.Join(f.dir, "arikan-x86_64"), "-asset", "aarch64=" + filepath.Join(f.dir, "arikan-aarch64")}, extra...)
 }
 
 // manifest runs the command and reads back what it signed.
@@ -157,10 +157,10 @@ func TestManifestRequiresEveryArchitectureAndLanguage(t *testing.T) {
 			t.Errorf("a release without %s: %v", arch, err)
 		}
 	}
-	if err := makeManifest(f.args("0.5.0.1", "-asset", "riscv64="+filepath.Join(f.dir, "mikan-x86_64"))); err == nil {
+	if err := makeManifest(f.args("0.5.0.1", "-asset", "riscv64="+filepath.Join(f.dir, "arikan-x86_64"))); err == nil {
 		t.Error("an unknown architecture is accepted")
 	}
-	if err := makeManifest(f.args("0.5.0.1", "-asset", "x86_64="+filepath.Join(f.dir, "mikan-aarch64"))); err == nil {
+	if err := makeManifest(f.args("0.5.0.1", "-asset", "x86_64="+filepath.Join(f.dir, "arikan-aarch64"))); err == nil {
 		t.Error("an architecture given twice is accepted")
 	}
 	for name, log := range map[string]string{
@@ -184,16 +184,16 @@ func TestManifestInstallerURLFollowsTheTag(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := m.Installer["x86_64"].URL; got != "https://github.com/o0hhs/mikanaddons/releases/download/v0.4.4/mikan-x86_64" {
+	if got := m.Installer["x86_64"].URL; got != "https://github.com/o0hhs/arikan/releases/download/v0.4.4/arikan-x86_64" {
 		t.Fatal(got)
 	}
-	if got := m.Installer["aarch64"].URL; got != "https://github.com/o0hhs/mikanaddons/releases/download/v0.4.4/mikan-aarch64" {
+	if got := m.Installer["aarch64"].URL; got != "https://github.com/o0hhs/arikan/releases/download/v0.4.4/arikan-aarch64" {
 		t.Fatal(got)
 	}
 	if m, err = f.manifest(f.args("0.4.4", "-tag", "v-bridge-0.5.0.0")); err != nil {
 		t.Fatal(err)
 	}
-	if got := m.Installer["x86_64"].URL; got != "https://github.com/o0hhs/mikanaddons/releases/download/v-bridge-0.5.0.0/mikan-x86_64" {
+	if got := m.Installer["x86_64"].URL; got != "https://github.com/o0hhs/arikan/releases/download/v-bridge-0.5.0.0/arikan-x86_64" {
 		t.Fatal(got)
 	}
 }

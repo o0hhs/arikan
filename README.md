@@ -2,15 +2,15 @@
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset=".github/assets/banner-en-dark.svg">
-  <img alt="mikan — VPN panel on the mihomo core" src=".github/assets/banner-en-light.svg" width="100%">
+  <img alt="Arikan — VPN panel on the mihomo core" src=".github/assets/banner-en-light.svg" width="100%">
 </picture>
 
 <br>
 
 **A fast, beautiful VPN panel on the [mihomo](https://github.com/MetaCubeX/mihomo) core — one command to install, nothing to babysit.**
 
-[![Release](https://img.shields.io/github/v/release/o0hhs/mikanaddons?color=f07a2e&label=release&style=flat-square)](https://github.com/o0hhs/mikanaddons/releases)
-[![Image](https://img.shields.io/badge/ghcr.io-o0hhs%2Fmikan-2b8c9e?style=flat-square&logo=docker&logoColor=white)](https://github.com/o0hhs/mikanaddons/pkgs/container/mikan)
+[![Release](https://img.shields.io/github/v/release/o0hhs/arikan?color=f07a2e&label=release&style=flat-square)](https://github.com/o0hhs/arikan/releases)
+[![Image](https://img.shields.io/badge/ghcr.io-o0hhs%2Farikan-2b8c9e?style=flat-square&logo=docker&logoColor=white)](https://github.com/o0hhs/arikan/pkgs/container/arikan)
 [![License](https://img.shields.io/badge/license-GPL--3.0-2f9e6b?style=flat-square)](LICENSE)
 [![mihomo](https://img.shields.io/badge/core-mihomo%201.19.32-9e8eff?style=flat-square)](https://github.com/MetaCubeX/mihomo)
 
@@ -22,23 +22,26 @@
 
 ---
 
+> [!IMPORTANT]
+> **An unofficial fork.** Arikan is not affiliated with or supported by the mikan project. Support comes only from the fork's author.
+
 ## Install
 
 On a fresh Ubuntu 22.04+ or Debian 12+ server (amd64 or arm64):
 
 ```bash
-curl -fsSL https://github.com/o0hhs/mikanaddons/releases/latest/download/install.sh | sudo bash
+curl -fsSL https://github.com/o0hhs/arikan/releases/latest/download/install.sh | sudo bash
 ```
 
-The installer asks for the panel language and an optional domain, checks that the domain points to the server, installs Docker if needed, picks REALITY camouflage sites next to your server and prints your admin link. Run `mikan` again at any time for the management menu.
+The installer asks for the panel language and an optional domain, checks that the domain points to the server, installs Docker if needed, picks REALITY camouflage sites next to your server and prints your admin link. Run `arikan` again at any time for the management menu.
 
-A node for an existing panel: the panel's **Nodes** page (or `mikan node add`) gives the command with its key:
+A node for an existing panel: the panel's **Nodes** page (or `arikan node add`) gives the command with its key:
 
 ```bash
-curl -fsSL https://github.com/o0hhs/mikanaddons/releases/latest/download/install.sh | sudo bash -s -- --join KEY
+curl -fsSL https://github.com/o0hhs/arikan/releases/latest/download/install.sh | sudo bash -s -- --join KEY
 ```
 
-Without questions, for scripts: `… | sudo bash -s -- --yes --lang en --domain vpn.example.com --email you@example.com` (all flags: `mikan install --help`).
+Without questions, for scripts: `… | sudo bash -s -- --yes --lang en --domain vpn.example.com --email you@example.com` (all flags: `arikan install --help`).
 
 ### Moving from stock mikan
 
@@ -50,10 +53,10 @@ Already running the upstream panel? Switching is just the image swap: your data 
 curl -fsSL https://github.com/Miroshka000/mikan/releases/latest/download/install.sh | sudo bash
 ```
 
-**2. Switching to the fork.** Take the tag from the [fork's releases](https://github.com/o0hhs/mikanaddons/releases):
+**2. Switching to the fork.** Take the tag from the [fork's releases](https://github.com/o0hhs/arikan/releases):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/o0hhs/mikanaddons/main/scripts/install-fork.sh | sudo bash -s -- --image ghcr.io/o0hhs/mikan:<tag>
+curl -fsSL https://raw.githubusercontent.com/o0hhs/arikan/main/scripts/install-fork.sh | sudo bash -s -- --image ghcr.io/o0hhs/arikan:<tag>
 ```
 
 What `scripts/install-fork.sh` does:
@@ -64,14 +67,14 @@ What `scripts/install-fork.sh` does:
 - verifies the database schema and the counts of users, plans and payments: a failed check rolls everything back by itself;
 - leaves auto-update on: the fork has its own release repo and its own signing key, so the panel will not "update itself" back to upstream. The `--disable-auto-update` flag is only for older fork builds whose release repo still pointed at upstream.
 
-Preview the script's plan without touching anything: the same request with `--dry-run`. If the image does not pull, make the package public: GitHub → Packages → mikan → Package settings → Change visibility → Public (the script prints this hint when it happens).
+Preview the script's plan without touching anything: the same request with `--dry-run`. If the image does not pull, make the package public: GitHub → Packages → arikan → Package settings → Change visibility → Public (the script prints this hint when it happens).
 
 **3. After the switch.** Turn the programme on (**Payments → Referrals**) and create campaign tags on the **Payments** page. Everything else — users, plans, payments, nodes, subscription links — stays as it was.
 
 **Rolling back to stock mikan** is the same script with the backup taken before the switch (payments, users and plans return to the state of that moment; the referral programme and campaign tag data is not part of that backup):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/o0hhs/mikanaddons/main/scripts/install-fork.sh | sudo bash -s -- --rollback /opt/mikan/data/panel/backup-<date>-before-fork.dump
+curl -fsSL https://raw.githubusercontent.com/o0hhs/arikan/main/scripts/install-fork.sh | sudo bash -s -- --rollback /opt/mikan/data/panel/backup-<date>-before-fork.dump
 ```
 
 ## What this fork adds
@@ -85,19 +88,19 @@ The fork's own additions:
 - **Subscription domain** (Settings → Subscription): subscription links on a domain or subdomain of their own, apart from the panel's address. The panel's TLS certificate is issued with that name in it, or you can serve the domain through your own proxy or CDN — it does not even have to point at the server. Moving the panel no longer breaks the links: only the DNS follows.
 - **Protocol copies** (Protocols → a protocol → Copy): raise the same protocol — the same keys, passwords and camouflage — on another port of the node or on another node, changing only the port and, for REALITY, the camouflage site.
 - **VK TURN** (a node card → ⋯ → VK TURN): where a whitelist lets only calls through, the node carries one of its protocols over the TURN servers of VK calls; in the subscription it appears once more — an ordinary-looking server at the client's own address.
-- **Finishing a panel move**: after a restore on a new server, `mikan admin migrate` sets the new address, keeps the subscription links and checks the nodes — they accept the moved panel without re-joining.
-- **An update channel of its own**: the image is `ghcr.io/o0hhs/mikan`, releases live on this page, the manifest is signed with the fork's key, and `mikan update` and the **Update** button fetch from here, not from upstream. Docs: [o0hhs.github.io/mikanaddons](https://o0hhs.github.io/mikanaddons).
+- **Finishing a panel move**: after a restore on a new server, `arikan admin migrate` sets the new address, keeps the subscription links and checks the nodes — they accept the moved panel without re-joining.
+- **An update channel of its own**: the image is `ghcr.io/o0hhs/arikan`, releases live on this page, the manifest is signed with the fork's key, and `arikan update` and the **Update** button fetch from here, not from upstream. Docs: [o0hhs.github.io/arikan](https://o0hhs.github.io/arikan).
 
 How upstream feels about builds from other sources is said plainly in [Forks and third-party builds](#-forks-and-third-party-builds): check what you run, and run what you can read.
 
-## Why mikan
+## Why Arikan
 
 <table>
 <tr>
 <td width="50%" valign="top">
 
 ### 🛡️ Survives blocking on its own
-mikan watches whether real clients still reach each protocol. When a port gets blocked on the way, it moves the protocol to a free HTTPS port; when a REALITY camouflage site stops working, it picks a new one next to your server.
+Arikan watches whether real clients still reach each protocol. When a port gets blocked on the way, it moves the protocol to a free HTTPS port; when a REALITY camouflage site stops working, it picks a new one next to your server.
 
 </td>
 <td width="50%" valign="top">
@@ -124,7 +127,7 @@ Subscribers check their plan, devices and connection guides in a bot you set up 
 <tr>
 <td valign="top">
 
-### 🪶 Light as a mandarin
+### 🪶 Light as a feather
 Go and PostgreSQL, three small containers. On a working server with clients: **~14 MB RAM** for the panel, **~50 MB** for the database, **~40 MB** for the VPN core.
 
 </td>
@@ -157,7 +160,7 @@ Admins can create discount codes and codes for bonus days or traffic. Subscriber
 codes in the Telegram Mini App, which also shows their redemption history. Bonus traffic
 can go to the main balance or a selected pool. Discounted invoices are available only
 through payment methods that support refunds: Telegram Stars and adapters that advertise
-refund support. Mikan can then return a payment if its promo reservation expires before
+refund support. Arikan can then return a payment if its promo reservation expires before
 the provider confirms it.
 
 ## Referral programme
@@ -176,25 +179,6 @@ Give each ad its own link (`t.me/<bot>?start=camp_<tag>`) and the panel counts, 
 campaign, how many people arrived, how many bought and how many renewed. The stats live on
 the same **Payments** page, so a campaign's payback is visible from the panel and not only
 from the ad network.
-
-## Screenshots
-
-<table>
-<tr>
-<td width="50%"><img src=".github/assets/screens/en/dashboard.webp" alt="Overview"></td>
-<td width="50%"><img src=".github/assets/screens/en/users.webp" alt="Users"></td>
-</tr>
-<tr>
-<td><img src=".github/assets/screens/en/inbounds.webp" alt="Protocols"></td>
-<td><img src=".github/assets/screens/en/telegram.webp" alt="Telegram bot"></td>
-</tr>
-</table>
-
-<p align="center">
-<img src=".github/assets/screens/en/phone-subscription.webp" alt="Subscription page" width="260">
-&nbsp;&nbsp;
-<img src=".github/assets/screens/en/phone-dashboard.webp" alt="Overview on a phone" width="260">
-</p>
 
 ## Protocols
 
@@ -226,8 +210,8 @@ Seventeen protocols, each a preset with keys generated for you. The subscription
 
 ```mermaid
 flowchart LR
-    A[Browser] -- HTTPS, secret link --> P[mikan panel<br>users · plans · subscriptions]
-    P -- unix socket / pinned TLS --> N1[mikan node<br>mihomo inside]
+    A[Browser] -- HTTPS, secret link --> P[Arikan panel<br>users · plans · subscriptions]
+    P -- unix socket / pinned TLS --> N1[arikan node<br>mihomo inside]
     P -- pinned TLS --> N2[remote node]
     C[VPN apps] -- REALITY · QUIC · … --> N1
     C --> N2
@@ -238,22 +222,22 @@ The panel and the node are two processes from one image. Update or restart the p
 
 ## Managing the server
 
-Run `mikan` for the menu, or use the commands directly:
+Run `arikan` for the menu, or use the commands directly:
 
 | Command | What it does |
 |---|---|
-| `mikan status` | containers, versions, health, available update |
-| `mikan logs [panel\|node]` | live logs |
-| `mikan url` | admin link |
-| `mikan reset-password` · `reset-path` · `disable-2fa` | regain access |
-| `mikan update` | update now (backup first, automatic rollback) |
-| `mikan backup` · `restore FILE` | backups in `/opt/mikan/backups` |
-| `mikan admin migrate --public-host IP` | finish a panel move after a restore on a new server: new address, same links, nodes verified |
-| `mikan node …` · `mikan inbound …` | nodes and protocols |
-| `mikan targets scan` · `apply` | REALITY camouflage sites next to the server |
-| `mikan join KEY` | on a node: take a new key from the panel |
-| `mikan restart` | restart the containers |
-| `mikan uninstall` | stop and remove the command, keep the data |
+| `arikan status` | containers, versions, health, available update |
+| `arikan logs [panel\|node]` | live logs |
+| `arikan url` | admin link |
+| `arikan reset-password` · `reset-path` · `disable-2fa` | regain access |
+| `arikan update` | update now (backup first, automatic rollback) |
+| `arikan backup` · `restore FILE` | backups in `/opt/mikan/backups` |
+| `arikan admin migrate --public-host IP` | finish a panel move after a restore on a new server: new address, same links, nodes verified |
+| `arikan node …` · `arikan inbound …` | nodes and protocols |
+| `arikan targets scan` · `apply` | REALITY camouflage sites next to the server |
+| `arikan join KEY` | on a node: take a new key from the panel |
+| `arikan restart` | restart the containers |
+| `arikan uninstall` | stop and remove the command, keep the data |
 
 ## Updates
 
@@ -264,7 +248,7 @@ On 0.4.4 or older, update to 0.4.5 first; the move to 0.5 and PostgreSQL then co
 ## Building from source
 
 ```bash
-docker buildx build -t mikan:dev .            # panel + node image
+docker buildx build -t arikan:dev .            # panel + node image
 cd web && pnpm install && pnpm dev            # admin UI with hot reload
 MIKAN_TEST_DATABASE_URL=postgres://… go test ./...   # Go 1.27, a test PostgreSQL 18 and pg_dump
 cd installer && cargo test                    # the installer (Rust)
@@ -289,8 +273,8 @@ Development happens on the `main` branch; pull requests are built and tested, re
 
 ## License
 
-mikan is free software under the [GNU GPL v3](LICENSE) with the additional terms in [NOTICE.md](NOTICE.md): keep the attribution, do not pass a modified version off as the original, no rights to the name and the logo. Copyright (C) 2026 Miroshka and Mikan. It embeds [mihomo](https://github.com/MetaCubeX/mihomo) (GPL-3.0) and adapts parts of [3x-ui](https://github.com/MHSanaei/3x-ui) (GPL-3.0). Fonts: Unbounded, Onest, JetBrains Mono (SIL OFL 1.1).
+Arikan is a fork of mikan, free software under the [GNU GPL v3](LICENSE) with the additional terms in [NOTICE.md](NOTICE.md): keep the attribution, do not pass a modified version off as the original, no rights to the upstream name and the logo. Copyright (C) 2026 Miroshka and Mikan. It embeds [mihomo](https://github.com/MetaCubeX/mihomo) (GPL-3.0) and adapts parts of [3x-ui](https://github.com/MHSanaei/3x-ui) (GPL-3.0). Fonts: Unbounded, Onest, JetBrains Mono (SIL OFL 1.1).
 
 <div align="center">
-<sub>Made with 🍊</sub>
+<sub>Arikan — an unofficial fork of mikan</sub>
 </div>

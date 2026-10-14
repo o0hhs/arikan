@@ -11,7 +11,7 @@ The panel has a REST API for bots, billing and monitoring. Its documentation is 
 
 - the API address and keys;
 - a list of all methods with parameters, responses and curl examples, and a "Try it" button for GET requests;
-- "Download OpenAPI": a `mikan-openapi.json` file with your panel's address already filled in. It works with Postman, Insomnia, Swagger UI and client generators.
+- "Download OpenAPI": a `Arikan-openapi.json` file with your panel's address already filled in. It works with Postman, Insomnia, Swagger UI and client generators.
 
 :::caution
 The downloaded file contains your panel's secret path. Do not publish it.
@@ -28,7 +28,7 @@ On the API page, the **New key** button:
 - **Expires**: when I revoke it, 30, 90 or 365 days.
 - The administrator password and the 2FA code, if it is on.
 
-The key is shown once, and the panel keeps only its hash. Keys are created and revoked only from the panel, not through the API. When the password changes, you can revoke the administrator's keys with a checkbox, and `mikan reset-password` always revokes them.
+The key is shown once, and the panel keeps only its hash. Keys are created and revoked only from the panel, not through the API. When the password changes, you can revoke the administrator's keys with a checkbox, and `arikan reset-password` always revokes them.
 
 | Access | What it allows |
 |---|---|

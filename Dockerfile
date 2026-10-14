@@ -22,18 +22,18 @@ ARG VERSION=dev
 # amd64 binaries into the arm64 image (the 0.4.1 image did).
 ARG TARGETOS TARGETARCH
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o /out/mikan ./cmd/mikan && \
-    CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o /out/mikan-node ./cmd/mikan-node
+    CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o /out/arikan ./cmd/mikan && \
+    CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o /out/arikan-node ./cmd/mikan-node
 
 FROM alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
 # Filled in by BuildKit for each platform; read before the first use.
 ARG TARGETARCH
 RUN apk add --no-cache ca-certificates tzdata libcap postgresql18-client curl && \
-    addgroup -S -g 65532 mikan && adduser -S -D -H -u 65532 -G mikan mikan
+    addgroup -S -g 65532 arikan && adduser -S -D -H -u 65532 -G arikan arikan
 COPY --from=build /out/ /usr/local/bin/
 # The server of the VK-call way in ("WL"): the node agent runs it as a child process
 # (internal/node/turn.go), handing the users' traffic to one of the node's inbounds. It is
-# a third-party program, GPL-3.0 like mikan itself, taken as the project's own release
+# a third-party program, GPL-3.0 like this panel itself, taken as the project's own release
 # binary and pinned by sha256; sources and licence: github.com/cacggghp/vk-turn-proxy
 ARG VKTURN_VERSION=v1.8.3
 RUN set -eux; \
@@ -47,16 +47,18 @@ RUN set -eux; \
     chmod 0755 /usr/local/bin/vk-turn-proxy
 # The binaries must be the image's own architecture: the ELF machine field says so.
 RUN case "$TARGETARCH" in amd64) want="3e 00" ;; arm64) want="b7 00" ;; *) want="" ;; esac; \
-    for f in /usr/local/bin/mikan /usr/local/bin/mikan-node; do \
+    for f in /usr/local/bin/arikan /usr/local/bin/arikan-node; do \
       got=$(od -A n -t x1 -j 18 -N 2 "$f" | tr -s " " | sed "s/^ //"); \
       if [ -n "$want" ] && [ "$got" != "$want" ]; then echo "$f is not built for $TARGETARCH (ELF machine $got)"; exit 1; fi; \
     done
 # Non-root processes may bind 443 (node) and 80 (panel, ACME challenges) only through
 # file capabilities; compose keeps NET_BIND_SERVICE in the bounding set (S-04).
-RUN setcap cap_net_bind_service=+ep /usr/local/bin/mikan-node && \
-    setcap cap_net_bind_service=+ep /usr/local/bin/mikan && \
+RUN setcap cap_net_bind_service=+ep /usr/local/bin/arikan-node && \
+    setcap cap_net_bind_service=+ep /usr/local/bin/arikan && \
+    ln -s /usr/local/bin/arikan /usr/local/bin/mikan && \
+    ln -s /usr/local/bin/arikan-node /usr/local/bin/mikan-node && \
     mkdir -p /data /run/mikan && chown -R 65532:65532 /data /run/mikan && chmod 700 /data
 USER 65532:65532
 ENV MIKAN_DATA_DIR=/data MIKAN_NODE_SOCKET=/run/mikan/node.sock
-ENTRYPOINT ["/usr/local/bin/mikan"]
+ENTRYPOINT ["/usr/local/bin/arikan"]
 CMD ["serve"]

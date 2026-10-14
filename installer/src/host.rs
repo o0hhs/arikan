@@ -1,5 +1,5 @@
-//! What mikan changes on the host besides /opt/mikan: kernel tuning, ufw rules, the
-//! update timer and the mikan command itself.
+//! What Arikan changes on the host besides /opt/mikan: kernel tuning, ufw rules, the
+//! update timer and the Arikan command itself.
 
 use std::fs;
 use std::path::Path;
@@ -9,9 +9,9 @@ use anyhow::{Context, Result, bail};
 
 use crate::system;
 
-pub const SYSCTL: &str = "/etc/sysctl.d/99-mikan.conf";
+pub const SYSCTL: &str = "/etc/sysctl.d/99-arikan.conf";
 
-const SYSCTL_CONF: &str = "# mikan: BBR for the TCP protocols, bigger UDP buffers for Hysteria2 and TUIC (QUIC)
+const SYSCTL_CONF: &str = "# Arikan: BBR for the TCP protocols, bigger UDP buffers for Hysteria2 and TUIC (QUIC)
 net.core.default_qdisc = fq
 net.ipv4.tcp_congestion_control = bbr
 net.core.rmem_max = 16777216
@@ -46,7 +46,7 @@ pub fn rules(panel_port: Option<u16>, node_api: Option<u16>) -> Vec<String> {
 /// Port 80, where the certificate authority checks the server (HTTP-01).
 pub const ACME_RULE: &str = "80/tcp";
 
-/// What `mikan update` opens again on a server with ufw on: port 80 (nodes installed before
+/// What `arikan update` opens again on a server with ufw on: port 80 (nodes installed before
 /// they got public certificates lack it) and the pool, which may have grown.
 pub fn update_rules() -> Vec<String> {
     std::iter::once(ACME_RULE.to_string()).chain(pool_rules()).collect()
@@ -101,9 +101,9 @@ fn ufw(args: &[&str]) -> Result<()> {
     crate::system::run_quiet("ufw", args)
 }
 
-pub const BIN: &str = "/usr/local/bin/mikan";
+pub const BIN: &str = "/usr/local/bin/arikan";
 
-/// Puts this binary at /usr/local/bin/mikan, the server's command, unless it runs from there.
+/// Puts this binary at /usr/local/bin/arikan, the server's command, unless it runs from there.
 pub fn install_self() -> Result<()> {
     let me = std::env::current_exe()?;
     if fs::canonicalize(&me).ok() == fs::canonicalize(BIN).ok() {
@@ -112,7 +112,7 @@ pub fn install_self() -> Result<()> {
     replace_bin(&fs::read(&me)?, None)
 }
 
-/// Replaces /usr/local/bin/mikan at once; the running process keeps its old copy. The new
+/// Replaces /usr/local/bin/arikan at once; the running process keeps its old copy. The new
 /// file is on the disk, not only in the page cache (a power cut must not leave the command,
 /// which both update units run, empty), and it runs and reports the release it is meant to
 /// be before it takes the working one's place.
@@ -166,7 +166,7 @@ fn version_of(path: &Path) -> Result<String> {
     Err(last.map_or_else(|| anyhow::anyhow!("the downloaded command does not run"), Into::into))
 }
 
-const UNIT_NAMES: [&str; 4] = ["mikan-update.service", "mikan-update.timer", "mikan-update-request.service", "mikan-update-request.path"];
+const UNIT_NAMES: [&str; 4] = ["arikan-update.service", "arikan-update.timer", "arikan-update-request.service", "arikan-update-request.path"];
 
 /// The unit files of a panel or of a node: the same four, except that the path unit watches
 /// the request of the one the server runs (the panel's Update button, or the panel asking
@@ -177,7 +177,7 @@ fn units(panel: bool) -> [(&'static str, String); 4] {
         (
             UNIT_NAMES[0],
             "[Unit]
-Description=mikan: update when automatic updates are on
+Description=Arikan: update when automatic updates are on
 After=docker.service network-online.target
 Wants=network-online.target
 
@@ -187,14 +187,14 @@ Type=oneshot
 # would keep the timer from ever starting it again. Two hours: a database move alone may
 # take an hour (DATABASE_LIMIT), with the pull and the backups around it.
 TimeoutStartSec=2h
-ExecStart=/usr/local/bin/mikan update --auto
+ExecStart=/usr/local/bin/arikan update --auto
 "
             .into(),
         ),
         (
             UNIT_NAMES[1],
             "[Unit]
-Description=mikan: look for an update once a day
+Description=Arikan: look for an update once a day
 
 [Timer]
 OnCalendar=*-*-* 03:00:00
@@ -209,13 +209,13 @@ WantedBy=timers.target
         (
             UNIT_NAMES[2],
             "[Unit]
-Description=mikan: update asked for in the panel
+Description=Arikan: update asked for in the panel
 After=docker.service
 
 [Service]
 Type=oneshot
 TimeoutStartSec=2h
-ExecStart=/usr/local/bin/mikan update --requested
+ExecStart=/usr/local/bin/arikan update --requested
 "
             .into(),
         ),
@@ -223,11 +223,11 @@ ExecStart=/usr/local/bin/mikan update --requested
             UNIT_NAMES[3],
             format!(
                 "[Unit]
-Description=mikan: wait for an update request from {from}
+Description=Arikan: wait for an update request from {from}
 
 [Path]
 PathExists=/opt/mikan/data/{dir}/update/request
-Unit=mikan-update-request.service
+Unit=arikan-update-request.service
 
 [Install]
 WantedBy=paths.target
@@ -258,13 +258,13 @@ pub fn install_units(panel: bool) -> Result<()> {
         fs::write(format!("/etc/systemd/system/{name}"), text)?;
     }
     systemctl(&["daemon-reload"])?;
-    systemctl(&["enable", "--now", "mikan-update.timer"])?;
-    systemctl(&["enable", "--now", "mikan-update-request.path"])?;
+    systemctl(&["enable", "--now", "arikan-update.timer"])?;
+    systemctl(&["enable", "--now", "arikan-update-request.path"])?;
     Ok(())
 }
 
 pub fn remove_units() {
-    let _ = systemctl(&["disable", "--now", "mikan-update.timer", "mikan-update-request.path"]);
+    let _ = systemctl(&["disable", "--now", "arikan-update.timer", "arikan-update-request.path"]);
     for name in UNIT_NAMES {
         let _ = fs::remove_file(format!("/etc/systemd/system/{name}"));
     }
@@ -335,11 +335,11 @@ mod tests {
     fn the_command_is_replaced_only_by_a_working_release() {
         use std::os::unix::fs::PermissionsExt;
         let d = tmpdir("bin");
-        let bin = d.join("mikan");
-        fs::write(&bin, "#!/bin/sh\necho mikan 0.4.3\n").unwrap();
+        let bin = d.join("arikan");
+        fs::write(&bin, "#!/bin/sh\necho arikan 0.4.3\n").unwrap();
         fs::set_permissions(&bin, fs::Permissions::from_mode(0o755)).unwrap();
         let old = fs::read(&bin).unwrap();
-        let new = b"#!/bin/sh\necho mikan 0.4.4\n";
+        let new = b"#!/bin/sh\necho arikan 0.4.4\n";
         for (what, data, release) in [
             ("wrong release", &new[..], Some("0.4.5")),
             ("does not run", &b"#!/bin/sh\nexit 3\n"[..], None),
@@ -348,7 +348,7 @@ mod tests {
         ] {
             assert!(replace_at(&bin, data, release).is_err(), "{what} replaced the command");
             assert_eq!(fs::read(&bin).unwrap(), old, "{what}");
-            assert!(!d.join("mikan.new").exists(), "{what} left its file");
+            assert!(!d.join("Arikan.new").exists(), "{what} left its file");
         }
         replace_at(&bin, new, Some("0.4.4")).unwrap();
         assert_eq!(fs::read(&bin).unwrap(), new);
@@ -373,7 +373,7 @@ mod tests {
     #[test]
     fn the_request_unit_watches_the_directory_of_what_the_server_runs() {
         let (panel, node) = (units(true), units(false));
-        let path = |all: &[(&str, String); 4]| all.iter().find(|(n, _)| *n == "mikan-update-request.path").unwrap().1.clone();
+        let path = |all: &[(&str, String); 4]| all.iter().find(|(n, _)| *n == "arikan-update-request.path").unwrap().1.clone();
         assert!(path(&panel).contains("\nPathExists=/opt/mikan/data/panel/update/request\n"));
         assert!(path(&node).contains("\nPathExists=/opt/mikan/data/node/update/request\n"));
         assert!(!path(&panel).contains("data/node") && !path(&node).contains("data/panel"));
@@ -385,9 +385,9 @@ mod tests {
             }
         }
         // both run the same command, which finds out by itself whose request it is
-        let service = &node.iter().find(|(n, _)| *n == "mikan-update-request.service").unwrap().1;
-        assert!(service.contains("ExecStart=/usr/local/bin/mikan update --requested\n"));
-        assert!(path(&node).contains("Unit=mikan-update-request.service"));
+        let service = &node.iter().find(|(n, _)| *n == "arikan-update-request.service").unwrap().1;
+        assert!(service.contains("ExecStart=/usr/local/bin/arikan update --requested\n"));
+        assert!(path(&node).contains("Unit=arikan-update-request.service"));
     }
 
     // A server updated by an older command has the older units: a node with none of the
@@ -408,12 +408,12 @@ mod tests {
         assert!(units_current_in(&d, true) && !units_current_in(&d, false));
         // a node of 0.5.0.1: the timer and the services, no path unit
         write(false);
-        fs::remove_file(d.join("mikan-update-request.path")).unwrap();
+        fs::remove_file(d.join("arikan-update-request.path")).unwrap();
         assert!(!units_current_in(&d, false), "a node without the request unit gets it on its next update");
         // an older text of the path unit
         write(false);
-        let old = fs::read_to_string(d.join("mikan-update-request.path")).unwrap().replace("data/node/", "data/panel/");
-        fs::write(d.join("mikan-update-request.path"), old).unwrap();
+        let old = fs::read_to_string(d.join("arikan-update-request.path")).unwrap().replace("data/node/", "data/panel/");
+        fs::write(d.join("arikan-update-request.path"), old).unwrap();
         assert!(!units_current_in(&d, false));
         fs::remove_dir_all(&d).unwrap();
     }

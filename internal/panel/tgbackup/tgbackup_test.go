@@ -83,7 +83,7 @@ func unpack(t *testing.T, file []byte, pass string) map[string][]byte {
 	}
 }
 
-// The archive is what `mikan restore` takes: data/panel/backup.dump and its directories,
+// The archive is what `arikan restore` takes: data/panel/backup.dump and its directories,
 // encrypted; without the password it does not open, and the plain dump is gone.
 func TestMakeIsAnEncryptedArchive(t *testing.T) {
 	dir := t.TempDir()
@@ -245,10 +245,10 @@ func TestSendGoesToTheAdminChat(t *testing.T) {
 		t.Fatal(err)
 	}
 	g := got()
-	if len(g) != 1 || g[0].chat != "42" || g[0].name != "mikan-vpn.example.com-20261003-0330.tar.gz.age" {
+	if len(g) != 1 || g[0].chat != "42" || g[0].name != "arikan-vpn.example.com-20261003-0330.tar.gz.age" {
 		t.Fatalf("sent: %+v", g)
 	}
-	if !strings.Contains(g[0].caption, "mikan restore") || string(unpack(t, g[0].file, password)["data/panel/backup.dump"]) != "PGDMP-test" {
+	if !strings.Contains(g[0].caption, "arikan restore") || string(unpack(t, g[0].file, password)["data/panel/backup.dump"]) != "PGDMP-test" {
 		t.Fatalf("caption %q", g[0].caption)
 	}
 	if g[0].length <= int64(len(g[0].file)) {

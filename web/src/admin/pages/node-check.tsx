@@ -34,9 +34,9 @@ function commands(fix: string | undefined, p: Params): string[] {
     case "open_port":
       return p.port ? [`ufw allow ${p.port}/tcp`] : [];
     case "start_node":
-      return ["mikan status", "mikan logs node"];
+      return ["arikan status", "arikan logs node"];
     case "old_node":
-      return ["mikan update"];
+      return ["arikan update"];
     case "free_port":
       return p.port ? [`ss -ltnp 'sport = :${p.port}'`] : [];
     case "sync_time":
@@ -44,9 +44,9 @@ function commands(fix: string | undefined, p: Params): string[] {
     case "free_disk":
       return ["df -h /opt/mikan", "docker image prune"];
     case "check_outbound":
-      return ["mikan doctor"];
+      return ["arikan doctor"];
     case "restart_panel":
-      return ["mikan status", "mikan restart"];
+      return ["arikan status", "arikan restart"];
   }
   return [];
 }

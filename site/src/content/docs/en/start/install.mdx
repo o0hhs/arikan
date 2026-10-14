@@ -9,7 +9,7 @@ import { Steps } from '@astrojs/starlight/components';
 
 - **OS:** Ubuntu 22.04+ or Debian 12+. On other distributions the installer warns you but does not stop.
 - **Architecture:** amd64 or arm64. A Raspberry Pi 4 works if it runs a 64-bit system.
-- **Memory:** 400 MB or more, less only with a warning. Docker takes about 300 MB and mikan about 60 MB more.
+- **Memory:** 400 MB or more, less only with a warning. Docker takes about 300 MB and Arikan about 60 MB more.
 - **Disk:** at least 1 GB of free space where Docker lives, ideally 3 GB or more.
 - **Access:** root (`sudo`).
 - **Time:** the server clock must be synchronized, otherwise TLS and REALITY work poorly.
@@ -18,7 +18,7 @@ import { Steps } from '@astrojs/starlight/components';
 ## The command
 
 ```bash
-curl -fsSL https://github.com/o0hhs/mikanaddons/releases/latest/download/install.sh | sudo bash
+curl -fsSL https://github.com/o0hhs/arikan/releases/latest/download/install.sh | sudo bash
 ```
 
 `install.sh` first checks the release signature and the installer hash, and only then installs anything. If Docker is missing, it is installed from get.docker.com. Docker without compose v2 (the `docker.io` package from Ubuntu 22.04 and Debian) is replaced by the installer, but only with your consent: images, volumes and containers stay.
@@ -52,7 +52,7 @@ A step-by-step wizard opens in the terminal:
 The last screen shows the panel link, login and password. The <kbd>q</kbd> key shows a QR code of the link.
 
 :::caution[Save the password]
-The password is shown only on the last screen. After you exit, the link and login stay in the terminal. If you forget the password, `mikan reset-password` gives you a new one.
+The password is shown only on the last screen. After you exit, the link and login stay in the terminal. If you forget the password, `arikan reset-password` gives you a new one.
 :::
 
 ## Unattended, for scripts
@@ -60,7 +60,7 @@ The password is shown only on the last screen. After you exit, the link and logi
 With the `--yes` flag the installer asks nothing and takes values from flags and defaults:
 
 ```bash
-curl -fsSL https://github.com/o0hhs/mikanaddons/releases/latest/download/install.sh \
+curl -fsSL https://github.com/o0hhs/arikan/releases/latest/download/install.sh \
   | sudo bash -s -- --yes --lang en --domain vpn.example.com --email you@example.com
 ```
 
@@ -79,7 +79,7 @@ curl -fsSL https://github.com/o0hhs/mikanaddons/releases/latest/download/install
 | `--replace-docker` | replace Docker without compose v2 with Docker from get.docker.com |
 | `-y`, `--yes` | ask nothing |
 
-Full list: `mikan install --help`.
+Full list: `arikan install --help`.
 
 ## Where things are
 
@@ -90,21 +90,21 @@ Full list: `mikan install --help`.
 | `/opt/mikan/backups` | backups |
 | `/opt/mikan/data/panel/www` | your own site: files are served on paths the panel does not use, `404.html` serves as the error page |
 | Docker volume `mikan_pg-data` | the PostgreSQL database |
-| `/usr/local/bin/mikan` | the server management command |
+| `/usr/local/bin/Arikan` | the server management command |
 
-The installer opens these in ufw (if it is enabled): the panel port, 80, 443 and the spare ports 2053, 2083, 2087, 2096, 2443, 3443, 4443, 5443, 6443, 7443, 8443, 9443, 10443, 11443, 12443 over TCP and UDP. Automatic fixes move blocked protocols to them; `mikan update` opens them again when the list grows. If ufw is off and your hosting provider has its own firewall, open at least 443, 8443 and the panel port there.
+The installer opens these in ufw (if it is enabled): the panel port, 80, 443 and the spare ports 2053, 2083, 2087, 2096, 2443, 3443, 4443, 5443, 6443, 7443, 8443, 9443, 10443, 11443, 12443 over TCP and UDP. Automatic fixes move blocked protocols to them; `arikan update` opens them again when the list grows. If ufw is off and your hosting provider has its own firewall, open at least 443, 8443 and the panel port there.
 
 :::tip[Installation interrupted]
-Run `mikan install` again and the installer continues from where it stopped. On an already installed server, the `mikan` command opens the management menu.
+Run `arikan install` again and the installer continues from where it stopped. On an already installed server, the `Arikan` command opens the management menu.
 :::
 
 ## A node for another panel
 
-If the panel is already installed and you need one more exit point, only the node is installed on the new server. The command with a key comes from the **Nodes** page, more in the [Nodes](/mikanaddons/en/nodes/nodes/) section.
+If the panel is already installed and you need one more exit point, only the node is installed on the new server. The command with a key comes from the **Nodes** page, more in the [Nodes](/arikan/en/nodes/nodes/) section.
 
 ## Uninstalling
 
-`mikan uninstall` stops the containers and removes the command, services and kernel settings. Data and backups stay in `/opt/mikan`, and the database stays in a Docker volume. To remove everything completely:
+`arikan uninstall` stops the containers and removes the command, services and kernel settings. Data and backups stay in `/opt/mikan`, and the database stays in a Docker volume. To remove everything completely:
 
 ```bash
 rm -rf /opt/mikan && docker volume rm mikan_pg-data

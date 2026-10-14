@@ -84,7 +84,7 @@ func happAutoRouting(cfg Config) string {
 // a placeholder stands for the user's proxies, which the rules do not depend on.
 func profileRules(cfg Config) []string {
 	p := Profile{Nodes: cfg.Nodes, Direct: cfg.Direct, Rules: cfg.Rules, Routes: cfg.Routes, Lang: cfg.Lang}
-	ps := []proxy{{name: "mikan", yaml: map[string]any{"name": "mikan", "type": "direct"}}}
+	ps := []proxy{{name: "arikan", yaml: map[string]any{"name": "arikan", "type": "direct"}}}
 	var rules []any
 	if cfg.Template != "" {
 		t, err := parseProfileTemplate(cfg.Template)

@@ -374,7 +374,7 @@ impl Wizard {
                 v.running = false;
                 v.state = Level::Error;
             });
-            self.failed = Some((at, "the installer stopped without saying why; `mikan install` continues from here".into()));
+            self.failed = Some((at, "the installer stopped without saying why; `arikan install` continues from here".into()));
         }
     }
 
@@ -631,7 +631,7 @@ impl Wizard {
             (false, true) => &[("enter", "next"), ("r", "check again"), ("q", "quit")],
             (false, false) => &[("enter", "next"), ("r", "check again"), ("esc", "back"), ("q", "quit")],
         };
-        let lead = if self.node() { "A node of another panel will run here." } else { "What the server needs before mikan goes on it." };
+        let lead = if self.node() { "A node of another panel will run here." } else { "What the server needs before Arikan goes on it." };
         let mut lines = Vec::new();
         match self.checks.done() {
             None => lines.push(Line::from(vec![spinner(self.tick), Span::raw(" Checking the server…")])),
@@ -660,7 +660,7 @@ impl Wizard {
     /// Replacing Docker removes packages: asked, never assumed.
     fn draw_docker(&self, f: &mut Frame) {
         let keys = [("enter", "replace"), ("esc", "back"), ("q", "quit")];
-        let lead = "mikan runs with Docker compose v2, and the Docker on this server has none: it is the one from the system's packages.";
+        let lead = "Arikan runs with Docker compose v2, and the Docker on this server has none: it is the one from the system's packages.";
         let w = Card::body_width(f.area());
         let found =
             self.checks.done().and_then(|c| system::docker_to_replace(c)).map(|c| c.detail.split(' ').next().unwrap_or("").to_owned());
@@ -750,12 +750,12 @@ impl Wizard {
         let (name, domain) = (front.name(), &self.plan.domain);
         let title = format!("Let's Encrypt through {name}");
         let lead = format!(
-            "Let's Encrypt checks {domain} on port 80, and {name} holds that port. mikan can add a rule to {name} that passes only those checks to the panel."
+            "Let's Encrypt checks {domain} on port 80, and {name} holds that port. Arikan can add a rule to {name} that passes only those checks to the panel."
         );
         let texts: &[&str] = match front {
             acme::Front::Nginx => &[
                 "It is a new file in nginx's config: a server for this domain on port 80. nginx -t tests it before a reload; if the test fails, the file is taken out again.",
-                "If nginx has a server for this domain already, mikan leaves it as it is and shows the one line to add to it.",
+                "If nginx has a server for this domain already, Arikan leaves it as it is and shows the one line to add to it.",
             ],
             acme::Front::Caddy => &[
                 "It is an http:// site for this domain at the end of the Caddyfile, which is backed up first. caddy validate checks it before a reload; if the check fails, the old Caddyfile goes back.",
@@ -828,7 +828,7 @@ impl Wizard {
             }
             if let Some(front) = self.front {
                 let rule = if p.proxy_rule {
-                    "mikan adds a rule for Let's Encrypt, tested before a reload"
+                    "Arikan adds a rule for Let's Encrypt, tested before a reload"
                 } else {
                     "you add the rule for Let's Encrypt (the last screen shows it)"
                 };
@@ -853,7 +853,7 @@ impl Wizard {
             lines.extend(field("Docker", "replace the system's one from get.docker.com", w));
         }
         lines.push(Line::from(""));
-        lines.push(Line::from(dim("Docker is installed if missing; mikan goes to /opt/mikan.")));
+        lines.push(Line::from(dim("Docker is installed if missing; Arikan goes to /opt/mikan.")));
         Self::page(f, self.card("Ready to install", "Nothing has changed on the server yet.", &keys), lines);
     }
 
@@ -863,7 +863,7 @@ impl Wizard {
         } else if self.outcome.is_some() {
             &[("enter", "next")]
         } else if self.quit_armed {
-            &[("ctrl+c", "again to quit: the install stops here; `mikan install` goes on later")]
+            &[("ctrl+c", "again to quit: the install stops here; `arikan install` goes on later")]
         } else {
             &[]
         };
@@ -915,7 +915,7 @@ impl Wizard {
                 lines.push(Line::from(Span::styled(l, Style::new().fg(ERR))));
             }
             lines.push(Line::from(""));
-            let hint = "Fix the cause and run the installer again. What got as far as /opt/mikan is kept: mikan status, mikan logs.";
+            let hint = "Fix the cause and run the installer again. What got as far as /opt/mikan is kept: arikan status, arikan logs.";
             lines.extend(wrap(hint, w).into_iter().map(|l| Line::from(dim(l))));
         }
         let Some(body) = Card::new(title, "", keys).fit(lines.len()).draw(f) else { return };
@@ -947,7 +947,7 @@ impl Wizard {
                 for l in wrap(&format!("The scan failed: {e:#}"), w) {
                     lines.push(Line::from(Span::styled(l, Style::new().fg(ERR))));
                 }
-                lines.push(Line::from(dim("The default site stays; pick another later: mikan → REALITY sites.")));
+                lines.push(Line::from(dim("The default site stays; pick another later: Arikan → REALITY sites.")));
             }
             Some(Ok(scan)) => {
                 lines.push(Line::from(dim(format!("{} addresses around {} checked.", scan.scanned, scan.ip))));
@@ -1006,7 +1006,7 @@ impl Wizard {
         if o.node_port.is_some() {
             let keys = [("enter", "finish")];
             let mut lines = vec![
-                Line::from(vec![Span::styled("✓ ", Style::new().fg(OK)), Span::raw(format!("mikan {} node", o.version))]),
+                Line::from(vec![Span::styled("✓ ", Style::new().fg(OK)), Span::raw(format!("Arikan {} node", o.version))]),
                 Line::from(""),
             ];
             lines.extend(field("Waits on", format!("port {}", o.node_port.unwrap_or_default()), w));
@@ -1027,7 +1027,7 @@ impl Wizard {
             }
             lines.push(Line::from(""));
             lines.extend(
-                wrap("On this server: mikan (menu), mikan status, mikan doctor, mikan update.", w).into_iter().map(|l| Line::from(dim(l))),
+                wrap("On this server: Arikan (menu), arikan status, arikan doctor, arikan update.", w).into_iter().map(|l| Line::from(dim(l))),
             );
             Self::page(f, Card::new("The node is running", "", &keys), lines);
             return;
@@ -1037,7 +1037,7 @@ impl Wizard {
         if self.show_qr {
             let code = qr(&o.url);
             let w = code.first().map_or(0, |l| l.spans.len()) as u16;
-            let Some(body) = Card::new("mikan is running", lead, &keys).fit(code.len()).draw(f) else { return };
+            let Some(body) = Card::new("Arikan is running", lead, &keys).fit(code.len()).draw(f) else { return };
             if code.len() as u16 <= body.height && w <= body.width {
                 let area = Rect { x: body.x + (body.width - w) / 2, y: body.y, width: w, height: code.len() as u16 };
                 f.render_widget(Paragraph::new(code), area);
@@ -1072,8 +1072,8 @@ impl Wizard {
             lines.extend(snippet_lines(&m.snippet, w));
         }
         lines.push(Line::from(""));
-        let head = vec![dim("On this server: "), "mikan".bold(), dim(" for this menu, ")];
-        let tail = vec!["mikan update".bold(), dim(", "), "mikan status".bold()];
+        let head = vec![dim("On this server: "), "Arikan".bold(), dim(" for this menu, ")];
+        let tail = vec!["arikan update".bold(), dim(", "), "arikan status".bold()];
         let one: usize = head.iter().chain(&tail).map(|s| s.width()).sum();
         if one <= w {
             lines.push(Line::from([head, tail].concat()));
@@ -1081,6 +1081,6 @@ impl Wizard {
             lines.push(Line::from(head));
             lines.push(Line::from(tail));
         }
-        Self::page(f, Card::new("mikan is running", lead, &keys), lines);
+        Self::page(f, Card::new("Arikan is running", lead, &keys), lines);
     }
 }

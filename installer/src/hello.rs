@@ -1,7 +1,7 @@
 //! What a node says about its first contact with the panel. The node signs a "hello" to
 //! its panel, the panel dials the node back, and the node writes the outcome to
 //! data/node/hello.json; an image from before that never writes it. The file is read here
-//! after an install or a join, and again by `mikan doctor`.
+//! after an install or a join, and again by `arikan doctor`.
 
 use std::collections::BTreeMap;
 use std::net::IpAddr;
@@ -162,7 +162,7 @@ pub fn lines(h: &Hello, api_port: Option<u16>) -> Vec<(Level, String)> {
             Level::Error,
             format!("The panel could not reach {at} here: timed out. Open the port in the hoster's firewall panel; ufw: {ufw}"),
         ),
-        "refused" => (Level::Error, format!("The panel reached this server, but nothing answers on {at}: mikan status, mikan logs node")),
+        "refused" => (Level::Error, format!("The panel reached this server, but nothing answers on {at}: arikan status, arikan logs node")),
         "unreachable" => (Level::Error, format!("The panel has no route to {node_host}: check the node's IP on the panel's Nodes page")),
         "dns" => (
             Level::Error,
@@ -170,12 +170,12 @@ pub fn lines(h: &Hello, api_port: Option<u16>) -> Vec<(Level, String)> {
         ),
         "pin_mismatch" => (
             Level::Error,
-            "The panel's key for this node does not match: on the Nodes page use Reissue key, then mikan join <new key>".to_owned(),
+            "The panel's key for this node does not match: on the Nodes page use Reissue key, then arikan join <new key>".to_owned(),
         ),
         "tls" => (Level::Error, format!("Something else answers on {at}: free the port or add the node again with another API port")),
         "http_status" => {
             let status = h.param("status").map(|s| format!(" (HTTP {s})")).unwrap_or_default();
-            (Level::Error, format!("The panel got an unexpected answer{status} from {at}: something other than mikan may listen there, mikan logs node"))
+            (Level::Error, format!("The panel got an unexpected answer{status} from {at}: something other than Arikan may listen there, arikan logs node"))
         }
         "panel_rejected" => (
             Level::Error,
@@ -200,8 +200,8 @@ pub fn lines(h: &Hello, api_port: Option<u16>) -> Vec<(Level, String)> {
             Level::Warn,
             "The panel's answer was not signed by it: the panel still connects on its own, see its Nodes page; if it does not, take a new key there".to_owned(),
         ),
-        "" => (Level::Error, format!("The panel could not connect to this node{because}: mikan logs node, and see the panel's Nodes page")),
-        code => (Level::Error, format!("The panel could not connect to this node ({code}){because}: mikan logs node, and see the panel's Nodes page")),
+        "" => (Level::Error, format!("The panel could not connect to this node{because}: arikan logs node, and see the panel's Nodes page")),
+        code => (Level::Error, format!("The panel could not connect to this node ({code}){because}: arikan logs node, and see the panel's Nodes page")),
     };
     vec![(level, text)]
 }
@@ -289,11 +289,11 @@ mod tests {
         );
 
         let refused = texts(&failed("refused", r#"{"port":"31234"}"#));
-        assert!(refused[0].contains("nothing answers on port 31234") && refused[0].contains("mikan logs node"), "{refused:?}");
+        assert!(refused[0].contains("nothing answers on port 31234") && refused[0].contains("arikan logs node"), "{refused:?}");
 
         let pin = lines(&failed("pin_mismatch", "{}"), None);
         assert_eq!(pin[0].0, Level::Error);
-        assert!(pin[0].1.contains("Reissue key") && pin[0].1.contains("mikan join <new key>"));
+        assert!(pin[0].1.contains("Reissue key") && pin[0].1.contains("arikan join <new key>"));
 
         let gone = texts(&failed("unreachable", r#"{"host":"198.51.100.9"}"#));
         assert!(gone[0].contains("no route to 198.51.100.9"), "{gone:?}");

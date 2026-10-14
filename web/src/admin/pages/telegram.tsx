@@ -445,7 +445,7 @@ function BackupCard() {
         </Button>
       </div>
       <div className="mt-4 text-xs text-[var(--ink-500)]">{t("telegram.infra.backupRestore")}</div>
-      <pre className="code-block mt-1 text-xs">{"age -d -o mikan.tar.gz mikan-….tar.gz.age\nmikan restore mikan.tar.gz"}</pre>
+      <pre className="code-block mt-1 text-xs">{"age -d -o arikan.tar.gz arikan-….tar.gz.age\narikan restore arikan.tar.gz"}</pre>
     </section>
   );
 }

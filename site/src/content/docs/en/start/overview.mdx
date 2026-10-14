@@ -1,11 +1,11 @@
 ---
-title: What is mikan
+title: What is Arikan
 description: A VPN panel on the mihomo core for running your own VPN service. What it consists of and how it works.
 ---
 
 import { LinkCard, CardGrid } from '@astrojs/starlight/components';
 
-mikan is a panel for your own VPN service, built on the [mihomo](https://github.com/MetaCubeX/mihomo) core. In it you add protocols and nodes, create users with plans, hand out subscriptions and sell access through a Telegram bot. The panel is free, the code is open under GPL-3.0, and the interface is in Russian and English.
+Arikan is a panel for your own VPN service, built on the [mihomo](https://github.com/MetaCubeX/mihomo) core. In it you add protocols and nodes, create users with plans, hand out subscriptions and sell access through a Telegram bot. The panel is free, the code is open under GPL-3.0, and the interface is in Russian and English.
 
 ## What it consists of
 
@@ -18,10 +18,10 @@ Three small containers from one image run on the server:
 The panel and the node run separately, so updating or restarting the panel does not drop the VPN. The panel server always has its own node, and remote nodes on other servers connect with a key.
 
 ```text
-Browser ── HTTPS, secret link ──▶ mikan panel
+Browser ── HTTPS, secret link ──▶ Arikan panel
                                     │  unix socket / TLS with pinning
                                     ▼
-VPN apps ── REALITY, QUIC… ──▶ mikan nodes (mihomo inside)
+VPN apps ── REALITY, QUIC… ──▶ Arikan nodes (mihomo inside)
     └──────── subscription ──────────▶ panel
 ```
 
@@ -44,6 +44,6 @@ On a production server with clients, the panel takes about 14 MB of memory, the 
 ## Where to start
 
 <CardGrid>
-	<LinkCard title="Installation" description="One command on a clean Ubuntu or Debian server." href="/mikanaddons/en/start/install/" />
-	<LinkCard title="First steps" description="Signing in, the first user and connections." href="/mikanaddons/en/start/first-steps/" />
+	<LinkCard title="Installation" description="One command on a clean Ubuntu or Debian server." href="/arikan/en/start/install/" />
+	<LinkCard title="First steps" description="Signing in, the first user and connections." href="/arikan/en/start/first-steps/" />
 </CardGrid>

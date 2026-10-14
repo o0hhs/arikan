@@ -1,6 +1,6 @@
 ---
 title: Пресеты протоколов
-description: Все протоколы mikan, их порты по умолчанию, какие приложения их получают и основные настройки.
+description: Все протоколы Arikan, их порты по умолчанию, какие приложения их получают и основные настройки.
 ---
 
 Раздел **Подключения** держит протоколы, по которым клиенты заходят на ноды. Новое подключение добавляется кнопкой **Добавить** из пресета: ключи, пароли и сертификаты создаются сами, вам остаётся выбрать ноду и при желании порт.
@@ -16,7 +16,7 @@ description: Все протоколы mikan, их порты по умолча�
 | Trojan · REALITY | 2087/tcp | |
 | VLESS · TLS · XHTTP | 2443/tcp | обычный TLS на настоящем сертификате, на чужие запросы отвечает как веб-сервер |
 | VLESS · TLS · Vision | 3443/tcp | работает почти во всех приложениях |
-| VLESS · TLS · WebSocket | 2053/tcp | проходит у операторов, где работает только WS, и через CDN, см. [за прокси](/mikanaddons/protocols/behind-proxy/#через-cdn) |
+| VLESS · TLS · WebSocket | 2053/tcp | проходит у операторов, где работает только WS, и через CDN, см. [за прокси](/arikan/protocols/behind-proxy/#через-cdn) |
 | Hysteria2 | 443/udp | QUIC, можно задать диапазон портов |
 | Hysteria2 · Gecko | 2443/udp | Hysteria2 с обфускацией Gecko, только Clash-приложения |
 | TUIC v5 | 8443/udp | |
@@ -63,10 +63,10 @@ Shadowsocks-2022, Sudoku и Snell в mihomo работают с одним кл�
 - **Сайт для маскировки (REALITY)**: по умолчанию `www.microsoft.com:443`. Кнопки «Проверить» и «Подобрать рядом с сервером» (ищет сайты в той же /24-сети, что и нода). Если у панели есть домен, можно выбрать свой домен. Если вместо имени указан IP, нужно поле «Домен сайта (SNI)».
 - **Обфускация** для Hysteria2: Salamander или Gecko. Gecko режет рукопожатие QUIC на куски случайного размера с добивкой, против DPI, который узнаёт QUIC по размерам пакетов. Его получают только Clash-приложения на mihomo 1.19.26+, поэтому держите рядом обычный Hysteria2.
 - **Отпечаток TLS**: как в настройках (по умолчанию Chrome), Chrome, Firefox, Safari, iOS, Android, Edge, 360, QQ, случайный браузер или «Своё…» с любым именем профиля uTLS, например `chrome120`. Общее значение задаётся в **Настройки → Подписка**. У Hysteria2 и TUIC отпечатка нет.
-- **Выход в интернет**: напрямую, [WARP](/mikanaddons/nodes/warp/) или [через ноду](/mikanaddons/nodes/cascades/).
-- **Пул трафика**: если есть пулы, протокол можно посчитать в отдельный лимит, см. [Пулы и пакеты](/mikanaddons/billing/pools/).
-- **За прокси (nginx, HAProxy)**: см. [Подключение за прокси](/mikanaddons/protocols/behind-proxy/).
-- **Автоподбор**: переключатели переноса порта и смены сайта, см. [Автоподбор](/mikanaddons/protocols/autotune/).
+- **Выход в интернет**: напрямую, [WARP](/arikan/nodes/warp/) или [через ноду](/arikan/nodes/cascades/).
+- **Пул трафика**: если есть пулы, протокол можно посчитать в отдельный лимит, см. [Пулы и пакеты](/arikan/billing/pools/).
+- **За прокси (nginx, HAProxy)**: см. [Подключение за прокси](/arikan/protocols/behind-proxy/).
+- **Автоподбор**: переключатели переноса порта и смены сайта, см. [Автоподбор](/arikan/protocols/autotune/).
 
 ## Копирование
 
@@ -74,15 +74,15 @@ Shadowsocks-2022, Sudoku и Snell в mihomo работают с одним кл�
 
 ## Свой конфиг
 
-Пресет «Свой конфиг» открывает редактор YAML со слушателем mihomo типа vless, vmess, trojan, hysteria2, tuic или anytls. Имя, порт, адрес, пользователей и сертификат mikan подставит сам. Кнопка «Проверить» проверяет конфиг до сохранения.
+Пресет «Свой конфиг» открывает редактор YAML со слушателем mihomo типа vless, vmess, trojan, hysteria2, tuic или anytls. Имя, порт, адрес, пользователей и сертификат Arikan подставит сам. Кнопка «Проверить» проверяет конфиг до сохранения.
 
 ## Из командной строки
 
 ```bash
-mikan inbound list
-mikan inbound add                        # покажет список пресетов
-mikan inbound add hysteria2 --port 20000-20100 --node 2
-mikan inbound set vless-xhttp --port 2443
+arikan inbound list
+arikan inbound add                        # покажет список пресетов
+arikan inbound add hysteria2 --port 20000-20100 --node 2
+arikan inbound set vless-xhttp --port 2443
 ```
 
 На сервере панели новый порт сам откроется в ufw, нода получит изменения за 30 секунд.
@@ -90,7 +90,7 @@ mikan inbound set vless-xhttp --port 2443
 ## Сайты для маскировки из командной строки
 
 ```bash
-mikan targets scan                       # найти подходящие сайты рядом с сервером
-mikan targets check --dest www.example.com:443
-mikan targets apply --dest www.example.com:443 --all
+arikan targets scan                       # найти подходящие сайты рядом с сервером
+arikan targets check --dest www.example.com:443
+arikan targets apply --dest www.example.com:443 --all
 ```

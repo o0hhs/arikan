@@ -115,7 +115,7 @@ function ServerBanners({ m, p }: { m: Market | undefined; p: Addons }) {
       ) : m && !m.host_ready ? (
         <div className="banner warn flex-wrap" role="status">
           <span className="min-w-0 flex-1">{t("market.hostOutdated")}</span>
-          <code className="mono">mikan update</code>
+          <code className="mono">arikan update</code>
         </div>
       ) : null}
       {pending ? (

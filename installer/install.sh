@@ -1,7 +1,7 @@
 #!/bin/sh
-# mikan: one-line install.
+# Arikan: one-line install.
 #
-#   curl -fsSL https://github.com/o0hhs/mikanaddons/releases/latest/download/install.sh | sudo bash
+#   curl -fsSL https://github.com/o0hhs/arikan/releases/latest/download/install.sh | sudo bash
 #
 # Finds the newest stable release in the signed release index (an asset of the "updates"
 # pre-release, which does not depend on what GitHub calls the latest release), or takes
@@ -19,7 +19,7 @@
 # after that is checked by the installer against the key it carries.
 set -eu
 
-REPO="o0hhs/mikanaddons"
+REPO="o0hhs/arikan"
 BASE="https://github.com/$REPO/releases/latest/download"
 INDEX="https://github.com/$REPO/releases/download/updates/index.json"
 
@@ -30,7 +30,7 @@ MCowBQYDK2VwAyEAayuo0yLe0M0N5QQPaxkjAA0ltZcXSG7LRANrgyFAhUg=
 -----END PUBLIC KEY-----'
 
 fail() {
-  echo "mikan: $*" >&2
+  echo "Arikan: $*" >&2
   exit 1
 }
 
@@ -38,7 +38,7 @@ fail() {
 case "$(uname -m)" in
   x86_64 | amd64) arch=x86_64 ;;
   aarch64 | arm64) arch=aarch64 ;;
-  *) fail "unsupported architecture $(uname -m): mikan runs on x86_64 and aarch64" ;;
+  *) fail "unsupported architecture $(uname -m): Arikan runs on x86_64 and aarch64" ;;
 esac
 command -v curl >/dev/null || fail "curl is missing"
 command -v sha256sum >/dev/null || fail "sha256sum is missing"
@@ -47,7 +47,7 @@ command -v base64 >/dev/null || fail "base64 is missing"
 # The signature is Ed25519: openssl 3.0 or newer checks it (Debian 12, Ubuntu 22.04 and
 # 24.04, Alpine 3.17+ all have it). A fresh server may not have the command at all.
 if ! command -v openssl >/dev/null 2>&1; then
-  echo "mikan: openssl is needed to check the release's signature: installing it" >&2
+  echo "Arikan: openssl is needed to check the release's signature: installing it" >&2
   if command -v apt-get >/dev/null 2>&1; then
     DEBIAN_FRONTEND=noninteractive apt-get install -y openssl >&2 || true
   elif command -v apk >/dev/null 2>&1; then
@@ -74,7 +74,7 @@ fi
 # get URL FILE WHAT [bar]: says what it downloads; "bar" shows curl's progress bar on a
 # terminal (the installer is the only big file).
 get() {
-  echo "mikan: downloading $3: $1" >&2
+  echo "Arikan: downloading $3: $1" >&2
   shown=-s
   if [ "${4:-}" = bar ] && [ -t 2 ]; then
     shown=--progress-bar
@@ -117,21 +117,21 @@ newest_stable() {
 
 # The index first; whatever goes wrong with it, the latest release.
 release=""
-echo "mikan: reading the release index: $INDEX" >&2
+echo "Arikan: reading the release index: $INDEX" >&2
 if try "$INDEX" "$tmp/index.json" && try "$INDEX.sig" "$tmp/index.json.sig" && signed "$tmp/index.json" "$tmp/index.json.sig"; then
   newest=$(newest_stable "$tmp/index.json")
   at="https://github.com/$REPO/releases/download/v$newest/manifest.json"
   if [ -z "$newest" ]; then
-    echo "mikan: the release index lists no stable release: using the latest release" >&2
+    echo "Arikan: the release index lists no stable release: using the latest release" >&2
   elif try "$at" "$tmp/manifest.json" && try "$at.sig" "$tmp/manifest.json.sig" && signed "$tmp/manifest.json" "$tmp/manifest.json.sig" &&
     tr -d '\n ' <"$tmp/manifest.json" | grep -qF "\"version\":\"$newest\""; then
     release=$newest
-    echo "mikan: mikan $newest, the newest stable release" >&2
+    echo "Arikan: Arikan $newest, the newest stable release" >&2
   else
-    echo "mikan: the manifest of mikan $newest is unavailable: using the latest release" >&2
+    echo "Arikan: the manifest of Arikan $newest is unavailable: using the latest release" >&2
   fi
 else
-  echo "mikan: the release index is unavailable: using the latest release" >&2
+  echo "Arikan: the release index is unavailable: using the latest release" >&2
 fi
 if [ -z "$release" ]; then
   get "$BASE/manifest.json" "$tmp/manifest.json" "the release manifest"
@@ -152,19 +152,19 @@ want=$(printf '%s' "$entry" | sed -n 's/.*"sha256":"\([0-9a-f]\{64\}\)".*/\1/p')
 [ -n "$url" ] && [ -n "$want" ] || fail "the release has no installer for $arch"
 # The binary comes from the release the manifest is of, not from whatever "latest" is now.
 case "$url" in
-  "https://github.com/$REPO/releases/download/v"*"/mikan-$arch") ;;
+  "https://github.com/$REPO/releases/download/v"*"/arikan-$arch") ;;
   *) fail "the manifest names an installer at an address outside this project's releases: $url" ;;
 esac
-get "$url" "$tmp/mikan" "the installer for $arch" bar
-got=$(sha256sum "$tmp/mikan" | cut -d' ' -f1)
+get "$url" "$tmp/arikan" "the installer for $arch" bar
+got=$(sha256sum "$tmp/arikan" | cut -d' ' -f1)
 [ "$want" = "$got" ] || fail "the installer does not match the signed release manifest"
 
 # Whole or not at all: the old command stays until the new one is on the disk.
-install -m 755 "$tmp/mikan" /usr/local/bin/.mikan.new
-mv -f /usr/local/bin/.mikan.new /usr/local/bin/mikan
+install -m 755 "$tmp/arikan" /usr/local/bin/.arikan.new
+mv -f /usr/local/bin/.arikan.new /usr/local/bin/arikan
 # The installer is interactive; curl | bash leaves stdin on the script, so it reads the
 # terminal. Without one (a script over ssh) it runs on its flags alone.
 if [ -t 0 ] || ! (exec </dev/tty) 2>/dev/null; then
-  exec /usr/local/bin/mikan install "$@"
+  exec /usr/local/bin/arikan install "$@"
 fi
-exec /usr/local/bin/mikan install "$@" </dev/tty
+exec /usr/local/bin/arikan install "$@" </dev/tty

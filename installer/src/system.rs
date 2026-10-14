@@ -296,7 +296,7 @@ pub const VPN_PORTS: [(u16, Proto); 4] = [(443, Proto::Tcp), (443, Proto::Udp), 
 /// The checks before an install; node is an install of a node for another panel.
 const DOCKER: &str = "Docker";
 
-/// The Docker check when Docker is there but cannot run mikan (no compose v2): replacing
+/// The Docker check when Docker is there but cannot run Arikan (no compose v2): replacing
 /// it removes packages, so the admin is asked first.
 pub fn docker_to_replace(checks: &[Check]) -> Option<&Check> {
     checks.iter().find(|c| c.label == DOCKER && c.level == Level::Warn)
@@ -313,7 +313,7 @@ pub fn checks_for(node: bool, resume: bool) -> Vec<Check> {
     out.push(if is_root() {
         Check::new("Root", Level::Ok, "running as root")
     } else {
-        Check::new("Root", Level::Error, "run as root: sudo mikan install")
+        Check::new("Root", Level::Error, "run as root: sudo arikan install")
     });
     out.push(match os() {
         Some(o) if os_supported(&o) => Check::new("System", Level::Ok, o.pretty),
@@ -322,13 +322,13 @@ pub fn checks_for(node: bool, resume: bool) -> Vec<Check> {
     });
     out.push(Check::new("Architecture", Level::Ok, std::env::consts::ARCH));
     out.push(match memory_mb() {
-        Some(mb) if mb < 400 => Check::new("Memory", Level::Warn, format!("{mb} MB: Docker needs about 300 MB, mikan 60 MB more")),
+        Some(mb) if mb < 400 => Check::new("Memory", Level::Warn, format!("{mb} MB: Docker needs about 300 MB, Arikan 60 MB more")),
         Some(mb) if mb >= 1024 => Check::new("Memory", Level::Ok, format!("{:.1} GB", mb as f64 / 1024.0)),
         Some(mb) => Check::new("Memory", Level::Ok, format!("{mb} MB")),
         None => Check::new("Memory", Level::Warn, "unknown"),
     });
     out.push(match disk_free_mb() {
-        Some(mb) if mb < 1024 => Check::new("Disk", Level::Error, format!("{mb} MB free: Docker and mikan need at least 1 GB")),
+        Some(mb) if mb < 1024 => Check::new("Disk", Level::Error, format!("{mb} MB free: Docker and Arikan need at least 1 GB")),
         Some(mb) if mb < 3072 => {
             Check::new("Disk", Level::Warn, format!("{:.1} GB free: tight for updates and backups", mb as f64 / 1024.0))
         }
@@ -375,7 +375,7 @@ fn port80_check(owner: Option<String>) -> Check {
     match owner {
         None => Check::new("Port 80", Level::Ok, "free for Let's Encrypt"),
         Some(who) if crate::acme::Front::from_process(&who).is_some() => {
-            Check::new("Port 80", Level::Warn, format!("taken ({who}): with a domain, mikan offers to pass Let's Encrypt through it"))
+            Check::new("Port 80", Level::Warn, format!("taken ({who}): with a domain, Arikan offers to pass Let's Encrypt through it"))
         }
         Some(who) => Check::new("Port 80", Level::Warn, format!("taken ({who}): Let's Encrypt cannot issue a certificate for a domain")),
     }

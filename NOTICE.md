@@ -1,3 +1,8 @@
+> **Arikan is an unofficial fork of mikan.** Not affiliated with or supported by the
+> mikan project; support comes only from the fork's author
+> ([o0hhs/arikan](https://github.com/o0hhs/arikan)). Everything below is mikan's own
+> notice and terms, kept unchanged, as they require.
+
 # mikan: copyright, additional terms and credits
 
 mikan  
