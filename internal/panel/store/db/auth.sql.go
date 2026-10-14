@@ -10,6 +10,26 @@ import (
 	"database/sql"
 )
 
+const claimAdminTOTPStep = `-- name: ClaimAdminTOTPStep :execrows
+UPDATE admins SET totp_step = $1 WHERE id = $2 AND totp_step < $1
+`
+
+type ClaimAdminTOTPStepParams struct {
+	Step int64
+	ID   int64
+}
+
+// Spends one TOTP time step: 0 rows means the step (or a later one) was already spent —
+// the same code was used before, also if the panel restarted since. The compare-and-set
+// lets exactly one of two uses at once through.
+func (q *Queries) ClaimAdminTOTPStep(ctx context.Context, arg ClaimAdminTOTPStepParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, claimAdminTOTPStep, arg.Step, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const countAdmins = `-- name: CountAdmins :one
 SELECT count(*) FROM admins
 `
@@ -23,7 +43,7 @@ func (q *Queries) CountAdmins(ctx context.Context) (int64, error) {
 
 const createAdmin = `-- name: CreateAdmin :one
 INSERT INTO admins (username, password_hash, created_at) VALUES ($1, $2, $3)
-RETURNING id, username, password_hash, totp_secret, recovery_codes, created_at, last_login_at
+RETURNING id, username, password_hash, totp_secret, recovery_codes, created_at, last_login_at, totp_step
 `
 
 type CreateAdminParams struct {
@@ -43,6 +63,7 @@ func (q *Queries) CreateAdmin(ctx context.Context, arg CreateAdminParams) (Admin
 		&i.RecoveryCodes,
 		&i.CreatedAt,
 		&i.LastLoginAt,
+		&i.TotpStep,
 	)
 	return i, err
 }
@@ -124,7 +145,7 @@ func (q *Queries) DeleteStaleSessions(ctx context.Context, arg DeleteStaleSessio
 }
 
 const getAdmin = `-- name: GetAdmin :one
-SELECT id, username, password_hash, totp_secret, recovery_codes, created_at, last_login_at FROM admins WHERE id = $1
+SELECT id, username, password_hash, totp_secret, recovery_codes, created_at, last_login_at, totp_step FROM admins WHERE id = $1
 `
 
 func (q *Queries) GetAdmin(ctx context.Context, id int64) (Admin, error) {
@@ -138,12 +159,13 @@ func (q *Queries) GetAdmin(ctx context.Context, id int64) (Admin, error) {
 		&i.RecoveryCodes,
 		&i.CreatedAt,
 		&i.LastLoginAt,
+		&i.TotpStep,
 	)
 	return i, err
 }
 
 const getAdminByUsername = `-- name: GetAdminByUsername :one
-SELECT id, username, password_hash, totp_secret, recovery_codes, created_at, last_login_at FROM admins WHERE username = $1
+SELECT id, username, password_hash, totp_secret, recovery_codes, created_at, last_login_at, totp_step FROM admins WHERE username = $1
 `
 
 func (q *Queries) GetAdminByUsername(ctx context.Context, username string) (Admin, error) {
@@ -157,6 +179,7 @@ func (q *Queries) GetAdminByUsername(ctx context.Context, username string) (Admi
 		&i.RecoveryCodes,
 		&i.CreatedAt,
 		&i.LastLoginAt,
+		&i.TotpStep,
 	)
 	return i, err
 }
@@ -257,7 +280,7 @@ func (q *Queries) ListAdminSessions(ctx context.Context, adminID int64) ([]Sessi
 }
 
 const listAdmins = `-- name: ListAdmins :many
-SELECT id, username, password_hash, totp_secret, recovery_codes, created_at, last_login_at FROM admins ORDER BY id
+SELECT id, username, password_hash, totp_secret, recovery_codes, created_at, last_login_at, totp_step FROM admins ORDER BY id
 `
 
 func (q *Queries) ListAdmins(ctx context.Context) ([]Admin, error) {
@@ -277,6 +300,7 @@ func (q *Queries) ListAdmins(ctx context.Context) ([]Admin, error) {
 			&i.RecoveryCodes,
 			&i.CreatedAt,
 			&i.LastLoginAt,
+			&i.TotpStep,
 		); err != nil {
 			return nil, err
 		}

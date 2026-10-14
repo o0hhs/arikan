@@ -205,7 +205,11 @@ func (h *handlers) login(ctx context.Context, in *loginInput) (*loginOutput, err
 		if code == "" {
 			return nil, huma.Error401Unauthorized("totp_required")
 		}
-		if !h.d.TOTP.Validate(admin.ID, admin.TotpSecret.String, code, now) {
+		spent, err := h.spendTOTPCode(ctx, admin.ID, admin.TotpSecret.String, code, now)
+		if err != nil {
+			return nil, err
+		}
+		if !spent {
 			used, err := h.spendRecoveryCode(ctx, admin, code)
 			if err != nil {
 				return nil, err
@@ -254,6 +258,21 @@ func (h *handlers) spendRecoveryCode(ctx context.Context, admin db.Admin, code s
 	return n == 1, err
 }
 
+// spendTOTPCode checks a TOTP code and spends the time step it belongs to in the store:
+// the guard refuses a repeat inside this run, the admin's row refuses it after a restart,
+// and of two uses of one code at once only one gets through.
+func (h *handlers) spendTOTPCode(ctx context.Context, adminID int64, secret, code string, now time.Time) (bool, error) {
+	step, ok := h.d.TOTP.Validate(adminID, secret, code, now)
+	if !ok {
+		return false, nil
+	}
+	n, err := h.d.Store.Q.ClaimAdminTOTPStep(ctx, db.ClaimAdminTOTPStepParams{Step: step, ID: adminID})
+	if err != nil {
+		return false, err
+	}
+	return n == 1, nil
+}
+
 // reauth asks a session for the admin's password, and the TOTP code when 2FA is on, before
 // what a stolen session must not do alone: minting an API key, starting 2FA. Wrong answers
 // count against the admin's own allowance, so the password cannot be guessed through a
@@ -267,8 +286,14 @@ func (h *handlers) reauth(ctx context.Context, admin db.Admin, password, code st
 		if !ok {
 			return huma.Error422UnprocessableEntity("wrong_password", &huma.ErrorDetail{Location: "body.password", Message: "wrong_password"})
 		}
-		if admin.TotpSecret.Valid && !h.d.TOTP.Validate(admin.ID, admin.TotpSecret.String, code, now) {
-			return huma.Error422UnprocessableEntity("invalid_totp", &huma.ErrorDetail{Location: "body.totp", Message: "invalid_totp"})
+		if admin.TotpSecret.Valid {
+			spent, err := h.spendTOTPCode(ctx, admin.ID, admin.TotpSecret.String, code, now)
+			if err != nil {
+				return err
+			}
+			if !spent {
+				return huma.Error422UnprocessableEntity("invalid_totp", &huma.ErrorDetail{Location: "body.totp", Message: "invalid_totp"})
+			}
 		}
 		return nil
 	})
@@ -378,15 +403,29 @@ func (h *handlers) totpSetup(ctx context.Context, in *totpSetupInput) (*totpSetu
 
 func (h *handlers) totpEnable(ctx context.Context, in *totpCodeInput) (*recoveryOutput, error) {
 	sess := sessionOf(ctx)
-	now := h.d.Now()
+	admin, err := h.d.Store.Q.GetAdmin(ctx, sess.AdminID)
+	if err != nil {
+		return nil, err
+	}
 	h.pendingMu.Lock()
 	p, ok := h.pending[sess.AdminID]
 	h.pendingMu.Unlock()
-	if !ok || now.After(p.expires) {
+	if !ok || h.d.Now().After(p.expires) {
 		return nil, huma.Error409Conflict("totp_setup_expired")
 	}
-	if !h.d.TOTP.Validate(sess.AdminID, p.secret, in.Body.Code, now) {
-		return nil, huma.Error422UnprocessableEntity("invalid_totp", &huma.ErrorDetail{Location: "body.code", Message: "invalid_totp"})
+	// The code is guessed against the same allowance as every password form: a stolen
+	// session must not walk the six digits of a pending setup one by one.
+	if err := h.guarded(admin, func(now time.Time) error {
+		spent, err := h.spendTOTPCode(ctx, admin.ID, p.secret, in.Body.Code, now)
+		if err != nil {
+			return err
+		}
+		if !spent {
+			return huma.Error422UnprocessableEntity("invalid_totp", &huma.ErrorDetail{Location: "body.code", Message: "invalid_totp"})
+		}
+		return nil
+	}); err != nil {
+		return nil, err
 	}
 	plain, stored := auth.NewRecoveryCodes(10)
 	if err := h.d.Store.Q.SetAdminTOTP(ctx, db.SetAdminTOTPParams{
@@ -419,7 +458,14 @@ func (h *handlers) totpDisable(ctx context.Context, in *totpDisableInput) (*stru
 		if err != nil {
 			return err
 		}
-		if !ok || !h.d.TOTP.Validate(admin.ID, admin.TotpSecret.String, in.Body.Code, now) {
+		spent := false
+		if ok {
+			spent, err = h.spendTOTPCode(ctx, admin.ID, admin.TotpSecret.String, in.Body.Code, now)
+			if err != nil {
+				return err
+			}
+		}
+		if !ok || !spent {
 			return huma.Error422UnprocessableEntity("invalid_credentials", &huma.ErrorDetail{Location: "body", Message: "invalid_password_or_code"})
 		}
 		return nil
