@@ -10,7 +10,7 @@ const devAdminPath = process.env.MIKAN_DEV_ADMIN_PATH ?? "dev-admin-path-0000";
 // The sections of the dictionaries the subscription page and the Mini App read. They are
 // 5% of the text, and the page should not download the rest: add a section here when
 // sub/ (or what it imports) starts using one (`pnpm dev` warns about a missing key).
-const SUB_SECTIONS = ["common", "states", "sub", "time", "units"];
+const SUB_SECTIONS = ["common", "promocodes", "states", "sub", "time", "units"];
 
 /** virtual:i18n-sub-ru / -en: the dictionary cut down to SUB_SECTIONS. */
 function subDictionaries(): Plugin {
