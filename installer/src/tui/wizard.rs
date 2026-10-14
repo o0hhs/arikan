@@ -1027,7 +1027,9 @@ impl Wizard {
             }
             lines.push(Line::from(""));
             lines.extend(
-                wrap("On this server: Arikan (menu), arikan status, arikan doctor, arikan update.", w).into_iter().map(|l| Line::from(dim(l))),
+                wrap("On this server: Arikan (menu), arikan status, arikan doctor, arikan update.", w)
+                    .into_iter()
+                    .map(|l| Line::from(dim(l))),
             );
             Self::page(f, Card::new("The node is running", "", &keys), lines);
             return;

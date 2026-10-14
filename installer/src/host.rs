@@ -166,7 +166,8 @@ fn version_of(path: &Path) -> Result<String> {
     Err(last.map_or_else(|| anyhow::anyhow!("the downloaded command does not run"), Into::into))
 }
 
-const UNIT_NAMES: [&str; 4] = ["arikan-update.service", "arikan-update.timer", "arikan-update-request.service", "arikan-update-request.path"];
+const UNIT_NAMES: [&str; 4] =
+    ["arikan-update.service", "arikan-update.timer", "arikan-update-request.service", "arikan-update-request.path"];
 
 /// The unit files of a panel or of a node: the same four, except that the path unit watches
 /// the request of the one the server runs (the panel's Update button, or the panel asking
