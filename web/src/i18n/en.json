@@ -102,6 +102,15 @@
     "down": "Downloaded",
     "up": "Uploaded"
   },
+  "perf": {
+    "title": "Performance mode",
+    "sub": "For weak devices: the interface without animations and blurs, the data comes less often. This browser only, nothing else.",
+    "switch": "Turn on in this browser",
+    "hint": "Instant transitions instead of smooth ones, a flat background instead of the blurred one, data polling every 45–90 seconds.",
+    "note": "The choice stays in this browser: on another device, turn it on there.",
+    "onTitle": "Performance mode is on — turn it off?",
+    "offTitle": "Turn on performance mode"
+  },
   "errors": {
     "generic": "Something went wrong. Please try again.",
     "network": "No connection to the panel. Check your internet.",

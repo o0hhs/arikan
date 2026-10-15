@@ -8,6 +8,7 @@ import { QueryBoundary, StaleNotice } from "../../components/query";
 import { useToast } from "../../components/toast";
 import { Avatar, Bar, Button, ErrorState, PageHeader, Pill, Segmented, Skeleton, StatePill } from "../../components/ui";
 import { getLocale, t } from "../../i18n";
+import { poll } from "../../lib/perf";
 import { bits, bytes, dateShort, expiryText, maskedAs, num, uptime } from "../../lib/format";
 import { nodeLabel } from "../../lib/node-label";
 
@@ -357,7 +358,7 @@ const ATTENTION_ROWS = 5;
 
 function AttentionCard() {
   // Out of traffic, then expiring, then expired: one request, five rows, every half minute.
-  const attention = useUsers({ state: "attention", q: "" }, { limit: ATTENTION_ROWS, refetchInterval: 30_000 });
+  const attention = useUsers({ state: "attention", q: "" }, { limit: ATTENTION_ROWS, refetchInterval: poll(30_000) });
   const toast = useToast();
   const extend = useUserMutation(userActions.extend);
   const list: User[] = attention.data?.items ?? [];

@@ -1,3 +1,4 @@
+import { poll } from "../lib/perf";
 import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import type { UsersSearch } from "../admin/search";
 import { api, rawApi, unwrap, type Schemas, type User } from "./client";
@@ -86,7 +87,7 @@ export function useUsers(f: UsersFilter, o: { limit?: number; refetchInterval?: 
       ),
     placeholderData: keepPreviousData,
     // Who is online is the only thing in the list that moves on its own; edits refresh it at once.
-    refetchInterval: o.refetchInterval ?? 30_000,
+    refetchInterval: o.refetchInterval ?? poll(30_000),
   });
 }
 
@@ -95,7 +96,7 @@ export function useUser(id: number | undefined) {
     queryKey: qk.user(id ?? 0),
     queryFn: ({ signal }) => unwrap(api.GET("/api/v1/users/{id}", { params: { path: { id: id! } }, signal })),
     enabled: !!id,
-    refetchInterval: 15_000,
+    refetchInterval: poll(15_000),
   });
 }
 
@@ -112,7 +113,7 @@ export function useUserNodes(id: number) {
   return useQuery({
     queryKey: qk.userNodes(id),
     queryFn: ({ signal }) => unwrap(api.GET("/api/v1/users/{id}/nodes", { params: { path: { id } }, signal })),
-    refetchInterval: 30_000,
+    refetchInterval: poll(30_000),
   });
 }
 
@@ -120,7 +121,7 @@ export function useDevices(id: number) {
   return useQuery({
     queryKey: qk.devices(id),
     queryFn: ({ signal }) => unwrap(api.GET("/api/v1/users/{id}/devices", { params: { path: { id } }, signal })),
-    refetchInterval: 30_000,
+    refetchInterval: poll(30_000),
   });
 }
 
@@ -129,7 +130,7 @@ export function useBoundDevices(id: number) {
   return useQuery({
     queryKey: qk.boundDevices(id),
     queryFn: ({ signal }) => unwrap(api.GET("/api/v1/users/{id}/bound-devices", { params: { path: { id } }, signal })),
-    refetchInterval: 30_000,
+    refetchInterval: poll(30_000),
   });
 }
 
@@ -147,7 +148,7 @@ export function useTariffs() {
 
 export function useInbounds() {
   // The listeners' state; an edit refreshes the list at once.
-  return useQuery({ queryKey: qk.inbounds, queryFn: ({ signal }) => unwrap(api.GET("/api/v1/inbounds", { signal })), refetchInterval: 30_000 });
+  return useQuery({ queryKey: qk.inbounds, queryFn: ({ signal }) => unwrap(api.GET("/api/v1/inbounds", { signal })), refetchInterval: poll(30_000) });
 }
 
 export function usePresets() {
@@ -163,7 +164,7 @@ export function useOverview(o: { poll?: boolean } = {}) {
   return useQuery({
     queryKey: qk.overview,
     queryFn: ({ signal }) => unwrap(api.GET("/api/v1/stats/overview", { signal })),
-    refetchInterval: o.poll === false ? false : 15_000,
+    refetchInterval: o.poll === false ? false : poll(15_000),
   });
 }
 
@@ -172,12 +173,12 @@ export function useServerTraffic(range: "24h" | "7d" | "30d") {
     queryKey: qk.traffic(range),
     queryFn: ({ signal }) => unwrap(api.GET("/api/v1/stats/traffic", { params: { query: { range } }, signal })),
     placeholderData: keepPreviousData,
-    refetchInterval: 60_000,
+    refetchInterval: poll(60_000),
   });
 }
 
 export function useNode() {
-  return useQuery({ queryKey: qk.node, queryFn: ({ signal }) => unwrap(api.GET("/api/v1/node", { signal })), refetchInterval: 10_000 });
+  return useQuery({ queryKey: qk.node, queryFn: ({ signal }) => unwrap(api.GET("/api/v1/node", { signal })), refetchInterval: poll(10_000) });
 }
 
 /** The nodes; `watch` polls closely while something waits for a node (a new one joining). */
@@ -248,7 +249,7 @@ export function useTorrentHits(user = 0, limit = 50) {
       unwrap(api.GET("/api/v1/torrent/hits", { params: { query: { user_id: user || undefined, before: pageParam || undefined, limit } }, signal })),
     initialPageParam: 0,
     getNextPageParam: (last) => (last.length < limit ? undefined : last[last.length - 1]!.id),
-    refetchInterval: 30_000,
+    refetchInterval: poll(30_000),
   });
 }
 
@@ -345,7 +346,7 @@ export function useNodeTraffic(id: number | undefined, range: "24h" | "7d" | "30
     // Another range of the same node keeps its chart while loading; another node never
     // shows the previous one's.
     placeholderData: (prev, prevQuery) => (prevQuery?.queryKey[1] === (id ?? 0) ? prev : undefined),
-    refetchInterval: 60_000,
+    refetchInterval: poll(60_000),
   });
 }
 
@@ -356,7 +357,7 @@ export function useNodeClients(id: number | undefined) {
     queryKey: qk.nodeClients(id ?? 0),
     queryFn: ({ signal }) => unwrap(api.GET("/api/v1/nodes/{id}/clients", { params: { path: { id: id! } }, signal })),
     enabled: !!id,
-    refetchInterval: 30_000,
+    refetchInterval: poll(30_000),
   });
 }
 
@@ -366,7 +367,7 @@ export function useNodeShares(range: "24h" | "7d" | "30d", enabled = true) {
     queryKey: qk.nodeShares(range),
     queryFn: ({ signal }) => unwrap(api.GET("/api/v1/stats/nodes", { params: { query: { range } }, signal })),
     placeholderData: keepPreviousData,
-    refetchInterval: 60_000,
+    refetchInterval: poll(60_000),
     enabled,
   });
 }

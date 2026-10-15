@@ -7,6 +7,7 @@ import { api, unwrap } from "../api/client";
 import { meQuery, useNode, useOverview, useUpdates } from "../api/hooks";
 import { Logo } from "../components/atmosphere";
 import { LangSwitch } from "../components/lang";
+import { PerfSwitch } from "../components/perf";
 import { Avatar, Bar, Pill } from "../components/ui";
 import { t, useLocale } from "../i18n";
 import { num, uptime } from "../lib/format";
@@ -73,6 +74,7 @@ export function Shell() {
             <NodeCard />
             <AdminRow />
             <LangSwitch className="self-start" />
+            <PerfSwitch className="self-start" />
           </div>
         </aside>
         <main className="main">
