@@ -154,17 +154,17 @@ export function Shop({
   return (
     <section className="glass sub-card p-4" aria-label={title}>
       <h2 className="mb-1 text-[15px] font-semibold">{title}</h2>
-      <p className="mb-3 text-xs text-[var(--ink-500)]">{pick}{promoCode ? ` · ${t("sub.promoSelected", { code: promoCode })}` : ""}</p>
+      <p className="mb-3 text-xs text-[var(--md-on-surface-variant)]">{pick}{promoCode ? ` · ${t("sub.promoSelected", { code: promoCode })}` : ""}</p>
       {promoPreview ? <p className="mb-3 text-xs text-[var(--leaf-600)]">{t("sub.promoCheckoutDiscount", { discount: money(promoPreview.discount, promoPreview.currency), total: money(promoPreview.final_amount, promoPreview.currency) })}</p> : null}
       <div className="flex flex-col gap-2" role="radiogroup" aria-label={pick}>
         {offers.map((o) => (
           <button key={o.id} type="button" role="radio" aria-checked={picked === o.id} className="opt" onClick={() => setPicked(o.id)}>
             <span className="flex items-center justify-between gap-2">
               <span className="font-semibold">{o.name}</span>
-              <span className="num text-[13px] text-[var(--ink-700)]">{listPrice(o)}</span>
+              <span className="num text-[13px] text-[var(--md-on-surface-variant)]">{listPrice(o)}</span>
             </span>
-            <span className="text-xs text-[var(--ink-500)]">{o.description}</span>
-            {o.note ? <span className="whitespace-pre-line text-xs text-[var(--ink-700)]">{o.note}</span> : null}
+            <span className="text-xs text-[var(--md-on-surface-variant)]">{o.description}</span>
+            {o.note ? <span className="whitespace-pre-line text-xs text-[var(--md-on-surface-variant)]">{o.note}</span> : null}
           </button>
         ))}
       </div>
@@ -173,7 +173,7 @@ export function Shop({
           {terms.map((x) => (
             <button key={x.days} type="button" role="radio" aria-checked={term?.days === x.days} className="opt flex-1" style={{ minWidth: 96 }} onClick={() => setTermDays(x.days)}>
               <span className="font-semibold">{x.label}</span>
-              <span className="num text-xs text-[var(--ink-600)]">{x.rub ? rubles(x.rub) : `⭐ ${x.stars}`}</span>
+              <span className="num text-xs text-[var(--md-on-surface-variant)]">{x.rub ? rubles(x.rub) : `⭐ ${x.stars}`}</span>
             </button>
           ))}
         </div>
@@ -201,16 +201,16 @@ export function Shop({
           >
             {goName ? t("sub.shopGoVia", { name: goName }) : t("sub.shopGo")}
           </Button>
-          {opened ? null : <p className="text-xs text-[var(--ink-500)]">{t("sub.shopGoHint")}</p>}
+          {opened ? null : <p className="text-xs text-[var(--md-on-surface-variant)]">{t("sub.shopGoHint")}</p>}
         </div>
       ) : null}
       {error ? (
-        <p className="mt-3 text-xs text-[var(--berry-600)]" role="alert">
+        <p className="mt-3 text-xs text-[var(--md-error)]" role="alert">
           {error}
         </p>
       ) : null}
       {opened && !error ? (
-        <div className="mt-3 flex items-center justify-between gap-2 text-xs text-[var(--ink-600)]" role="status">
+        <div className="mt-3 flex items-center justify-between gap-2 text-xs text-[var(--md-on-surface-variant)]" role="status">
           <span className="flex items-center gap-2">
             <Check size={14} className="shrink-0 text-[var(--leaf-500)]" aria-hidden /> {t("sub.shopDone")}
           </span>
@@ -268,10 +268,10 @@ export function FreePlan({
   return (
     <section className="glass sub-card p-4" aria-label={t("sub.freeTitle")}>
       <h2 className="mb-1 text-[15px] font-semibold">{t("sub.freeTitle")}</h2>
-      <p className="mb-3 text-xs text-[var(--ink-500)]">{t("sub.freeAgain")}</p>
+      <p className="mb-3 text-xs text-[var(--md-on-surface-variant)]">{t("sub.freeAgain")}</p>
       <div className="mb-3">
         <div className="font-semibold">{offer.name}</div>
-        <div className="text-xs text-[var(--ink-500)]">{offer.description}</div>
+        <div className="text-xs text-[var(--md-on-surface-variant)]">{offer.description}</div>
       </div>
       <div className="flex flex-wrap gap-2">
         <Button variant="primary" loading={busy} disabled={busy} onClick={() => void take()}>
@@ -284,7 +284,7 @@ export function FreePlan({
         ) : null}
       </div>
       {error ? (
-        <p className="mt-3 text-xs text-[var(--berry-600)]" role="alert">
+        <p className="mt-3 text-xs text-[var(--md-error)]" role="alert">
           {error}
         </p>
       ) : null}

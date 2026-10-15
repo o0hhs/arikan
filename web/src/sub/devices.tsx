@@ -41,8 +41,8 @@ function RenameForm({ d, subURL, onDone }: { d: Device; subURL: string; onDone: 
     }
   };
   return (
-    <form className="mt-2 rounded-2xl bg-[var(--hover)] p-3" onSubmit={(e) => void save(e)} noValidate>
-      <label htmlFor={id} className="text-[13px] font-medium text-[var(--ink-700)]">
+    <form className="mt-2 rounded-2xl bg-[var(--md-surface-container-high)] p-3" onSubmit={(e) => void save(e)} noValidate>
+      <label htmlFor={id} className="text-[13px] font-medium text-[var(--md-on-surface-variant)]">
         {t("sub.renameField")}
       </label>
       <input
@@ -59,11 +59,11 @@ function RenameForm({ d, subURL, onDone }: { d: Device; subURL: string; onDone: 
         onKeyDown={(e) => e.key === "Escape" && onDone(false)}
       />
       {error ? (
-        <p id={`${id}-note`} className="mt-1 text-xs text-[var(--berry-600)]" role="alert">
+        <p id={`${id}-note`} className="mt-1 text-xs text-[var(--md-error)]" role="alert">
           {error}
         </p>
       ) : (
-        <p id={`${id}-note`} className="mt-1 text-xs text-[var(--ink-500)]">
+        <p id={`${id}-note`} className="mt-1 text-xs text-[var(--md-on-surface-variant)]">
           {t("sub.renameHint")}
         </p>
       )}
@@ -173,18 +173,18 @@ export function Devices({ info, subURL, reload, title }: { info: Info; subURL: s
           <Pill tone={full ? "warn" : "ok"}>{online ? t("sub.devicesOnline", { limit: info.device_limit }) : t("sub.devicesCount", { n: list.length, limit: info.device_limit })}</Pill>
         ) : null}
       </div>
-      {full ? <p className="mb-3 rounded-2xl bg-[var(--hover)] p-3 text-[13px] text-[var(--ink-700)]">{t("sub.devicesFull")}</p> : null}
+      {full ? <p className="mb-3 rounded-2xl bg-[var(--md-surface-container-high)] p-3 text-[13px] text-[var(--md-on-surface-variant)]">{t("sub.devicesFull")}</p> : null}
       {wait && list.length > 0 ? (
-        <div className="mb-3 flex items-start gap-2 rounded-2xl bg-[var(--hover)] p-3" role="status">
-          <Hourglass size={18} className="mt-0.5 shrink-0 text-[var(--mikan-600)]" aria-hidden />
+        <div className="mb-3 flex items-start gap-2 rounded-2xl bg-[var(--md-surface-container-high)] p-3" role="status">
+          <Hourglass size={18} className="mt-0.5 shrink-0 text-[var(--md-primary)]" aria-hidden />
           <div className="text-[13px]">
-            <p className="font-medium text-[var(--ink-800)]">{t("sub.unbindLimitTitle")}</p>
-            <p className="text-[var(--ink-600)]">{t("sub.unbindAfter", { date: dateShort(wait), time: time(wait) })}</p>
+            <p className="font-medium text-[var(--md-on-surface)]">{t("sub.unbindLimitTitle")}</p>
+            <p className="text-[var(--md-on-surface-variant)]">{t("sub.unbindAfter", { date: dateShort(wait), time: time(wait) })}</p>
           </div>
         </div>
       ) : null}
       {list.length === 0 ? (
-        <p className="text-[13px] text-[var(--ink-500)]">{t("sub.devicesEmpty")}</p>
+        <p className="text-[13px] text-[var(--md-on-surface-variant)]">{t("sub.devicesEmpty")}</p>
       ) : (
         <ul className="row-list">
           {list.map((d) => {
@@ -193,12 +193,12 @@ export function Devices({ info, subURL, reload, title }: { info: Info; subURL: s
             return (
               <li key={d.id} className="py-2">
                 <div className="grid grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-3">
-                  <span className="grid h-10 w-10 place-items-center rounded-xl border border-[var(--hairline)] bg-[var(--surface-solid)] text-[var(--ink-600)]" aria-hidden>
+                  <span className="grid h-10 w-10 place-items-center rounded-xl border border-[var(--hairline)] bg-[var(--md-surface-container)] text-[var(--md-on-surface-variant)]" aria-hidden>
                     {d.shared ? <Layers size={18} /> : desktopOS.test(d.os) ? <Laptop size={18} /> : <Smartphone size={18} />}
                   </span>
                   <div className="min-w-0">
                     <div className="truncate text-sm font-semibold">{name}</div>
-                    <div className="text-xs break-words text-[var(--ink-500)]">
+                    <div className="text-xs break-words text-[var(--md-on-surface-variant)]">
                       {meta ? `${meta} · ` : ""}
                       {d.used ? `${bytes(d.used)} · ` : ""}
                       {ago(d.last_seen)}
@@ -230,10 +230,10 @@ export function Devices({ info, subURL, reload, title }: { info: Info; subURL: s
                 </div>
                 {renaming === d.id ? <RenameForm d={d} subURL={subURL} onDone={(saved) => void doneRenaming(d.id, saved)} /> : null}
                 {confirm === d.id ? (
-                  <div className="mt-2 rounded-2xl bg-[var(--hover)] p-3" role="group" aria-label={t("sub.unbindLabel", { name })}>
-                    <p className="text-[13px] text-[var(--ink-700)]">{t("sub.unbindWarn")}</p>
+                  <div className="mt-2 rounded-2xl bg-[var(--md-surface-container-high)] p-3" role="group" aria-label={t("sub.unbindLabel", { name })}>
+                    <p className="text-[13px] text-[var(--md-on-surface-variant)]">{t("sub.unbindWarn")}</p>
                     {returnHours !== 0 && !d.shared ? (
-                      <p className="mt-1 text-[13px] font-medium text-[var(--ink-800)]">
+                      <p className="mt-1 text-[13px] font-medium text-[var(--md-on-surface)]">
                         {returnHours < 0 ? t("sub.unbindWarnNever") : t("sub.unbindWarnReturn", { pause: pause(returnHours) })}
                       </p>
                     ) : null}
@@ -253,11 +253,11 @@ export function Devices({ info, subURL, reload, title }: { info: Info; subURL: s
         </ul>
       )}
       {error ? (
-        <p className="mt-2 text-[13px] text-[var(--berry-600)]" role="alert">
+        <p className="mt-2 text-[13px] text-[var(--md-error)]" role="alert">
           {error}
         </p>
       ) : null}
-      <p className="mt-2 text-xs text-[var(--ink-500)]">{note}</p>
+      <p className="mt-2 text-xs text-[var(--md-on-surface-variant)]">{note}</p>
     </section>
   );
 }

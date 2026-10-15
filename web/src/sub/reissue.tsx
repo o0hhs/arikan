@@ -57,21 +57,21 @@ export function ReissueSection({ info, subURL, title, onDone }: { info: Info; su
   return (
     <section className="glass sub-card p-4" aria-labelledby="reissue-title">
       <div className="mb-2 flex items-center gap-2">
-        <RefreshCw size={16} className="text-[var(--ink-600)]" aria-hidden />
+        <RefreshCw size={16} className="text-[var(--md-on-surface-variant)]" aria-hidden />
         <h2 id="reissue-title" className="text-[15px] font-semibold">
           {title || t("sub.reissueTitle")}
         </h2>
       </div>
-      <p className="text-[13px] text-[var(--ink-600)]">{off ? t("sub.reissueOff") : t("sub.reissueText")}</p>
+      <p className="text-[13px] text-[var(--md-on-surface-variant)]">{off ? t("sub.reissueOff") : t("sub.reissueText")}</p>
       {waiting ? (
-        <div className="mt-3 flex items-start gap-2 rounded-2xl bg-[var(--hover)] p-3" role="status">
-          <Hourglass size={18} className="mt-0.5 shrink-0 text-[var(--mikan-600)]" aria-hidden />
-          <p className="text-[13px] text-[var(--ink-600)]">{t("sub.reissueAfter", { date: dateShort(waiting), time: time(waiting) })}</p>
+        <div className="mt-3 flex items-start gap-2 rounded-2xl bg-[var(--md-surface-container-high)] p-3" role="status">
+          <Hourglass size={18} className="mt-0.5 shrink-0 text-[var(--md-primary)]" aria-hidden />
+          <p className="text-[13px] text-[var(--md-on-surface-variant)]">{t("sub.reissueAfter", { date: dateShort(waiting), time: time(waiting) })}</p>
         </div>
       ) : null}
       {off || waiting ? null : confirm ? (
-        <div className="mt-3 rounded-2xl bg-[var(--hover)] p-3" role="group" aria-label={title || t("sub.reissueTitle")}>
-          <p className="text-[13px] text-[var(--ink-700)]">{t("sub.reissueWarn")}</p>
+        <div className="mt-3 rounded-2xl bg-[var(--md-surface-container-high)] p-3" role="group" aria-label={title || t("sub.reissueTitle")}>
+          <p className="text-[13px] text-[var(--md-on-surface-variant)]">{t("sub.reissueWarn")}</p>
           <div className="mt-2 flex justify-end gap-2">
             <Button
               variant="ghost"
@@ -98,11 +98,11 @@ export function ReissueSection({ info, subURL, title, onDone }: { info: Info; su
         </div>
       )}
       {error ? (
-        <p className="mt-2 text-[13px] text-[var(--berry-600)]" role="alert">
+        <p className="mt-2 text-[13px] text-[var(--md-error)]" role="alert">
           {error}
         </p>
       ) : null}
-      {!off && limit > 0 ? <p className="mt-2 text-xs text-[var(--ink-500)]">{t("sub.reissueLimit", { n: limit, period: period(info.reissue_days ?? 1) })}</p> : null}
+      {!off && limit > 0 ? <p className="mt-2 text-xs text-[var(--md-on-surface-variant)]">{t("sub.reissueLimit", { n: limit, period: period(info.reissue_days ?? 1) })}</p> : null}
     </section>
   );
 }

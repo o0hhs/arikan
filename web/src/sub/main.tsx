@@ -299,7 +299,7 @@ function SubPage() {
       <Shell>
         <section className="glass sub-card p-6 text-center">
           <h1 className="font-display text-xl font-medium">{t("sub.tgNoSubTitle")}</h1>
-          <p className="mt-2 text-[13px] text-[var(--ink-500)]">{t("sub.tgNoSubText")}</p>
+          <p className="mt-2 text-[13px] text-[var(--md-on-surface-variant)]">{t("sub.tgNoSubText")}</p>
         </section>
         {trialShop}
         {freePlan}
@@ -317,7 +317,7 @@ function SubPage() {
       <Shell>
         <section className="glass sub-card p-6 text-center" role={tg.state === "failed" ? "alert" : undefined}>
           <h1 className="font-display text-xl font-medium">{tg.state === "none" ? t("sub.tgNoSubTitle") : t("sub.loadFailed")}</h1>
-          <p className="mt-2 text-[13px] text-[var(--ink-500)]">{tg.state === "none" ? t("sub.tgNoSubText") : t("sub.tgFailed")}</p>
+          <p className="mt-2 text-[13px] text-[var(--md-on-surface-variant)]">{tg.state === "none" ? t("sub.tgNoSubText") : t("sub.tgFailed")}</p>
           {tg.state === "failed" ? (
             <Button variant="primary" className="mt-4" onClick={() => void session()}>
               {t("common.retry")}
@@ -332,7 +332,7 @@ function SubPage() {
       <Shell>
         <section className="glass sub-card p-6 text-center" role="alert">
           <h1 className="font-display text-xl font-medium">{t("sub.loadFailed")}</h1>
-          <p className="mt-2 text-[13px] text-[var(--ink-500)]">{t("sub.loadFailedText")}</p>
+          <p className="mt-2 text-[13px] text-[var(--md-on-surface-variant)]">{t("sub.loadFailedText")}</p>
           <Button
             variant="primary"
             className="mt-4"
@@ -351,7 +351,7 @@ function SubPage() {
     return (
       <Shell>
         {tgMode ? (
-          <p className="px-1 text-[13px] text-[var(--ink-500)]" role="status">
+          <p className="px-1 text-[13px] text-[var(--md-on-surface-variant)]" role="status">
             {t("sub.tgLoading")}
           </p>
         ) : null}
@@ -379,14 +379,14 @@ function SubPage() {
   return (
     <Shell brand={current.brand}>
       {tg.subs.length > 1 ? (
-        <div className="flex gap-1 overflow-x-auto rounded-[14px] bg-[var(--hover)] p-1" role="group" aria-label={t("sub.link")}>
+        <div className="flex gap-1 overflow-x-auto rounded-lg bg-[var(--md-surface-container-high)] p-1" role="group" aria-label={t("sub.link")}>
           {tg.subs.map((s) => (
             <button
               key={s.token}
               type="button"
               aria-pressed={subURL.endsWith("/" + s.token)}
               onClick={() => setSubURL(subRoot + "/" + s.token)}
-              className="h-8 shrink-0 rounded-[10px] px-3 text-xs font-semibold text-[var(--ink-600)] aria-pressed:bg-[var(--surface-solid)] aria-pressed:text-[var(--ink-900)] aria-pressed:shadow-sm"
+              className="h-8 shrink-0 rounded-md px-3 text-xs font-semibold text-[var(--md-on-surface-variant)] aria-pressed:bg-[var(--md-surface-container)] aria-pressed:text-[var(--md-on-surface)] aria-pressed:shadow-sm"
             >
               {s.name}
             </button>
