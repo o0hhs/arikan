@@ -123,7 +123,7 @@ function TelegramBody({ v }: { v: View }) {
           </WithPreview>
         ) : tab === "menu" ? (
           <WithPreview title={t("telegram.preview")} preview={preview}>
-            <MenuCard draft={draft} setDraft={setDraft} />
+            <MenuCard draft={draft} setDraft={setDraft} refused={v.emoji_refused} />
             <ChannelCard draft={draft} setDraft={setDraft} v={v} />
             <TextsCard draft={draft} setDraft={setDraft} defaults={v.defaults} />
           </WithPreview>
@@ -701,9 +701,12 @@ function actionLabel(a: string): string {
   return tMaybe(`telegram.action.${a}`) ?? a;
 }
 
-function MenuCard({ draft, setDraft }: { draft: Config; setDraft: (c: Config) => void }) {
+function MenuCard({ draft, setDraft, refused }: { draft: Config; setDraft: (c: Config) => void; refused?: Schemas["EmojiRefusal"] }) {
   const sample = useSampleVars();
   const set = (i: number, patch: Partial<MenuButton>) => setDraft({ ...draft, buttons: draft.buttons.map((b, j) => (j === i ? { ...b, ...patch } : b)) });
+  // An emoji Telegram refused: the bot sends the menu without it until the id or the
+  // owner's Premium changes. Saving the menu clears the note.
+  const denied = (b: MenuButton) => !!b.emoji_id && (refused?.ids.includes(b.emoji_id) ?? false);
   const move = (i: number, d: -1 | 1) => {
     const list = [...draft.buttons];
     [list[i], list[i + d]] = [list[i + d]!, list[i]!];
@@ -775,6 +778,22 @@ function MenuCard({ draft, setDraft }: { draft: Config; setDraft: (c: Config) =>
                     ))}
                   </span>
                 </label>
+                <label className="flex items-center gap-1.5" aria-label={t("telegram.buttonEmoji")}>
+                  {t("telegram.buttonEmoji")}:
+                  <input
+                    className="input mono h-7 w-36 px-2 text-xs"
+                    value={b.emoji_id ?? ""}
+                    maxLength={20}
+                    inputMode="numeric"
+                    autoComplete="off"
+                    spellCheck={false}
+                    placeholder="5368324170671202286"
+                    aria-label={t("telegram.buttonEmoji")}
+                    aria-invalid={denied(b) || undefined}
+                    title={denied(b) ? t("telegram.emojiRefusedOne") : undefined}
+                    onChange={(e) => set(i, { emoji_id: e.target.value.replace(/\D/g, "") || undefined })}
+                  />
+                </label>
               </div>
               {b.action === "url" ? <input className="input mono mt-2" value={b.url ?? ""} onChange={(e) => set(i, { url: e.target.value })} placeholder="https://… / tg://…" aria-label={t("telegram.buttonUrl")} /> : null}
               {b.action === "page" ? (
@@ -790,6 +809,13 @@ function MenuCard({ draft, setDraft }: { draft: Config; setDraft: (c: Config) =>
           ))}
         </AnimatePresence>
       </ul>
+      {refused && refused.ids.length > 0 ? (
+        <div className="banner warn mt-3 flex-wrap" role="status">
+          <TriangleAlert size={16} aria-hidden />
+          <span>{t("telegram.emojiRefused", { ids: refused.ids.join(", ") })}</span>
+        </div>
+      ) : null}
+      <p className="mt-3 text-xs text-[var(--ink-500)]">{t("telegram.emojiHint")}</p>
       <div className="mt-3 flex flex-wrap gap-2">
         <button type="button" className="chip-btn" onClick={() => add("url")} disabled={draft.buttons.length >= 20}>
           <Plus size={14} className="mr-1 inline" aria-hidden />

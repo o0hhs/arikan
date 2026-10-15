@@ -3121,6 +3121,12 @@ export interface components {
             /** @description Порты и диапазоны: 6881, 6881-6889 */
             ports: string[];
         };
+        EmojiRefusal: {
+            /** Format: int64 */
+            at: number;
+            error?: string;
+            ids: string[];
+        };
         "Enable-promocodeRequest": {
             enabled: boolean;
         };
@@ -3618,6 +3624,8 @@ export interface components {
         MenuButton: {
             /** @enum {string} */
             action: "sub" | "devices" | "connect" | "renew" | "referral" | "support" | "app" | "url" | "page";
+            /** @description Премиум-эмодзи перед надписью: id эмодзи (число). Показывают его лишь боты, у владельца которых есть Telegram Premium; иначе кнопка идёт без него */
+            emoji_id?: string;
             /** @description Постоянный id кнопки */
             id: string;
             label: string;
@@ -5412,6 +5420,8 @@ export interface components {
             config: components["schemas"]["Config"];
             /** @description Встроенные тексты на языке бота: пустое поле берёт их */
             defaults: components["schemas"]["Texts"];
+            /** @description Бот прислал меню без премиум-эмодзи: Telegram отказал в этих id (у владельца бота нет Telegram Premium). Сохранение меню снимает пометку */
+            emoji_refused?: components["schemas"]["EmojiRefusal"];
             enabled: boolean;
             /** @description token_invalid, token_revoked, token_conflict (токен опрашивает ещё одна программа), unreachable или ответ Telegram */
             error?: string;
