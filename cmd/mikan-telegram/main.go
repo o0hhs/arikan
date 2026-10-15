@@ -91,7 +91,8 @@ func (a *addon) emojiRefused(ids []string, err error) {
 	}
 	a.log.Warn("telegram: a button's premium emoji was refused; the menu goes out without it", "ids", set, "err", err)
 	a.running.Go(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		// The panel is next door; a call that hangs must not hold up the bot's shutdown.
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		if err := a.backend.NoteEmojiRefused(ctx, ids, err.Error()); err != nil {
 			a.log.Warn("telegram: the refusal was not told to the panel", "err", err)
