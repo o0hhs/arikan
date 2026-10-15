@@ -62,17 +62,17 @@ export function PackagesCard({ creating, onCreateClose }: { creating: boolean; o
       <QueryBoundary query={packages} pending={<Skeleton style={{ height: 64 }} />}>
         {(list) =>
           list.length === 0 ? (
-            <p className="text-xs text-[var(--ink-500)]">{t("packages.none")}</p>
+            <p className="text-xs text-[var(--md-on-surface-variant)]">{t("packages.none")}</p>
           ) : (
             <ul className="row-list">
               {list.map((p) => (
                 <li key={p.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
                   <div className="min-w-0">
                     <div className="text-[13px] font-semibold">{p.name}</div>
-                    <div className="text-xs text-[var(--ink-500)]">
+                    <div className="text-xs text-[var(--md-on-surface-variant)]">
                       {[bytes(p.bytes), targetName(p.pool_id, pools.data), lifetimeText(p.lifetime, p.days)].join(" · ")}
                     </div>
-                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[var(--ink-600)]">
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[var(--md-on-surface-variant)]">
                       {p.on_sale && selling ? <Pill tone="ok">{t("tariffs.onSale")}</Pill> : <Pill tone="off">{t("packages.notOnSale")}</Pill>}
                       {p.price_stars != null ? <span className="num">⭐ {p.price_stars}</span> : null}
                       {p.price_rub != null ? <span className="num">{rubles(p.price_rub)}</span> : null}
@@ -202,7 +202,7 @@ function PackageDrawer({ pkg, pools, selling, onClose }: { pkg: Package | "new" 
         <Field label={t("packages.size")} htmlFor="pk-gb" error={errors.bytes}>
           <div className="flex items-center gap-2">
             <input id="pk-gb" className="input max-w-[140px]" inputMode="decimal" value={gb} onChange={(e) => setGb(e.target.value)} aria-invalid={!!errors.bytes} />
-            <span className="text-[var(--ink-500)]">{t("units.gb")}</span>
+            <span className="text-[var(--md-on-surface-variant)]">{t("units.gb")}</span>
           </div>
         </Field>
         <Field label={t("packages.target")} htmlFor="pk-pool" hint={t("packages.targetHint")} error={errors.pool_id}>
@@ -241,12 +241,12 @@ function PackageDrawer({ pkg, pools, selling, onClose }: { pkg: Package | "new" 
           <div className="mb-3 flex items-start justify-between gap-3">
             <div>
               <div className="text-[13px] font-semibold">{t("tariffs.sale")}</div>
-              <div className="text-xs text-[var(--ink-500)]">{selling ? t("packages.saleSub") : t("packages.sellingOff")}</div>
+              <div className="text-xs text-[var(--md-on-surface-variant)]">{selling ? t("packages.saleSub") : t("packages.sellingOff")}</div>
             </div>
             <Switch checked={onSale} onChange={setOnSale} label={t("tariffs.onSale")} />
           </div>
           {errors.on_sale ? (
-            <p className="mb-3 text-xs text-[var(--berry-600)]" role="alert">
+            <p className="mb-3 text-xs text-[var(--md-error)]" role="alert">
               {errors.on_sale}
             </p>
           ) : null}
@@ -254,13 +254,13 @@ function PackageDrawer({ pkg, pools, selling, onClose }: { pkg: Package | "new" 
             <Field label={t("tariffs.priceStars")} htmlFor="pk-stars" error={errors.price_stars}>
               <div className="flex items-center gap-2">
                 <input id="pk-stars" className="input max-w-[140px]" inputMode="numeric" value={stars} onChange={(e) => setStars(e.target.value)} placeholder="75" aria-invalid={!!errors.price_stars} />
-                <span className="text-[var(--ink-500)]">⭐</span>
+                <span className="text-[var(--md-on-surface-variant)]">⭐</span>
               </div>
             </Field>
             <Field label={t("tariffs.priceRub")} htmlFor="pk-rub" hint={t("tariffs.priceRubHint")} error={errors.price_rub}>
               <div className="flex items-center gap-2">
                 <input id="pk-rub" className="input max-w-[140px]" inputMode="decimal" value={rub} onChange={(e) => setRub(e.target.value)} placeholder="79" aria-invalid={!!errors.price_rub} />
-                <span className="text-[var(--ink-500)]">₽</span>
+                <span className="text-[var(--md-on-surface-variant)]">₽</span>
               </div>
             </Field>
           </div>

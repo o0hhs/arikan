@@ -30,7 +30,7 @@ export function TurnDrawer({ node, onClose }: { node: { id: number; name: string
   return (
     <Drawer open={!!node} onOpenChange={(v) => !v && onClose()} title={t("turn.title")} meta={node?.name}>
       <div className="pt-5">
-        <p className="mb-4 text-[13px] text-[var(--ink-600)]">{t("turn.intro")}</p>
+        <p className="mb-4 text-[13px] text-[var(--md-on-surface-variant)]">{t("turn.intro")}</p>
         <QueryBoundary query={q} pending={<Skeleton style={{ height: 260, borderRadius: 16 }} />}>
           {(v) => <Body key={node!.id} nodeId={node!.id} v={v} refetch={() => void q.refetch()} checking={q.isFetching} onClose={onClose} />}
         </QueryBoundary>
@@ -128,7 +128,7 @@ function Body({ nodeId, v, refetch, checking, onClose }: { nodeId: number; v: Tu
           </Button>
         </div>
         {v.configured && draft.enabled ? (
-          <div className="mt-2 text-xs text-[var(--ink-500)]">
+          <div className="mt-2 text-xs text-[var(--md-on-surface-variant)]">
             {s?.error === "node_too_old"
               ? t("turn.nodeTooOld")
               : s && !s.error
@@ -140,14 +140,14 @@ function Body({ nodeId, v, refetch, checking, onClose }: { nodeId: number; v: Tu
         ) : null}
         {s?.error && !blind ? (
           <div className="mt-2">
-            <p className="text-[13px] text-[var(--ink-700)]">
+            <p className="text-[13px] text-[var(--md-on-surface-variant)]">
               {tMaybe(`turn.why.${s.error}`, {}) ?? t("turn.whyUnknown", { code: s.error })}
             </p>
-            {s.detail ? <p className="mono mt-1 break-words text-xs text-[var(--ink-500)]">{s.detail}</p> : null}
+            {s.detail ? <p className="mono mt-1 break-words text-xs text-[var(--md-on-surface-variant)]">{s.detail}</p> : null}
           </div>
         ) : null}
         {s?.log?.length && !s.running ? (
-          <pre className="mono mt-2 max-h-32 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-[var(--wash)] p-2 text-[11px] text-[var(--ink-500)]">
+          <pre className="mono mt-2 max-h-32 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-[var(--wash)] p-2 text-[11px] text-[var(--md-on-surface-variant)]">
             {s.log.slice(-6).join("\n")}
           </pre>
         ) : null}
@@ -156,7 +156,7 @@ function Body({ nodeId, v, refetch, checking, onClose }: { nodeId: number; v: Tu
       {v.configured && v.entry ? (
         <div className="panel-soft mb-4 p-3">
           <div className="text-[13px] font-semibold">{t("turn.entry")}</div>
-          <div className="mt-1 text-xs text-[var(--ink-500)]">{t("turn.entryText", { name: v.entry ?? "" })}</div>
+          <div className="mt-1 text-xs text-[var(--md-on-surface-variant)]">{t("turn.entryText", { name: v.entry ?? "" })}</div>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <code className="mono rounded bg-[var(--wash)] px-2 py-1 text-[11px]">
               {v.peer ?? ""} · {v.client_host}:{v.client_port} · {v.mode === "udp" ? t("turn.mode.udp") : t("turn.mode.vless")}
@@ -179,7 +179,7 @@ function Body({ nodeId, v, refetch, checking, onClose }: { nodeId: number; v: Tu
 
       <Field label={t("turn.inbound")} htmlFor="turn-inbound" hint={t("turn.inboundHint")} error={fields.inbound_id}>
         {mine.length === 0 ? (
-          <p className="text-xs text-[var(--ink-500)]">{t("turn.inboundNone")}</p>
+          <p className="text-xs text-[var(--md-on-surface-variant)]">{t("turn.inboundNone")}</p>
         ) : (
           <select id="turn-inbound" className="input max-w-[360px]" value={draft.inbound_id} onChange={(e) => set("inbound_id", Number(e.target.value))}>
             <option value={0} disabled>
@@ -208,7 +208,7 @@ function Body({ nodeId, v, refetch, checking, onClose }: { nodeId: number; v: Tu
           <input id="turn-cport" className="input mono" value={draft.client_port} onChange={(e) => set("client_port", e.target.value)} inputMode="numeric" />
         </Field>
       </div>
-      <p className="-mt-1 mb-3 text-xs text-[var(--ink-500)]">{t("turn.clientHint")}</p>
+      <p className="-mt-1 mb-3 text-xs text-[var(--md-on-surface-variant)]">{t("turn.clientHint")}</p>
 
       <SwitchRow label={t("turn.udp")} sub={t("turn.udpHint")} checked={draft.udp} onChange={(x) => set("udp", x)} />
 

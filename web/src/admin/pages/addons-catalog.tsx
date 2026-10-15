@@ -201,7 +201,7 @@ function CatalogCard({ item: i, index, m, p, queued, act }: { item: Item; index:
         </span>
         <div className="min-w-0 flex-1">
           <h3 className="addon-card-title">{i.name}</h3>
-          <div className="mt-0.5 text-xs text-[var(--ink-500)]">
+          <div className="mt-0.5 text-xs text-[var(--md-on-surface-variant)]">
             {kindLabel(i.kind)} · <span className="num">v{i.version}</span>
           </div>
         </div>

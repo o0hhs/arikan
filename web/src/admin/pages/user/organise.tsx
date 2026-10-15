@@ -29,8 +29,8 @@ export function OrganiseSection({ u }: { u: User }) {
     <Section title={t("userDrawer.organise")}>
       <div className="panel-soft flex items-center justify-between gap-3 p-4">
         <div className="min-w-0">
-          <div className="text-xs text-[var(--ink-500)]">{t("userDrawer.folder")}</div>
-          <div className="mt-1 text-[13px]">{current ? <FolderBadge folder={current} /> : <span className="text-[var(--ink-600)]">{t("userDrawer.noFolder")}</span>}</div>
+          <div className="text-xs text-[var(--md-on-surface-variant)]">{t("userDrawer.folder")}</div>
+          <div className="mt-1 text-[13px]">{current ? <FolderBadge folder={current} /> : <span className="text-[var(--md-on-surface-variant)]">{t("userDrawer.noFolder")}</span>}</div>
         </div>
         {list.length > 0 ? (
           <Menu.Root>
@@ -47,10 +47,10 @@ export function OrganiseSection({ u }: { u: User }) {
           </Menu.Root>
         ) : null}
       </div>
-      {list.length === 0 ? <p className="mt-2 text-xs text-[var(--ink-500)]">{t("userDrawer.noFoldersYet")}</p> : null}
+      {list.length === 0 ? <p className="mt-2 text-xs text-[var(--md-on-surface-variant)]">{t("userDrawer.noFoldersYet")}</p> : null}
       <SwitchRow className="mt-1" label={t("userDrawer.hide")} sub={t("userDrawer.hideHint")} checked={u.hidden} onChange={setHidden} disabled={update.isPending} />
-      <p className="mt-3 text-xs text-[var(--ink-500)]">
-        {t("userDrawer.source")}: <span className="text-[var(--ink-700)]">{t(`users.sourceHints.${u.source}`)}</span>
+      <p className="mt-3 text-xs text-[var(--md-on-surface-variant)]">
+        {t("userDrawer.source")}: <span className="text-[var(--md-on-surface-variant)]">{t(`users.sourceHints.${u.source}`)}</span>
       </p>
     </Section>
   );

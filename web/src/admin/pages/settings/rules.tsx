@@ -56,7 +56,7 @@ export function RulesEditor({ value, onChange, error, badLine, targets }: { valu
         />
       </div>
       {error ? (
-        <p className="mt-2 text-xs text-[var(--berry-600)]" role="alert">
+        <p className="mt-2 text-xs text-[var(--md-error)]" role="alert">
           {error}
         </p>
       ) : null}
@@ -67,7 +67,7 @@ export function RulesEditor({ value, onChange, error, badLine, targets }: { valu
           </button>
         ))}
       </div>
-      <div id="s-rules-hint" className="mt-3 text-xs text-[var(--ink-500)]">
+      <div id="s-rules-hint" className="mt-3 text-xs text-[var(--md-on-surface-variant)]">
         <p>{t("settings.rulesHint")}</p>
         <p className="mt-1">
           {t("settings.rulesTargets")}{" "}
@@ -79,7 +79,7 @@ export function RulesEditor({ value, onChange, error, badLine, targets }: { valu
           ))}
         </p>
         <details className="mt-2">
-          <summary className="cursor-pointer font-medium text-[var(--ink-700)]">{t("settings.rulesTypes")}</summary>
+          <summary className="cursor-pointer font-medium text-[var(--md-on-surface-variant)]">{t("settings.rulesTypes")}</summary>
           <p className="mt-2">{t("settings.rulesTypesText")}</p>
         </details>
       </div>

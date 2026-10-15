@@ -140,7 +140,7 @@ function Editor({ v, section, setSection }: { v: View; section: Section; setSect
             <Button variant="ghost" size="sm" onClick={() => setResetting(true)}>
               <RotateCcw size={16} aria-hidden /> {t("settings.page.reset")}
             </Button>
-            <span className="text-xs text-[var(--ink-500)]">{t("settings.page.resetHint")}</span>
+            <span className="text-xs text-[var(--md-on-surface-variant)]">{t("settings.page.resetHint")}</span>
           </div>
       </WithPreview>
       <p className="sr-only" role="status" aria-live="polite">
@@ -204,7 +204,7 @@ function ColorField({ id, label, value, onChange, error, hint }: { id: string; l
       <div className="flex items-center gap-2">
         <input
           type="color"
-          className="h-11 w-11 shrink-0 cursor-pointer rounded-[var(--r-md)] border border-[var(--hairline)] bg-[var(--surface)] p-1"
+          className="h-11 w-11 shrink-0 cursor-pointer rounded-[var(--r-md)] border border-[var(--hairline)] bg-[var(--md-surface-container-high)] p-1"
           value={valid ? value.trim().toLowerCase() : "#f07a2e"}
           onChange={(e) => onChange(e.target.value.toUpperCase())}
           aria-label={t("settings.page.colorPick", { name: label })}
@@ -355,7 +355,7 @@ function LookSection({ draft, setDraft, set, errors, accentMissing, background }
                 <span className="text-[17px] leading-6 font-medium" style={{ fontFamily: f.family }}>
                   {t("settings.page.fontSample")}
                 </span>
-                <span className="text-xs text-[var(--ink-500)]">{t(`settings.page.fonts.${f.id}`)}</span>
+                <span className="text-xs text-[var(--md-on-surface-variant)]">{t(`settings.page.fonts.${f.id}`)}</span>
               </button>
             ))}
           </div>
@@ -430,7 +430,7 @@ function ImageField({ name, asset, label, hint }: { name: "logo" | "background";
     <div className="field">
       <span className="lbl">{label}</span>
       <div className="flex flex-wrap items-center gap-3">
-        <span className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-[14px] border border-dashed border-[var(--ink-300)] bg-[var(--surface-soft)]">
+        <span className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-lg border border-dashed border-[var(--ink-300)] bg-[var(--md-surface-container-low)]">
           {upload.isPending ? <Skeleton style={{ width: 64, height: 64, borderRadius: 0 }} /> : src ? <img src={src} alt="" className="h-full w-full object-cover" /> : <ImageUp size={20} className="text-[var(--ink-400)]" aria-hidden />}
         </span>
         <div className="flex flex-wrap gap-2">
@@ -478,7 +478,7 @@ function BrandSection({ draft, set, errors, logo, brandName }: SectionProps & { 
       <Card title={t("settings.page.brand")} sub={t("settings.page.brandSub")}>
         <div className="grid gap-x-3 sm:grid-cols-2">
           <Field label={t("settings.brand")} hint={t("settings.page.brandNameHint")}>
-            <div className="flex min-h-11 items-center justify-between gap-2 rounded-[var(--r-md)] border border-[var(--hairline)] bg-[var(--surface-soft)] py-1 pr-1 pl-3">
+            <div className="flex min-h-11 items-center justify-between gap-2 rounded-[var(--r-md)] border border-[var(--hairline)] bg-[var(--md-surface-container-low)] py-1 pr-1 pl-3">
               <span className="truncate font-medium">{brandName.trim() || "VPN"}</span>
               <Link to="/settings" search={{ tab: "general" }} className="btn btn-ghost btn-sm">
                 {t("settings.page.brandNameEdit")}
@@ -519,23 +519,23 @@ function BrandSection({ draft, set, errors, logo, brandName }: SectionProps & { 
         </Field>
         <SwitchRow label={t("settings.page.ogImage")} sub={logo ? t("settings.page.ogImageSub") : t("settings.page.ogImageNoLogo")} checked={og.image} disabled={!logo && !og.image} onChange={(image) => setOG({ image })} />
         {errors["config.og.image"] ? (
-          <p className="mb-3 text-xs text-[var(--berry-600)]" role="alert">
+          <p className="mb-3 text-xs text-[var(--md-error)]" role="alert">
             {errors["config.og.image"]}
           </p>
         ) : null}
-        <div className="text-xs text-[var(--ink-500)]">{t("settings.page.ogLook")}</div>
+        <div className="text-xs text-[var(--md-on-surface-variant)]">{t("settings.page.ogLook")}</div>
         {og.title || og.description || (og.image && logo) ? (
           <div className="panel-soft mt-2 flex items-start gap-3 p-3" aria-hidden>
             <span className="w-0.5 self-stretch rounded-full bg-[var(--mikan-500)]" />
             <div className="min-w-0 flex-1">
-              <div className="text-xs font-semibold text-[var(--mikan-700)]">{name}</div>
+              <div className="text-xs font-semibold text-[var(--md-primary)]">{name}</div>
               <div className="truncate text-[13px] font-semibold">{og.title || name}</div>
-              {og.description ? <div className="line-clamp-2 text-xs text-[var(--ink-600)]">{og.description}</div> : null}
+              {og.description ? <div className="line-clamp-2 text-xs text-[var(--md-on-surface-variant)]">{og.description}</div> : null}
             </div>
-            {og.image && logo ? <img src={imageURL(logo)} alt="" className="h-12 w-12 shrink-0 rounded-[10px] object-cover" /> : null}
+            {og.image && logo ? <img src={imageURL(logo)} alt="" className="h-12 w-12 shrink-0 rounded-md object-cover" /> : null}
           </div>
         ) : (
-          <p className="panel-soft mt-2 p-3 text-xs text-[var(--ink-500)]">{t("settings.page.ogNone")}</p>
+          <p className="panel-soft mt-2 p-3 text-xs text-[var(--md-on-surface-variant)]">{t("settings.page.ogNone")}</p>
         )}
       </Card>
     </>
@@ -597,7 +597,7 @@ function BlocksSection({ config, set, errors, announce }: { config: Config; set:
                     <span className="truncate text-[13px] font-semibold">{name}</span>
                     {MINI_APP_ONLY.includes(b.type) ? <span className="tag shrink-0">Mini App</span> : null}
                   </div>
-                  <div className="truncate text-xs text-[var(--ink-500)]">{t(`settings.page.blockDesc.${b.type}`)}</div>
+                  <div className="truncate text-xs text-[var(--md-on-surface-variant)]">{t(`settings.page.blockDesc.${b.type}`)}</div>
                 </div>
                 <button type="button" id={`blk-up-${b.id}`} className="icon-btn" disabled={i === 0} onClick={() => move(i, -1)} aria-label={t("settings.page.moveUp", { name })}>
                   <ArrowUp size={16} />
@@ -641,7 +641,7 @@ function BlocksSection({ config, set, errors, announce }: { config: Config; set:
         <button type="button" className="chip-btn inline-flex items-center gap-1" onClick={() => add("links")} disabled={custom >= MAX_CUSTOM}>
           <Link2 size={14} aria-hidden /> {t("settings.page.addLinks")}
         </button>
-        <span className="text-xs text-[var(--ink-500)]">{custom >= MAX_CUSTOM ? t("errors.api.too_many_blocks", { value: MAX_CUSTOM }) : t("settings.page.customHint")}</span>
+        <span className="text-xs text-[var(--md-on-surface-variant)]">{custom >= MAX_CUSTOM ? t("errors.api.too_many_blocks", { value: MAX_CUSTOM }) : t("settings.page.customHint")}</span>
       </div>
     </Card>
   );
@@ -679,7 +679,7 @@ function BlockSetup({ block: b, index: i, setBlock, errors }: { block: Block; in
                   </button>
                   <input className="input mono col-span-2 col-start-2" value={l.url} maxLength={500} placeholder="https://… / tg://…" onChange={(e) => setLink(j, { url: e.target.value.trim() })} aria-label={t("settings.page.linkURL")} aria-invalid={!!urlErr} spellCheck={false} />
                   {urlErr || labelErr ? (
-                    <span className="col-span-2 col-start-2 text-xs text-[var(--berry-600)]" role="alert">
+                    <span className="col-span-2 col-start-2 text-xs text-[var(--md-error)]" role="alert">
                       {labelErr ?? urlErr}
                     </span>
                   ) : null}
@@ -746,7 +746,7 @@ function AppsSection({ config, set, announce, platform, setPlatform }: { config:
               />
               <div className={`min-w-0 flex-1 ${hidden ? "opacity-60" : ""}`}>
                 <div className="text-[13px] font-semibold">{a.name}</div>
-                <div className="text-xs text-[var(--ink-500)]">{t(`sub.notes.${a.note}`)}</div>
+                <div className="text-xs text-[var(--md-on-surface-variant)]">{t(`sub.notes.${a.note}`)}</div>
               </div>
               <button type="button" id={`app-up-${a.name}`} className="icon-btn" disabled={i === 0} onClick={() => move(i, -1)} aria-label={t("settings.page.moveUp", { name: a.name })}>
                 <ArrowUp size={16} />
@@ -758,7 +758,7 @@ function AppsSection({ config, set, announce, platform, setPlatform }: { config:
           );
         })}
       </ul>
-      <p className="mt-3 text-xs text-[var(--ink-500)]">{shownCount === 0 ? t("settings.page.appsNone") : t("settings.page.appsNote")}</p>
+      <p className="mt-3 text-xs text-[var(--md-on-surface-variant)]">{shownCount === 0 ? t("settings.page.appsNone") : t("settings.page.appsNote")}</p>
     </Card>
   );
 }
@@ -779,7 +779,7 @@ function CSSSection({ config, set, error }: { config: Config; set: Set; error?: 
           aria-invalid={!!error || size > MAX_CSS}
         />
       </Field>
-      <p className="text-xs text-[var(--ink-500)]">{t("settings.page.cssNote")}</p>
+      <p className="text-xs text-[var(--md-on-surface-variant)]">{t("settings.page.cssNote")}</p>
     </Card>
   );
 }
@@ -887,7 +887,7 @@ function Preview({ v, draft, platform: editing, bare }: { v: View; draft: Form; 
         platform={platform}
         shop={shop}
       />
-      <p className="text-xs text-[var(--ink-500)]">{t("settings.page.previewNote")}</p>
+      <p className="text-xs text-[var(--md-on-surface-variant)]">{t("settings.page.previewNote")}</p>
     </section>
   );
 }

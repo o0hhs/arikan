@@ -122,7 +122,7 @@ export function XhttpTuning({ value, onChange, error }: { value: XHTTP; onChange
   };
   return (
     <div className="flex flex-col gap-1">
-      <p className="mb-2 text-[13px] text-[var(--ink-500)]">{t("inbounds.xhttp.intro")}</p>
+      <p className="mb-2 text-[13px] text-[var(--md-on-surface-variant)]">{t("inbounds.xhttp.intro")}</p>
       <Field label={t("inbounds.xhttp.preset")}>
         <div className="flex flex-wrap gap-2" role="group" aria-label={t("inbounds.xhttp.preset")}>
           {(["standard", "noise", "max"] as Preset[]).map((p) => (
@@ -130,7 +130,7 @@ export function XhttpTuning({ value, onChange, error }: { value: XHTTP; onChange
               {t(`inbounds.xhttp.presets.${p}`)}
             </button>
           ))}
-          {current === "own" ? <span className="self-center text-xs text-[var(--ink-500)]">{t("inbounds.xhttp.presets.own")}</span> : null}
+          {current === "own" ? <span className="self-center text-xs text-[var(--md-on-surface-variant)]">{t("inbounds.xhttp.presets.own")}</span> : null}
         </div>
       </Field>
       {strong ? (
@@ -140,7 +140,7 @@ export function XhttpTuning({ value, onChange, error }: { value: XHTTP; onChange
         </div>
       ) : null}
       {error ? (
-        <p className="mb-3 text-xs text-[var(--berry-600)]" role="alert">
+        <p className="mb-3 text-xs text-[var(--md-error)]" role="alert">
           {error}
         </p>
       ) : null}
@@ -164,7 +164,7 @@ export function XhttpTuning({ value, onChange, error }: { value: XHTTP; onChange
       <div className="flex items-start justify-between gap-4 py-2">
         <div className="min-w-0">
           <div className="text-[13px] font-medium">{t("inbounds.xhttp.obfs")}</div>
-          <div className="mt-1 text-xs text-[var(--ink-500)]">{t("inbounds.xhttp.obfsHint")}</div>
+          <div className="mt-1 text-xs text-[var(--md-on-surface-variant)]">{t("inbounds.xhttp.obfsHint")}</div>
         </div>
         <Switch
           checked={!!value.x_padding_obfs_mode}
@@ -209,7 +209,7 @@ export function XhttpTuning({ value, onChange, error }: { value: XHTTP; onChange
       </div>
 
       <h3 className="mt-3 mb-1 text-[13px] font-semibold">{t("inbounds.xhttp.sessionGroup")}</h3>
-      <p className="mb-2 text-xs text-[var(--ink-500)]">{t("inbounds.xhttp.sessionIntro")}</p>
+      <p className="mb-2 text-xs text-[var(--md-on-surface-variant)]">{t("inbounds.xhttp.sessionIntro")}</p>
       <div className="grid gap-x-3 sm:grid-cols-2">
         {placement("session_placement", t("inbounds.xhttp.sessionPlace"))}
         {value.session_placement && value.session_placement !== "path"
@@ -247,13 +247,13 @@ export function XhttpTuning({ value, onChange, error }: { value: XHTTP; onChange
       <div className="flex items-start justify-between gap-4 py-2">
         <div className="min-w-0">
           <div className="text-[13px] font-medium">{t("inbounds.xhttp.noSse")}</div>
-          <div className="mt-1 text-xs text-[var(--ink-500)]">{t("inbounds.xhttp.noSseHint")}</div>
+          <div className="mt-1 text-xs text-[var(--md-on-surface-variant)]">{t("inbounds.xhttp.noSseHint")}</div>
         </div>
         <Switch checked={!!value.no_sse_header} label={t("inbounds.xhttp.noSse")} onChange={(v) => onChange({ ...value, no_sse_header: v })} />
       </div>
 
       <h3 className="mt-3 mb-1 text-[13px] font-semibold">{t("inbounds.xhttp.reuse")}</h3>
-      <p className="mb-2 text-xs text-[var(--ink-500)]">{t("inbounds.xhttp.reuseHint")}</p>
+      <p className="mb-2 text-xs text-[var(--md-on-surface-variant)]">{t("inbounds.xhttp.reuseHint")}</p>
       <div className="grid gap-x-3 sm:grid-cols-2">
         {input("xmux_max_concurrency", "16-32", t("inbounds.xhttp.concurrency"))}
         {input("xmux_max_connections", "", t("inbounds.xhttp.connections"), t("inbounds.xhttp.connectionsHint"))}

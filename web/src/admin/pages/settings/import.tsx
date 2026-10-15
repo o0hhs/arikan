@@ -111,7 +111,7 @@ export function ImportCard() {
           <div className="panel-soft mt-3 p-3 text-[13px]">
             <div className="font-medium">{t("settings.import.found", { total: preview.total, n: preview.new })}</div>
             <Names label="settings.import.taken" list={preview.taken} />
-            {preview.on_hold ? <div className="mt-1 text-xs text-[var(--ink-500)]">{t("settings.import.onHold", { n: preview.on_hold })}</div> : null}
+            {preview.on_hold ? <div className="mt-1 text-xs text-[var(--md-on-surface-variant)]">{t("settings.import.onHold", { n: preview.on_hold })}</div> : null}
             <Names label="settings.import.noLink" list={preview.no_link} />
             <Names label="settings.import.invalid" list={preview.invalid} bad />
             <div className="banner warn my-2">{t("settings.import.notCarried")}</div>
@@ -133,7 +133,7 @@ export function ImportCard() {
         {report ? (
           <div className="panel-soft mt-3 p-3 text-[13px]">
             <div className="font-medium">{t("settings.import.report", { created: report.created, links: report.links })}</div>
-            {report.skipped.count ? <div className="mt-1 text-xs text-[var(--ink-500)]">{t("settings.import.skipped", { n: report.skipped.count })}</div> : null}
+            {report.skipped.count ? <div className="mt-1 text-xs text-[var(--md-on-surface-variant)]">{t("settings.import.skipped", { n: report.skipped.count })}</div> : null}
             <Names label="settings.import.noLink" list={report.no_link} />
             <Names label="settings.import.failedUsers" list={report.failed} bad />
           </div>
@@ -149,7 +149,7 @@ const busy = (s?: string) => s === "fetching" || s === "checking" || s === "impo
 function Names({ label, list, bad }: { label: Key; list: { names: string[]; count: number }; bad?: boolean }) {
   if (!list.count) return null;
   return (
-    <div className={`mt-1 text-xs ${bad ? "text-[var(--berry-600)]" : "text-[var(--ink-500)]"}`}>
+    <div className={`mt-1 text-xs ${bad ? "text-[var(--md-error)]" : "text-[var(--md-on-surface-variant)]"}`}>
       {t(label, { n: list.count })}
       <ul className="mt-0.5">
         {list.names.slice(0, 10).map((x) => (

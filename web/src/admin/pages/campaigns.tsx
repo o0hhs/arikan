@@ -87,7 +87,7 @@ function Header({ stats }: { stats: Stats }) {
         <dl className="flex flex-wrap gap-x-5 gap-y-1" aria-label={t("campaigns.stats")}>
           {items.map(([label, value]) => (
             <div key={label}>
-              <dt className="text-[11px] text-[var(--ink-500)]">{label}</dt>
+              <dt className="text-[11px] text-[var(--md-on-surface-variant)]">{label}</dt>
               <dd className="num text-[15px] font-semibold">{value}</dd>
             </div>
           ))}
@@ -178,7 +178,7 @@ function CampaignRow({ c }: { c: Campaign }) {
             <code className="pill mono">{c.tag}</code>
             <Pill tone={c.enabled ? "ok" : "off"}>{c.enabled ? t("common.enable") : t("common.disable")}</Pill>
           </div>
-          {c.note ? <div className="mt-1 text-xs text-[var(--ink-500)]">{c.note}</div> : null}
+          {c.note ? <div className="mt-1 text-xs text-[var(--md-on-surface-variant)]">{c.note}</div> : null}
         </div>
         <div className="flex items-center gap-2">
           <Switch checked={c.enabled} label={t("campaigns.on")} disabled={save.isPending} onChange={(on) => save.mutate({ name: f.name, note: f.note, enabled: on })} />
@@ -189,7 +189,7 @@ function CampaignRow({ c }: { c: Campaign }) {
       </div>
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <span className="text-xs text-[var(--ink-500)]">{t("campaigns.link")}</span>
+        <span className="text-xs text-[var(--md-on-surface-variant)]">{t("campaigns.link")}</span>
         {c.link ? (
           <div className="link-field min-w-[240px] flex-1">
             <span className="mono" title={c.link}>
@@ -200,7 +200,7 @@ function CampaignRow({ c }: { c: Campaign }) {
             </button>
           </div>
         ) : (
-          <span className="text-xs text-[var(--ink-500)]">{t("campaigns.linkOff")}</span>
+          <span className="text-xs text-[var(--md-on-surface-variant)]">{t("campaigns.linkOff")}</span>
         )}
       </div>
 
@@ -254,7 +254,7 @@ function CampaignRow({ c }: { c: Campaign }) {
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-[11px] text-[var(--ink-500)]">{label}</dt>
+      <dt className="text-[11px] text-[var(--md-on-surface-variant)]">{label}</dt>
       <dd className="num text-[15px] font-semibold">{value}</dd>
     </div>
   );
@@ -269,13 +269,13 @@ function Visits({ id }: { id: number }) {
   if (visits.isError) return <ErrorState text={errorText(visits.error)} onRetry={() => void visits.refetch()} />;
   if (visits.isPending) return <Skeleton style={{ height: 90 }} className="mt-3" />;
   const items = visits.data?.items ?? [];
-  if (items.length === 0) return <p className="mt-3 text-sm text-[var(--ink-500)]">{t("campaigns.visitsEmpty")}</p>;
+  if (items.length === 0) return <p className="mt-3 text-sm text-[var(--md-on-surface-variant)]">{t("campaigns.visitsEmpty")}</p>;
   return (
     <ul className="row-list mt-3">
       {items.map((v) => (
         <li key={v.chat_id} className="flex items-center justify-between gap-3 py-2">
           <span className="truncate text-[13px]">{v.name || `tg ${v.chat_id}`}</span>
-          <span className="text-xs text-[var(--ink-500)]">{dateShort(v.first_seen)}</span>
+          <span className="text-xs text-[var(--md-on-surface-variant)]">{dateShort(v.first_seen)}</span>
         </li>
       ))}
     </ul>

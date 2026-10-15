@@ -154,7 +154,7 @@ export function CopyDrawer({ inbound, onClose }: { inbound: Inbound | null; onCl
             />
           </>
         ) : null}
-        {inbound.outbound !== "direct" ? <p className="mb-4 text-xs text-[var(--ink-500)]" role="note">{t("inbounds.copyExitNote")}</p> : null}
+        {inbound.outbound !== "direct" ? <p className="mb-4 text-xs text-[var(--md-on-surface-variant)]" role="note">{t("inbounds.copyExitNote")}</p> : null}
       </form>
     </Drawer>
   );

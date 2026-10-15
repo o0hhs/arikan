@@ -73,7 +73,7 @@ export function LoginPage() {
       <LangSwitch className="fixed top-4 right-4" />
       <motion.form
         onSubmit={submit}
-        className="glass-strong w-full max-w-[400px] rounded-[28px] p-8"
+        className="glass-strong w-full max-w-[400px] rounded-2xl p-8"
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
@@ -83,7 +83,7 @@ export function LoginPage() {
           <Logo size={40} />
           <div>
             <div className="font-display text-[22px] leading-7 font-semibold tracking-tight">Arikan</div>
-            <div className="text-[13px] text-[var(--ink-500)]">{t("login.subtitle")}</div>
+            <div className="text-[13px] text-[var(--md-on-surface-variant)]">{t("login.subtitle")}</div>
           </div>
         </div>
 
@@ -98,7 +98,7 @@ export function LoginPage() {
           </>
         ) : (
           <>
-            <div className="panel-soft mb-4 flex gap-3 p-3 text-[13px] text-[var(--ink-600)]">
+            <div className="panel-soft mb-4 flex gap-3 p-3 text-[13px] text-[var(--md-on-surface-variant)]">
               <ShieldCheck size={18} className="mt-0.5 shrink-0 text-[var(--leaf-500)]" aria-hidden />
               {t("login.totpHint")}
             </div>
@@ -118,7 +118,7 @@ export function LoginPage() {
         )}
 
         {error ? (
-          <p className="mb-4 text-[13px] text-[var(--berry-600)]" role="alert">
+          <p className="mb-4 text-[13px] text-[var(--md-error)]" role="alert">
             {error}
           </p>
         ) : null}
@@ -144,7 +144,7 @@ export function LoginPage() {
             {t("login.back")}
           </button>
         ) : (
-          <p className="mt-6 text-center text-xs text-[var(--ink-500)]">
+          <p className="mt-6 text-center text-xs text-[var(--md-on-surface-variant)]">
             {t("login.forgot")} <span className="mono">arikan reset-password</span>
           </p>
         )}

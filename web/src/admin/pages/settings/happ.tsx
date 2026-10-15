@@ -105,7 +105,7 @@ export function HappCard({ s }: { s: Schemas["SettingsView"] }) {
           onChange={(v) => save.mutate({ happ_hide_settings: v })}
         />
         {errors.happ_hide_settings ? (
-          <p className="text-xs text-[var(--berry-600)]" role="alert">
+          <p className="text-xs text-[var(--md-error)]" role="alert">
             {errors.happ_hide_settings}
           </p>
         ) : null}

@@ -362,7 +362,7 @@ export function EditDrawer({ inbound, onClose }: { inbound: Inbound | null; onCl
                 </Field>
               ) : null}
               <Disclosure title={t("inbounds.proxy")} sub={t("common.forExperts")} open={!!(errors.listen || errors["client.server"] || errors["client.port"] || errors["client.sni"]) || behindProxy}>
-                <p className="mb-4 text-xs text-[var(--ink-500)]">{t("inbounds.proxySub")}</p>
+                <p className="mb-4 text-xs text-[var(--md-on-surface-variant)]">{t("inbounds.proxySub")}</p>
                 <Field
                   label={t("inbounds.listen")}
                   htmlFor={listenMode === "custom" ? "ed-listen" : undefined}
@@ -455,7 +455,7 @@ export function EditDrawer({ inbound, onClose }: { inbound: Inbound | null; onCl
                     />
                   </Field>
                 ) : null}
-                <p className={behindProxy && !clientPort.trim() && !configChanged ? "text-xs text-[var(--honey-600)]" : "text-xs text-[var(--ink-500)]"} role="note">
+                <p className={behindProxy && !clientPort.trim() && !configChanged ? "text-xs text-[var(--honey-600)]" : "text-xs text-[var(--md-on-surface-variant)]"} role="note">
                   {configChanged
                     ? t("inbounds.clientLocked")
                     : behindProxy && !clientPort.trim()

@@ -196,7 +196,7 @@ export function RoutingSection({ s, view, onView }: { s: Schemas["SettingsView"]
                 {MODES.map((m) => (
                   <button key={m.id} type="button" role="radio" aria-checked={draft.mode === m.id} className="opt" onClick={() => setDraft((d) => ({ ...d, mode: m.id }))}>
                     <span className="font-semibold">{t(m.title)}</span>
-                    <span className="text-xs text-[var(--ink-500)]">{t(m.sub)}</span>
+                    <span className="text-xs text-[var(--md-on-surface-variant)]">{t(m.sub)}</span>
                   </button>
                 ))}
               </div>
@@ -305,7 +305,7 @@ export function RoutingSection({ s, view, onView }: { s: Schemas["SettingsView"]
             </Disclosure>
 
             <Disclosure title={t("settings.routesDns")} sub={t("common.forExperts")}>
-              <p className="text-xs text-[var(--ink-500)]">{t("settings.routesDnsHint")}</p>
+              <p className="text-xs text-[var(--md-on-surface-variant)]">{t("settings.routesDnsHint")}</p>
               <div className="my-3 flex flex-wrap gap-2" role="group" aria-label={t("settings.routesDnsPresets")}>
                 {DNS_PRESETS.map((p) => (
                   <button key={p.id} type="button" className="chip-btn" onClick={() => setDns(p.dns)}>
@@ -325,11 +325,11 @@ export function RoutingSection({ s, view, onView }: { s: Schemas["SettingsView"]
             </Disclosure>
 
             {error ? (
-              <p className="mt-3 text-xs text-[var(--berry-600)]" role="alert">
+              <p className="mt-3 text-xs text-[var(--md-error)]" role="alert">
                 {error}
               </p>
             ) : null}
-            <p className="mt-3 text-xs text-[var(--ink-500)]">{t("settings.routesNote")}</p>
+            <p className="mt-3 text-xs text-[var(--md-on-surface-variant)]">{t("settings.routesNote")}</p>
             <FormActions dirty={dirty} saving={save.isPending} onReset={discard} />
           </form>
         </section>
@@ -351,7 +351,7 @@ function PreviewCard({ mode, routes, rules, template, bare }: { mode: Schemas["S
   return (
     <section className={bare ? undefined : "card glass reveal"} style={{ "--i": 2 } as React.CSSProperties}>
       {bare ? (
-        <p className="mb-3 text-[13px] text-[var(--ink-500)]">{t("settings.routesPreviewSub")}</p>
+        <p className="mb-3 text-[13px] text-[var(--md-on-surface-variant)]">{t("settings.routesPreviewSub")}</p>
       ) : (
         <div className="card-head">
           <div>
@@ -364,7 +364,7 @@ function PreviewCard({ mode, routes, rules, template, bare }: { mode: Schemas["S
         {preview.data ? t("settings.routesPreviewAgain") : t("settings.routesPreviewShow")}
       </Button>
       {preview.error ? (
-        <p className="mt-3 text-xs text-[var(--berry-600)]" role="alert">
+        <p className="mt-3 text-xs text-[var(--md-error)]" role="alert">
           {errorText(preview.error)}
         </p>
       ) : null}

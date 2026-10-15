@@ -100,7 +100,7 @@ export function LanguageCard({ s }: { s: Schemas["SettingsView"] }) {
           </button>
         ))}
       </div>
-      <p className="mt-3 text-xs text-[var(--ink-500)]">{t("settings.langNote")}</p>
+      <p className="mt-3 text-xs text-[var(--md-on-surface-variant)]">{t("settings.langNote")}</p>
     </section>
   );
 }
@@ -145,7 +145,7 @@ export function AutoCard({ s }: { s: Schemas["SettingsView"] }) {
           </li>
         ))}
       </ul>
-      <p className="mt-3 text-xs text-[var(--ink-500)]">{t("settings.autoNote")}</p>
+      <p className="mt-3 text-xs text-[var(--md-on-surface-variant)]">{t("settings.autoNote")}</p>
       <Confirm
         open={!!warn}
         onOpenChange={(v) => !v && setWarn(null)}
@@ -280,16 +280,16 @@ export function UpdatesCard() {
         ) : (
           <Pill tone="off">{v.error === "no_release" ? t("settings.updatesNoRelease") : v.checked_at ? t("settings.updatesUnknown") : t("settings.updatesNever")}</Pill>
         )}
-        {v.checked_at > 0 ? <span className="text-xs text-[var(--ink-500)]">{t("settings.updatesChecked", { ago: ago(new Date(v.checked_at * 1000).toISOString()) })}</span> : null}
+        {v.checked_at > 0 ? <span className="text-xs text-[var(--md-on-surface-variant)]">{t("settings.updatesChecked", { ago: ago(new Date(v.checked_at * 1000).toISOString()) })}</span> : null}
       </div>
-      {v.error && v.error !== "no_release" ? <p className="mt-2 text-xs text-[var(--berry-600)]">{t("settings.updatesError", { e: v.error })}</p> : null}
+      {v.error && v.error !== "no_release" ? <p className="mt-2 text-xs text-[var(--md-error)]">{t("settings.updatesError", { e: v.error })}</p> : null}
       {v.unreachable && v.newest ? <p className="mt-2 text-xs text-[var(--honey-600)]">{t("settings.updatesUnreachable", { v: v.newest })}</p> : null}
       {v.available && v.newest && !v.unreachable ? (
-        <p className="mt-2 text-xs text-[var(--ink-500)]">{t("settings.updatesHop", { v: v.latest, newest: v.newest })}</p>
+        <p className="mt-2 text-xs text-[var(--md-on-surface-variant)]">{t("settings.updatesHop", { v: v.latest, newest: v.newest })}</p>
       ) : null}
       {v.available && notes ? (
         <div className="panel-soft mt-4 p-3">
-          <div className="mb-2 text-xs font-semibold text-[var(--ink-500)]">{t("settings.updatesChanges", { v: v.latest })}</div>
+          <div className="mb-2 text-xs font-semibold text-[var(--md-on-surface-variant)]">{t("settings.updatesChanges", { v: v.latest })}</div>
           <NotesList key={v.latest} lines={notes.split("\n").filter((l) => l.trim())} />
         </div>
       ) : null}
@@ -300,10 +300,10 @@ export function UpdatesCard() {
           </Button>
         </div>
       ) : null}
-      {waiting && !stale ? <p className="mt-2 text-xs text-[var(--ink-500)]">{t("settings.updatesWaitingText")}</p> : null}
+      {waiting && !stale ? <p className="mt-2 text-xs text-[var(--md-on-surface-variant)]">{t("settings.updatesWaitingText")}</p> : null}
       {stale ? <p className="mt-2 text-xs text-[var(--honey-600)]">{t("settings.updatesStale")}</p> : null}
       {v.host && !waiting ? (
-        <p className={clsx("mt-3 text-xs", v.host.state === "failed" ? "text-[var(--berry-600)]" : "text-[var(--ink-500)]")}>
+        <p className={clsx("mt-3 text-xs", v.host.state === "failed" ? "text-[var(--md-error)]" : "text-[var(--md-on-surface-variant)]")}>
           {v.host.state === "failed"
             ? t("settings.updatesLastFailed", { v: v.host.version || v.latest, from: v.host.from, e: v.host.error.split("\n")[0] ?? "" })
             : t("settings.updatesLastOk", { v: v.host.version, from: v.host.from, ago: lastAt })}

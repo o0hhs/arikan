@@ -45,17 +45,17 @@ export function GoalsCard() {
             <li key={g.id} className="py-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <div className="text-[13px] font-semibold text-[var(--ink-900)]">{text(g.title)}</div>
-                  {text(g.about) ? <p className="mt-1 text-xs text-[var(--ink-500)]">{text(g.about)}</p> : null}
+                  <div className="text-[13px] font-semibold text-[var(--md-on-surface)]">{text(g.title)}</div>
+                  {text(g.about) ? <p className="mt-1 text-xs text-[var(--md-on-surface-variant)]">{text(g.about)}</p> : null}
                 </div>
                 <Pill tone={g.status === "working" ? "ok" : "warn"}>{g.status === "working" ? t("goals.working") : t("goals.open")}</Pill>
               </div>
               <div className="bar mt-3" role="progressbar" aria-valuemin={0} aria-valuemax={g.target} aria-valuenow={Math.min(g.raised, g.target)} aria-label={t("goals.progress", { title: text(g.title), raised, target })}>
                 <i style={{ width: `${pct}%` }} />
               </div>
-              <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--ink-500)]">
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--md-on-surface-variant)]">
                 <span>
-                  <b className="num font-semibold text-[var(--ink-900)]">{t("goals.raised", { raised, target })}</b> · {pct}%
+                  <b className="num font-semibold text-[var(--md-on-surface)]">{t("goals.raised", { raised, target })}</b> · {pct}%
                 </span>
                 {g.status === "open" && give ? (
                   <a className="btn btn-primary btn-sm" href={give} target="_blank" rel="noopener noreferrer">

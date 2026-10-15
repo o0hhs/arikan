@@ -33,21 +33,21 @@ export function SpeedDrawer({ node, onClose }: { node: { id: number; name: strin
   return (
     <Drawer open={!!node} onOpenChange={(v) => !v && onClose()} title={t("speed.title")} meta={node?.name}>
       <div className="pt-5">
-        <p className="text-[13px] text-[var(--ink-500)]">{t("speed.intro")}</p>
+        <p className="text-[13px] text-[var(--md-on-surface-variant)]">{t("speed.intro")}</p>
         <Button className="mt-4" variant="primary" loading={run.isPending} onClick={() => run.mutate()}>
           <Gauge size={16} aria-hidden /> {run.isPending ? t("speed.running") : t("speed.run")}
         </Button>
         <QueryBoundary query={history} pending={<Skeleton className="mt-5" style={{ height: 200, borderRadius: 16 }} />}>
           {(list) =>
             list.length === 0 ? (
-              <p className="mt-5 text-[13px] text-[var(--ink-500)]">{t("speed.none")}</p>
+              <p className="mt-5 text-[13px] text-[var(--md-on-surface-variant)]">{t("speed.none")}</p>
             ) : (
               <>
                 <Latest r={list[0]!} />
                 <h3 className="mt-6 mb-2 text-sm font-semibold">{t("speed.history")}</h3>
                 <div className="overflow-x-auto">
                   <table className="w-full text-[13px]">
-                    <thead className="text-left text-xs text-[var(--ink-500)]">
+                    <thead className="text-left text-xs text-[var(--md-on-surface-variant)]">
                       <tr>
                         <th className="py-1.5 pr-3 font-normal">{t("speed.when")}</th>
                         <th className="py-1.5 pr-3 font-normal">{t("speed.ping")}</th>
@@ -63,7 +63,7 @@ export function SpeedDrawer({ node, onClose }: { node: { id: number; name: strin
                             {dateShort(r.at)} {time(r.at)}
                           </td>
                           <td className="py-1.5 pr-3 whitespace-nowrap">{ms(r.ping_ms)}</td>
-                          <td className={`py-1.5 pr-3 ${r.loss_pct > 0 ? "text-[var(--berry-600)]" : ""}`}>{pct(r.loss_pct)}</td>
+                          <td className={`py-1.5 pr-3 ${r.loss_pct > 0 ? "text-[var(--md-error)]" : ""}`}>{pct(r.loss_pct)}</td>
                           <td className="py-1.5 pr-3 whitespace-nowrap">{r.down_bps ? bits(r.down_bps) : "-"}</td>
                           <td className="py-1.5 whitespace-nowrap">{r.up_bps ? bits(r.up_bps) : "-"}</td>
                         </tr>
@@ -90,17 +90,17 @@ function Latest({ r }: { r: SpeedTest }) {
   ];
   return (
     <section className="panel-soft mt-5 rounded-2xl p-4">
-      <div className="text-xs text-[var(--ink-500)]">{t("speed.latest", { date: `${dateShort(r.at)} ${time(r.at)}` })}</div>
+      <div className="text-xs text-[var(--md-on-surface-variant)]">{t("speed.latest", { date: `${dateShort(r.at)} ${time(r.at)}` })}</div>
       <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
         {stats.map((s) => (
           <div key={s.label}>
-            <dt className="text-xs text-[var(--ink-500)]">{s.label}</dt>
+            <dt className="text-xs text-[var(--md-on-surface-variant)]">{s.label}</dt>
             <dd className="num text-[15px] font-medium">{s.value}</dd>
           </div>
         ))}
       </dl>
       {r.error ? (
-        <p className="mt-3 text-xs text-[var(--berry-600)]" role="alert">
+        <p className="mt-3 text-xs text-[var(--md-error)]" role="alert">
           {t("speed.broke", { error: r.error })}
         </p>
       ) : null}

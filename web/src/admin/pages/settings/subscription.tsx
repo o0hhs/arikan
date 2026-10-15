@@ -41,7 +41,7 @@ export function SubDomainCard({ s }: { s: Schemas["SettingsView"] }) {
         </div>
         {s.sub_base_url ? (
           <div className="panel-soft mb-4 p-3">
-            <div className="text-xs text-[var(--ink-500)]">{t("settings.subPortLinks")}</div>
+            <div className="text-xs text-[var(--md-on-surface-variant)]">{t("settings.subPortLinks")}</div>
             {/* The secret path is the users' credential; the subscription domain has none. */}
             <div className="mono truncate text-[13px]">{s.sub_domain ? s.sub_base_url : s.sub_base_url.replace(/[^/]+\/$/, "…")}</div>
           </div>
@@ -63,7 +63,7 @@ export function SubDomainCard({ s }: { s: Schemas["SettingsView"] }) {
             aria-invalid={!!error || !valid}
           />
         </Field>
-        <p className="text-xs text-[var(--ink-500)]">{t("settings.subDomainNote")}</p>
+        <p className="text-xs text-[var(--md-on-surface-variant)]">{t("settings.subDomainNote")}</p>
         <FormActions saving={save.isPending && save.variables?.sub_domain === value} disabled={!changed || !valid} onReset={() => setDomain(s.sub_domain ?? "")} />
       </form>
     </section>
@@ -135,7 +135,7 @@ export function SubPortCard({ s }: { s: Schemas["SettingsView"] }) {
             );
           })}
         </div>
-        <p className="text-xs text-[var(--ink-500)]">{t("settings.subPortNote")}</p>
+        <p className="text-xs text-[var(--md-on-surface-variant)]">{t("settings.subPortNote")}</p>
         <FormActions saving={save.isPending && save.variables?.sub_port === next} disabled={!changed || !valid}>
           {s.sub_port ? (
             <Button variant="ghost" loading={save.isPending && save.variables?.sub_port === 0} onClick={() => save.mutate({ sub_port: 0 })}>
@@ -178,7 +178,7 @@ export function SubscriptionCard({ s }: { s: Schemas["SettingsView"] }) {
           </Field>
         </div>
         <div className="panel-soft mb-4 p-3" aria-label={t("settings.preview")}>
-          <div className="mb-2 text-xs text-[var(--ink-500)]">{t("settings.previewHint")}</div>
+          <div className="mb-2 text-xs text-[var(--md-on-surface-variant)]">{t("settings.previewHint")}</div>
           <b className="block truncate text-[13px]">{form.sub_group_main || "—"}</b>
           <div className="mt-2 flex flex-wrap gap-2">
             <span className="tag">{form.sub_group_auto || "—"}</span>
@@ -272,7 +272,7 @@ export function AppsCard({ s }: { s: Schemas["SettingsView"] }) {
           />
         </Field>
         <div className="-mt-1 mb-3 flex flex-wrap items-center gap-2" role="group" aria-label={t("settings.titleVars")}>
-          <span className="text-xs text-[var(--ink-500)]">{t("settings.titleVars")}</span>
+          <span className="text-xs text-[var(--md-on-surface-variant)]">{t("settings.titleVars")}</span>
           {TITLE_VARS.map((v) => (
             <button key={v} type="button" className="chip-btn" title={t(`settings.titleVar.${v}`)} onClick={() => insert(v)}>
               <span className="mono">{`{${v}}`}</span>
@@ -322,7 +322,7 @@ export function DevicesCard({ s }: { s: Schemas["SettingsView"] }) {
       </ul>
       {s.device_binding ? <UnbindRules s={s} /> : null}
       <ReissueRules s={s} />
-      <p className="mt-3 text-xs text-[var(--ink-500)]">{t("settings.devicesNote")}</p>
+      <p className="mt-3 text-xs text-[var(--md-on-surface-variant)]">{t("settings.devicesNote")}</p>
     </section>
   );
 }
@@ -366,7 +366,7 @@ function UnbindRules({ s }: { s: Schemas["SettingsView"] }) {
   return (
     <div className="mt-4 border-t border-[var(--line)] pt-4">
       <h3 className="text-[14px] font-medium">{t("settings.unbindTitle")}</h3>
-      <p className="mt-1 mb-3 text-xs text-[var(--ink-500)]">{t("settings.unbindSub")}</p>
+      <p className="mt-1 mb-3 text-xs text-[var(--md-on-surface-variant)]">{t("settings.unbindSub")}</p>
       <div className="flex flex-col gap-3">
         <LimitPicker
           label={t("settings.unbindLimit")}
@@ -407,7 +407,7 @@ function UnbindRules({ s }: { s: Schemas["SettingsView"] }) {
         />
         )}
       </div>
-      <p className="mt-3 text-xs text-[var(--ink-600)]" role="status">
+      <p className="mt-3 text-xs text-[var(--md-on-surface-variant)]" role="status">
         {off ? summary : `${summary} ${pause}`}
       </p>
     </div>

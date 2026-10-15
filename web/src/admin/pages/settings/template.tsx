@@ -122,7 +122,7 @@ export function TemplateCard({ s, text, setText, starter }: { s: Schemas["Settin
           </Button>
         </div>
         {fromSimple.error ? (
-          <p className="mb-3 text-xs text-[var(--berry-600)]" role="alert">
+          <p className="mb-3 text-xs text-[var(--md-error)]" role="alert">
             {errorText(fromSimple.error)}
           </p>
         ) : null}
@@ -137,12 +137,12 @@ export function TemplateCard({ s, text, setText, starter }: { s: Schemas["Settin
           <ConfigEditor kind="profile" value={text} onChange={(v) => setText(() => v)} label={t("settings.template")} invalid={!!error} />
         </Suspense>
         {error ? (
-          <p className="mt-2 text-xs text-[var(--berry-600)]" role="alert">
+          <p className="mt-2 text-xs text-[var(--md-error)]" role="alert">
             {error}
           </p>
         ) : null}
-        <details className="mt-3 text-xs text-[var(--ink-500)]">
-          <summary className="cursor-pointer font-medium text-[var(--ink-700)]">{t("settings.templateHow")}</summary>
+        <details className="mt-3 text-xs text-[var(--md-on-surface-variant)]">
+          <summary className="cursor-pointer font-medium text-[var(--md-on-surface-variant)]">{t("settings.templateHow")}</summary>
           <p className="mt-2">{t("settings.templateHowServers")}</p>
           <pre className="panel-soft mono mt-2 overflow-auto p-2 text-[12px]">{`- name: 🇩🇪 Германия
   type: url-test
