@@ -52,13 +52,14 @@ func channelButtons(cfg Config, w *words, data string) [][]tgate.Button {
 	return append(rows, []tgate.Button{{Text: w.channelCheck, CallbackData: data, Style: tgate.StyleSuccess}})
 }
 
-// freeButton is the free plan's button, while the account may take it.
+// freeButton is the free plan's button, while the account may take it: green wherever it
+// stands, as taking it is the thing to do.
 func (b *Bot) freeButton(ctx context.Context, cfg Config, w *words, chat int64) (tgate.Button, bool) {
 	shop := b.d.Backend.Shop()
 	if _, ok := shop.FreeOffer(ctx, chat); !ok {
 		return tgate.Button{}, false
 	}
-	return tgate.Button{Text: pick(cfg.Texts.FreeButton, w.freeButton), CallbackData: "fp"}, true
+	return tgate.Button{Text: pick(cfg.Texts.FreeButton, w.freeButton), CallbackData: "fp", Style: tgate.StyleSuccess}, true
 }
 
 // takeFree gives the chat the free plan and says what it got. An account the plan's

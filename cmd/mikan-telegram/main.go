@@ -14,6 +14,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -54,16 +55,49 @@ type addon struct {
 	backend     *tgbot.Remote
 	running     sync.WaitGroup
 	updatesWait time.Duration
+
+	// What Telegram last refused of the menu's premium emoji: the same refusal is told to
+	// the panel once, not on every menu send.
+	emojiMu  sync.Mutex
+	emojiSet string
+	emojiAt  time.Time
 }
 
 func newAddon(panelURL, panelToken, botURL, botToken string, log *slog.Logger) *addon {
 	a := &addon{log: log, updatesWait: 25 * time.Second}
 	a.client = tgate.NewClient(botURL, botToken, nil)
+	a.client.OnEmojiRefused = a.emojiRefused
 	a.out = tgate.NewOutbox(a.client, tgate.DefaultLimits, time.Now, func(int64) {},
 		func(err error) { log.Warn("send", "err", err) })
 	a.backend = tgbot.NewRemote(panelURL, panelToken, nil)
 	a.bot = tgbot.New(tgbot.Deps{Backend: a.backend, Client: a.client, Outbox: a.out, Go: a.running.Go, Log: log, Now: time.Now})
 	return a
+}
+
+// emojiRefused: Telegram would not take a menu button's premium emoji, and the message went
+// out without it (tgate.Client). The log says so, and the panel is told — its page shows why
+// the menu carries no emoji — at most once an hour for the same ids: a menu sent again and
+// again must not write settings every time.
+func (a *addon) emojiRefused(ids []string, err error) {
+	set := strings.Join(ids, ",")
+	a.emojiMu.Lock()
+	fresh := set != a.emojiSet || time.Since(a.emojiAt) > time.Hour
+	if fresh {
+		a.emojiSet, a.emojiAt = set, time.Now()
+	}
+	a.emojiMu.Unlock()
+	if !fresh {
+		return
+	}
+	a.log.Warn("telegram: a button's premium emoji was refused; the menu goes out without it", "ids", set, "err", err)
+	a.running.Go(func() {
+		// The panel is next door; a call that hangs must not hold up the bot's shutdown.
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := a.backend.NoteEmojiRefused(ctx, ids, err.Error()); err != nil {
+			a.log.Warn("telegram: the refusal was not told to the panel", "err", err)
+		}
+	})
 }
 
 // Run takes the updates and the events until ctx ends, and returns when all it started has.

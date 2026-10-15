@@ -2198,6 +2198,29 @@
         ],
         "type": "object"
       },
+      "EmojiRefusal": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "error": {
+            "type": "string"
+          },
+          "ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ids",
+          "at"
+        ],
+        "type": "object"
+      },
       "Enable-promocodeRequest": {
         "additionalProperties": false,
         "properties": {
@@ -3585,6 +3608,10 @@
               "url",
               "page"
             ],
+            "type": "string"
+          },
+          "emoji_id": {
+            "description": "Премиум-эмодзи перед надписью: id эмодзи (число). Показывают его лишь боты, у владельца которых есть Telegram Premium; иначе кнопка идёт без него",
             "type": "string"
           },
           "id": {
@@ -8316,6 +8343,10 @@
           "defaults": {
             "$ref": "#/components/schemas/Texts",
             "description": "Встроенные тексты на языке бота: пустое поле берёт их"
+          },
+          "emoji_refused": {
+            "$ref": "#/components/schemas/EmojiRefusal",
+            "description": "Бот прислал меню без премиум-эмодзи: Telegram отказал в этих id (у владельца бота нет Telegram Premium). Сохранение меню снимает пометку"
           },
           "enabled": {
             "type": "boolean"

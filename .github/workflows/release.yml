@@ -297,6 +297,80 @@ jobs:
           go run ./cmd/mikan-release index -version "$version" -from-file .github/upgrade-from $current -out dist
           gh release upload updates dist/index.json dist/index.json.sig --clobber
 
+  # The subscribers' bot of this fork, as an addon the panel installs from this repository's
+  # own release page. The marketplace catalog's bot is upstream's image, built from
+  # Miroshka000/mikan at the version its entry names, so a fork's bot cannot come from there:
+  # the release builds cmd/mikan-telegram (addons/telegram/Dockerfile) into a second tag of
+  # the panel's own package — one package to keep public — and uploads mikan-addon.json,
+  # which a source (github.com/<owner>/<repo>) is read from. The admin adds the source,
+  # installs the addon and hands the bot to it once (addons/telegram/README.md).
+  addon:
+    needs: [image, publish]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write # mikan-addon.json goes beside the installers
+      packages: write
+    env:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.27"
+      - if: env.DOCKERHUB_USERNAME != ''
+        # A Docker Hub outage must not stop the build: everything comes through the mirror.
+        continue-on-error: true
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          username: ${{ env.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+        with:
+          image: mirror.gcr.io/tonistiigi/binfmt:latest
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        with:
+          driver-opts: image=mirror.gcr.io/moby/buildkit:buildx-stable-1
+          buildkitd-config-inline: |
+            [registry."docker.io"]
+              mirrors = ["mirror.gcr.io"]
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: name
+        run: |
+          # Same image name as the panel's, a tag of its own: one package to keep public.
+          echo "image=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/arikan" >> "$GITHUB_OUTPUT"
+          echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+      - id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        env:
+          DOCKER_BUILD_RECORD_UPLOAD: false
+        with:
+          context: .
+          file: addons/telegram/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.name.outputs.image }}:addon-${{ steps.name.outputs.version }}
+          build-args: |
+            VERSION=${{ steps.name.outputs.version }}
+            TAG=${{ github.ref_name }}
+          cache-from: type=gha,scope=addon
+          cache-to: type=gha,mode=max,scope=addon
+      - name: the addon source file
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          go run ./cmd/mikan-release addon -version "${{ steps.name.outputs.version }}" \
+            -image "${{ steps.name.outputs.image }}" -digest "${{ steps.build.outputs.digest }}" \
+            -homepage "https://github.com/$GITHUB_REPOSITORY" -out dist
+          # An asset of the release the bot's source is read from: adding the source again
+          # takes the newest one, and the panel's own update does not touch it.
+          gh release upload "$GITHUB_REF_NAME" dist/mikan-addon.json --clobber
+
   # :latest names the image of the newest published release: it moves only once the
   # release exists, and never to a pre-release. The tag points at the pushed digest, so
   # nothing is rebuilt.
