@@ -115,7 +115,9 @@ func TestSendFallsBackWithoutEmoji(t *testing.T) {
 		t.Fatalf("edit: %v %v", err, calls)
 	}
 
-	// A refusal that names no emoji is no reason to send the menu crippled.
+	// A refusal that names no emoji is no reason to send the menu crippled: it goes again
+	// without the emoji all the same (Telegram's wording of the emoji's refusal is promised
+	// nowhere), stays an error, and is not told to the panel.
 	other := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		_ = json.NewEncoder(w).Encode(map[string]any{"ok": false, "error_code": 400,
@@ -123,8 +125,17 @@ func TestSendFallsBackWithoutEmoji(t *testing.T) {
 	}))
 	defer other.Close()
 	oc := NewClient(other.URL, "1:x", nil)
+	told = nil
+	oc.OnEmojiRefused = func(ids []string, err error) { told = append(told, ids) }
 	if _, err := oc.Send(context.Background(), 1, "меню", kb, false); err == nil {
 		t.Fatal("a refusal of something else stays an error")
+	}
+	if len(told) != 0 {
+		t.Fatalf("a refusal of something else is not the emoji's: %v", told)
+	}
+	// One a send-again cannot help: nothing to take off, the refusal is the caller's.
+	if _, err := NewClient(other.URL, "1:x", nil).Send(context.Background(), 1, "меню", &Keyboard{InlineKeyboard: [][]Button{{{Text: "a", CallbackData: "s"}}}}, false); err == nil {
+		t.Fatal("a keyboard without emoji is sent as it is")
 	}
 }
 

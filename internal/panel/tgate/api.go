@@ -364,9 +364,11 @@ func (c *Client) Send(ctx context.Context, chat int64, text string, kb *Keyboard
 		asPlain(in, text)
 		err = c.call(ctx, "sendMessage", in, &m)
 	}
-	if emojiRefused(err) {
+	if refused(err) {
 		if plain, ids := withoutEmoji(kb); len(ids) > 0 {
-			c.refusedEmoji(ids, err)
+			if emojiRefused(err) {
+				c.refusedEmoji(ids, err)
+			}
 			in["reply_markup"] = plain
 			err = c.call(ctx, "sendMessage", in, &m)
 		}
@@ -374,8 +376,17 @@ func (c *Client) Send(ctx context.Context, chat int64, text string, kb *Keyboard
 	return m, err
 }
 
-// emojiRefused: Telegram would not take a button's premium emoji — a bot whose owner has no
-// Premium, an emoji the bot may not show. Telegram's own words say so.
+// refused: Telegram said no to a message — the one refusal a keyboard's premium emoji could
+// be the cause of.
+func refused(err error) bool {
+	var ae *APIError
+	return errors.As(err, &ae) && ae.Code == 400
+}
+
+// emojiRefused: Telegram's own words name a button's premium emoji (a bot whose owner has no
+// Premium, an emoji the bot may not show). Telegram's wording of that refusal is promised
+// nowhere, so the keyboard goes again without the emoji whatever the refusal says; only this
+// tells the panel, so its page says why the menu carries no emoji.
 func emojiRefused(err error) bool {
 	var ae *APIError
 	if !errors.As(err, &ae) {
@@ -494,9 +505,11 @@ func (c *Client) Edit(ctx context.Context, chat, msg int64, text string, kb *Key
 		asPlain(in, text)
 		err = c.call(ctx, "editMessageText", in, nil)
 	}
-	if emojiRefused(err) {
+	if refused(err) {
 		if plain, ids := withoutEmoji(kb); len(ids) > 0 {
-			c.refusedEmoji(ids, err)
+			if emojiRefused(err) {
+				c.refusedEmoji(ids, err)
+			}
 			in["reply_markup"] = plain
 			err = c.call(ctx, "editMessageText", in, nil)
 		}
