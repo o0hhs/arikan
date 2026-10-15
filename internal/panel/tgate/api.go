@@ -366,27 +366,31 @@ func (c *Client) Send(ctx context.Context, chat int64, text string, kb *Keyboard
 	}
 	if refused(err) {
 		if plain, ids := withoutEmoji(kb); len(ids) > 0 {
-			if emojiRefused(err) {
-				c.refusedEmoji(ids, err)
-			}
+			refusal := err
 			in["reply_markup"] = plain
 			err = c.call(ctx, "sendMessage", in, &m)
+			// The menu goes out without them: whether Telegram's words named the emoji or
+			// the send without them is what went through, they were the refusal.
+			if err == nil || emojiRefused(refusal) {
+				c.refusedEmoji(ids, refusal)
+			}
 		}
 	}
 	return m, err
 }
 
 // refused: Telegram said no to a message — the one refusal a keyboard's premium emoji could
-// be the cause of.
+// be the cause of. A message that already says what it says is no refusal (notModified takes
+// that one), and neither is a 429 or a 5xx, which the caller waits out.
 func refused(err error) bool {
 	var ae *APIError
-	return errors.As(err, &ae) && ae.Code == 400
+	return errors.As(err, &ae) && ae.Code == 400 && !notModifiedErr(err)
 }
 
 // emojiRefused: Telegram's own words name a button's premium emoji (a bot whose owner has no
-// Premium, an emoji the bot may not show). Telegram's wording of that refusal is promised
-// nowhere, so the keyboard goes again without the emoji whatever the refusal says; only this
-// tells the panel, so its page says why the menu carries no emoji.
+// Premium, an emoji the bot may not show). Its wording of that refusal is promised nowhere,
+// so this only makes the report surer: the keyboard goes again without the emoji whatever the
+// refusal says, and a send that goes through then is the emoji's doing too.
 func emojiRefused(err error) bool {
 	var ae *APIError
 	if !errors.As(err, &ae) {
@@ -507,20 +511,27 @@ func (c *Client) Edit(ctx context.Context, chat, msg int64, text string, kb *Key
 	}
 	if refused(err) {
 		if plain, ids := withoutEmoji(kb); len(ids) > 0 {
-			if emojiRefused(err) {
-				c.refusedEmoji(ids, err)
-			}
+			refusal := err
 			in["reply_markup"] = plain
 			err = c.call(ctx, "editMessageText", in, nil)
+			if err == nil || emojiRefused(refusal) {
+				c.refusedEmoji(ids, refusal)
+			}
 		}
 	}
 	return notModified(err)
 }
 
+// notModifiedErr: the edit asked for what the message already says, which Telegram calls an
+// error.
+func notModifiedErr(err error) bool {
+	var ae *APIError
+	return errors.As(err, &ae) && strings.Contains(ae.Description, "message is not modified")
+}
+
 // notModified: an edit to the same content is no error.
 func notModified(err error) error {
-	var ae *APIError
-	if errors.As(err, &ae) && strings.Contains(ae.Description, "message is not modified") {
+	if notModifiedErr(err) {
 		return nil
 	}
 	return err

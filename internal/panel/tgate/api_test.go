@@ -115,6 +115,47 @@ func TestSendFallsBackWithoutEmoji(t *testing.T) {
 		t.Fatalf("edit: %v %v", err, calls)
 	}
 
+	// An edit that asks for what the message already says is no refusal: the emoji must not
+	// come off the live menu over it (Telegram's own wording, and no second call).
+	same := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		calls = append(calls, body)
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]any{"ok": false, "error_code": 400, "description": "Bad Request: message is not modified"})
+	}))
+	defer same.Close()
+	calls = nil
+	told = nil
+	sc := NewClient(same.URL, "1:x", nil)
+	sc.OnEmojiRefused = func(ids []string, err error) { told = append(told, ids) }
+	if err := sc.Edit(context.Background(), 1, 5, "меню", kb); err != nil || len(calls) != 1 {
+		t.Fatalf("not modified: %v, %d calls", err, len(calls))
+	}
+	if len(told) != 0 {
+		t.Fatalf("nothing was refused: %v", told)
+	}
+	// A refusal whose words name no emoji but which the send-again settles (a different
+	// wording of the same refusal) is still told: the menu went out without them.
+	wording := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if hasEmoji(mustBody(t, r)) {
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(map[string]any{"ok": false, "error_code": 400, "description": "Bad Request: BUTTON_PREMIUM_REQUIRED"})
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "result": map[string]any{"message_id": 5, "chat": map[string]any{"id": 1, "type": "private"}}})
+	}))
+	defer wording.Close()
+	told = nil
+	wc := NewClient(wording.URL, "1:x", nil)
+	wc.OnEmojiRefused = func(ids []string, err error) { told = append(told, ids) }
+	if _, err := wc.Send(context.Background(), 1, "меню", kb, false); err != nil {
+		t.Fatal(err)
+	}
+	if len(told) != 1 || len(told[0]) != 2 {
+		t.Fatalf("the send-again settled it: %v", told)
+	}
+
 	// A refusal that names no emoji is no reason to send the menu crippled: it goes again
 	// without the emoji all the same (Telegram's wording of the emoji's refusal is promised
 	// nowhere), stays an error, and is not told to the panel.
@@ -137,6 +178,14 @@ func TestSendFallsBackWithoutEmoji(t *testing.T) {
 	if _, err := NewClient(other.URL, "1:x", nil).Send(context.Background(), 1, "меню", &Keyboard{InlineKeyboard: [][]Button{{{Text: "a", CallbackData: "s"}}}}, false); err == nil {
 		t.Fatal("a keyboard without emoji is sent as it is")
 	}
+}
+
+// mustBody reads a request's JSON body for a test handler.
+func mustBody(t *testing.T, r *http.Request) map[string]any {
+	t.Helper()
+	var body map[string]any
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	return body
 }
 
 // hasEmoji: the request's keyboard carries a button's premium emoji.

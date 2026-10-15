@@ -131,14 +131,14 @@ func (b *Bot) screen(ctx context.Context, cfg Config, chat int64, data, notice s
 		if offers, _ := b.offers(ctx); len(offers) > 0 {
 			text, kb := b.shopList(ctx, w, fmt.Sprintf(w.renewTitle, u.Name), "t", notice, nil)
 			if sup := b.supportURL(ctx); sup != "" {
-				kb.InlineKeyboard = append(kb.InlineKeyboard, []tgate.Button{{Text: labelOf(cfg, "support", w.support), URL: sup}})
+				kb.InlineKeyboard = append(kb.InlineKeyboard, []tgate.Button{dressed(cfg, "support", w.support, tgate.Button{URL: sup})})
 			}
 			kb.InlineKeyboard = append(kb.InlineKeyboard, back)
 			return text, kb
 		}
 		rows := [][]tgate.Button{}
 		if sup := b.supportURL(ctx); sup != "" {
-			rows = append(rows, []tgate.Button{{Text: labelOf(cfg, "support", w.support), URL: sup}})
+			rows = append(rows, []tgate.Button{dressed(cfg, "support", w.support, tgate.Button{URL: sup})})
 		}
 		return withNotice(render(pick(cfg.Texts.Renew, w.renew), vars)), &tgate.Keyboard{InlineKeyboard: append(rows, back)}
 	case "p":

@@ -382,14 +382,9 @@ func miniAppURL(ctx context.Context, be Backend, cfg Config) string {
 	return be.MiniAppURL(ctx)
 }
 
-// labelOf is the admin's label for the button of action, or def.
-func labelOf(cfg Config, action, def string) string {
-	return dressed(cfg, action, def, tgate.Button{}).Text
-}
-
 // dressed is a button of the menu as the admin set it up, for the screens that show it
-// outside the menu (the welcome, a notice): its label, its color and its premium emoji are
-// the menu button's; what opens it is the caller's.
+// outside the menu (the welcome, a notice, the ways to pay): its label, its color and its
+// premium emoji are the menu button's; what opens it is the caller's.
 func dressed(cfg Config, action, def string, btn tgate.Button) tgate.Button {
 	for _, mb := range cfg.Buttons {
 		if mb.Action == action {
