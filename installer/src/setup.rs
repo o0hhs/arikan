@@ -254,8 +254,9 @@ fn port80(plan: &Plan) -> Option<Port80> {
         return None;
     }
     let who = system::port_owner(80, Proto::Tcp)?;
-    // The panel of the attempt before this one.
-    if who == "Arikan" {
+    // The panel of the attempt before this one (the legacy name is a process of an image
+    // from before the rename).
+    if who == "arikan" || who == "mikan" {
         return None;
     }
     let Some(front) = acme::Front::from_process(&who) else { return Some(Port80::Other(who)) };
@@ -282,7 +283,9 @@ pub fn execute(plan: Plan, tx: Sender<Event>) {
                 Err((CURRENT.with(std::cell::Cell::get), anyhow!("the installer stopped unexpectedly: {}", why.unwrap_or_default())))
             })
         }
-        Ok(None) => Err((Step::Packages, anyhow!("another Arikan operation is running: wait for it to finish and run the installer again"))),
+        Ok(None) => {
+            Err((Step::Packages, anyhow!("another Arikan operation is running: wait for it to finish and run the installer again")))
+        }
         Err(e) => Err((Step::Packages, e)),
     };
     if let Err((step, e)) = result {
@@ -622,7 +625,8 @@ fn node_host(image: &str, key: &str) -> Option<String> {
 /// What a node with port 80 held by another program needs for its public certificate: the
 /// node takes the port only while Let's Encrypt checks it. None when the port is free.
 pub fn node_port80(owner: Option<&str>, host: Option<&str>) -> Option<String> {
-    let who = owner.filter(|w| !matches!(*w, "Arikan" | "Arikan-node"))?;
+    // The legacy names are processes of images from before the rename.
+    let who = owner.filter(|w| !matches!(*w, "arikan" | "arikan-node" | "mikan" | "mikan-node"))?;
     let command = format!("arikan cert proxy {}", host.unwrap_or("<the node's domain>"));
     Some(match acme::Front::from_process(who) {
         Some(front) => format!(
@@ -716,7 +720,7 @@ pub fn postgres_env(env: &mut EnvFile) -> Result<()> {
     }
     if env.get("MIKAN_DATABASE_URL").is_none() {
         let password = env.get("MIKAN_POSTGRES_PASSWORD").context("postgres password missing")?;
-        let url = format!("postgresql://Arikan:{password}@localhost/Arikan?host=/run/postgresql");
+        let url = format!("postgresql://mikan:{password}@localhost/mikan?host=/run/postgresql");
         env.set("MIKAN_DATABASE_URL", &url)?;
     }
     Ok(())
@@ -933,7 +937,7 @@ mod tests {
         assert!(password.bytes().all(|b| b.is_ascii_alphanumeric()));
         assert_eq!(
             env.get("MIKAN_DATABASE_URL"),
-            Some(format!("postgresql://Arikan:{password}@localhost/Arikan?host=/run/postgresql").as_str())
+            Some(format!("postgresql://mikan:{password}@localhost/mikan?host=/run/postgresql").as_str())
         );
         postgres_env(&mut env).unwrap();
         assert_eq!(env.render(), before, "live credentials must never rotate");
@@ -1080,7 +1084,8 @@ mod tests {
     #[test]
     fn a_node_behind_a_web_server_is_told_the_command() {
         assert_eq!(node_port80(None, Some("node.example.com")), None);
-        assert_eq!(node_port80(Some("Arikan-node"), None), None);
+        assert_eq!(node_port80(Some("arikan-node"), None), None);
+        assert_eq!(node_port80(Some("mikan-node"), None), None);
         assert!(node_port80(Some("caddy"), None).unwrap().ends_with("arikan cert proxy <the node's domain>"));
         assert!(node_port80(Some("apache2"), None).unwrap().contains("port 80 is taken (apache2)"));
     }

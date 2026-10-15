@@ -133,7 +133,7 @@ volumes:
 );
 
 /// The compose project's volume that holds the database (compose prefixes the project).
-pub const PG_VOLUME: &str = "arikan_pg-data";
+pub const PG_VOLUME: &str = "mikan_pg-data";
 
 /// A node of another panel, which drives it over its API port.
 pub const NODE_COMPOSE: &str = r#"name: mikan
@@ -449,7 +449,7 @@ pub fn database(args: &[&str]) -> Result<Output> {
 /// A database command that outlives limit is stopped with its container (killing `compose
 /// run` alone leaves the container running); PostgreSQL rolls its transaction back.
 fn database_within(args: &[&str], limit: Duration) -> Result<Output> {
-    let name = format!("arikan-database-{}-{}", std::process::id(), crate::clock::Utc::now().stamp());
+    let name = format!("mikan-database-{}-{}", std::process::id(), crate::clock::Utc::now().stamp());
     let mut full = vec!["run", "--rm", "--no-deps", "-T", "--name", name.as_str(), "panel", "database"];
     full.extend_from_slice(args);
     let what = format!("docker compose run panel database {}", args.join(" "));

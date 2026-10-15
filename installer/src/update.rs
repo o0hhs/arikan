@@ -1182,7 +1182,7 @@ mod tests {
         let old = "MIKAN_IMAGE=old-image\nMIKAN_VERSION=0.4.4\nPANEL_PORT=21355\n";
         let now = EnvFile::from_text(
             "x",
-            "MIKAN_IMAGE=new-image\nMIKAN_VERSION=0.5.0.1\nPANEL_PORT=21355\nMIKAN_POSTGRES_PASSWORD=made\nMIKAN_DATABASE_URL=postgresql://Arikan:made@localhost/Arikan?host=/run/postgresql\n",
+            "MIKAN_IMAGE=new-image\nMIKAN_VERSION=0.5.0.1\nPANEL_PORT=21355\nMIKAN_POSTGRES_PASSWORD=made\nMIKAN_DATABASE_URL=postgresql://mikan:made@localhost/mikan?host=/run/postgresql\n",
         );
         let env = previous_env(Path::new("/opt/mikan"), &now, old).unwrap();
         assert_eq!(env.render(), format!("{old}MIKAN_POSTGRES_PASSWORD=made\n"));
