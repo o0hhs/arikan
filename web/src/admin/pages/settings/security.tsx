@@ -47,7 +47,7 @@ export function AccessCard({ s }: { s: Schemas["SettingsView"] }) {
         <Button variant="danger" size="sm" onClick={() => setConfirm(true)}>
           <KeyRound size={16} aria-hidden /> {t("settings.newLink")}
         </Button>
-        <span className="text-xs text-[var(--ink-500)]">{t("settings.newLinkHint")}</span>
+        <span className="text-xs text-[var(--md-on-surface-variant)]">{t("settings.newLinkHint")}</span>
       </div>
       <Confirm
         open={confirm}
@@ -102,12 +102,12 @@ export function CertificateCard({ s }: { s: Schemas["SettingsView"] }) {
         {custom ? <Pill tone="ok">{t("settings.certOwn")}</Pill> : ok ? <Pill tone="ok">{t("settings.certValid")}</Pill> : <Pill tone="warn">{t("settings.certTemp")}</Pill>}
       </div>
       {c.ordering || renew.isPending ? (
-        <p className="mb-3 flex items-center gap-2 text-[13px] text-[var(--ink-600)]" role="status">
+        <p className="mb-3 flex items-center gap-2 text-[13px] text-[var(--md-on-surface-variant)]" role="status">
           <LoaderCircle size={16} className="spin" aria-hidden /> {t("certs.ordering")}
         </p>
       ) : c.error ? (
         c.error.startsWith("custom_") ? (
-          <p className="mb-3 text-[13px] text-[var(--berry-600)]" role="alert">
+          <p className="mb-3 text-[13px] text-[var(--md-error)]" role="alert">
             {tMaybe(`errors.acme.${c.error}`) ?? c.error}
           </p>
         ) : (
@@ -118,11 +118,11 @@ export function CertificateCard({ s }: { s: Schemas["SettingsView"] }) {
           {outcome === "got" ? t("certs.got") : t("certs.stillRunning")}
         </p>
       ) : switching ? (
-        <p className="mb-3 text-[13px] text-[var(--ink-600)]" role="status">
+        <p className="mb-3 text-[13px] text-[var(--md-on-surface-variant)]" role="status">
           {t("certs.switching", { ca: caName(c.ca_wanted) })}
         </p>
       ) : null}
-      <p className="mb-3 text-xs text-[var(--ink-500)]">{custom ? t("settings.certOwnNote") : t("settings.certNote")}</p>
+      <p className="mb-3 text-xs text-[var(--md-on-surface-variant)]">{custom ? t("settings.certOwnNote") : t("settings.certNote")}</p>
       <AcmeAttempts attempts={c.attempts} className="mb-3" />
       <div className="flex flex-wrap gap-2">
         {!custom && c.error !== "no_public_host" ? (
@@ -228,9 +228,9 @@ function AuthorityForm({ s, focus }: { s: Schemas["SettingsView"]; focus: number
         />
       </Field>
       {ipOnly ? (
-        <p className="mb-4 text-xs text-[var(--ink-500)]">{t("certs.ipOnlyLe")}</p>
+        <p className="mb-4 text-xs text-[var(--md-on-surface-variant)]">{t("certs.ipOnlyLe")}</p>
       ) : ca === "letsencrypt" && host ? (
-        <p className="mb-4 text-xs text-[var(--ink-500)]">{t("certs.oldAndroid")}</p>
+        <p className="mb-4 text-xs text-[var(--md-on-surface-variant)]">{t("certs.oldAndroid")}</p>
       ) : null}
       <Field label={t("certs.email")} htmlFor="acme-email" hint={ca === "zerossl" ? t("certs.emailHint") : t("certs.emailOptional")} error={errors.acme_email}>
         <input id="acme-email" ref={emailRef} type="email" className="input max-w-[360px]" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required={ca === "zerossl"} />
@@ -282,7 +282,7 @@ export function PasswordCard() {
         <Field label={t("settings.newPassword")} htmlFor="p-new" hint={t("settings.newPasswordHint")} error={errors.new}>
           <input id="p-new" type="password" className="input" autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} minLength={12} />
         </Field>
-        <label className="mb-4 flex items-start gap-2 text-[13px] text-[var(--ink-600)]">
+        <label className="mb-4 flex items-start gap-2 text-[13px] text-[var(--md-on-surface-variant)]">
           <input type="checkbox" className="check mt-0.5 shrink-0" checked={revokeKeys} onChange={(e) => setRevokeKeys(e.target.checked)} />
           <span>{t("settings.revokeKeys")}</span>
         </label>
@@ -343,7 +343,7 @@ export function TwoFactorCard() {
       </div>
       {codes ? (
         <div>
-          <p className="mb-3 text-[13px] text-[var(--ink-600)]">{t("settings.recoveryText")}</p>
+          <p className="mb-3 text-[13px] text-[var(--md-on-surface-variant)]">{t("settings.recoveryText")}</p>
           <div className="panel-soft mono grid grid-cols-2 gap-2 p-3 text-sm">
             {codes.map((c) => (
               <span key={c}>{c}</span>
@@ -365,8 +365,8 @@ export function TwoFactorCard() {
           <div className="grid gap-4 sm:grid-cols-[160px_minmax(0,1fr)]">
             <QR value={setup.uri} size={160} label={t("settings.totpQr")} />
             <div>
-              <p className="mb-3 text-[13px] text-[var(--ink-600)]">{t("settings.totpScan")}</p>
-              <p className="mono mb-3 text-xs break-all text-[var(--ink-500)]">{setup.secret}</p>
+              <p className="mb-3 text-[13px] text-[var(--md-on-surface-variant)]">{t("settings.totpScan")}</p>
+              <p className="mono mb-3 text-xs break-all text-[var(--md-on-surface-variant)]">{setup.secret}</p>
               <Field label={t("settings.totpCode")} htmlFor="totp-code" error={enable.error instanceof ApiError ? (enable.error.fields.code ?? errorText(enable.error)) : undefined}>
                 <input id="totp-code" className="input mono max-w-[160px] tracking-[0.2em]" inputMode="numeric" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.trim())} autoComplete="one-time-code" />
               </Field>
@@ -454,7 +454,7 @@ export function SessionsCard() {
               <li key={s.id} className="flex items-center justify-between gap-3 py-3">
                 <div className="min-w-0">
                   <div className="truncate text-[13px] font-medium">{browserName(s.user_agent)}</div>
-                  <div className="text-xs text-[var(--ink-500)]">
+                  <div className="text-xs text-[var(--md-on-surface-variant)]">
                     <span className="mono">{s.ip}</span> · {s.current ? <span className="text-[var(--leaf-700)]">{t("settings.thisSession")}</span> : t("settings.activeAgo", { ago: ago(s.last_seen_at) })}
                   </div>
                 </div>

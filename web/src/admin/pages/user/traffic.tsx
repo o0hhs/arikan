@@ -25,7 +25,7 @@ export function TariffSection({ u }: { u: User }) {
       <div className="panel-soft flex items-center justify-between gap-3 p-4">
         <div className="min-w-0">
           <div className="font-display text-base font-medium tracking-tight">{current?.name ?? t("userDrawer.customTerms")}</div>
-          <div className="mt-0.5 text-xs text-[var(--ink-500)]">
+          <div className="mt-0.5 text-xs text-[var(--md-on-surface-variant)]">
             {u.traffic_limit != null ? bytes(u.traffic_limit) : t("userDrawer.noTrafficLimit")} · {u.device_limit != null ? t(u.device_mode === "online" ? "deviceMode.shortOnline" : "userDrawer.devicesShort", { n: u.device_limit }) : t("userDrawer.noDeviceLimit")}
             {u.speed_limit != null ? ` · ${t("tariffs.speedShort", { n: u.speed_limit })}` : ""}
             {current?.price_label ? ` · ${current.price_label}` : ""}
@@ -42,7 +42,7 @@ export function TariffSection({ u }: { u: User }) {
               {(tariffs.data ?? []).map((x) => (
                 <Menu.Item key={x.id} className="menu-item" onSelect={() => setPick(x.id)}>
                   <span className="flex-1">{x.name}</span>
-                  <span className="text-xs font-normal text-[var(--ink-500)]">{tariffSummary(x)}</span>
+                  <span className="text-xs font-normal text-[var(--md-on-surface-variant)]">{tariffSummary(x)}</span>
                 </Menu.Item>
               ))}
             </Menu.Content>
@@ -92,7 +92,7 @@ function SpeedRow({ u }: { u: User }) {
           update.mutate({ id: u.id, body: n === null ? { speed_unlimited: true } : { speed_limit: n } }, { onSuccess: done, onError: (e) => toast.error(errorText(e)) })
         }
       />
-      <p className="mt-2 text-xs text-[var(--ink-500)]">{t("userDrawer.speedHint")}</p>
+      <p className="mt-2 text-xs text-[var(--md-on-surface-variant)]">{t("userDrawer.speedHint")}</p>
     </div>
   );
 }
@@ -112,11 +112,11 @@ export function TrafficSection({ u }: { u: User }) {
           sub={u.traffic_limit != null ? t("users.of", { total: bytes(u.traffic_limit) }) : t("users.unlimited")}
         />
         <div>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-xs text-[var(--ink-500)]">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-xs text-[var(--md-on-surface-variant)]">
             <Stat label={t("userDrawer.used")} value={bytes(used)} />
             <Stat label={t("userDrawer.left")} value={u.traffic_limit != null ? bytes(Math.max(0, u.traffic_limit - used) + u.traffic_extra) : "∞"} />
             {u.traffic_limit != null && u.traffic_extra > 0 ? (
-              <div className="col-span-2 text-[var(--ink-600)]">{t("grants.plusPackages", { limit: bytes(u.traffic_limit), extra: bytes(u.traffic_extra) })}</div>
+              <div className="col-span-2 text-[var(--md-on-surface-variant)]">{t("grants.plusPackages", { limit: bytes(u.traffic_limit), extra: bytes(u.traffic_extra) })}</div>
             ) : null}
             <Stat label={t("chart.down")} value={bytes(u.used_down)} />
             <Stat label={t("chart.up")} value={bytes(u.used_up)} />
@@ -136,7 +136,7 @@ export function TrafficSection({ u }: { u: User }) {
           ) : null}
         </div>
       </div>
-      <div className="mt-3 text-xs text-[var(--ink-500)]">{t("userDrawer.allTime", { bytes: bytes(u.total_up + u.total_down) })}</div>
+      <div className="mt-3 text-xs text-[var(--md-on-surface-variant)]">{t("userDrawer.allTime", { bytes: bytes(u.total_up + u.total_down) })}</div>
     </Section>
   );
 }
@@ -212,7 +212,7 @@ export function PoolsSection({ u }: { u: User }) {
         <>
           <PoolLimitsField pools={pools.data.map((p) => ({ id: p.pool_id, name: p.name, inbounds: [] }))} value={edit} onChange={setEdit} closed={closed} onClosed={reopen} />
           {bad ? (
-            <p className="mt-2 text-xs text-[var(--berry-600)]" role="alert">
+            <p className="mt-2 text-xs text-[var(--md-error)]" role="alert">
               {t("pools.errLimit")}
             </p>
           ) : null}
@@ -233,7 +233,7 @@ export function PoolsSection({ u }: { u: User }) {
               <li key={p.pool_id}>
                 <div className="mb-1 flex items-center justify-between gap-2 text-[13px]">
                   <span className="font-medium">{p.name}</span>
-                  <span className="num text-xs text-[var(--ink-600)]">
+                  <span className="num text-xs text-[var(--md-on-surface-variant)]">
                     {p.excluded
                       ? t("pools.closed")
                       : p.traffic_limit != null
@@ -242,7 +242,7 @@ export function PoolsSection({ u }: { u: User }) {
                   </span>
                 </div>
                 {p.traffic_limit != null && !p.excluded ? <Bar pct={Math.min(100, (used / p.traffic_limit) * 100)} /> : null}
-                {p.exhausted ? <div className="mt-1 text-xs text-[var(--berry-600)]">{t("pools.exhausted")}</div> : null}
+                {p.exhausted ? <div className="mt-1 text-xs text-[var(--md-error)]">{t("pools.exhausted")}</div> : null}
               </li>
             );
           })}

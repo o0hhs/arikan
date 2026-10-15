@@ -80,7 +80,7 @@ export function FingerprintSelect({
             aria-invalid={bad}
             disabled={disabled}
           />
-          <p className={`mt-1 text-xs ${bad && value ? "text-[var(--berry-600)]" : "text-[var(--ink-500)]"}`} role={bad && value ? "alert" : undefined}>
+          <p className={`mt-1 text-xs ${bad && value ? "text-[var(--md-error)]" : "text-[var(--md-on-surface-variant)]"}`} role={bad && value ? "alert" : undefined}>
             {bad && value ? t("settings.fpOwnBad") : t("settings.fpOwnHint")}
           </p>
         </div>

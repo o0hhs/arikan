@@ -47,15 +47,15 @@ export function LimitNotes({ clashOnly, shared, domainCert = false }: { clashOnl
   return (
     <div className="mb-4 flex flex-col gap-2" role="note">
       {shared ? (
-        <div className="rounded-2xl border border-[color-mix(in_srgb,var(--honey-500)_35%,transparent)] bg-[var(--honey-50)] p-3 text-[13px] text-[var(--ink-700)]">
-          <div className="mb-1 flex items-center gap-2 font-semibold text-[var(--ink-900)]">
+        <div className="rounded-2xl border border-[color-mix(in_srgb,var(--honey-500)_35%,transparent)] bg-[var(--honey-50)] p-3 text-[13px] text-[var(--md-on-surface-variant)]">
+          <div className="mb-1 flex items-center gap-2 font-semibold text-[var(--md-on-surface)]">
             <TriangleAlert size={16} className="text-[var(--honey-600)]" aria-hidden /> {t("inbounds.sharedWarnTitle")}
           </div>
           {t("inbounds.sharedWarn")}
         </div>
       ) : null}
-      {clashOnly ? <p className="text-xs text-[var(--ink-500)]">{t("inbounds.clashOnlyNote")}</p> : null}
-      {domainCert ? <p className="text-xs text-[var(--ink-500)]">{t("inbounds.domainCertNote")}</p> : null}
+      {clashOnly ? <p className="text-xs text-[var(--md-on-surface-variant)]">{t("inbounds.clashOnlyNote")}</p> : null}
+      {domainCert ? <p className="text-xs text-[var(--md-on-surface-variant)]">{t("inbounds.domainCertNote")}</p> : null}
     </div>
   );
 }
@@ -84,7 +84,7 @@ export function ValidateResult({ v }: { v: ReturnType<typeof useValidate> }) {
   if (v.isError) {
     const msg = v.error instanceof ApiError ? (v.error.fields.config ?? errorText(v.error)) : errorText(v.error);
     return (
-      <span className="text-[13px] text-[var(--berry-600)]" role="alert">
+      <span className="text-[13px] text-[var(--md-error)]" role="alert">
         {msg}
       </span>
     );

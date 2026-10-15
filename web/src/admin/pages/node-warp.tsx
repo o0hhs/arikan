@@ -75,7 +75,7 @@ function Setup({ nodeId }: { nodeId: number }) {
   const fields = fieldErrors(err);
   return (
     <>
-      <p className="mb-4 text-[13px] text-[var(--ink-600)]">{t("warp.intro")}</p>
+      <p className="mb-4 text-[13px] text-[var(--md-on-surface-variant)]">{t("warp.intro")}</p>
       <Segmented
         label={t("warp.how")}
         value={how}
@@ -89,7 +89,7 @@ function Setup({ nodeId }: { nodeId: number }) {
         {err && !Object.keys(fields).length ? <div className="banner err mb-4">{errorText(err)}</div> : null}
         {how === "register" ? (
           <>
-            <p className="mb-3 text-xs text-[var(--ink-500)]">{t("warp.registerHint")}</p>
+            <p className="mb-3 text-xs text-[var(--md-on-surface-variant)]">{t("warp.registerHint")}</p>
             <Field label={t("warp.license")} htmlFor="w-lic" hint={t("warp.licenseHint")} error={fields.license}>
               <input id="w-lic" className="input mono" value={license} onChange={(e) => setLicense(e.target.value)} placeholder="xxxxxxxx-xxxxxxxx-xxxxxxxx" autoComplete="off" spellCheck={false} />
             </Field>
@@ -182,18 +182,18 @@ function Configured({ nodeId, w, onCheck, checking, onClose }: { nodeId: number;
           </Button>
         </div>
         {s && w.enabled && !nodeDown ? (
-          <div className="mt-2 text-xs text-[var(--ink-500)]">
+          <div className="mt-2 text-xs text-[var(--md-on-surface-variant)]">
             {s.ok ? t("warp.exit", { ip: s.ip ?? "", colo: s.colo ?? "" }) : t("warp.downText")} · {ago(s.checked_at)}
           </div>
         ) : w.enabled && !nodeDown ? (
-          <div className="mt-2 text-xs text-[var(--ink-500)]">{t("warp.nodeUnreachable")}</div>
+          <div className="mt-2 text-xs text-[var(--md-on-surface-variant)]">{t("warp.nodeUnreachable")}</div>
         ) : null}
         {bad ? (
           <div className="mt-2">
-            <p className="text-[13px] text-[var(--ink-700)]">
+            <p className="text-[13px] text-[var(--md-on-surface-variant)]">
               {tMaybe(`warp.why.${bad.error ?? "failed"}`, { endpoint: w.endpoint ?? "" }) ?? t("warp.whyUnknown", { code: bad.error ?? "" })}
             </p>
-            {bad.detail ? <p className="mono mt-1 break-words text-xs text-[var(--ink-500)]">{bad.detail}</p> : null}
+            {bad.detail ? <p className="mono mt-1 break-words text-xs text-[var(--md-on-surface-variant)]">{bad.detail}</p> : null}
           </div>
         ) : null}
       </div>
@@ -208,19 +208,19 @@ function Configured({ nodeId, w, onCheck, checking, onClose }: { nodeId: number;
 
       <dl className="mb-4 grid grid-cols-2 gap-3 text-xs">
         <div>
-          <dt className="text-[var(--ink-500)]">{t("warp.account")}</dt>
+          <dt className="text-[var(--md-on-surface-variant)]">{t("warp.account")}</dt>
           <dd className="text-[13px]">{w.source === "import" ? t("warp.imported") : w.plus ? "WARP+" : "WARP"}</dd>
         </div>
         <div>
-          <dt className="text-[var(--ink-500)]">{t("warp.endpoint")}</dt>
+          <dt className="text-[var(--md-on-surface-variant)]">{t("warp.endpoint")}</dt>
           <dd className="mono">{w.endpoint}</dd>
         </div>
       </dl>
 
       <div className="mb-4">
         <div className="mb-1 text-[13px] font-semibold">{t("warp.inbounds")}</div>
-        <p className="text-xs text-[var(--ink-500)]">{w.inbounds.length ? w.inbounds.join(", ") : t("warp.inboundsNone")}</p>
-        <p className="mt-1 text-xs text-[var(--ink-500)]">{t("warp.inboundsHint")}</p>
+        <p className="text-xs text-[var(--md-on-surface-variant)]">{w.inbounds.length ? w.inbounds.join(", ") : t("warp.inboundsNone")}</p>
+        <p className="mt-1 text-xs text-[var(--md-on-surface-variant)]">{t("warp.inboundsHint")}</p>
       </div>
 
       <Field label={t("warp.routes")} htmlFor="w-routes" hint={t("warp.routesHint")} error={fields.routes}>

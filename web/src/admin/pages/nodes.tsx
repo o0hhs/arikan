@@ -331,7 +331,7 @@ function NodeCard({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="font-display truncate text-lg font-medium tracking-tight">{nodeLabel(n)}</h2>
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[var(--ink-500)]">
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[var(--md-on-surface-variant)]">
             <span className="mono min-w-0 break-all">{n.host || "—"}</span>
             <span>·</span>
             <span>{n.local ? t("nodes.kindLocal") : t("nodes.kindRemote")}</span>
@@ -341,7 +341,7 @@ function NodeCard({
           <NodeStatus n={n} />
           {total > 1 && ordering ? (
             <>
-              <span className="num w-6 text-center text-xs text-[var(--ink-500)]" role="img" aria-label={t("nodes.position", { n: idx + 1, total })}>
+              <span className="num w-6 text-center text-xs text-[var(--md-on-surface-variant)]" role="img" aria-label={t("nodes.position", { n: idx + 1, total })}>
                 {moving ? <LoaderCircle size={14} className="spin inline" aria-hidden /> : idx + 1}
               </span>
               <button type="button" className="icon-btn" disabled={sorting || idx === 0} aria-busy={moving || undefined} aria-label={t("nodes.moveUp", { name: nodeLabel(n) })} title={t("nodes.moveUp", { name: nodeLabel(n) })} onClick={() => onMove(-1)}>
@@ -359,15 +359,15 @@ function NodeCard({
       <HelloLine n={n} actions={{ edit: onEdit }} />
       <dl className="mt-4 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-x-4 gap-y-3 text-[13px] [&>div]:min-w-0">
         <div>
-          <dt className="text-xs text-[var(--ink-500)]">{t("nodes.protocols")}</dt>
+          <dt className="text-xs text-[var(--md-on-surface-variant)]">{t("nodes.protocols")}</dt>
           <dd className="num">{n.status === "ok" ? t("nodes.listeners", { ok: n.listeners_ok, total: n.listeners }) : num(n.inbounds)}</dd>
         </div>
         <div>
-          <dt className="text-xs text-[var(--ink-500)]">{t("nodes.conns")}</dt>
+          <dt className="text-xs text-[var(--md-on-surface-variant)]">{t("nodes.conns")}</dt>
           <dd className="num">{n.status === "ok" ? num(n.conns) : "—"}</dd>
         </div>
         <div>
-          <dt className="text-xs text-[var(--ink-500)]">{t("nodes.cpu")}</dt>
+          <dt className="text-xs text-[var(--md-on-surface-variant)]">{t("nodes.cpu")}</dt>
           <dd>
             {n.status === "ok" ? (
               <>
@@ -377,7 +377,7 @@ function NodeCard({
                 </div>
                 {/* The bar is the whole server (on the panel's own one, the panel and its database too). */}
                 {n.proc_cpu_percent !== undefined ? (
-                  <div className="num mt-1 text-xs text-[var(--ink-500)]">{t("nodes.cpuNode", { pct: n.proc_cpu_percent < 1 ? "<1" : Math.round(n.proc_cpu_percent) })}</div>
+                  <div className="num mt-1 text-xs text-[var(--md-on-surface-variant)]">{t("nodes.cpuNode", { pct: n.proc_cpu_percent < 1 ? "<1" : Math.round(n.proc_cpu_percent) })}</div>
                 ) : null}
               </>
             ) : (
@@ -386,7 +386,7 @@ function NodeCard({
           </dd>
         </div>
         <div>
-          <dt className="text-xs text-[var(--ink-500)]">{t("nodes.memory")}</dt>
+          <dt className="text-xs text-[var(--md-on-surface-variant)]">{t("nodes.memory")}</dt>
           <dd>
             {n.status === "ok" && n.mem_total ? (
               <div className="flex items-center gap-2" title={`${bytes(n.mem_used)} / ${bytes(n.mem_total)}`}>
@@ -399,18 +399,18 @@ function NodeCard({
           </dd>
         </div>
         <div className="col-span-2">
-          <dt className="text-xs text-[var(--ink-500)]">{t("nodes.traffic24h")}</dt>
+          <dt className="text-xs text-[var(--md-on-surface-variant)]">{t("nodes.traffic24h")}</dt>
           <dd className="num">{bytes(n.traffic_24h)}</dd>
         </div>
         {!n.local ? (
           <div className="col-span-2">
-            <dt className="text-xs text-[var(--ink-500)]">{t("nodes.api")}</dt>
+            <dt className="text-xs text-[var(--md-on-surface-variant)]">{t("nodes.api")}</dt>
             <dd className="mono truncate">{n.address}</dd>
           </div>
         ) : null}
         {n.version ? (
           <div className="col-span-2">
-            <dt className="text-xs text-[var(--ink-500)]">{t("nodes.version")}</dt>
+            <dt className="text-xs text-[var(--md-on-surface-variant)]">{t("nodes.version")}</dt>
             <dd className="flex flex-wrap items-center gap-2">
               <span className="num">{n.version}</span>
               {n.behind ? <Pill tone="warn">{t("nodes.behind")}</Pill> : null}
@@ -515,19 +515,19 @@ function NodeCertRow({ n }: { n: Node }) {
   const needed = tls?.kind !== "acme" || !!order?.error;
   return (
     <div className="col-span-2">
-      <dt className="text-xs text-[var(--ink-500)]">{t("nodes.cert")}</dt>
+      <dt className="text-xs text-[var(--md-on-surface-variant)]">{t("nodes.cert")}</dt>
       <dd>
-        <span className={own?.error ? "text-[var(--berry-600)]" : undefined}>{text}</span>
-        {tls?.kind === "acme" && tls.pinned ? <span className="text-xs text-[var(--ink-500)]"> · {t("certs.applying")}</span> : null}
+        <span className={own?.error ? "text-[var(--md-error)]" : undefined}>{text}</span>
+        {tls?.kind === "acme" && tls.pinned ? <span className="text-xs text-[var(--md-on-surface-variant)]"> · {t("certs.applying")}</span> : null}
         {ordering ? (
-          <span className="mt-1 flex items-center gap-1.5 text-xs text-[var(--ink-500)]" role="status">
+          <span className="mt-1 flex items-center gap-1.5 text-xs text-[var(--md-on-surface-variant)]" role="status">
             <LoaderCircle size={14} className="spin" aria-hidden /> {t("certs.nodeOrdering")}
           </span>
         ) : order?.error ? (
           <AcmeProblem code={order.error} detail={order.error_detail} holder={order.holder} retryAt={order.retry_at} host={order.identifier} node className="mt-1" />
         ) : null}
         <AcmeAttempts attempts={order?.attempts} className="mt-1" />
-        {tls?.pinned && tls.kind !== "acme" ? <p className="mt-1 text-xs text-[var(--ink-500)]">{t("certs.pinnedNoteNode")}</p> : null}
+        {tls?.pinned && tls.kind !== "acme" ? <p className="mt-1 text-xs text-[var(--md-on-surface-variant)]">{t("certs.pinnedNoteNode")}</p> : null}
         {canOrder && needed && !(order?.error === "node_outdated" && n.behind) ? (
           <div className="mt-2">
             <Button size="sm" loading={renew.isPending} disabled={ordering} onClick={() => renew.mutate()}>
@@ -550,14 +550,14 @@ function NodeUpdate({ n }: { n: Node }) {
   if (n.local || !n.behind) return null;
   if (u?.state === "running") {
     return (
-      <p className="mt-3 text-[13px] text-[var(--ink-500)]" role="status">
+      <p className="mt-3 text-[13px] text-[var(--md-on-surface-variant)]" role="status">
         {t("nodes.updating", { v: u.version })}
       </p>
     );
   }
   if (u?.state === "failed") {
     return (
-      <p className="mt-3 text-[13px] text-[var(--berry-600)]" role="alert">
+      <p className="mt-3 text-[13px] text-[var(--md-error)]" role="alert">
         {t("nodes.updateFailed", { v: u.version, from: u.from || n.version || "", e: (u.error ?? "").split("\n")[0] ?? "" })}
       </p>
     );
@@ -565,7 +565,7 @@ function NodeUpdate({ n }: { n: Node }) {
   if (n.can_update || n.status !== "ok") return null;
   return (
     <div className="mt-3">
-      <p className="mb-2 text-[13px] text-[var(--ink-500)]">{t("nodes.oldNode")}</p>
+      <p className="mb-2 text-[13px] text-[var(--md-on-surface-variant)]">{t("nodes.oldNode")}</p>
       <div className="link-field">
         <span className="mono break-all text-xs">{OLD_NODE_COMMAND}</span>
         <button type="button" className="icon-btn" onClick={() => void copyText(OLD_NODE_COMMAND, t("nodes.commandCopied"))} aria-label={t("nodes.copyCommand")}>
@@ -766,7 +766,7 @@ function EditNodeDrawer({ node, onClose }: { node: Node | null; onClose: () => v
             </Field>
           </>
         ) : (
-          <p className="mb-4 text-[13px] text-[var(--ink-500)]">{t("nodes.localAddress")}</p>
+          <p className="mb-4 text-[13px] text-[var(--md-on-surface-variant)]">{t("nodes.localAddress")}</p>
         )}
         <Field label={t("nodes.serving")} hint={t("nodes.servingHint")}>
           <Switch checked={form.enabled} onChange={(v) => setForm((f) => ({ ...f, enabled: v }))} label={t("nodes.serving")} />

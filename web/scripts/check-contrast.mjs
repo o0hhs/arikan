@@ -1,7 +1,11 @@
 // Checks that every panel theme (src/styles/themes.css) keeps its text readable: WCAG AA,
 // 4.5:1 for text, 3:1 for the faint labels and the accent's marks. Runs before the build.
 // The tokens resolve the way the page does: the light base, then the dark base for a dark
-// theme, then the theme's own block.
+// theme, then the theme's own block, then the Material 3 colour roles on top of all three.
+// Those roles are derivations — var(), color-mix(), a translucent layer over a surface — so
+// the resolving below is the browser's own arithmetic, narrowed to what themes.css writes:
+// hex, rgb()/rgba(), var() and a two-colour color-mix() in srgb. Anything else is an error
+// rather than a silent pass, so a token that changes shape cannot slip through.
 import { readFileSync } from "node:fs";
 
 const css = readFileSync(new URL("../src/styles/themes.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
@@ -17,27 +21,85 @@ function block(selector) {
 
 const light = block(":root, [data-tone=\"light\"]");
 const dark = block("[data-tone=\"dark\"]");
+const m3Light = block(":root, [data-tone=\"light\"], [data-theme], .sub-look[data-scheme=\"light\"]");
+const m3Dark = block("[data-tone=\"dark\"], .sub-look[data-scheme=\"dark\"]");
 const themes = [...css.matchAll(/^\[data-theme="([\w-]+)"\] \{/gm)].map((m) => m[1]);
 const darkThemes = new Set(["midnight", "graphite", "abyss", "ember", "plum", "moss", "terminal", "nord", "mocha", "tokyo", "dracula", "aurora", "cosmos"]);
 
-function hex(tokens, name, seen = new Set()) {
-  const v = tokens[name];
-  if (v === undefined) throw new Error(`${name} is not set`);
-  const ref = /^var\((--[\w-]+)\)$/.exec(v);
-  if (ref) {
-    if (seen.has(ref[1])) throw new Error(`${name} refers to itself`);
-    seen.add(ref[1]);
-    return hex(tokens, ref[1], seen);
+/** Splits color-mix arguments at the commas that belong to it, not to a nested function. */
+function args(text) {
+  const out = [];
+  let depth = 0;
+  let start = 0;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (c === "(") depth++;
+    else if (c === ")") depth--;
+    else if (c === "," && depth === 0) {
+      out.push(text.slice(start, i));
+      start = i + 1;
+    }
   }
-  if (/^#[0-9a-f]{3}$/i.test(v)) return "#" + [...v.slice(1)].map((c) => c + c).join("");
-  if (!/^#[0-9a-f]{6}$/i.test(v)) throw new Error(`${name}: ${v} is not a hex colour`);
-  return v;
+  out.push(text.slice(start));
+  return out.map((s) => s.trim());
 }
 
-function luminance(h) {
-  const [r, g, b] = [1, 3, 5].map((i) => {
-    const c = parseInt(h.slice(i, i + 2), 16) / 255;
-    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+const TRANSPARENT = { r: 0, g: 0, b: 0, a: 0 };
+
+/** A CSS colour as {r, g, b, a}, the way the browser would resolve it in this theme. */
+function rgba(tokens, value, seen = new Set()) {
+  const v = value.trim();
+  const ref = /^var\(\s*(--[\w-]+)\s*(?:,(.*))?\)$/s.exec(v);
+  if (ref) {
+    const next = tokens[ref[1]] ?? ref[2]?.trim();
+    if (next === undefined) throw new Error(`${ref[1]} is not set`);
+    if (seen.has(ref[1])) throw new Error(`${ref[1]} refers to itself`);
+    seen.add(ref[1]);
+    return rgba(tokens, next, seen);
+  }
+  if (v === "transparent") return TRANSPARENT;
+  const mix = /^color-mix\(\s*in\s+srgb\s*,(.*)\)$/s.exec(v);
+  if (mix) {
+    const [a, b] = args(mix[1]).map((part) => {
+      const pct = /^([\s\S]*?)\s+([\d.]+)%$/.exec(part);
+      return { value: (pct ? pct[1] : part).trim(), pct: pct ? Number(pct[2]) : null };
+    });
+    if (!a || !b) throw new Error(`${v} is not a two-colour mix`);
+    const first = a.pct ?? (b.pct === null ? 50 : 100 - b.pct);
+    const one = rgba(tokens, a.value, seen);
+    const two = rgba(tokens, b.value, seen);
+    const part = first / 100;
+    return {
+      r: one.r * part + two.r * (1 - part),
+      g: one.g * part + two.g * (1 - part),
+      b: one.b * part + two.b * (1 - part),
+      a: one.a * part + two.a * (1 - part),
+    };
+  }
+  const rgb = /^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*(?:,\s*([\d.]+)\s*)?\)$/.exec(v);
+  if (rgb) return { r: Number(rgb[1]), g: Number(rgb[2]), b: Number(rgb[3]), a: rgb[4] === undefined ? 1 : Number(rgb[4]) };
+  const hex = v.startsWith("#") ? v.slice(1) : "";
+  if (/^[0-9a-f]{3}$/i.test(hex) || /^[0-9a-f]{6}$/i.test(hex)) {
+    const full = hex.length === 3 ? [...hex].map((c) => c + c).join("") : hex;
+    return { r: parseInt(full.slice(0, 2), 16), g: parseInt(full.slice(2, 4), 16), b: parseInt(full.slice(4, 6), 16), a: 1 };
+  }
+  throw new Error(`${v} is not a colour this script can resolve`);
+}
+
+/** `fg` as it lands on `bg`: a translucent colour is drawn over whatever is under it. */
+function over(fg, bg) {
+  return {
+    r: fg.r * fg.a + bg.r * (1 - fg.a),
+    g: fg.g * fg.a + bg.g * (1 - fg.a),
+    b: fg.b * fg.a + bg.b * (1 - fg.a),
+    a: 1,
+  };
+}
+
+function luminance(c) {
+  const [r, g, b] = [c.r, c.g, c.b].map((v) => {
+    const s = v / 255;
+    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
   });
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
@@ -47,7 +109,8 @@ function ratio(a, b) {
   return (x + 0.05) / (y + 0.05);
 }
 
-// [text, background, minimum]
+// [text, background, minimum]. The first block is what the panel has always checked; the
+// second is the Material 3 layer — every on-role against the surface it is painted on.
 const pairs = [
   ["--ink-900", "--bg", 7],
   ["--ink-900", "--surface-solid", 7],
@@ -65,15 +128,35 @@ const pairs = [
   ["--lagoon-600", "--lagoon-50", 4.5],
   ["--berry-600", "--surface-solid", 4.5],
   ["--code-fg", "--code-bg", 7],
+
+  ["--md-on-primary", "--md-primary", 4.5],
+  ["--md-on-primary-container", "--md-primary-container", 4.5],
+  ["--md-on-secondary", "--md-secondary", 4.5],
+  ["--md-on-secondary-container", "--md-secondary-container", 4.5],
+  ["--md-on-tertiary", "--md-tertiary", 4.5],
+  ["--md-on-tertiary-container", "--md-tertiary-container", 4.5],
+  ["--md-on-error", "--md-error", 4.5],
+  ["--md-on-error-container", "--md-error-container", 4.5],
+  ["--md-on-surface", "--md-surface-container", 7],
+  ["--md-on-surface", "--md-surface-container-highest", 7],
+  ["--md-on-surface-variant", "--md-surface-container", 4.5],
+  ["--md-on-surface-variant", "--md-surface-container-highest", 4.5],
+  // A control's outline is a non-text edge: 3:1, and the same on the strip a field sits on.
+  ["--md-outline", "--md-surface-container", 3],
+  ["--md-outline", "--md-surface-container-highest", 3],
+  ["--md-inverse-on-surface", "--md-inverse-surface", 4.5],
+  ["--md-inverse-primary", "--md-inverse-surface", 4.5],
 ];
 
 let failed = 0;
 const rows = [];
 for (const name of ["mikan", ...themes]) {
-  const tokens = { ...light, ...(darkThemes.has(name) ? dark : {}), ...block(`[data-theme="${name}"]`) };
+  const tokens = { ...light, ...(darkThemes.has(name) ? dark : {}), ...block(`[data-theme="${name}"]`), ...(darkThemes.has(name) ? m3Dark : m3Light) };
   let worst = Infinity;
   for (const [fg, bg, min] of pairs) {
-    const r = ratio(hex(tokens, fg), hex(tokens, bg));
+    const back = rgba(tokens, `var(${bg})`);
+    if (back.a < 1) throw new Error(`${bg} is translucent: a text pair needs an opaque surface under it`);
+    const r = ratio(over(rgba(tokens, `var(${fg})`), back), back);
     worst = Math.min(worst, r / min);
     if (r < min) {
       failed++;

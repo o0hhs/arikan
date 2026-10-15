@@ -32,7 +32,7 @@ function FilterItem({ value, label, count, mark }: { value: string; label: strin
       </span>
       {mark}
       <span className="min-w-0 flex-1 truncate">{label}</span>
-      {count !== undefined ? <span className="num text-xs text-[var(--ink-500)]">{num(count)}</span> : null}
+      {count !== undefined ? <span className="num text-xs text-[var(--md-on-surface-variant)]">{num(count)}</span> : null}
     </Menu.RadioItem>
   );
 }
@@ -40,7 +40,7 @@ function FilterItem({ value, label, count, mark }: { value: string; label: strin
 /** A filter from the menu that is on, with the cross that takes it off. */
 function ActiveFilter({ label, onClear }: { label: string; onClear: () => void }) {
   return (
-    <span className="chip h-8 shrink-0 gap-1 pr-1 text-[var(--ink-900)]">
+    <span className="chip h-8 shrink-0 gap-1 pr-1 text-[var(--md-on-surface)]">
       <span className="max-w-[240px] truncate">{label}</span>
       <button type="button" className="icon-btn h-6 w-6" aria-label={t("users.clearFilter", { name: label })} onClick={onClear}>
         <X size={16} aria-hidden />
@@ -314,7 +314,7 @@ export function UsersPage() {
                     </tbody>
                   </table>
                 )}
-                <div className="flex items-center justify-between gap-3 border-t border-[var(--hairline)] p-3 text-[13px] text-[var(--ink-500)]">
+                <div className="flex items-center justify-between gap-3 border-t border-[var(--hairline)] p-3 text-[13px] text-[var(--md-on-surface-variant)]">
                   <span>{t("users.shown", { n: num(data.items.length), total: num(data.total) })}</span>
                   <span className="max-md:hidden">{t("users.keyboardHint")}</span>
                 </div>
@@ -418,7 +418,7 @@ const UserRow = memo(function UserRow({ u, tariff, folder, selected, binding, on
               </a>
               {u.online ? <span className="online-dot" title={t("users.onlineNow")} role="img" aria-label={t("users.onlineNow")} /> : null}
             </div>
-            <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-[var(--ink-500)]">
+            <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-[var(--md-on-surface-variant)]">
               {u.contact ? <span>{u.contact}</span> : null}
               {u.tags.map((tag) => (
                 <span key={tag} className="tag">
@@ -432,7 +432,7 @@ const UserRow = memo(function UserRow({ u, tariff, folder, selected, binding, on
       </td>
       <td>
         <div className="font-medium">{tariff?.name ?? "—"}</div>
-        <div className="mt-0.5 text-xs text-[var(--ink-500)]">{u.traffic_limit != null ? bytes(u.traffic_limit) : t("users.unlimited")}</div>
+        <div className="mt-0.5 text-xs text-[var(--md-on-surface-variant)]">{u.traffic_limit != null ? bytes(u.traffic_limit) : t("users.unlimited")}</div>
       </td>
       <td>
         <Usage u={u} />
@@ -443,7 +443,7 @@ const UserRow = memo(function UserRow({ u, tariff, folder, selected, binding, on
       <td>
         <span className={clsx("num font-medium", u.device_limit != null && devices >= u.device_limit && devices > 0 && "text-[var(--honey-600)]")}>
           {devices}
-          <small className="font-normal text-[var(--ink-500)]"> {t("users.of", { total: u.device_limit ?? "∞" })}</small>
+          <small className="font-normal text-[var(--md-on-surface-variant)]"> {t("users.of", { total: u.device_limit ?? "∞" })}</small>
         </span>
       </td>
       <td>
@@ -469,7 +469,7 @@ const UserCard = memo(function UserCard({ u, tariff, folder, onOpen }: { u: User
           {u.name}
           {u.online ? <span className="online-dot" role="img" aria-label={t("users.onlineNow")} /> : null}
         </div>
-        <div className="truncate text-xs text-[var(--ink-500)]">
+        <div className="truncate text-xs text-[var(--md-on-surface-variant)]">
           {tariff?.name ?? t("users.noTariff")} · {e.text}
         </div>
         {u.source !== "admin" || folder || u.hidden ? (

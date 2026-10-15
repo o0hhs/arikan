@@ -17,7 +17,7 @@ export function NodesSection({ u }: { u: User }) {
       ) : nodes.data === undefined ? (
         <ErrorState text={errorText(nodes.error)} onRetry={() => void nodes.refetch()} />
       ) : items.length === 0 ? (
-        <p className="text-[13px] text-[var(--ink-500)]">{t("userDrawer.nodesEmpty")}</p>
+        <p className="text-[13px] text-[var(--md-on-surface-variant)]">{t("userDrawer.nodesEmpty")}</p>
       ) : (
         <ul className="flex flex-col gap-2">
           {items.map((n) => (
@@ -27,7 +27,7 @@ export function NodesSection({ u }: { u: User }) {
                   <span className="truncate text-[13px] font-medium">{n.public_name || n.name || t("nodes.kindLocal")}</span>
                   {n.online ? <span className="shrink-0 text-[11px] text-[var(--leaf-700)]">{t("users.onlineNow")}</span> : null}
                 </div>
-                <div className="mt-0.5 text-xs text-[var(--ink-500)]">{n.last_seen ? t("userDrawer.nodeSeen", { ago: ago(n.last_seen) }) : t("userDrawer.nodeNever")}</div>
+                <div className="mt-0.5 text-xs text-[var(--md-on-surface-variant)]">{n.last_seen ? t("userDrawer.nodeSeen", { ago: ago(n.last_seen) }) : t("userDrawer.nodeNever")}</div>
               </div>
               <div className="text-right">
                 <div className="num text-[13px] font-semibold">{bytes(n.bytes)}</div>
@@ -39,7 +39,7 @@ export function NodesSection({ u }: { u: User }) {
           ))}
         </ul>
       )}
-      {items.length > 0 ? <p className="mt-2 text-xs text-[var(--ink-500)]">{t("userDrawer.nodesNote")}</p> : null}
+      {items.length > 0 ? <p className="mt-2 text-xs text-[var(--md-on-surface-variant)]">{t("userDrawer.nodesNote")}</p> : null}
     </Section>
   );
 }

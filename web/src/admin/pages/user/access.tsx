@@ -19,7 +19,7 @@ export function SubscriptionSection({ u, onReissue }: { u: User; onReissue: () =
   if (!u.sub_url) {
     return (
       <Section title={t("userDrawer.subscription")}>
-        <p className="text-[13px] text-[var(--ink-500)]">{t("userDrawer.noHost")}</p>
+        <p className="text-[13px] text-[var(--md-on-surface-variant)]">{t("userDrawer.noHost")}</p>
         {u.legacy ? <LegacyLink legacy={u.legacy} /> : null}
       </Section>
     );
@@ -37,7 +37,7 @@ export function SubscriptionSection({ u, onReissue }: { u: User; onReissue: () =
       <div className="mt-4 grid grid-cols-1 items-start gap-4 sm:grid-cols-[136px_minmax(0,1fr)]">
         <QR value={u.sub_url} />
         <div className="flex flex-col items-start gap-2">
-          <p className="mb-1 text-[13px] text-[var(--ink-500)]">{t("userDrawer.sendHint")}</p>
+          <p className="mb-1 text-[13px] text-[var(--md-on-surface-variant)]">{t("userDrawer.sendHint")}</p>
           <a className="btn btn-glass btn-sm" href={safeHref(u.sub_url)} target="_blank" rel="noreferrer noopener">
             {t("userDrawer.subPage")} <ExternalLink size={14} aria-hidden />
           </a>
@@ -76,7 +76,7 @@ function HappLink({ id, token }: { id: number; token: string }) {
           <Copy size={18} />
         </button>
       </div>
-      <p className="mt-1 text-xs text-[var(--ink-500)]">{t("settings.happLinkHint")}</p>
+      <p className="mt-1 text-xs text-[var(--md-on-surface-variant)]">{t("settings.happLinkHint")}</p>
     </div>
   );
 }
@@ -99,7 +99,7 @@ function LegacyLink({ legacy }: { legacy: Legacy }) {
         : t("userDrawer.legacySigned");
   return (
     <div className="mt-5 border-t border-[var(--hairline)] pt-4">
-      <div className="mb-2 text-[13px] font-medium text-[var(--ink-700)]">{t("userDrawer.legacyTitle", { source })}</div>
+      <div className="mb-2 text-[13px] font-medium text-[var(--md-on-surface-variant)]">{t("userDrawer.legacyTitle", { source })}</div>
       {legacy.url ? (
         <div className="link-field mb-2">
           <span className="mono" title={legacy.url}>
@@ -110,7 +110,7 @@ function LegacyLink({ legacy }: { legacy: Legacy }) {
           </button>
         </div>
       ) : null}
-      <p className="text-xs text-[var(--ink-500)]">{hint}</p>
+      <p className="text-xs text-[var(--md-on-surface-variant)]">{hint}</p>
     </div>
   );
 }
@@ -124,19 +124,19 @@ export function TelegramSection({ u }: { u: User }) {
     <Section title={t("userDrawer.telegram")}>
       {tg ? (
         <div className="panel-soft flex items-center gap-3 p-3">
-          <span className="grid h-9 w-9 place-items-center rounded-[10px] bg-[var(--hover)] text-[var(--ink-600)]" aria-hidden>
+          <span className="grid h-9 w-9 place-items-center rounded-md bg-[var(--md-surface-container-high)] text-[var(--md-on-surface-variant)]" aria-hidden>
             <Send size={18} />
           </span>
           <div className="min-w-0 flex-1">
             <div className="truncate text-[13px] font-medium">{tg.username ? `@${tg.username}` : tg.name || tg.id}</div>
-            {tg.username && tg.name ? <div className="truncate text-xs text-[var(--ink-500)]">{tg.name}</div> : null}
+            {tg.username && tg.name ? <div className="truncate text-xs text-[var(--md-on-surface-variant)]">{tg.name}</div> : null}
           </div>
           <Button size="sm" variant="danger" onClick={() => setConfirm(true)}>
             {t("userDrawer.telegramUnlink")}
           </Button>
         </div>
       ) : (
-        <p className="text-[13px] text-[var(--ink-500)]">{t("userDrawer.telegramNone")}</p>
+        <p className="text-[13px] text-[var(--md-on-surface-variant)]">{t("userDrawer.telegramNone")}</p>
       )}
       <Confirm
         open={confirm}
@@ -183,7 +183,7 @@ export function ProtocolsSection({ u }: { u: User }) {
         <div key={i.id} className="flex items-center justify-between gap-3 py-2">
           <div>
             <div className="text-[13px] font-medium">{i.sub_name}</div>
-            <div className="text-xs text-[var(--ink-500)]">
+            <div className="text-xs text-[var(--md-on-surface-variant)]">
               {i.title} · {i.port}/{i.network}
             </div>
           </div>

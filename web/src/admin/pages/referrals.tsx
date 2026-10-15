@@ -159,11 +159,11 @@ function SetupCard({ v }: { v: View }) {
               <Plus size={16} aria-hidden /> {t("referrals.addRule")}
             </Button>
           </div>
-          <p className="mb-3 text-xs text-[var(--ink-500)]">{t("referrals.rulesHint")}</p>
-          {f.rules.length === 0 ? <p className="text-sm text-[var(--ink-500)]">{t("referrals.noRules")}</p> : null}
+          <p className="mb-3 text-xs text-[var(--md-on-surface-variant)]">{t("referrals.rulesHint")}</p>
+          {f.rules.length === 0 ? <p className="text-sm text-[var(--md-on-surface-variant)]">{t("referrals.noRules")}</p> : null}
           <ul className="flex flex-col gap-3">
             {f.rules.map((r, i) => (
-              <li key={r.id} className="rounded-[var(--r-md)] border border-[var(--hairline)] bg-[var(--surface)] p-3">
+              <li key={r.id} className="rounded-[var(--r-md)] border border-[var(--hairline)] bg-[var(--md-surface-container-high)] p-3">
                 <div className="mb-2 flex items-center justify-between gap-3">
                   <Switch checked={r.enabled} onChange={(x) => patch(r.id, { enabled: x })} label={t("referrals.ruleOn", { n: i + 1 })} />
                   <Button type="button" size="sm" variant="ghost" onClick={() => remove(r.id)} aria-label={t("referrals.removeRule", { n: i + 1 })}>
@@ -204,7 +204,7 @@ function SetupCard({ v }: { v: View }) {
                 <div className="mt-3">
                   <TariffPicker value={r.tariff_ids} onChange={(ids) => patch(r.id, { tariff_ids: ids })} nameOf={nameOf} />
                 </div>
-                <p className="mt-2 text-xs text-[var(--ink-500)]">{describe(r)}</p>
+                <p className="mt-2 text-xs text-[var(--md-on-surface-variant)]">{describe(r)}</p>
               </li>
             ))}
           </ul>
@@ -230,7 +230,7 @@ function TariffPicker({ value, onChange, nameOf }: { value: number[]; onChange: 
   const toggle = (id: number) => onChange(value.includes(id) ? value.filter((x) => x !== id) : [...value, id]);
   return (
     <div>
-      <div className="mb-1 text-xs text-[var(--ink-500)]">{t("referrals.tariffs")}</div>
+      <div className="mb-1 text-xs text-[var(--md-on-surface-variant)]">{t("referrals.tariffs")}</div>
       <div className="flex flex-wrap gap-2" role="group" aria-label={t("referrals.tariffs")}>
         {(tariffs.data ?? []).map((tr) => (
           <button key={tr.id} type="button" className="chip-btn" aria-pressed={value.includes(tr.id)} onClick={() => toggle(tr.id)}>
@@ -238,7 +238,7 @@ function TariffPicker({ value, onChange, nameOf }: { value: number[]; onChange: 
           </button>
         ))}
       </div>
-      {value.length === 0 ? <p className="mt-1 text-xs text-[var(--ink-500)]">{t("referrals.anyTariff")}</p> : null}
+      {value.length === 0 ? <p className="mt-1 text-xs text-[var(--md-on-surface-variant)]">{t("referrals.anyTariff")}</p> : null}
     </div>
   );
 }
@@ -255,7 +255,7 @@ function Stats({ stats }: { stats: View["stats"] }) {
     <dl className="flex flex-wrap gap-x-5 gap-y-1" aria-label={t("referrals.stats")}>
       {items.map(([label, value]) => (
         <div key={label}>
-          <dt className="text-[11px] text-[var(--ink-500)]">{label}</dt>
+          <dt className="text-[11px] text-[var(--md-on-surface-variant)]">{label}</dt>
           <dd className="num text-[15px] font-semibold">{value}</dd>
         </div>
       ))}
@@ -278,7 +278,7 @@ function RewardsCard({ rewards }: { rewards: ReturnType<typeof useReferralLists>
       ) : rewards.isPending ? (
         <Skeleton style={{ height: 140 }} />
       ) : items.length === 0 ? (
-        <p className="text-sm text-[var(--ink-500)]">{t("referrals.rewardsEmpty")}</p>
+        <p className="text-sm text-[var(--md-on-surface-variant)]">{t("referrals.rewardsEmpty")}</p>
       ) : (
         <ul className="row-list">
           {items.map((r) => (
@@ -287,9 +287,9 @@ function RewardsCard({ rewards }: { rewards: ReturnType<typeof useReferralLists>
                 <div className="flex flex-wrap items-center gap-2 text-[13px]">
                   <b className="num">{r.kind === "days" ? t("referrals.daysShort", { n: r.days }) : money(r.amount, "RUB")}</b>
                   <Pill tone={r.reverted_at ? "off" : "ok"}>{r.reverted_at ? t("referrals.reverted") : t(KIND_LABEL[r.kind])}</Pill>
-                  <span className="truncate text-[var(--ink-500)]">{r.rule_id}</span>
+                  <span className="truncate text-[var(--md-on-surface-variant)]">{r.rule_id}</span>
                 </div>
-                <div className="mt-0.5 truncate text-xs text-[var(--ink-500)]">
+                <div className="mt-0.5 truncate text-xs text-[var(--md-on-surface-variant)]">
                   {r.referrer_name || `tg ${r.referrer_tg_id}`} · {dateShort(r.created_at)} · {t("referrals.everyShort", { n: r.every_n })}
                 </div>
               </div>
@@ -326,9 +326,9 @@ function LinksCard({ links }: { links: ReturnType<typeof useReferralLists>["link
               <li key={l.referral_id} className="flex items-center justify-between gap-3 py-2">
                 <div className="min-w-0">
                   <div className="truncate text-[13px]">
-                    {l.referee_name ? `@${l.referee_name}` : `tg ${l.referee_tg_id}`} <span className="text-[var(--ink-500)]">{t("referrals.invitedBy", { code: l.referrer_code })}</span>
+                    {l.referee_name ? `@${l.referee_name}` : `tg ${l.referee_tg_id}`} <span className="text-[var(--md-on-surface-variant)]">{t("referrals.invitedBy", { code: l.referrer_code })}</span>
                   </div>
-                  <div className="mt-0.5 text-xs text-[var(--ink-500)]">{dateShort(l.created_at)}</div>
+                  <div className="mt-0.5 text-xs text-[var(--md-on-surface-variant)]">{dateShort(l.created_at)}</div>
                 </div>
                 <Pill tone={l.first_paid_at ? "ok" : "off"}>{l.first_paid_at ? t("referrals.paid") : t("referrals.invited")}</Pill>
               </li>

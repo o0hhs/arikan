@@ -18,7 +18,7 @@ export function NodeClientsDrawer({ node, onClose }: { node: { id: number; name:
         <QueryBoundary query={clients} pending={<Skeleton style={{ height: 200, borderRadius: 16 }} />}>
           {() =>
             items.length === 0 ? (
-              <p className="text-[13px] text-[var(--ink-500)]">{t("nodeClients.empty")}</p>
+              <p className="text-[13px] text-[var(--md-on-surface-variant)]">{t("nodeClients.empty")}</p>
             ) : (
               <>
                 <ul className="flex flex-col gap-2">
@@ -29,7 +29,7 @@ export function NodeClientsDrawer({ node, onClose }: { node: { id: number; name:
                           <span className="truncate text-[13px] font-medium">{c.name}</span>
                           {c.online ? <span className="shrink-0 text-[11px] text-[var(--leaf-700)]">{t("nodeClients.online")}</span> : null}
                         </div>
-                        <div className="mt-0.5 text-xs text-[var(--ink-500)]">
+                        <div className="mt-0.5 text-xs text-[var(--md-on-surface-variant)]">
                           {c.last_seen ? t("nodeClients.lastSeen", { ago: ago(c.last_seen) }) : t("nodeClients.never")}
                         </div>
                       </div>
@@ -42,12 +42,12 @@ export function NodeClientsDrawer({ node, onClose }: { node: { id: number; name:
                     </li>
                   ))}
                 </ul>
-                {total > items.length ? <p className="mt-3 text-xs text-[var(--ink-500)]">{t("nodeClients.shown", { shown: items.length, total })}</p> : null}
+                {total > items.length ? <p className="mt-3 text-xs text-[var(--md-on-surface-variant)]">{t("nodeClients.shown", { shown: items.length, total })}</p> : null}
               </>
             )
           }
         </QueryBoundary>
-        <p className="mt-6 text-xs text-[var(--ink-500)]">{t("nodeClients.note")}</p>
+        <p className="mt-6 text-xs text-[var(--md-on-surface-variant)]">{t("nodeClients.note")}</p>
       </div>
     </Drawer>
   );

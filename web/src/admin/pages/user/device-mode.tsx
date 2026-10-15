@@ -28,13 +28,13 @@ export function DeviceModePicker({ value, onChange, label, busy }: { value: Devi
     <div className="flex flex-col gap-2">
       {label ? (
         <div className="flex flex-wrap items-center gap-2 text-[13px]">
-          <span className="text-[var(--ink-600)]">{label}</span>
+          <span className="text-[var(--md-on-surface-variant)]">{label}</span>
           {group}
         </div>
       ) : (
         group
       )}
-      <p id={hintId} className="text-xs text-[var(--ink-500)]">
+      <p id={hintId} className="text-xs text-[var(--md-on-surface-variant)]">
         {t(value === "online" ? "deviceMode.onlineHint" : "deviceMode.boundHint")}
       </p>
     </div>

@@ -20,7 +20,7 @@ export function NodeTrafficDrawer({ node, onClose }: { node: { id: number; name:
     <Drawer open={!!node} onOpenChange={(v) => !v && onClose()} title={t("nodeTraffic.title")} meta={node?.name}>
       <div className="pt-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex gap-4 text-[13px] text-[var(--ink-600)]">
+          <div className="flex gap-4 text-[13px] text-[var(--md-on-surface-variant)]">
             <span className="inline-flex items-center gap-2">
               <i className="h-2 w-2 rounded-full bg-[var(--mikan-500)]" /> {t("chart.down")}
             </span>
@@ -44,20 +44,20 @@ export function NodeTrafficDrawer({ node, onClose }: { node: { id: number; name:
             {() => (
               <>
                 <TrafficChart points={points} range={range} />
-                <div className="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-[13px] text-[var(--ink-500)]">
+                <div className="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-[13px] text-[var(--md-on-surface-variant)]">
                   <span>
-                    {t("chart.down")} <b className="num font-semibold text-[var(--ink-900)]">{bytes(down)}</b>
+                    {t("chart.down")} <b className="num font-semibold text-[var(--md-on-surface)]">{bytes(down)}</b>
                   </span>
                   <span>
-                    {t("chart.up")} <b className="num font-semibold text-[var(--ink-900)]">{bytes(up)}</b>
+                    {t("chart.up")} <b className="num font-semibold text-[var(--md-on-surface)]">{bytes(up)}</b>
                   </span>
                 </div>
-                {down + up === 0 ? <p className="mt-4 text-[13px] text-[var(--ink-500)]">{t("nodeTraffic.empty")}</p> : null}
+                {down + up === 0 ? <p className="mt-4 text-[13px] text-[var(--md-on-surface-variant)]">{t("nodeTraffic.empty")}</p> : null}
               </>
             )}
           </QueryBoundary>
         </div>
-        <p className="mt-6 text-xs text-[var(--ink-500)]">{t("nodeTraffic.note")}</p>
+        <p className="mt-6 text-xs text-[var(--md-on-surface-variant)]">{t("nodeTraffic.note")}</p>
       </div>
     </Drawer>
   );

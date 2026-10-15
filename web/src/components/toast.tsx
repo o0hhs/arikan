@@ -67,7 +67,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               onFocus={() => hold(t.id)}
               onBlur={() => arm(t.id, LIFETIME.resume)}
             >
-              {t.error ? <TriangleAlert size={16} aria-hidden /> : <Check size={16} aria-hidden className="text-[var(--mikan-400)]" />}
+              {t.error ? <TriangleAlert size={16} aria-hidden /> : <Check size={16} aria-hidden className="text-[var(--md-inverse-primary)]" />}
               <span>{t.text}</span>
               {t.action ? (
                 <button

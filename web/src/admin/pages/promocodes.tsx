@@ -158,7 +158,7 @@ function Codes({ onEdit, onCreate }: { onEdit: (p: PromoCode) => void; onCreate:
                       <Pill tone={statusTone(p.status)}>{statusText(p.status)}</Pill>
                       <span className="text-[13px] font-medium">{valueText(p)}</span>
                     </div>
-                    <div className="mt-1 truncate text-xs text-[var(--ink-500)]">
+                    <div className="mt-1 truncate text-xs text-[var(--md-on-surface-variant)]">
                       {[p.name || p.description, t("promocodes.usedOf", { n: p.used_count, max: p.max_uses ? String(p.max_uses) : "∞" })].filter(Boolean).join(" · ")}
                     </div>
                   </div>
@@ -234,7 +234,7 @@ function Redemptions() {
                 <li key={r.id} className="py-3">
                   <div className="flex flex-wrap items-center gap-2 text-[13px]">
                     <b className="mono">{r.code}</b>
-                    <span className="text-[var(--ink-500)]">{redemptionStatusText(r.status)}</span>
+                    <span className="text-[var(--md-on-surface-variant)]">{redemptionStatusText(r.status)}</span>
                     {r.days ? <span>+{r.days} {t("promocodes.daysUnit")}</span> : null}
                     {r.bytes ? (
                       <span>
@@ -243,7 +243,7 @@ function Redemptions() {
                     ) : null}
                     {r.discount_amount ? <span>−{money(r.discount_amount, r.currency)}</span> : null}
                   </div>
-                  <div className="mt-1 text-xs text-[var(--ink-500)]">
+                  <div className="mt-1 text-xs text-[var(--md-on-surface-variant)]">
                     {dateShort(r.redeemed_at)} {time(r.redeemed_at)} · {r.user_id != null ? `${t("promocodes.user")} #${r.user_id}` : t("promocodes.noUser")} · {t("promocodes.telegramId")} {r.tg_id}
                   </div>
                 </li>
@@ -330,7 +330,7 @@ function PromoForm({ value, onSave, onSaving, onBlocked }: { value: PromoCode; o
   const step = p.type === "fixed" && p.currency === "RUB" ? "0.01" : "1";
   return (
     <form id="promo-form" className="pt-4" onSubmit={(e) => void submit(e)} noValidate>
-      <p className="mb-4 text-[13px] text-[var(--ink-500)]">{t("promocodes.createHint")}</p>
+      <p className="mb-4 text-[13px] text-[var(--md-on-surface-variant)]">{t("promocodes.createHint")}</p>
       {error ? (
         <div className="banner err mb-4" role="alert">
           {error}
@@ -427,7 +427,7 @@ function PromoForm({ value, onSave, onSaving, onBlocked }: { value: PromoCode; o
         ) : null}
         <Field label={t("promocodes.tariffsLabel")} hint={t("promocodes.allTariffsHint")}>
           {tariffs.isError ? (
-            <p className="text-[13px] text-[var(--berry-600)]" role="alert">
+            <p className="text-[13px] text-[var(--md-error)]" role="alert">
               {errorText(tariffs.error)}
             </p>
           ) : (

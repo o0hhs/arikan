@@ -161,7 +161,7 @@ export function FoldersDrawer({ open, onOpenChange }: { open: boolean; onOpenCha
   return (
     <Drawer open={open} onOpenChange={onOpenChange} title={t("folders.title")} meta={t("folders.meta")}>
       <div className="pt-5">
-        <p className="text-[13px] text-[var(--ink-500)]">{t("folders.intro")}</p>
+        <p className="text-[13px] text-[var(--md-on-surface-variant)]">{t("folders.intro")}</p>
         <section className="panel-soft mt-4 p-4" aria-label={t("folders.new")}>
           <h3 className="mb-3 text-sm font-semibold">{t("folders.new")}</h3>
           <FolderForm
@@ -195,7 +195,7 @@ export function FoldersDrawer({ open, onOpenChange }: { open: boolean; onOpenCha
         >
           {(list) =>
             list.length === 0 ? (
-              <p className="mt-5 text-[13px] text-[var(--ink-500)]">{t("folders.none")}</p>
+              <p className="mt-5 text-[13px] text-[var(--md-on-surface-variant)]">{t("folders.none")}</p>
             ) : (
               <ul className="row-list mt-5" aria-label={t("folders.listLabel")}>
                 {list.map((f, idx) => (
@@ -230,7 +230,7 @@ export function FoldersDrawer({ open, onOpenChange }: { open: boolean; onOpenCha
                           <FolderMark folder={f} />
                           <div className="min-w-0">
                             <div className="truncate text-[13px] font-semibold">{f.name}</div>
-                            <div className="text-xs text-[var(--ink-500)]">{t("folders.users", { n: f.users })}</div>
+                            <div className="text-xs text-[var(--md-on-surface-variant)]">{t("folders.users", { n: f.users })}</div>
                           </div>
                         </div>
                         <div className="flex items-center gap-1">

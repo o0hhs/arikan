@@ -7,6 +7,10 @@
  *
  * Any other panel theme comes whole from styles/themes.css: the element then carries
  * data-theme and data-tone, and the blocks below marked :not([data-theme]) stand aside.
+ *
+ * The page draws itself on the same Material 3 roles as the panel (app.css): data-scheme
+ * puts the light or the dark half of that layer on this element, the palettes below are the
+ * ramps it derives from, and a brand accent replaces the primary role whole.
  */
 .sub-look {
   --r-md: 12px;
@@ -111,6 +115,9 @@
 /*
  * The brand's own colour: the accent's scale is mixed from it, buttons take it. Always
  * with [data-scheme] (always set): it has to win over a dark palette's own scale.
+ * The filled button is the M3 primary role, and a brand colour replaces it whole — with the
+ * ink the page already computed for that colour (page.ts), since a darkened accent under a
+ * dark ink is not a pair anything can derive.
  */
 .sub-look[data-accent][data-scheme] {
   --mikan-500: var(--accent);
@@ -122,6 +129,8 @@
   --mikan-200: color-mix(in oklab, var(--accent) 34%, white);
   --fill: var(--accent);
   --on-fill: var(--on-accent);
+  --md-primary: var(--accent);
+  --md-on-primary: var(--on-accent);
 }
 .sub-look[data-accent][data-scheme="dark"] {
   --mikan-600: color-mix(in oklab, var(--accent) 80%, white);
@@ -130,9 +139,11 @@
   --mikan-100: color-mix(in oklab, var(--accent) 28%, var(--bg));
   --mikan-200: color-mix(in oklab, var(--accent) 42%, var(--bg));
 }
+/* Hover and press are state layers of the ink on the button: the accent stays the accent. */
 .sub-look[data-accent] .btn-primary:hover:not(:disabled),
-.sub-look[data-scheme="dark"]:not([data-theme]) .btn-primary:hover:not(:disabled) { background: var(--mikan-600); }
-.sub-look[data-accent] .btn-primary { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 8px 20px -10px color-mix(in srgb, var(--accent) 60%, transparent); }
+.sub-look[data-scheme="dark"]:not([data-theme]) .btn-primary:hover:not(:disabled) { background: color-mix(in srgb, var(--md-on-primary) 8%, var(--md-primary)); }
+.sub-look[data-accent] .btn-primary:active:not(:disabled),
+.sub-look[data-scheme="dark"]:not([data-theme]) .btn-primary:active:not(:disabled) { background: color-mix(in srgb, var(--md-on-primary) 12%, var(--md-primary)); }
 
 /* Fonts: the bundled ones, or the device's own (no font is fetched from elsewhere). */
 .sub-look[data-font="onest"] { --font-display-stack: "Onest Variable", system-ui, sans-serif; }
@@ -150,30 +161,30 @@
 .sub-look[data-radius="large"] { --r-md: 16px; --sub-r: 32px; --sub-r-inner: 20px; }
 
 /* Cards: the calm glass the page always had, or opaque ones over a busy background. */
-.sub-look[data-cards="solid"] .glass { background: var(--surface-solid); border-color: var(--hairline); box-shadow: var(--shadow-md); }
+.sub-look[data-cards="solid"] .glass { background: var(--md-surface-container); border-color: var(--md-outline-variant); box-shadow: var(--md-elevation-2); }
 
 /* A backdrop of the admin's own: it stays put while the page scrolls. */
 .sub-backdrop { position: fixed; inset: 0; z-index: -1; pointer-events: none; background: var(--bg); }
 .sub-backdrop > i { position: absolute; inset: 0; background: #000; }
 
-/* The instructions' text. */
-.md { font-size: 14px; line-height: 22px; color: var(--ink-800); overflow-wrap: anywhere; }
+/* The instructions' text, on the M3 type scale. */
+.md { font: var(--md-body-medium); color: var(--md-on-surface-variant); overflow-wrap: anywhere; }
 .md > * + * { margin-top: 12px; }
-.md h1, .md h2, .md h3 { font-family: var(--font-display-stack); font-weight: 500; letter-spacing: -0.02em; color: var(--ink-900); }
-.md h1 { font-size: 20px; line-height: 28px; }
+.md h1, .md h2, .md h3 { font-family: var(--font-display-stack); font-weight: 500; letter-spacing: var(--md-tracking-display); color: var(--md-on-surface); }
+.md h1 { font-size: 22px; line-height: 28px; }
 .md h2 { font-size: 17px; line-height: 24px; margin-top: 20px; }
-.md h3 { font-size: 15px; line-height: 22px; font-family: var(--font-ui-stack); font-weight: 600; letter-spacing: 0; }
+.md h3 { font: var(--md-title-medium); margin-top: 20px; }
 .md ul, .md ol { padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
 .md ul { list-style: disc; }
 .md ol { list-style: decimal; }
-.md li::marker { color: var(--mikan-600); }
-.md a { color: var(--mikan-700); text-decoration: underline; text-underline-offset: 3px; }
-.md code { padding: 1px 4px; border-radius: 6px; background: var(--hover); }
-.md pre { padding: 12px; border-radius: var(--r-md); background: var(--code-bg); color: var(--code-fg); font: 12px/1.6 var(--font-mono-stack); white-space: pre-wrap; overflow-x: auto; }
+.md li::marker { color: var(--md-primary); }
+.md a { color: var(--md-primary); text-decoration: underline; text-underline-offset: 3px; }
+.md code { padding: 1px 4px; border-radius: var(--md-shape-sm); background: var(--md-surface-container-highest); }
+.md pre { padding: 12px; border-radius: var(--md-shape-md); background: var(--code-bg); color: var(--code-fg); font: 12px/1.6 var(--font-mono-stack); white-space: pre-wrap; overflow-x: auto; }
 .md pre code { padding: 0; border-radius: 0; background: none; }
-.md blockquote { padding: 8px 12px; border-radius: var(--r-md); background: var(--hover); color: var(--ink-700); }
-.md img { display: block; max-width: 100%; height: auto; border-radius: var(--r-md); border: 1px solid var(--hairline); }
-.md hr { border: 0; border-top: 1px solid var(--hairline); }
+.md blockquote { padding: 8px 12px; border-radius: var(--md-shape-md); background: var(--md-surface-container-low); color: var(--md-on-surface-variant); }
+.md img { display: block; max-width: 100%; height: auto; border-radius: var(--md-shape-md); border: 1px solid var(--md-outline-variant); }
+.md hr { border: 0; border-top: 1px solid var(--md-outline-variant); }
 
 /* The page's cards take the admin's corners (24px, the rounded-3xl they always had). */
 .sub-card { border-radius: var(--sub-r, 24px); }

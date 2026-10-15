@@ -75,7 +75,7 @@ export function AddDrawer({ open, onOpenChange, nodeId, nodeName }: { open: bool
             {(presets.data ?? []).map((p) => (
               <button key={p.id} type="button" role="radio" aria-checked={preset === p.id} className="opt" onClick={() => setPreset(p.id)}>
                 <span className="font-semibold">{presetTitle(p)}</span>
-                <span className="text-xs text-[var(--ink-500)]">{presetSummary(p)}</span>
+                <span className="text-xs text-[var(--md-on-surface-variant)]">{presetSummary(p)}</span>
                 <LimitBadges clashOnly={p.apps === "mihomo"} shared={!!p.shared} />
               </button>
             ))}

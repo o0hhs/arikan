@@ -52,7 +52,7 @@ export function FiltersPage() {
           <div className="flex max-w-4xl flex-col gap-4">
             <EgressCard v={v} />
             <IngressCard v={v} />
-            <p className="text-xs text-[var(--ink-500)]">{t("filters.nodes")}</p>
+            <p className="text-xs text-[var(--md-on-surface-variant)]">{t("filters.nodes")}</p>
           </div>
         )}
       </QueryBoundary>

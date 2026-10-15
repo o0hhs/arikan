@@ -9,7 +9,7 @@ type Target = Schemas["Result"];
 
 function TargetBadges({ r }: { r: Target }) {
   if (r.error) {
-    return <span className="text-xs text-[var(--berry-600)]">{tMaybe(`inbounds.targetErr.${r.error}`) ?? r.error}</span>;
+    return <span className="text-xs text-[var(--md-error)]">{tMaybe(`inbounds.targetErr.${r.error}`) ?? r.error}</span>;
   }
   const items: [string, boolean][] = [
     ["TLS 1.3", r.tls13],
@@ -24,7 +24,7 @@ function TargetBadges({ r }: { r: Target }) {
           {label}
         </Pill>
       ))}
-      <span className="num text-xs text-[var(--ink-500)]">{t("inbounds.targetRtt", { ms: r.rtt_ms })}</span>
+      <span className="num text-xs text-[var(--md-on-surface-variant)]">{t("inbounds.targetRtt", { ms: r.rtt_ms })}</span>
     </span>
   );
 }
@@ -57,23 +57,23 @@ export function TargetPicker({ dest, sni, nodeId, onPick }: { dest: string; sni:
           <TargetBadges r={check.data} />
         </div>
       ) : check.isError ? (
-        <p className="mt-2 text-[13px] text-[var(--berry-600)]" role="alert">
+        <p className="mt-2 text-[13px] text-[var(--md-error)]" role="alert">
           {errorText(check.error)}
         </p>
       ) : null}
       {scan.isPending ? (
         <div className="mt-2 flex flex-col gap-2" aria-busy>
-          <span className="text-xs text-[var(--ink-500)]">{t("inbounds.targetScanning")}</span>
+          <span className="text-xs text-[var(--md-on-surface-variant)]">{t("inbounds.targetScanning")}</span>
           <Skeleton style={{ height: 52, borderRadius: 12 }} />
           <Skeleton style={{ height: 52, borderRadius: 12 }} />
         </div>
       ) : scan.isError ? (
-        <p className="mt-2 text-[13px] text-[var(--berry-600)]" role="alert">
+        <p className="mt-2 text-[13px] text-[var(--md-error)]" role="alert">
           {errorText(scan.error)}
         </p>
       ) : scan.data ? (
         <div className="mt-2 flex flex-col gap-2">
-          <span className="text-xs text-[var(--ink-500)]">
+          <span className="text-xs text-[var(--md-on-surface-variant)]">
             {candidates.length ? t("inbounds.targetFound", { n: candidates.length, scanned: scan.data.scanned }) : t("inbounds.targetNone", { scanned: scan.data.scanned })}
           </span>
           {candidates.map((c) => {
@@ -82,7 +82,7 @@ export function TargetPicker({ dest, sni, nodeId, onPick }: { dest: string; sni:
               <div key={c.dest + c.sni} className="panel-soft grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 p-3">
                 <div className="min-w-0">
                   <div className="truncate text-[13px] font-medium">{self ? t("inbounds.targetSelfSteal", { sni: c.sni }) : c.sni}</div>
-                  <div className="mono truncate text-xs text-[var(--ink-500)]">{self ? t("inbounds.targetSelfStealHint") : c.dest}</div>
+                  <div className="mono truncate text-xs text-[var(--md-on-surface-variant)]">{self ? t("inbounds.targetSelfStealHint") : c.dest}</div>
                   <div className="mt-1.5">
                     <TargetBadges r={c} />
                   </div>

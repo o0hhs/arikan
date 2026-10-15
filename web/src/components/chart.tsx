@@ -148,8 +148,8 @@ export function TrafficChart({ points, range }: { points: TrafficPoint[]; range:
         {hp && hover !== null ? (
           <g>
             <line x1={g.x(hover)} x2={g.x(hover)} y1={PAD.t} y2={g.base} stroke="var(--ink-300)" strokeDasharray="3 3" />
-            <circle cx={g.x(hover)} cy={g.y(hp.down)} r={4.5} fill="var(--surface-solid)" stroke="var(--mikan-500)" strokeWidth={2} />
-            <circle cx={g.x(hover)} cy={g.y(hp.up)} r={4} fill="var(--surface-solid)" stroke="var(--lagoon-500)" strokeWidth={2} />
+            <circle cx={g.x(hover)} cy={g.y(hp.down)} r={4.5} fill="var(--md-surface-container)" stroke="var(--mikan-500)" strokeWidth={2} />
+            <circle cx={g.x(hover)} cy={g.y(hp.up)} r={4} fill="var(--md-surface-container)" stroke="var(--lagoon-500)" strokeWidth={2} />
           </g>
         ) : null}
         <rect x={PAD.l} y={0} width={W - PAD.l - PAD.r} height={H} fill="transparent" onPointerMove={onMove} onPointerLeave={() => setHover(null)} />

@@ -141,10 +141,10 @@ export function TariffsPage() {
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <h2 className="font-display text-xl font-medium tracking-tight">{tr.name}</h2>
-                          {tr.price_label ? <div className="mt-1 text-[13px] font-medium text-[var(--mikan-700)]">{tr.price_label}</div> : null}
-                          {tr.description ? <p className="mt-2 whitespace-pre-line text-[13px] text-[var(--ink-700)]">{tr.description}</p> : null}
+                          {tr.price_label ? <div className="mt-1 text-[13px] font-medium text-[var(--md-primary)]">{tr.price_label}</div> : null}
+                          {tr.description ? <p className="mt-2 whitespace-pre-line text-[13px] text-[var(--md-on-surface-variant)]">{tr.description}</p> : null}
                           {selling && tr.on_sale ? (
-                            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[var(--ink-600)]">
+                            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[var(--md-on-surface-variant)]">
                               <Pill tone="ok">{t("tariffs.onSale")}</Pill>
                               {tr.price_stars != null ? <span className="num">⭐ {tr.price_stars}</span> : null}
                               {tr.price_rub != null ? <span className="num">{rubles(tr.price_rub)}</span> : null}
@@ -166,7 +166,7 @@ export function TariffsPage() {
                           </button>
                         </div>
                       </div>
-                      <dl className="mt-5 grid grid-cols-2 gap-3 text-xs text-[var(--ink-500)]">
+                      <dl className="mt-5 grid grid-cols-2 gap-3 text-xs text-[var(--md-on-surface-variant)]">
                         <Item label={t("users.colTraffic")} value={tr.traffic_limit != null ? bytes(tr.traffic_limit) : t("users.unlimited")} />
                         <Item label={t("users.colExpiry")} value={tariffTerm(tr)} />
                         <Item label={t("users.colDevices")} value={tr.device_limit != null ? (modeOf(tr) === "online" ? t("deviceMode.shortOnline", { n: tr.device_limit }) : String(tr.device_limit)) : t("users.unlimited")} />
@@ -213,7 +213,7 @@ function Item({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <dt>{label}</dt>
-      <dd className="mt-0.5 text-sm font-medium text-[var(--ink-900)]">{value}</dd>
+      <dd className="mt-0.5 text-sm font-medium text-[var(--md-on-surface)]">{value}</dd>
     </div>
   );
 }
@@ -399,7 +399,7 @@ function TariffDrawer({ tariff, onClose }: { tariff: Tariff | "new" | null; onCl
         <Field label={t("tariffs.trafficPerPeriod")} htmlFor="t-gb" error={errors.traffic_limit}>
           <div className="flex items-center gap-2">
             <input id="t-gb" className="input max-w-[140px]" inputMode="decimal" value={unlimited ? "" : gb} disabled={unlimited} onChange={(e) => setGb(e.target.value)} aria-invalid={!!errors.traffic_limit} />
-            <span className="text-[var(--ink-500)]">{t("units.gb")}</span>
+            <span className="text-[var(--md-on-surface-variant)]">{t("units.gb")}</span>
             <label className="ml-auto flex items-center gap-2 text-[13px]">
               <input type="checkbox" className="check" checked={unlimited} onChange={(e) => setUnlimited(e.target.checked)} /> {t("users.unlimited")}
             </label>
@@ -439,7 +439,7 @@ function TariffDrawer({ tariff, onClose }: { tariff: Tariff | "new" | null; onCl
           <Field label={t("tariffs.billingDay")} htmlFor="t-bday" hint={t("tariffs.billingDayHint")} error={errors.billing_day}>
             <div className="flex items-center gap-2">
               <input id="t-bday" className="input max-w-[100px]" inputMode="numeric" value={billingDay} onChange={(e) => setBillingDay(e.target.value)} aria-invalid={!!errors.billing_day} />
-              <span className="text-[var(--ink-500)]">{t("tariffs.dayOfEveryMonth")}</span>
+              <span className="text-[var(--md-on-surface-variant)]">{t("tariffs.dayOfEveryMonth")}</span>
             </div>
           </Field>
         ) : null}
@@ -492,12 +492,12 @@ function TariffDrawer({ tariff, onClose }: { tariff: Tariff | "new" | null; onCl
               <div className="mb-3 flex items-start justify-between gap-3">
                 <div>
                   <div className="text-[13px] font-semibold">{t("tariffs.sale")}</div>
-                  <div className="text-xs text-[var(--ink-500)]">{t("tariffs.saleSub")}</div>
+                  <div className="text-xs text-[var(--md-on-surface-variant)]">{t("tariffs.saleSub")}</div>
                 </div>
                 <Switch checked={onSale} onChange={setOnSale} label={t("tariffs.onSale")} />
               </div>
               {errors.on_sale ? (
-                <p className="mb-3 text-xs text-[var(--berry-600)]" role="alert">
+                <p className="mb-3 text-xs text-[var(--md-error)]" role="alert">
                   {errors.on_sale}
                 </p>
               ) : null}
@@ -505,13 +505,13 @@ function TariffDrawer({ tariff, onClose }: { tariff: Tariff | "new" | null; onCl
                 <Field label={t("tariffs.priceStars")} htmlFor="t-stars" hint={t("tariffs.priceStarsHint")} error={errors.price_stars}>
                   <div className="flex items-center gap-2">
                     <input id="t-stars" className="input max-w-[140px]" inputMode="numeric" value={stars} onChange={(e) => setStars(e.target.value)} placeholder="150" aria-invalid={!!errors.price_stars} />
-                    <span className="text-[var(--ink-500)]">⭐</span>
+                    <span className="text-[var(--md-on-surface-variant)]">⭐</span>
                   </div>
                 </Field>
                 <Field label={t("tariffs.priceRub")} htmlFor="t-rub" hint={t("tariffs.priceRubHint")} error={errors.price_rub}>
                   <div className="flex items-center gap-2">
                     <input id="t-rub" className="input max-w-[140px]" inputMode="decimal" value={rub} onChange={(e) => setRub(e.target.value)} placeholder="199" aria-invalid={!!errors.price_rub} />
-                    <span className="text-[var(--ink-500)]">₽</span>
+                    <span className="text-[var(--md-on-surface-variant)]">₽</span>
                   </div>
                 </Field>
               </div>
@@ -538,7 +538,7 @@ function MoreTerms({ value, onChange, toDay, errors }: { value: ExtraTerm[]; onC
   return (
     <div className="mb-4" role="group" aria-label={t("tariffs.moreTerms")}>
       <div className="text-[13px] font-semibold">{t("tariffs.moreTerms")}</div>
-      <div className="mb-2 text-xs text-[var(--ink-500)]">{t("tariffs.moreTermsSub")}</div>
+      <div className="mb-2 text-xs text-[var(--md-on-surface-variant)]">{t("tariffs.moreTermsSub")}</div>
       {value.map((m, i) => {
         const at = `terms[${i + 1}]`;
         const err = errors[`${at}.days`] ?? errors[`${at}.price_stars`] ?? errors[`${at}.price_rub`];
@@ -569,7 +569,7 @@ function MoreTerms({ value, onChange, toDay, errors }: { value: ExtraTerm[]; onC
               </button>
             </div>
             {err ? (
-              <p className="mt-1 text-xs text-[var(--berry-600)]" role="alert">
+              <p className="mt-1 text-xs text-[var(--md-error)]" role="alert">
                 {err}
               </p>
             ) : null}

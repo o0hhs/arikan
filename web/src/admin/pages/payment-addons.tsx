@@ -113,7 +113,7 @@ function PaymentForm({ a, id }: { a: Addon; id: string }) {
       <SwitchRow label={t("addons.enabled")} sub={enabled ? t("addons.enabledSub") : t("addons.disabledSub")} checked={enabled} onChange={(on) => setDraft((d) => ({ ...d, enabled: on }))} disabled={save.isPending} />
       {enabled ? (
         <>
-          {localized(a.help, "") ? <p className="text-xs text-[var(--ink-500)]">{localized(a.help, "")}</p> : null}
+          {localized(a.help, "") ? <p className="text-xs text-[var(--md-on-surface-variant)]">{localized(a.help, "")}</p> : null}
           <ManifestForm idPrefix={`addon-${a.id}`} fields={a.settings} values={values} onChange={(key, v) => setValues((cur) => ({ ...cur, [key]: v }))} errors={errors} disabled={save.isPending} />
           <Webhook url={a.webhook_url} />
         </>
@@ -124,10 +124,10 @@ function PaymentForm({ a, id }: { a: Addon; id: string }) {
 
 function Webhook({ url }: { url: string }) {
   const copy = useCopy();
-  if (!url) return <p className="text-xs text-[var(--ink-500)]">{t("payments.webhookNoHost")}</p>;
+  if (!url) return <p className="text-xs text-[var(--md-on-surface-variant)]">{t("payments.webhookNoHost")}</p>;
   return (
     <div>
-      <div className="mb-1 text-xs text-[var(--ink-500)]">{t("addons.webhook")}</div>
+      <div className="mb-1 text-xs text-[var(--md-on-surface-variant)]">{t("addons.webhook")}</div>
       <div className="link-field">
         <span className="mono">{url}</span>
         <button type="button" className="icon-btn" onClick={() => void copy(url, t("payments.webhookCopied"))} aria-label={t("payments.copyWebhook")}>

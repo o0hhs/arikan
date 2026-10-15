@@ -145,7 +145,7 @@ function Intro() {
       </div>
       <div className="api-h">{t("apiPage.baseUrl")}</div>
       <CodeBlock code={base} label={t("apiPage.copyBase")} />
-      <ul className="my-4 list-disc space-y-2 pl-5 text-[13px] text-[var(--ink-700)]">
+      <ul className="my-4 list-disc space-y-2 pl-5 text-[13px] text-[var(--md-on-surface-variant)]">
         <li>{t("apiPage.authKey")}</li>
         <li>{t("apiPage.authScopes")}</li>
         <li>{t("apiPage.authSession")}</li>
@@ -154,9 +154,9 @@ function Intro() {
       </ul>
       <div className="api-h">{t("apiPage.example")}</div>
       <CodeBlock code={`curl -s -H "Authorization: Bearer $MIKAN_KEY" \\\n  "${base}/users?state=active&limit=10"`} label={t("apiPage.copyExample")} />
-      <p className="mt-3 text-xs text-[var(--ink-500)]">{t("apiPage.downloadHint")}</p>
+      <p className="mt-3 text-xs text-[var(--md-on-surface-variant)]">{t("apiPage.downloadHint")}</p>
       <div className="api-h">{t("apiPage.prometheus")}</div>
-      <p className="mb-2 text-xs text-[var(--ink-500)]">{t("apiPage.prometheusHint")}</p>
+      <p className="mb-2 text-xs text-[var(--md-on-surface-variant)]">{t("apiPage.prometheusHint")}</p>
       <CodeBlock
         code={`- job_name: arikan
   scheme: https
@@ -197,8 +197,8 @@ function OperationView({ o }: { o: Op }) {
       <summary>
         <span className={`method ${o.method}`}>{o.method.toUpperCase()}</span>
         <span className="min-w-0">
-          <span className="mono block truncate text-[13px] text-[var(--ink-900)]">{o.path.replace(/^\/api\/v1/, "")}</span>
-          {o.op.summary ? <span className="block truncate text-xs text-[var(--ink-500)]">{o.op.summary}</span> : null}
+          <span className="mono block truncate text-[13px] text-[var(--md-on-surface)]">{o.path.replace(/^\/api\/v1/, "")}</span>
+          {o.op.summary ? <span className="block truncate text-xs text-[var(--md-on-surface-variant)]">{o.op.summary}</span> : null}
         </span>
         <span className={`pill ${a.tone} max-sm:hidden`}>{a.text}</span>
       </summary>
@@ -213,7 +213,7 @@ function OperationBody({ o }: { o: Op }) {
   const ok = Object.entries(o.op.responses ?? {}).filter(([code]) => code.startsWith("2"));
   return (
     <div className="api-op-body">
-      {o.op.description ? <p className="text-[13px] text-[var(--ink-700)]">{o.op.description}</p> : null}
+      {o.op.description ? <p className="text-[13px] text-[var(--md-on-surface-variant)]">{o.op.description}</p> : null}
       {params.length ? (
         <div>
           <div className="api-h">{t("apiPage.params")}</div>
@@ -239,11 +239,11 @@ function OperationBody({ o }: { o: Op }) {
               <span className="tag mb-2">
                 {code} {r.description}
               </span>
-              {s ? <SchemaView schema={s} depth={0} /> : <p className="text-xs text-[var(--ink-500)]">{t("apiPage.noContent")}</p>}
+              {s ? <SchemaView schema={s} depth={0} /> : <p className="text-xs text-[var(--md-on-surface-variant)]">{t("apiPage.noContent")}</p>}
             </div>
           );
         })}
-        <p className="text-xs text-[var(--ink-500)]">{t("apiPage.errorsShort")}</p>
+        <p className="text-xs text-[var(--md-on-surface-variant)]">{t("apiPage.errorsShort")}</p>
       </div>
       <div>
         <div className="api-h">curl</div>
@@ -316,7 +316,7 @@ function SchemaView({ schema, depth }: { schema: Schema; depth: number }) {
   if (r.type === "array" || (Array.isArray(r.type) && r.type.includes("array"))) {
     return (
       <div className="schema">
-        <div className="mb-1 text-xs text-[var(--ink-500)]">{t("apiPage.arrayOf", { type: typeLabel(r.items) })}</div>
+        <div className="mb-1 text-xs text-[var(--md-on-surface-variant)]">{t("apiPage.arrayOf", { type: typeLabel(r.items) })}</div>
         {r.items ? <SchemaView schema={r.items} depth={depth + 1} /> : null}
       </div>
     );
@@ -335,18 +335,18 @@ function SchemaView({ schema, depth }: { schema: Schema; depth: number }) {
 function FieldRow({ name, schema, required, note, description, depth }: { name: string; schema?: Schema; required?: boolean; note?: string; description?: string; depth: number }) {
   const [r] = resolve(schema);
   const nested = r && depth < 4 && (r.properties || (r.items && resolve(r.items)[0]?.properties));
-  const extra: ReactNode[] = r ? limits(r).map((l) => <span key={l} className="mono mr-2 text-[11px] text-[var(--ink-500)]">{l}</span>) : [];
+  const extra: ReactNode[] = r ? limits(r).map((l) => <span key={l} className="mono mr-2 text-[11px] text-[var(--md-on-surface-variant)]">{l}</span>) : [];
   return (
     <div className="schema-row">
       <div className="min-w-0">
-        <span className="mono break-all text-[var(--ink-900)]">{name}</span>
-        {required ? <span className="ml-1 text-[var(--berry-600)]" title={t("apiPage.required")}>*</span> : null}
+        <span className="mono break-all text-[var(--md-on-surface)]">{name}</span>
+        {required ? <span className="ml-1 text-[var(--md-error)]" title={t("apiPage.required")}>*</span> : null}
         <div className="text-[11px] text-[var(--ink-400)]">
           {typeLabel(schema)}
           {note ? ` · ${note}` : null}
         </div>
       </div>
-      <div className="min-w-0 text-[var(--ink-700)]">
+      <div className="min-w-0 text-[var(--md-on-surface-variant)]">
         {description ?? r?.description ? <div className="mb-1">{description ?? r?.description}</div> : null}
         {extra.length ? <div>{extra}</div> : null}
         {nested ? (
@@ -395,14 +395,14 @@ function TryIt({ o }: { o: Op }) {
   return (
     <div>
       <div className="api-h">{t("apiPage.tryIt")}</div>
-      <p className="mb-2 text-xs text-[var(--ink-500)]">{t("apiPage.tryItHint")}</p>
+      <p className="mb-2 text-xs text-[var(--md-on-surface-variant)]">{t("apiPage.tryItHint")}</p>
       {params.length ? (
         <div className="mb-2 grid gap-2 sm:grid-cols-2">
           {params.map((p) => (
-            <label key={p.name} className="flex flex-col gap-1 text-xs text-[var(--ink-500)]">
+            <label key={p.name} className="flex flex-col gap-1 text-xs text-[var(--md-on-surface-variant)]">
               <span className="mono">
                 {p.name}
-                {p.in === "path" ? <span className="text-[var(--berry-600)]"> *</span> : null}
+                {p.in === "path" ? <span className="text-[var(--md-error)]"> *</span> : null}
               </span>
               <input className="input mono" value={values[p.name] ?? ""} onChange={(e) => setValues((v) => ({ ...v, [p.name]: e.target.value }))} placeholder={p.schema?.default !== undefined ? String(p.schema.default) : ""} autoComplete="off" spellCheck={false} />
             </label>

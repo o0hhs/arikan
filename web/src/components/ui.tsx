@@ -4,7 +4,12 @@ import { cloneElement, isValidElement, lazy, Suspense, useEffect, useId, useStat
 import type { UserState } from "../api/client";
 import { t } from "../i18n";
 
-type Variant = "primary" | "glass" | "ghost" | "danger" | "danger-solid";
+/**
+ * The M3 button set (styles/app.css). The names already in use keep their meaning — `primary`
+ * is the filled button, `glass` the tonal one, `ghost` a text button — and `outlined` joins
+ * them: the quiet action that wants an edge, for toolbars and rows of peers.
+ */
+type Variant = "primary" | "glass" | "ghost" | "danger" | "danger-solid" | "outlined";
 
 export function Button({
   variant = "glass",

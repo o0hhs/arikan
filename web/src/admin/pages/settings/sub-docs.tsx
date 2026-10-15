@@ -92,7 +92,7 @@ export function DocsSection({ announce }: { announce: (text: string) => void }) 
               <FileText size={22} className="text-[var(--ink-400)]" aria-hidden />
               <div>
                 <div className="text-[13px] font-semibold">{t("settings.page.docsEmpty")}</div>
-                <p className="mt-1 max-w-[360px] text-xs text-[var(--ink-500)]">{t("settings.page.docsEmptyText")}</p>
+                <p className="mt-1 max-w-[360px] text-xs text-[var(--md-on-surface-variant)]">{t("settings.page.docsEmptyText")}</p>
               </div>
               <Button size="sm" variant="primary" onClick={() => setEditing("new")}>
                 <Plus size={16} aria-hidden /> {t("settings.page.docNew")}
@@ -102,12 +102,12 @@ export function DocsSection({ announce }: { announce: (text: string) => void }) 
             <ul className="flex flex-col gap-2">
               {items.map((d, i) => (
                 <li key={d.id} className="panel-soft flex items-center gap-3 p-3">
-                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-[var(--hover)] text-base leading-none" aria-hidden>
-                    {d.emoji || <FileText size={16} className="text-[var(--ink-500)]" />}
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-[var(--md-surface-container-high)] text-base leading-none" aria-hidden>
+                    {d.emoji || <FileText size={16} className="text-[var(--md-on-surface-variant)]" />}
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-[13px] font-semibold">{d.title}</div>
-                    <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-[var(--ink-500)]">
+                    <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-[var(--md-on-surface-variant)]">
                       <Pill tone={d.published ? "ok" : "off"}>{d.published ? t("settings.page.docPublished") : t("settings.page.docDraft")}</Pill>
                       <span>{d.platform ? PLATFORM_NAMES[d.platform] : t("settings.page.docAll")}</span>
                     </div>
@@ -130,7 +130,7 @@ export function DocsSection({ announce }: { announce: (text: string) => void }) 
           )
         }
       </QueryBoundary>
-      {items.length >= MAX_DOCS ? <p className="mt-3 text-xs text-[var(--ink-500)]">{t("errors.api.too_many_docs", { value: MAX_DOCS })}</p> : null}
+      {items.length >= MAX_DOCS ? <p className="mt-3 text-xs text-[var(--md-on-surface-variant)]">{t("errors.api.too_many_docs", { value: MAX_DOCS })}</p> : null}
       {editing !== null ? <DocEditor key={editing === "new" ? "new" : editing.id} doc={editing === "new" ? null : editing} onClose={() => setEditing(null)} /> : null}
       <Confirm
         open={removing !== null}
@@ -209,13 +209,13 @@ function DocEditor({ doc, onClose }: { doc: SubDoc | null; onClose: () => void }
           <div className="mb-4 flex items-start justify-between gap-4">
             <div className="min-w-0">
               <div className="text-[13px] font-medium">{t("settings.page.docPublish")}</div>
-              <div className="mt-1 text-xs text-[var(--ink-500)]">{t("settings.page.docPublishHint")}</div>
+              <div className="mt-1 text-xs text-[var(--md-on-surface-variant)]">{t("settings.page.docPublishHint")}</div>
             </div>
             <Switch checked={form.published} label={t("settings.page.docPublish")} onChange={(published) => setForm({ ...form, published })} />
           </div>
           <div className="field">
             <div className="flex items-center justify-between gap-2">
-              <label htmlFor="doc-body" className="text-[13px] font-medium text-[var(--ink-700)]">
+              <label htmlFor="doc-body" className="text-[13px] font-medium text-[var(--md-on-surface-variant)]">
                 {t("settings.page.docBody")}
               </label>
               <Segmented
@@ -241,7 +241,7 @@ function DocEditor({ doc, onClose }: { doc: SubDoc | null; onClose: () => void }
                 placeholder={t("settings.page.docBodyPlaceholder")}
               />
             ) : (
-              <div className="panel-soft min-h-[200px] p-4">{form.body.trim() ? <Markdown text={form.body} /> : <p className="text-[13px] text-[var(--ink-500)]">{t("settings.page.docPreviewEmpty")}</p>}</div>
+              <div className="panel-soft min-h-[200px] p-4">{form.body.trim() ? <Markdown text={form.body} /> : <p className="text-[13px] text-[var(--md-on-surface-variant)]">{t("settings.page.docPreviewEmpty")}</p>}</div>
             )}
             {errors.body ? (
               <span className="err" role="alert" id="doc-body-note">

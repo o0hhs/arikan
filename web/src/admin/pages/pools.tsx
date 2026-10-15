@@ -79,8 +79,8 @@ export function PoolsCard({ creating, onCreateClose }: { creating: boolean; onCr
                       <div className="text-[13px] font-semibold">{p.name}</div>
                       <dl className="mt-1 grid gap-1 text-xs">
                         <div className="flex flex-wrap gap-x-2">
-                          <dt className="text-[var(--ink-500)]">{t("pools.protocols")}</dt>
-                          <dd className="min-w-0 text-[var(--ink-700)]">
+                          <dt className="text-[var(--md-on-surface-variant)]">{t("pools.protocols")}</dt>
+                          <dd className="min-w-0 text-[var(--md-on-surface-variant)]">
                             {p.inbounds.length ? (
                               p.inbounds.join(", ")
                             ) : (
@@ -91,8 +91,8 @@ export function PoolsCard({ creating, onCreateClose }: { creating: boolean; onCr
                           </dd>
                         </div>
                         <div className="flex flex-wrap gap-x-2">
-                          <dt className="text-[var(--ink-500)]">{t("pools.limits")}</dt>
-                          <dd className="min-w-0 text-[var(--ink-700)]">{limits.length ? limits.join(" · ") : t("pools.noLimits")}</dd>
+                          <dt className="text-[var(--md-on-surface-variant)]">{t("pools.limits")}</dt>
+                          <dd className="min-w-0 text-[var(--md-on-surface-variant)]">{limits.length ? limits.join(" · ") : t("pools.noLimits")}</dd>
                         </div>
                       </dl>
                     </div>
@@ -111,7 +111,7 @@ export function PoolsCard({ creating, onCreateClose }: { creating: boolean; onCr
           )
         }
       </QueryBoundary>
-      <p className="mt-3 text-xs text-[var(--ink-500)]">{t("pools.hint")}</p>
+      <p className="mt-3 text-xs text-[var(--md-on-surface-variant)]">{t("pools.hint")}</p>
       <PoolDrawer
         pool={creating ? "new" : edit}
         onClose={() => {
@@ -209,11 +209,11 @@ export function PoolLimitsField({
           <li key={p.id} className={`grid items-center gap-3 py-2 ${onClosed ? "grid-cols-[minmax(0,1fr)_auto_132px]" : "grid-cols-[minmax(0,1fr)_132px]"}`}>
             <div className="min-w-0">
               <div className="truncate text-[13px] font-medium">{p.name}</div>
-              {p.inbounds.length ? <div className="truncate text-xs text-[var(--ink-500)]">{p.inbounds.join(", ")}</div> : null}
+              {p.inbounds.length ? <div className="truncate text-xs text-[var(--md-on-surface-variant)]">{p.inbounds.join(", ")}</div> : null}
             </div>
             {onClosed ? <Switch checked={!shut} label={t("pools.accessOf", { name: p.name })} onChange={(on) => onClosed({ ...closed, [p.id]: !on })} /> : null}
             {shut ? (
-              <span className="text-xs text-[var(--ink-500)]">{t("pools.closed")}</span>
+              <span className="text-xs text-[var(--md-on-surface-variant)]">{t("pools.closed")}</span>
             ) : (
               <label className="input-unit">
                 <input
