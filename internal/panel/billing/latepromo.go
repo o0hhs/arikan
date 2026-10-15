@@ -58,7 +58,7 @@ func (s *Service) refundCharge(ctx context.Context, p db.Payment, externalID, ke
 // both refund the same invoice. Addon refunds also carry a stable provider idempotency key
 // to cover retries after a process restart.
 func (s *Service) refundLatePromoPayment(ctx context.Context, paymentID int64, externalID string, refund func(db.Payment) error) (bool, error) {
-	unlock := s.lockPromoRefund(paymentID)
+	unlock := s.lockLateRefund(paymentID)
 	defer unlock()
 
 	pay, err := s.d.Store.Q.GetPayment(ctx, paymentID)
@@ -135,9 +135,9 @@ func (s *Service) markLatePromoRefundFailed(ctx context.Context, paymentID int64
 	return cause
 }
 
-// lockPromoRefund waits for the payment's turn at a late-promo refund; it never gives up,
-// as a refund already started must finish.
-func (s *Service) lockPromoRefund(paymentID int64) func() {
-	unlock, _ := s.promoRefunds.lock(context.Background(), paymentID)
+// lockLateRefund waits for the payment's turn at a late-payment refund, promo's or the
+// referral hold's; it never gives up, as a refund already started must finish.
+func (s *Service) lockLateRefund(paymentID int64) func() {
+	unlock, _ := s.lateRefunds.lock(context.Background(), paymentID)
 	return unlock
 }

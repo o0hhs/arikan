@@ -6,6 +6,11 @@ RETURNING *;
 -- name: GetPayment :one
 SELECT * FROM payments WHERE id = $1;
 
+-- name: GetPaymentForUpdate :one
+-- The payment's row is held until the transaction ends: what the caller decides on it must
+-- not change under it (a hold going back for an invoice that was paid as it did).
+SELECT * FROM payments WHERE id = $1 FOR UPDATE;
+
 -- name: GetPaymentByPayload :one
 SELECT * FROM payments WHERE payload = $1;
 

@@ -120,6 +120,32 @@ func (e *env) pay(tgID int64, tariff db.Tariff, amount int64, currency string) [
 	return out
 }
 
+// sub gives the inviter a subscription a days rule can land on: the tariff's term.
+func (e *env) sub(tgID int64) db.User {
+	e.t.Helper()
+	u, err := e.directory().Create(e.ctx, domain.CreateInput{Name: "inviter", TariffID: e.cheap.ID, TermDays: sql.NullInt64{Int64: 30, Valid: true}})
+	must(e.t, err)
+	must(e.t, e.st.Q.LinkTg(e.ctx, db.LinkTgParams{UserID: u.ID, TgID: tgID, CreatedAt: e.now.Unix()}))
+	return u
+}
+
+// unlimitedSub is the same subscription with no end at all: a days rule has nothing to
+// give days onto.
+func (e *env) unlimitedSub(tgID int64) db.User {
+	e.t.Helper()
+	u := e.sub(tgID)
+	u, err := e.directory().Update(e.ctx, u.ID, domain.Patch{ClearExpiry: true})
+	must(e.t, err)
+	if u.ExpiresAt.Valid {
+		e.t.Fatalf("the unlimited subscription still expires: %+v", u.ExpiresAt)
+	}
+	return u
+}
+
+func (e *env) directory() *domain.Users {
+	return domain.NewUsers(e.st, domain.NewPool(e.st, func() time.Time { return e.now }), noChanges{}, func() time.Time { return e.now })
+}
+
 // payment is a plain invoice row: what a balance hold hangs on.
 func (e *env) payment(tgID int64, amount int64, currency string) db.Payment {
 	e.t.Helper()
@@ -209,6 +235,55 @@ func TestPercentInRublesWhateverTheyPaid(t *testing.T) {
 	}
 }
 
+// A payment the programme cannot price earns nothing at all: with no rate for Stars no
+// percent is credited, no days are given, and no "every N" cycle is counted for it —
+// otherwise payments worth nothing would add up to a days reward.
+func TestStarsWithoutRateEarnNothing(t *testing.T) {
+	e := newEnv(t)
+	cfg := e.program(
+		Rule{ID: "p", Kind: KindPercent, Value: 10, Every: 3, Enabled: true},
+		Rule{ID: "d", Kind: KindDays, Value: 30, Enabled: true},
+	)
+	e.invite(inviter, invitee)
+	u := e.sub(inviter)
+	start := u.ExpiresAt.Int64
+	cfg.StarsRate = 0
+	must(t, settings.Set(e.ctx, settings.New(e.st.Q), KeyConfig, cfg))
+
+	// Three of the rule's payments, worth nothing: the third would pay on its step.
+	for i := range 3 {
+		e.pay(invitee, e.rich, 150, "XTR")
+		st, err := e.s.StatsOf(e.ctx, inviter)
+		must(t, err)
+		if len(st.Progress) != 0 {
+			t.Fatalf("payment %d counted towards a rule: %+v", i+1, st.Progress)
+		}
+	}
+	if got := e.balance(inviter); got != 0 {
+		t.Fatalf("payments worth nothing credited %d kopecks", got)
+	}
+	after, err := e.st.Q.GetUser(e.ctx, u.ID)
+	must(t, err)
+	if after.ExpiresAt.Int64 != start {
+		t.Fatalf("a payment worth nothing added days: %d then %d", start, after.ExpiresAt.Int64)
+	}
+
+	// Priced again, the payment earns: it counts towards the rules and pays the days.
+	cfg.StarsRate = 100
+	must(t, settings.Set(e.ctx, settings.New(e.st.Q), KeyConfig, cfg))
+	e.pay(invitee, e.rich, 150, "XTR")
+	st, err := e.s.StatsOf(e.ctx, inviter)
+	must(t, err)
+	if st.Progress["p"] != 1 {
+		t.Fatalf("a priced payment was not counted: %+v", st.Progress)
+	}
+	after, err = e.st.Q.GetUser(e.ctx, u.ID)
+	must(t, err)
+	if after.ExpiresAt.Int64 != start+30*int64(24*time.Hour/time.Second) {
+		t.Fatalf("the days rule did not pay: %d then %d", start, after.ExpiresAt.Int64)
+	}
+}
+
 // Two tiers pay differently: each rule counts the tariffs it names and the rest not at all.
 func TestRulesNameTheirTariffs(t *testing.T) {
 	e := newEnv(t)
@@ -273,6 +348,90 @@ func TestDaysRuleExtendsTheSubscription(t *testing.T) {
 	must(t, err)
 	if after.ExpiresAt.Int64 != start+30*int64(24*time.Hour/time.Second) {
 		t.Fatalf("the third payment did not add a month: %d then %d", start, after.ExpiresAt.Int64)
+	}
+}
+
+// One payment pays out once per rule, not once in all: a percent rule and a days rule may
+// both name the tariff, and both earn on the same payment.
+func TestTwoRulesPayOnOnePayment(t *testing.T) {
+	e := newEnv(t)
+	e.program(
+		Rule{ID: "p", Kind: KindPercent, Value: 10, Enabled: true},
+		Rule{ID: "d", Kind: KindDays, Value: 30, Enabled: true},
+	)
+	e.invite(inviter, invitee)
+	u := e.sub(inviter)
+	start := u.ExpiresAt.Int64
+
+	rewards := e.pay(invitee, e.cheap, 7000, "RUB")
+	if len(rewards) != 2 {
+		t.Fatalf("one payment paid %d rewards: %+v", len(rewards), rewards)
+	}
+	if got := e.balance(inviter); got != 700 {
+		t.Fatalf("the percent rule paid %d kopecks", got)
+	}
+	after, err := e.st.Q.GetUser(e.ctx, u.ID)
+	must(t, err)
+	if after.ExpiresAt.Int64 != start+30*int64(24*time.Hour/time.Second) {
+		t.Fatalf("the days rule did not add a month: %d then %d", start, after.ExpiresAt.Int64)
+	}
+	rows, err := e.st.Q.ListReferralRewardsOf(e.ctx, db.ListReferralRewardsOfParams{ReferrerTgID: inviter, Lim: 10})
+	must(t, err)
+	if len(rows) != 2 || rows[0].RuleID == rows[1].RuleID {
+		t.Fatalf("the rewards recorded: %+v", rows)
+	}
+}
+
+// A days reward gives nothing onto a subscription that never expires: there is no end to
+// add the days to, and the subscription must not be turned into one that ends. The
+// payment is still counted towards the rule, as with a referrer who has none.
+func TestDaysRuleOnAnUnlimitedSubscription(t *testing.T) {
+	e := newEnv(t)
+	e.program(Rule{ID: "d", Kind: KindDays, Value: 30, Enabled: true})
+	e.invite(inviter, invitee)
+	u := e.unlimitedSub(inviter)
+	if u.ExpiresAt.Valid {
+		t.Fatalf("the fixture's subscription expires: %+v", u.ExpiresAt)
+	}
+
+	e.pay(invitee, e.cheap, 7000, "RUB")
+	after, err := e.st.Q.GetUser(e.ctx, u.ID)
+	must(t, err)
+	if after.ExpiresAt.Valid {
+		t.Fatalf("the subscription that never expired now ends: %+v", after.ExpiresAt)
+	}
+	rows, err := e.st.Q.ListReferralRewardsOf(e.ctx, db.ListReferralRewardsOfParams{ReferrerTgID: inviter, Lim: 10})
+	must(t, err)
+	if len(rows) != 0 {
+		t.Fatalf("a term was recorded for a subscription that never ends: %+v", rows)
+	}
+	st, err := e.s.StatsOf(e.ctx, inviter)
+	must(t, err)
+	if st.Progress["d"] != 1 {
+		t.Fatalf("the payment was not counted towards the rule: %+v", st.Progress)
+	}
+}
+
+// A hand-edited setup may name one rule twice: the copy must not pay a second time for one
+// payment — the reward row is unique per payment and rule, and a second one would abort
+// the payment's transaction.
+func TestRuleNamedTwiceCountsOnce(t *testing.T) {
+	e := newEnv(t)
+	// Set as a hand-edited value: validation would refuse two rules of one id.
+	must(t, settings.Set(e.ctx, settings.New(e.st.Q), KeyConfig, Program{Enabled: true, StarsRate: 100,
+		Rules: []Rule{
+			{ID: "p", Kind: KindPercent, Value: 10, Every: 1, Enabled: true},
+			{ID: "p", Kind: KindPercent, Value: 10, Every: 1, Enabled: true},
+		}}))
+	e.invite(inviter, invitee)
+	e.pay(invitee, e.cheap, 7000, "RUB")
+	if got := e.balance(inviter); got != 700 {
+		t.Fatalf("the rule paid twice: %d kopecks", got)
+	}
+	rows, err := e.st.Q.ListReferralRewardsOf(e.ctx, db.ListReferralRewardsOfParams{ReferrerTgID: inviter, Lim: 10})
+	must(t, err)
+	if len(rows) != 1 {
+		t.Fatalf("the rewards recorded: %+v", rows)
 	}
 }
 

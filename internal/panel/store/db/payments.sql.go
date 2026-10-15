@@ -345,6 +345,41 @@ func (q *Queries) GetPaymentByPayload(ctx context.Context, payload string) (Paym
 	return i, err
 }
 
+const getPaymentForUpdate = `-- name: GetPaymentForUpdate :one
+SELECT id, provider, payload, external_id, tg_id, kind, user_id, tariff_id, package_id, tariff_name, amount, currency, status, error, pay_url, created_at, paid_at, applied_at, refunded_at, term_days, revert FROM payments WHERE id = $1 FOR UPDATE
+`
+
+// The payment's row is held until the transaction ends: what the caller decides on it must
+// not change under it (a hold going back for an invoice that was paid as it did).
+func (q *Queries) GetPaymentForUpdate(ctx context.Context, id int64) (Payment, error) {
+	row := q.db.QueryRowContext(ctx, getPaymentForUpdate, id)
+	var i Payment
+	err := row.Scan(
+		&i.ID,
+		&i.Provider,
+		&i.Payload,
+		&i.ExternalID,
+		&i.TgID,
+		&i.Kind,
+		&i.UserID,
+		&i.TariffID,
+		&i.PackageID,
+		&i.TariffName,
+		&i.Amount,
+		&i.Currency,
+		&i.Status,
+		&i.Error,
+		&i.PayUrl,
+		&i.CreatedAt,
+		&i.PaidAt,
+		&i.AppliedAt,
+		&i.RefundedAt,
+		&i.TermDays,
+		&i.Revert,
+	)
+	return i, err
+}
+
 const listPaidPayments = `-- name: ListPaidPayments :many
 SELECT id, provider, payload, external_id, tg_id, kind, user_id, tariff_id, package_id, tariff_name, amount, currency, status, error, pay_url, created_at, paid_at, applied_at, refunded_at, term_days, revert FROM payments WHERE status = 'paid' ORDER BY id
 `

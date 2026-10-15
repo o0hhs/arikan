@@ -3,6 +3,8 @@ package billing
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"fmt"
 	"log/slog"
 	"testing"
 	"time"
@@ -116,6 +118,150 @@ func TestReferralBalanceComesBackWithTheRefund(t *testing.T) {
 	}
 	if got := balance(t, e, 101); got != 3000 {
 		t.Fatalf("after the refund the balance is %d", got)
+	}
+}
+
+// hold gives the buyer kopecks of balance and an invoice that spends what it can of it:
+// the invoice is what the hold hangs on.
+func hold(t *testing.T, e *env, tgID, kopecks int64) db.Payment {
+	t.Helper()
+	ctx := context.Background()
+	must(t, e.st.Tx(ctx, func(q *db.Queries) error {
+		_, err := q.TakeReferralAccount(ctx, db.TakeReferralAccountParams{TgID: tgID, Code: fmt.Sprintf("hold%d", tgID), CreatedAt: e.now.Unix()})
+		return err
+	}))
+	must(t, e.st.Tx(ctx, func(q *db.Queries) error {
+		_, err := q.AddReferralBalance(ctx, db.AddReferralBalanceParams{TgID: tgID, Amount: kopecks, UpdatedAt: e.now.Unix()})
+		return err
+	}))
+	p, err := e.s.Invoice(ctx, InvoiceRequest{TgID: tgID, TariffID: e.sale.ID, Provider: Stars})
+	must(t, err)
+	return p
+}
+
+func refundCharges(e *env) []string {
+	e.tg.mu.Lock()
+	defer e.tg.mu.Unlock()
+	return append([]string(nil), e.tg.refunds...)
+}
+
+// A payment the provider reports after its balance hold was given back is not applied: the
+// hold is the buyer's money again, so the subscription would cost less than the tariff. Its
+// money goes back instead, as for a promo payment made too late.
+func TestLatePaymentAfterTheHoldIsReleasedIsRefunded(t *testing.T) {
+	e, refs, _ := referralEnv(t)
+	ctx := context.Background()
+	invite(t, refs, 101, 555)
+	p := hold(t, e, 101, 2000)
+	if p.Amount != e.sale.PriceStars.Int64-20 {
+		t.Fatalf("the invoice after the hold: %d Stars", p.Amount)
+	}
+
+	// The invoice expires, with the hold it made.
+	e.now = e.now.Add(pendingTTL + time.Minute)
+	e.s.Reconcile(ctx)
+	if got := balance(t, e, 101); got != 2000 {
+		t.Fatalf("the hold was not given back: %d kopecks", got)
+	}
+	before := e.users()
+
+	if err := e.s.StarsPaid(ctx, 101, p.Payload, "late-charge", "XTR", p.Amount); err != nil {
+		t.Fatalf("a late payment: %v", err)
+	}
+	if got := e.payment(p.ID); got.Status != "refunded" {
+		t.Fatalf("the late payment is %q, wanted refunded", got.Status)
+	}
+	if refunds := refundCharges(e); len(refunds) != 1 || refunds[0] != "late-charge" {
+		t.Fatalf("refunds = %v", refunds)
+	}
+	if got := balance(t, e, 101); got != 2000 {
+		t.Fatalf("the late payment took the balance again: %d kopecks", got)
+	}
+	if e.users() != before {
+		t.Fatal("the late payment was applied")
+	}
+}
+
+// A refund the provider refuses is retried by the reconcile pass, with the charge the
+// provider reported.
+func TestLateReferralRefundIsRetried(t *testing.T) {
+	e, refs, _ := referralEnv(t)
+	ctx := context.Background()
+	invite(t, refs, 101, 555)
+	p := hold(t, e, 101, 2000)
+	e.now = e.now.Add(pendingTTL + time.Minute)
+	e.s.Reconcile(ctx)
+
+	e.tg.refundErr = errors.New("provider down")
+	if err := e.s.StarsPaid(ctx, 101, p.Payload, "retry-late", "XTR", p.Amount); !errors.Is(err, ErrRecorded) {
+		t.Fatalf("a refused refund: %v", err)
+	}
+	failed := e.payment(p.ID)
+	if failed.Status != "expired" || failed.Error != "ref_late_refund_failed" || failed.ExternalID.String != "retry-late" {
+		t.Fatalf("payment after the failed refund: %+v", failed)
+	}
+
+	e.tg.refundErr = nil
+	e.s.Reconcile(ctx)
+	if got := e.payment(p.ID); got.Status != "refunded" || got.Error != "" {
+		t.Fatalf("reconciled payment status=%q error=%q", got.Status, got.Error)
+	}
+	if refunds := refundCharges(e); len(refunds) != 1 || refunds[0] != "retry-late" {
+		t.Fatalf("refunds = %v", refunds)
+	}
+}
+
+// A payment already marked paid when its hold is found given back — one from before this
+// rule, or one a race slipped past — is not applied either: the apply refunds it.
+func TestPaidPaymentWithAReleasedHoldIsRefunded(t *testing.T) {
+	e, refs, _ := referralEnv(t)
+	ctx := context.Background()
+	invite(t, refs, 101, 555)
+	p := hold(t, e, 101, 2000)
+	e.now = e.now.Add(pendingTTL + time.Minute)
+	e.s.Reconcile(ctx)
+	if _, err := e.st.DB.ExecContext(ctx, "UPDATE payments SET status='paid', paid_at=$2, external_id='paid-late' WHERE id=$1", p.ID, e.now.Unix()); err != nil {
+		t.Fatal(err)
+	}
+
+	e.s.Reconcile(ctx)
+	if got := e.payment(p.ID); got.Status != "refunded" {
+		t.Fatalf("the paid payment with a given-back hold is %q", got.Status)
+	}
+	if refunds := refundCharges(e); len(refunds) != 1 || refunds[0] != "paid-late" {
+		t.Fatalf("refunds = %v", refunds)
+	}
+	if got := balance(t, e, 101); got != 2000 {
+		t.Fatalf("the refund took the balance again: %d kopecks", got)
+	}
+	if e.users() != 0 {
+		t.Fatal("the payment was applied after all")
+	}
+}
+
+// An invoice refunded before it was applied — paid, but its subscription never made — gives
+// the balance hold back with the money: it will never be applied.
+func TestRefundOfAPaidInvoiceGivesTheHoldBack(t *testing.T) {
+	e, refs, _ := referralEnv(t)
+	ctx := context.Background()
+	invite(t, refs, 101, 555)
+	p := hold(t, e, 101, 2000)
+	if _, err := e.st.DB.ExecContext(ctx, "UPDATE payments SET status='paid', paid_at=$2, external_id='paid-open' WHERE id=$1", p.ID, e.now.Unix()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.s.Refund(ctx, p.ID); err != nil {
+		t.Fatal(err)
+	}
+	if got := e.payment(p.ID); got.Status != "refunded" {
+		t.Fatalf("the refunded invoice is %q", got.Status)
+	}
+	if got := balance(t, e, 101); got != 0 {
+		t.Fatalf("the refund gave the hold back early: %d kopecks", got)
+	}
+
+	e.s.Reconcile(ctx)
+	if got := balance(t, e, 101); got != 2000 {
+		t.Fatalf("the hold of a refunded invoice was not given back: %d kopecks", got)
 	}
 }
 

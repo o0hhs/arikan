@@ -142,7 +142,7 @@ type Deps struct {
 type Service struct {
 	d            Deps
 	mu           sync.Mutex
-	promoRefunds keyedLock // by payment: one late-promo refund of it at a time
+	lateRefunds  keyedLock // by payment: one late-payment refund of it at a time (promo or referral)
 	tg           Telegram
 	notify       Notifier
 	buyers       keyedLock // by Telegram account: one invoice opened at a time
@@ -849,6 +849,18 @@ func (s *Service) paid(ctx context.Context, p db.Payment, externalID string) err
 			}
 		}
 	}
+	// And the balance hold of the invoice, if it was given back while nobody was paying:
+	// the payment no longer costs what it was priced at, so it is refunded, not applied —
+	// the same decision the promo path makes for a discount that ran out.
+	if s.d.Referral != nil {
+		handled, err := s.refundLateReferralPayment(ctx, p.ID, externalID)
+		if err != nil {
+			return err
+		}
+		if handled {
+			return nil
+		}
+	}
 	n, err := s.d.Store.Q.MarkPaymentPaid(ctx, db.MarkPaymentPaidParams{ExternalID: sql.NullString{String: externalID, Valid: true},
 		PaidAt: sql.NullInt64{Int64: s.d.Now().Unix(), Valid: true}, ID: p.ID})
 	if err != nil {
@@ -908,6 +920,7 @@ func (s *Service) Apply(ctx context.Context, id int64) error {
 		u       db.User
 		created bool
 		done    bool
+		lateRef bool // the referral hold of this payment was given back: refund, not apply
 		rewards []referral.Reward
 	)
 	// A payment is applied with the settings as they are; unreadable, it waits for the
@@ -919,7 +932,7 @@ func (s *Service) Apply(ctx context.Context, id int64) error {
 	reset := cfg.RenewResetsTraffic
 	run := func(q *db.Queries) error {
 		// A conflict runs this again: nothing from an attempt that rolled back may stay.
-		pay, u, created, done, rewards = db.Payment{}, db.User{}, false, false, nil
+		pay, u, created, done, lateRef, rewards = db.Payment{}, db.User{}, false, false, false, nil
 		var err error
 		if pay, err = q.GetPayment(ctx, id); err != nil {
 			return err
@@ -927,6 +940,17 @@ func (s *Service) Apply(ctx context.Context, id int64) error {
 		if pay.Status != PaymentPaid {
 			done = true
 			return nil
+		}
+		if s.d.Referral != nil {
+			// A payment whose balance hold was given back while it waited is refunded
+			// instead of applied: it no longer costs what it was priced at (see
+			// refundLateReferralPayment, which runs outside this transaction).
+			if lateRef, err = s.d.Referral.Released(ctx, pay.ID); err != nil {
+				return err
+			}
+			if lateRef {
+				return nil
+			}
 		}
 		if pay.Kind == KindPackage {
 			if u, err = s.applyPackage(ctx, q, pay); err != nil {
@@ -997,7 +1021,7 @@ func (s *Service) Apply(ctx context.Context, id int64) error {
 	}
 	// The addons hear of it in the same transaction: never of a payment that rolled back.
 	told := func(q *db.Queries) error {
-		if err := run(q); err != nil || done {
+		if err := run(q); err != nil || done || lateRef {
 			return err
 		}
 		if err := emitPayment(ctx, q, s.d.Now(), events.PaymentPaid, pay, u.ID, created, false); err != nil {
@@ -1013,6 +1037,15 @@ func (s *Service) Apply(ctx context.Context, id int64) error {
 		if err = s.d.Users.RefillSlots(ctx); err == nil {
 			err = s.d.Store.Tx(ctx, told)
 		}
+	}
+	if err == nil && lateRef {
+		// Nothing was granted: the payment's outcome is the refund. A failure leaves the
+		// payment as it is — paid, with the marker the reconcile pass retries.
+		if _, rerr := s.refundLateReferralPayment(ctx, id, pay.ExternalID.String); rerr != nil {
+			s.d.Log.Error("billing: refund of a payment whose referral hold was released", "payment", id, "err", rerr)
+			return rerr
+		}
+		return nil
 	}
 	if err == nil && !done {
 		s.d.Events.Kick()
@@ -1212,6 +1245,27 @@ func (s *Service) Reconcile(ctx context.Context) {
 				return s.refundPromoPayment(ctx, current, p.ExternalID.String)
 			}); err != nil {
 				s.d.Log.Error("billing: retry late promo refund", "payment", p.ID, "err", err)
+			}
+		}
+	}
+	lateRefunds, err := q.ListLateReferralRefunds(ctx)
+	if err != nil {
+		s.d.Log.Error("billing: reconcile late referral refunds", "err", err)
+	} else if s.d.Referral != nil {
+		for _, id := range lateRefunds {
+			if ctx.Err() != nil {
+				return
+			}
+			p, err := q.GetPayment(ctx, id)
+			if err != nil {
+				s.d.Log.Error("billing: load late referral refund", "payment", id, "err", err)
+				continue
+			}
+			if !p.ExternalID.Valid {
+				continue
+			}
+			if _, err := s.refundLateReferralPayment(ctx, p.ID, p.ExternalID.String); err != nil {
+				s.d.Log.Error("billing: retry late referral refund", "payment", p.ID, "err", err)
 			}
 		}
 	}

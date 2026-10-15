@@ -274,13 +274,28 @@ func (s *Service) reward(ctx context.Context, q *db.Queries, cfg Program, p db.P
 		return nil, err
 	}
 	rubles := Rub(p.Amount, p.Currency, cfg.StarsRate)
+	// A payment the programme cannot price earns nothing at all: Stars with no rate pay no
+	// percent, give no days and burn no "every N" cycle — otherwise payments worth nothing
+	// would add up to a days reward, against what the rate means (config.go: 0, a payment
+	// in Stars earns nothing). The invitee still counts as having paid.
+	if p.Currency != Currency && rubles <= 0 {
+		return nil, nil
+	}
 	now := s.Now().Unix()
 	payID := sql.NullInt64{Int64: p.ID, Valid: true}
 	var out []Reward
+	seen := make(map[string]bool, len(cfg.Rules))
 	for _, rule := range cfg.Rules {
 		if !rule.Enabled || !rule.counts(p.TariffID.Int64) {
 			continue
 		}
+		// A hand-edited setup may name one rule twice: the copy must not earn a second time
+		// for one payment (the reward is unique per payment and rule, and the row would
+		// abort the payment's transaction).
+		if seen[rule.ID] {
+			continue
+		}
+		seen[rule.ID] = true
 		switch rule.Kind {
 		case KindPercent:
 			amount := share(rubles, rule.Value)
@@ -314,12 +329,14 @@ func (s *Service) reward(ctx context.Context, q *db.Queries, cfg Program, p db.P
 				continue
 			}
 			// The term goes onto a subscription the referrer has; with none there is
-			// nothing to extend, and the payment is still counted towards the rule.
+			// nothing to extend, and the payment is still counted towards the rule. A
+			// subscription that never ends has no end to add days to either: what was
+			// promised is days, and there is nothing to give them onto.
 			target, ok, err := s.currentSub(ctx, q, ref.ReferrerTgID)
 			if err != nil {
 				return nil, err
 			}
-			if !ok {
+			if !ok || !target.ExpiresAt.Valid {
 				continue
 			}
 			if err := extend(ctx, q, target, rule.Value, now); err != nil {
@@ -382,7 +399,9 @@ func (s *Service) currentSub(ctx context.Context, q *db.Queries, tgID int64) (db
 }
 
 // extend adds days to a subscription from its own end, or from now when that has passed,
-// and turns it on: what a rule promised is what the account gets to use.
+// and turns it on: what a rule promised is what the account gets to use. u must have an
+// end: a subscription that never expires has nothing to add days to, and a days rule does
+// not call this for one (reward).
 func extend(ctx context.Context, q *db.Queries, u db.User, days, now int64) error {
 	base := now
 	if u.ExpiresAt.Valid && u.ExpiresAt.Int64 > now {
@@ -463,6 +482,22 @@ func (s *Service) Held(ctx context.Context, q *db.Queries, paymentID int64, curr
 	return FromRub(sp.Amount, currency, cfg.StarsRate), true, nil
 }
 
+// Released says whether the balance hold of a payment was given back: the invoice expired
+// with the hold it made (or the payment was refunded), and the reconciler sent the money
+// back to its owner. A payment a provider reports paid after that no longer costs what it
+// was priced at — the hold covers part of the invoice and is the buyer's again — so the
+// billing refunds it instead of applying it (billing.refundLateReferralPayment).
+func (s *Service) Released(ctx context.Context, paymentID int64) (bool, error) {
+	sp, err := s.Store.Q.GetReferralSpendByPayment(ctx, sql.NullInt64{Int64: paymentID, Valid: true})
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return sp.RevertedAt.Valid, nil
+}
+
 // TakeBack gives back what a payment held or earned for a referrer, on q's transaction. A
 // hold on an invoice nobody paid is money of its owner again; what a percent rule already
 // put into a balance comes out of that balance, so a spent one simply stays spent. Days
@@ -514,10 +549,24 @@ func (s *Service) ReleaseClosed(ctx context.Context) error {
 	}
 	for _, r := range rows {
 		if err := s.Store.Tx(ctx, func(q *db.Queries) error {
+			// The invoice may have been paid while this pass waited its turn: its row is
+			// locked and looked at again, and a hold goes back only for an invoice that is
+			// still closed. Without this, a payment reported paid between the listing and
+			// this transaction would be applied with its discount given back.
+			p, err := q.GetPaymentForUpdate(ctx, r.PaymentID.Int64)
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil
+			}
+			if err != nil {
+				return err
+			}
+			if p.Status != "expired" && p.Status != "failed" && p.Status != "refunded" {
+				return nil
+			}
 			if _, err := s.TakeBack(ctx, q, r.PaymentID.Int64); err != nil {
 				return err
 			}
-			_, err := q.ReleaseReferralSpend(ctx, db.ReleaseReferralSpendParams{ID: r.ID, RevertedAt: sql.NullInt64{Int64: s.Now().Unix(), Valid: true}})
+			_, err = q.ReleaseReferralSpend(ctx, db.ReleaseReferralSpendParams{ID: r.ID, RevertedAt: sql.NullInt64{Int64: s.Now().Unix(), Valid: true}})
 			return err
 		}); err != nil {
 			return err
