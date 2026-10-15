@@ -11,6 +11,8 @@
 //	arikan-release legacy-check dist/manifest.json
 //	RELEASE_SIGNING_KEY="$(cat key.pem)" arikan-release index -version 0.5.0.1 \
 //	    -from-file .github/upgrade-from -in updates/index.json -out dist
+//	arikan-release addon -version 0.5.1.3 \
+//	    -image ghcr.io/o0hhs/arikan -digest sha256:… -out dist
 package main
 
 import (
@@ -44,7 +46,7 @@ func main() {
 
 func run(args []string) error {
 	if len(args) == 0 {
-		return errors.New("usage: mikan-release keygen|manifest|verify|legacy-check|index|goals …")
+		return errors.New("usage: mikan-release keygen|manifest|verify|legacy-check|index|addon|goals …")
 	}
 	switch args[0] {
 	case "keygen":
@@ -57,6 +59,8 @@ func run(args []string) error {
 		return legacyCheckFile(args[1:])
 	case "index":
 		return makeIndex(args[1:])
+	case "addon":
+		return makeAddon(args[1:])
 	case "goals":
 		return makeGoals(args[1:])
 	}
