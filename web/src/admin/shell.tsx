@@ -188,7 +188,7 @@ function AdminRow() {
       <Avatar name={name} seed={4} size="sm" />
       <div className="who-wrap min-w-0">
         <div className="truncate text-[13px] font-medium">{name}</div>
-        <div className="text-xs text-[var(--ink-500)]">{me.data?.admin.totp_enabled ? t("shell.twoFactorOn") : t("shell.owner")}</div>
+        <div className="text-xs text-[var(--md-on-surface-variant)]">{me.data?.admin.totp_enabled ? t("shell.twoFactorOn") : t("shell.owner")}</div>
       </div>
       <button type="button" className="icon-btn logout ml-auto" aria-label={t("shell.logout")} onClick={() => logout.mutate()} disabled={logout.isPending}>
         <LogOut size={18} />

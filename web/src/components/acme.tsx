@@ -57,13 +57,13 @@ export function AcmeProblem({
   const proxy = host && (code === "port80_busy" || code === "port80_foreign") && (!holder || PROXIES.has(holder.toLowerCase()));
   return (
     <div className={className} role="alert">
-      <p className="text-[13px] text-[var(--berry-600)]">{text}</p>
-      {holder ? <p className="mt-1 text-xs text-[var(--ink-600)]">{t("certs.holder", { holder })}</p> : null}
-      {retryAt ? <p className="mt-1 text-xs text-[var(--ink-600)]">{t("certs.retryAt", { at: when(retryAt) })}</p> : null}
+      <p className="text-[13px] text-[var(--md-error)]">{text}</p>
+      {holder ? <p className="mt-1 text-xs text-[var(--md-on-surface-variant)]">{t("certs.holder", { holder })}</p> : null}
+      {retryAt ? <p className="mt-1 text-xs text-[var(--md-on-surface-variant)]">{t("certs.retryAt", { at: when(retryAt) })}</p> : null}
       {proxy ? (
         <>
           <CommandToCopy command={`arikan cert proxy ${host}`} label={t(node ? "certs.proxyOnNode" : "certs.proxyOnServer")} />
-          <p className="mt-1 text-xs text-[var(--ink-500)]">{t("certs.proxyNote")}</p>
+          <p className="mt-1 text-xs text-[var(--md-on-surface-variant)]">{t("certs.proxyNote")}</p>
         </>
       ) : null}
       <Details text={detail ?? (tMaybe(`errors.acme.${code}`) ? "" : code)} />
@@ -86,16 +86,16 @@ function firstSentence(s: string): string {
 export function AcmeAttempts({ attempts, className }: { attempts?: Attempt[] | null; className?: string }) {
   if (!attempts?.length) return null;
   return (
-    <details className={`text-xs text-[var(--ink-500)] ${className ?? ""}`}>
-      <summary className="cursor-pointer font-medium text-[var(--ink-600)]">{t("certs.attempts", { n: attempts.length })}</summary>
+    <details className={`text-xs text-[var(--md-on-surface-variant)] ${className ?? ""}`}>
+      <summary className="cursor-pointer font-medium text-[var(--md-on-surface-variant)]">{t("certs.attempts", { n: attempts.length })}</summary>
       <ol className="mt-2 space-y-2 border-l border-[var(--line)] pl-3">
         {attempts.map((a, i) => (
           <li key={`${a.at}-${i}`}>
             <p className="flex flex-wrap items-center gap-x-1.5">
-              {a.error ? <XCircle size={14} className="shrink-0 text-[var(--berry-600)]" aria-hidden /> : <CheckCircle2 size={14} className="shrink-0 text-[var(--leaf-500)]" aria-hidden />}
-              <span className="tabular-nums text-[var(--ink-600)]">{when(a.at)}</span>
+              {a.error ? <XCircle size={14} className="shrink-0 text-[var(--md-error)]" aria-hidden /> : <CheckCircle2 size={14} className="shrink-0 text-[var(--leaf-500)]" aria-hidden />}
+              <span className="tabular-nums text-[var(--md-on-surface-variant)]">{when(a.at)}</span>
               <span>· {caName(a.ca)} ·</span>
-              <span className={a.error ? "text-[var(--berry-600)]" : "text-[var(--leaf-700)]"}>
+              <span className={a.error ? "text-[var(--md-error)]" : "text-[var(--leaf-700)]"}>
                 {a.error ? firstSentence(tMaybe(`errors.acme.${a.error}`) ?? a.error) : t("certs.attemptOk")}
               </span>
             </p>
@@ -112,8 +112,8 @@ export function AcmeAttempts({ attempts, className }: { attempts?: Attempt[] | n
 function Details({ text }: { text?: string }) {
   if (!text) return null;
   return (
-    <details className="mt-1 text-xs text-[var(--ink-500)]">
-      <summary className="cursor-pointer font-medium text-[var(--ink-600)]">{t("certs.more")}</summary>
+    <details className="mt-1 text-xs text-[var(--md-on-surface-variant)]">
+      <summary className="cursor-pointer font-medium text-[var(--md-on-surface-variant)]">{t("certs.more")}</summary>
       <p className="mono mt-1 break-all whitespace-pre-wrap">{text}</p>
     </details>
   );
@@ -124,7 +124,7 @@ function CommandToCopy({ command, label }: { command: string; label: string }) {
   const copy = useCopy();
   return (
     <div className="mt-2">
-      <p className="mb-1 text-xs text-[var(--ink-500)]">{label}</p>
+      <p className="mb-1 text-xs text-[var(--md-on-surface-variant)]">{label}</p>
       <div className="link-field">
         <span className="mono text-xs">{command}</span>
         <button type="button" className="icon-btn" onClick={() => void copy(command, t("certs.copied"))} aria-label={`${t("certs.copy")}: ${command}`}>
@@ -138,8 +138,8 @@ function CommandToCopy({ command, label }: { command: string; label: string }) {
 const ICON: Record<string, ReactNode> = {
   ok: <CheckCircle2 size={18} className="shrink-0 text-[var(--leaf-500)]" aria-hidden />,
   info: <Info size={18} className="shrink-0 text-[var(--ink-400)]" aria-hidden />,
-  warn: <AlertTriangle size={18} className="shrink-0 text-[var(--mikan-600)]" aria-hidden />,
-  fail: <XCircle size={18} className="shrink-0 text-[var(--berry-600)]" aria-hidden />,
+  warn: <AlertTriangle size={18} className="shrink-0 text-[var(--md-primary)]" aria-hidden />,
+  fail: <XCircle size={18} className="shrink-0 text-[var(--md-error)]" aria-hidden />,
 };
 
 /** The text of a finding: its code with its parameters, dates in the reader's words. */
@@ -256,7 +256,7 @@ export function CertCheckDrawer({ open, onClose, onUseZeroSSL }: { open: boolean
         </>
       }
     >
-      <p className="pt-5 text-[13px] text-[var(--ink-600)]">{t("certs.checkLead")}</p>
+      <p className="pt-5 text-[13px] text-[var(--md-on-surface-variant)]">{t("certs.checkLead")}</p>
       {run.isPending ? (
         <div className="mt-4 grid gap-2" aria-busy="true" aria-label={t("certs.checkTitle")}>
           {[0, 1, 2, 3, 4].map((i) => (
@@ -277,7 +277,7 @@ export function CertCheckDrawer({ open, onClose, onUseZeroSSL }: { open: boolean
               <li key={`${c.id}-${c.node_id ?? 0}-${c.params?.port ?? ""}-${c.params?.inbound ?? ""}-${i}`} className="flex gap-3 py-3">
                 <span className="pt-0.5">{ICON[c.status]}</span>
                 <div className="min-w-0 flex-1">
-                  <div className="text-xs text-[var(--ink-500)]">
+                  <div className="text-xs text-[var(--md-on-surface-variant)]">
                     {tMaybe(`certCheck.title.${c.id}`) ?? c.id}
                     {c.node ? ` · ${t("certs.node", { name: c.node })}` : ""}
                   </div>
@@ -285,8 +285,8 @@ export function CertCheckDrawer({ open, onClose, onUseZeroSSL }: { open: boolean
                     <AcmeProblem code={c.params?.error ?? ""} detail={c.detail} holder={c.params?.holder} retryAt={c.params?.retry_at} className="mt-0.5" />
                   ) : (
                     <>
-                      <p className="mt-0.5 text-[13px] text-[var(--ink-800)]">{checkText(c)}</p>
-                      {c.params?.holder ? <p className="mt-1 text-xs text-[var(--ink-600)]">{t("certs.holder", { holder: c.params.holder })}</p> : null}
+                      <p className="mt-0.5 text-[13px] text-[var(--md-on-surface)]">{checkText(c)}</p>
+                      {c.params?.holder ? <p className="mt-1 text-xs text-[var(--md-on-surface-variant)]">{t("certs.holder", { holder: c.params.holder })}</p> : null}
                       <Details text={c.detail} />
                     </>
                   )}

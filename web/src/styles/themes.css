@@ -747,6 +747,10 @@ html[data-perf="1"] {
   /* State layers: the ink already on the surface, at M3's opacities. */
   --md-state-hover: color-mix(in srgb, currentColor 8%, transparent);
   --md-state-press: color-mix(in srgb, currentColor 12%, transparent);
+
+  /* --wash is the quiet strip a snippet or a log line sits on; it had no value of its own
+     (node-turn.tsx asked for it before it existed), so the role gives it one. */
+  --wash: var(--md-surface-container-high);
 }
 
 [data-tone="dark"], .sub-look[data-scheme="dark"] {
@@ -790,12 +794,18 @@ html[data-perf="1"] {
   --md-inverse-on-surface: var(--on-fill);
   --md-inverse-primary: color-mix(in srgb, var(--on-fill) 88%, var(--fill));
   --md-scrim: var(--scrim);
+
+  /* Every role of the layer is declared in both blocks, previews included: a theme preview
+     draws itself on an element of its own, and a role left out here would be inherited —
+     resolved against the admin's palette instead of the one being previewed. */
+  --wash: var(--md-surface-container-high);
 }
 
 /* ---------- what every dark theme does to the components ---------- */
 
-[data-tone="dark"] .btn-primary:hover:not(:disabled) { background: var(--fill-hover); }
-/* An accent at 45% over a dark card reads as mud: a disabled primary button goes grey. */
-[data-tone="dark"] .btn-primary:disabled { opacity: 1; background: var(--ink-100); color: var(--ink-400); box-shadow: none; }
+/* The M3 layer (app.css) needs nothing here: a role is the same role in both tones — what
+   changes with the tone is the palette the role is derived from. These rules are for the
+   components that predate the roles and genuinely differ by tone. */
+
 /* Pastel avatars with light initials: the colour moves to the letter, the circle gets a tint of it. */
 [data-tone="dark"] .avatar { background: color-mix(in srgb, var(--av, #ede7e1) 20%, var(--surface-solid)); color: var(--av, #ede7e1); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--av, #ede7e1) 25%, transparent); }
