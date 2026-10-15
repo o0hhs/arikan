@@ -10,7 +10,7 @@ import { ApiError } from "../api/client";
 import { Atmosphere } from "../components/atmosphere";
 import { getTheme, setTheme } from "../components/theme";
 import { ErrorBoundary } from "../components/error-boundary";
-import { getPerf, usePerf } from "../lib/perf";
+import { getPerf, onPerfChange, usePerf } from "../lib/perf";
 import { ToastProvider } from "../components/toast";
 import { initI18n } from "../i18n";
 import { adminDicts } from "../i18n/admin";
@@ -33,10 +33,12 @@ const router = createAppRouter(queryClient);
 setTheme(getTheme(), { keep: false });
 
 // The performance mode may switch while the panel runs: the queries opened after follow.
+// This document's own switch is heard through the mode's listeners ("storage" fires only
+// in the other tabs, where this listener follows it).
+const followPerf = () => queryClient.setDefaultOptions({ queries: { refetchOnWindowFocus: !getPerf() } });
+onPerfChange(followPerf);
 window.addEventListener("storage", (e) => {
-  if (e.key === "mikan-perf") {
-    queryClient.setDefaultOptions({ queries: { refetchOnWindowFocus: !getPerf() } });
-  }
+  if (e.key === "mikan-perf") followPerf();
 });
 
 window.addEventListener("mikan:unauthorized", () => {

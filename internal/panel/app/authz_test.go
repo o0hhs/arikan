@@ -18,6 +18,7 @@ import (
 	"mikan/internal/panel/domain"
 	"mikan/internal/panel/settings"
 	"mikan/internal/panel/store/db"
+	"mikan/internal/proto"
 )
 
 // keyHarness is a harness logged in, with a "read" key and a "full" key made the way an
@@ -69,8 +70,9 @@ func (k *keyHarness) asKey(key, method, path string, body any) (*http.Response, 
 	return k.do(method, k.api+path, body, map[string]string{"Authorization": "Bearer " + key})
 }
 
-// A leaked "full" key must not turn the panel against its owner: where clients are sent,
-// who the bot talks to, the nodes' keys, the way out, the updates. These are the admin's
+// A leaked "full" key must not turn the panel against its owner: where clients are sent
+// (including the way in through VK calls), what a listener puts in their apps, who the bot
+// talks to, the nodes' keys, the way out, the updates, the invites. These are the admin's
 // session only; the same field of a request a key may otherwise make is refused too.
 func TestFullKeyCannotTakeOverThePanel(t *testing.T) {
 	k := newKeyHarness(t)
@@ -91,6 +93,22 @@ func TestFullKeyCannotTakeOverThePanel(t *testing.T) {
 		"warp-register":      {http.MethodPost, "/nodes/1/warp/register", map[string]any{}},
 		"warp-import":        {http.MethodPost, "/nodes/1/warp/import", map[string]any{"config": "x"}},
 		"cascade":            {http.MethodPatch, "/nodes/1/cascade", map[string]any{"outbound": "direct"}},
+		// VK TURN: where its entry sends clients, the calls it joins, the binary the node
+		// runs — and the node itself.
+		"get-node-turn":    {http.MethodGet, "/nodes/1/turn", nil},
+		"save-node-turn":   {http.MethodPatch, "/nodes/1/turn", map[string]any{"client_host": "attacker.example"}},
+		"delete-node-turn": {http.MethodDelete, "/nodes/1/turn", nil},
+		"delete-node":      {http.MethodDelete, "/nodes/1", nil},
+		"order-nodes":      {http.MethodPut, "/nodes/order", map[string]any{"ids": []int64{1}}},
+		"update-node-warp": {http.MethodPatch, "/nodes/1/warp", map[string]any{"enabled": false}},
+		"delete-node-warp": {http.MethodDelete, "/nodes/1/warp", nil},
+		// Invite codes, and who came through them.
+		"list-referral-rewards": {http.MethodGet, "/referrals/rewards", nil},
+		"list-referral-links":   {http.MethodGet, "/referrals/links", nil},
+		// A listener goes away whole, and a custom template carries a client endpoint
+		// inside it.
+		"delete-inbound":        {http.MethodDelete, "/inbounds/" + idOf(ins[0].ID), nil},
+		"create-custom-inbound": {http.MethodPost, "/inbounds", map[string]any{"preset": "custom", "config": "listeners: []"}},
 		// A code field is a script an addon runs.
 		"update-addon": {http.MethodPatch, "/addons/telegram", map[string]any{"settings": map[string]any{"script": "print(1)"}}},
 		// Code nothing signed vouches for, run on the server.
@@ -148,6 +166,24 @@ func TestFullKeyCannotTakeOverThePanel(t *testing.T) {
 	if after, _ := k.st.Q.GetInbound(ctx, ins[0].ID); after != ins[0] {
 		t.Fatal("a refused request changed the inbound")
 	}
+	// What the listener tells clients, where their traffic leaves from and what counts it:
+	// also the session's, one field at a time.
+	for field, body := range map[string]map[string]any{
+		"config":       {"config": "listeners: []\n"},
+		"dest":         {"dest": "evil.example:443"},
+		"server_name":  {"server_name": "evil.example"},
+		"outbound":     {"outbound": "direct"},
+		"exit_node_id": {"exit_node_id": 2},
+		"pool_id":      {"pool_id": 1},
+	} {
+		resp, out := k.asKey(k.full, http.MethodPatch, "/inbounds/"+idOf(ins[0].ID), body)
+		if resp.StatusCode != http.StatusForbidden || !strings.Contains(string(out), "session_only") || !strings.Contains(string(out), field) {
+			t.Errorf("inbound %s with a full key: %d %s", field, resp.StatusCode, out)
+		}
+	}
+	if after, _ := k.st.Q.GetInbound(ctx, ins[0].ID); after != ins[0] {
+		t.Fatal("a refused field changed the inbound")
+	}
 	if resp, body := k.asKey(k.full, http.MethodPatch, "/inbounds/"+idOf(ins[0].ID), map[string]any{"display_name": "Renamed"}); resp.StatusCode != http.StatusOK {
 		t.Fatalf("the rest of the inbound is open to a key: %d %s", resp.StatusCode, body)
 	}
@@ -201,6 +237,39 @@ func TestReadKeyDoesNotGetSecrets(t *testing.T) {
 				t.Errorf("%s as %s: %d, the %s is missing: %s", name, who.name, resp.StatusCode, c.secretField, body)
 			}
 		}
+	}
+
+	// An inbound's listener template holds its own key material: the REALITY private key,
+	// a shared password. A read key sees the connection, not the key.
+	ins, err := k.st.Q.ListInbounds(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var material string
+	for _, in := range ins {
+		tpl, err := proto.Parse(in.Config)
+		if err != nil {
+			continue
+		}
+		if rc, ok := tpl["reality-config"].(map[string]any); ok {
+			if key, _ := rc["private-key"].(string); key != "" {
+				material = key
+				break
+			}
+		}
+	}
+	if material == "" {
+		t.Fatal("no seeded inbound with a REALITY private key")
+	}
+	resp, body := k.asKey(k.read, http.MethodGet, "/inbounds", nil)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("inbounds: %d %s", resp.StatusCode, body)
+	}
+	if strings.Contains(string(body), material) {
+		t.Errorf("a read key sees an inbound's private key: %s", body)
+	}
+	if _, body := k.asKey(k.full, http.MethodGet, "/inbounds", nil); !strings.Contains(string(body), material) {
+		t.Errorf("a full key misses an inbound's private key: %s", body)
 	}
 
 	// An own Clash profile may hold the admin's own proxies and secrets.
@@ -298,6 +367,49 @@ func TestStartingTOTPAsksForThePassword(t *testing.T) {
 	resp, body := h.do(http.MethodPost, path, map[string]any{"password": password}, csrf)
 	if resp.StatusCode != http.StatusOK || !strings.Contains(string(body), `"secret"`) {
 		t.Fatalf("right password: %d %s", resp.StatusCode, body)
+	}
+}
+
+// Turning 2FA on is a login of its own: the wrong setup codes count against the same
+// allowance, and the code that turned it on is spent — it does not let a login in after.
+func TestTOTPEnableSpendsTheCode(t *testing.T) {
+	h := newHarness(t)
+	if resp, _ := h.login(password, ""); resp.StatusCode != http.StatusOK {
+		t.Fatal("login")
+	}
+	csrf := map[string]string{"X-CSRF-Token": h.csrf}
+	api := "/" + adminPath + "/api/v1/auth"
+	_, body := h.do(http.MethodPost, api+"/totp/setup", map[string]any{"password": password}, csrf)
+	var setup struct {
+		Secret string `json:"secret"`
+	}
+	if err := json.Unmarshal(body, &setup); err != nil || setup.Secret == "" {
+		t.Fatalf("setup: %s", body)
+	}
+	if resp, out := h.do(http.MethodPost, api+"/totp/enable", map[string]any{"code": "000000"}, csrf); resp.StatusCode != http.StatusUnprocessableEntity || !strings.Contains(string(out), "invalid_totp") {
+		t.Fatalf("a wrong setup code: %d %s", resp.StatusCode, out)
+	}
+	code, err := totp.GenerateCode(setup.Secret, h.now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp, out := h.do(http.MethodPost, api+"/totp/enable", map[string]any{"code": code}, csrf); resp.StatusCode != http.StatusOK || !strings.Contains(string(out), "recovery_codes") {
+		t.Fatalf("the right setup code: %d %s", resp.StatusCode, out)
+	}
+	// 2FA is on with the pending secret, and the code that turned it on is spent.
+	if resp, out := h.login(password, code); resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("the setup code opened a session: %d %s", resp.StatusCode, out)
+	}
+	// The step has rolled over: the same secret gives a new code, and it lets in — the row
+	// remembers only the step that was spent. The clock moves exactly 30 s: one step, not
+	// two, whatever phase of a step it was at.
+	h.now = h.now.Add(30 * time.Second)
+	next, err := totp.GenerateCode(setup.Secret, h.now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp, out := h.login(password, next); resp.StatusCode != http.StatusOK {
+		t.Fatalf("a fresh code: %d %s", resp.StatusCode, out)
 	}
 }
 

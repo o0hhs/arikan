@@ -27,6 +27,12 @@ UPDATE admins SET password_hash = $1 WHERE id = $2;
 -- name: SetAdminTOTP :exec
 UPDATE admins SET totp_secret = $1, recovery_codes = $2 WHERE id = $3;
 
+-- name: ClaimAdminTOTPStep :execrows
+-- Spends one TOTP time step: 0 rows means the step (or a later one) was already spent —
+-- the same code was used before, also if the panel restarted since. The compare-and-set
+-- lets exactly one of two uses at once through.
+UPDATE admins SET totp_step = sqlc.arg(step) WHERE id = sqlc.arg(id) AND totp_step < sqlc.arg(step);
+
 -- name: SpendAdminRecoveryCodes :execrows
 -- Takes a recovery code out of the list it was found in: 0 rows means another login spent
 -- a code from the same list first, and this one is refused.

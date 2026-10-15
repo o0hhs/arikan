@@ -358,6 +358,36 @@ func (q *Queries) LinkReferral(ctx context.Context, arg LinkReferralParams) (int
 	return result.RowsAffected()
 }
 
+const listLateReferralRefunds = `-- name: ListLateReferralRefunds :many
+SELECT id FROM payments WHERE error='ref_late_refund_failed' AND status IN ('pending','expired','paid','failed') ORDER BY id
+`
+
+// Payments reported paid after their referral hold was given back whose refund has to be
+// finished: the provider refused it, or the panel died in the middle. The reconcile pass
+// retries them; the error is only set by such an attempt.
+func (q *Queries) ListLateReferralRefunds(ctx context.Context) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, listLateReferralRefunds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []int64{}
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRecentReferrals = `-- name: ListRecentReferrals :many
 SELECT r.id, r.referrer_tg_id, r.referee_tg_id, r.code, r.created_at, r.first_paid_at, COALESCE(a.code, '') AS referrer_code,
   CAST(COALESCE(ra.username, '') AS TEXT) AS referrer_username,
@@ -765,7 +795,7 @@ func (q *Queries) ListReferralsOfBefore(ctx context.Context, arg ListReferralsOf
 
 const listSpentClosedPayments = `-- name: ListSpentClosedPayments :many
 SELECT s.id, s.payment_id FROM referral_spends s JOIN payments p ON p.id = s.payment_id
-WHERE s.reverted_at IS NULL AND p.status IN ('expired','failed') ORDER BY s.id
+WHERE s.reverted_at IS NULL AND p.status IN ('expired','failed','refunded') ORDER BY s.id
 `
 
 type ListSpentClosedPaymentsRow struct {
@@ -773,7 +803,8 @@ type ListSpentClosedPaymentsRow struct {
 	PaymentID sql.NullInt64
 }
 
-// Invoices whose balance hold must go back: nobody paid them.
+// Invoices whose balance hold must go back: nobody paid them, or their money already went
+// back to the buyer (refunded payments are never applied).
 func (q *Queries) ListSpentClosedPayments(ctx context.Context) ([]ListSpentClosedPaymentsRow, error) {
 	rows, err := q.db.QueryContext(ctx, listSpentClosedPayments)
 	if err != nil {

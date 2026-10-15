@@ -11944,7 +11944,8 @@
         "summary": "Удалить подключение",
         "tags": [
           "inbounds"
-        ]
+        ],
+        "x-session-only": true
       },
       "patch": {
         "operationId": "update-inbound",
@@ -12407,7 +12408,8 @@
         "summary": "Порядок серверов в подписке",
         "tags": [
           "node"
-        ]
+        ],
+        "x-session-only": true
       }
     },
     "/api/v1/nodes/update-all": {
@@ -12477,7 +12479,8 @@
         "summary": "Удалить ноду",
         "tags": [
           "node"
-        ]
+        ],
+        "x-session-only": true
       },
       "patch": {
         "operationId": "update-node",
@@ -13140,7 +13143,8 @@
         "summary": "Убрать VK TURN с ноды",
         "tags": [
           "node"
-        ]
+        ],
+        "x-session-only": true
       },
       "get": {
         "operationId": "get-node-turn",
@@ -13181,7 +13185,8 @@
         "summary": "VK TURN ноды",
         "tags": [
           "node"
-        ]
+        ],
+        "x-session-only": true
       },
       "patch": {
         "operationId": "save-node-turn",
@@ -13232,7 +13237,8 @@
         "summary": "Настроить VK TURN на ноде",
         "tags": [
           "node"
-        ]
+        ],
+        "x-session-only": true
       }
     },
     "/api/v1/nodes/{id}/update": {
@@ -13311,7 +13317,8 @@
         "summary": "Удалить WARP ноды",
         "tags": [
           "node"
-        ]
+        ],
+        "x-session-only": true
       },
       "get": {
         "operationId": "get-node-warp",
@@ -13413,7 +13420,8 @@
         "summary": "Включить WARP, списки доменов, ключ WARP+",
         "tags": [
           "node"
-        ]
+        ],
+        "x-session-only": true
       }
     },
     "/api/v1/nodes/{id}/warp/import": {
@@ -14576,7 +14584,8 @@
         "summary": "Приглашения и приглашённые",
         "tags": [
           "referrals"
-        ]
+        ],
+        "x-session-only": true
       }
     },
     "/api/v1/referrals/rewards": {
@@ -14632,7 +14641,8 @@
         "summary": "Начисления по реферальной программе",
         "tags": [
           "referrals"
-        ]
+        ],
+        "x-session-only": true
       }
     },
     "/api/v1/settings": {

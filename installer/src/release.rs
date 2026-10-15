@@ -622,6 +622,31 @@ mod tests {
         assert!(ok.success(), "install.sh does not parse");
     }
 
+    // scripts/install-fork.sh reads the release index and the manifest and checks both with
+    // this very key before it touches a server: its PEM must be the release key, the checks
+    // must come before what they authorise, and the script must still parse.
+    #[test]
+    fn install_fork_sh_carries_the_release_key() {
+        let sh = include_str!("../../scripts/install-fork.sh");
+        let mut spki = vec![0x30, 0x2a, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x03, 0x21, 0x00];
+        spki.extend(STANDARD.decode(PUBLIC_KEY).unwrap());
+        assert!(
+            sh.contains(&format!("-----BEGIN PUBLIC KEY-----\n{}\n-----END PUBLIC KEY-----", STANDARD.encode(spki))),
+            "install-fork.sh has another key"
+        );
+        assert!(sh.contains("pkeyutl -verify") && sh.contains("-rawin"));
+        // the manifest's signature is checked before the command it names is downloaded
+        let manifest = sh.find(r#"signed "$TMP/manifest.json""#).expect("the manifest's signature is not checked");
+        let command = sh.find(r#"curl_get "$INSTALLER_URL""#).expect("nothing downloads the command");
+        assert!(manifest < command, "the command is downloaded before the manifest's signature is checked");
+        let ok = std::process::Command::new("bash")
+            .arg("-n")
+            .arg(concat!(env!("CARGO_MANIFEST_DIR"), "/../scripts/install-fork.sh"))
+            .status()
+            .unwrap();
+        assert!(ok.success(), "install-fork.sh does not parse");
+    }
+
     #[derive(Deserialize)]
     struct DecodeCase {
         name: String,

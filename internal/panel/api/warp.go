@@ -79,8 +79,8 @@ func (h *handlers) registerWarp() {
 	huma.Register(h.api, huma.Operation{OperationID: "get-node-warp", Method: http.MethodGet, Path: "/api/v1/nodes/{id}/warp", Summary: "WARP ноды", Tags: tags}, h.getWarp)
 	huma.Register(h.api, huma.Operation{OperationID: "register-node-warp", Metadata: sessionOnly, Extensions: sessionOnlyExt, Method: http.MethodPost, Path: "/api/v1/nodes/{id}/warp/register", Summary: "Зарегистрировать WARP для ноды в Cloudflare", Tags: tags}, h.registerNodeWarp)
 	huma.Register(h.api, huma.Operation{OperationID: "import-node-warp", Metadata: sessionOnly, Extensions: sessionOnlyExt, Method: http.MethodPost, Path: "/api/v1/nodes/{id}/warp/import", Summary: "Загрузить свой WireGuard-конфиг WARP", Tags: tags}, h.importNodeWarp)
-	huma.Register(h.api, huma.Operation{OperationID: "update-node-warp", Method: http.MethodPatch, Path: "/api/v1/nodes/{id}/warp", Summary: "Включить WARP, списки доменов, ключ WARP+", Tags: tags}, h.patchWarp)
-	huma.Register(h.api, huma.Operation{OperationID: "delete-node-warp", Method: http.MethodDelete, Path: "/api/v1/nodes/{id}/warp", Summary: "Удалить WARP ноды", Tags: tags, DefaultStatus: http.StatusNoContent}, h.deleteWarp)
+	huma.Register(h.api, huma.Operation{OperationID: "update-node-warp", Metadata: sessionOnly, Extensions: sessionOnlyExt, Method: http.MethodPatch, Path: "/api/v1/nodes/{id}/warp", Summary: "Включить WARP, списки доменов, ключ WARP+", Tags: tags}, h.patchWarp)
+	huma.Register(h.api, huma.Operation{OperationID: "delete-node-warp", Metadata: sessionOnly, Extensions: sessionOnlyExt, Method: http.MethodDelete, Path: "/api/v1/nodes/{id}/warp", Summary: "Удалить WARP ноды", Tags: tags, DefaultStatus: http.StatusNoContent}, h.deleteWarp)
 }
 
 // warpDetail is Cloudflare's or a config's refusal at location, with Cloudflare's HTTP

@@ -3,6 +3,7 @@ import type { Schemas } from "../../../api/client";
 import { useUpdates } from "../../../api/hooks";
 import { Pill } from "../../../components/ui";
 import { getLocale, t } from "../../../i18n";
+import { safeHref } from "../../../lib/url";
 
 type Goal = Schemas["Goal"];
 
@@ -22,6 +23,8 @@ export function GoalsCard() {
   const lang = getLocale();
   const text = (m?: Record<string, string>) => m?.[lang] || m?.en || m?.ru || "";
   const money = (n: number, currency: string) => new Intl.NumberFormat(lang, { style: "currency", currency, maximumFractionDigits: 0 }).format(n);
+  // The donation links come from the release index: only those a browser may follow are shown.
+  const donate = safeHref(v.donate);
   return (
     <section className="card glass reveal" aria-labelledby="goals-title">
       <div className="card-head">
@@ -37,6 +40,7 @@ export function GoalsCard() {
           const pct = Math.min(100, Math.round((g.raised / g.target) * 100));
           const raised = money(g.raised, g.currency);
           const target = money(g.target, g.currency);
+          const give = safeHref(g.url) ?? donate;
           return (
             <li key={g.id} className="py-3">
               <div className="flex items-start justify-between gap-3">
@@ -53,8 +57,8 @@ export function GoalsCard() {
                 <span>
                   <b className="num font-semibold text-[var(--ink-900)]">{t("goals.raised", { raised, target })}</b> · {pct}%
                 </span>
-                {g.status === "open" ? (
-                  <a className="btn btn-primary btn-sm" href={g.url || v.donate} target="_blank" rel="noopener noreferrer">
+                {g.status === "open" && give ? (
+                  <a className="btn btn-primary btn-sm" href={give} target="_blank" rel="noopener noreferrer">
                     {t("goals.give")}
                   </a>
                 ) : null}
@@ -67,8 +71,8 @@ export function GoalsCard() {
         <a className="link-btn form-actions-note inline-flex items-center gap-1 text-[13px]" href={goalsPage(lang)} target="_blank" rel="noopener noreferrer">
           {t("goals.all")} <ExternalLink size={14} aria-hidden />
         </a>
-        {v.donate ? (
-          <a className="btn btn-glass btn-sm" href={v.donate} target="_blank" rel="noopener noreferrer">
+        {donate ? (
+          <a className="btn btn-glass btn-sm" href={donate} target="_blank" rel="noopener noreferrer">
             {t("goals.any")}
           </a>
         ) : null}

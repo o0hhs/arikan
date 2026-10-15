@@ -53,25 +53,29 @@ Already running the upstream panel? Switching is just the image swap: your data 
 curl -fsSL https://github.com/Miroshka000/mikan/releases/latest/download/install.sh | sudo bash
 ```
 
-**2. Switching to the fork.** Take the tag from the [fork's releases](https://github.com/o0hhs/arikan/releases):
+**2. Switching to the fork.** One command — it takes the newest stable release from the fork's signed release index and checks its signature:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/o0hhs/arikan/main/scripts/install-fork.sh | sudo bash -s -- --image ghcr.io/o0hhs/arikan:<tag>
+curl -fsSL https://raw.githubusercontent.com/o0hhs/arikan/main/scripts/install-fork.sh | sudo bash
 ```
+
+A panel older than 0.5.0.0 (still on SQLite) is updated to 0.5.x by the stock installer first: this script works with a panel on PostgreSQL.
 
 What `scripts/install-fork.sh` does:
 
-- pulls the fork image first: if something is off (the package is not public yet, no registry access) nothing is changed, the stack keeps running;
+- reads the fork's release index and manifest, checks both with the fork's signing key and takes the image from them, pinned to its digest (`--image ghcr.io/o0hhs/arikan:<tag>` names another image: a beta or your own build);
+- pulls the image first: if something is off (the package is not public yet, no registry access) nothing is changed, the stack keeps running;
+- puts the fork's command and its update units on the host **before** anything is switched, and only then turns the stock updater off: the stock command stays at `/usr/local/bin/mikan.stock`, the stock units' files stay on disk. Without this the panel's **Update** button and the nightly timer would still go upstream, and the day upstream publishes above the fork it would pull stock mikan over it;
 - backs the database up (pg_dump) and keeps a copy of `.env`;
 - switches the image and restarts the stack;
-- verifies the database schema and the counts of users, plans and payments: a failed check rolls everything back by itself;
+- verifies the database schema, the counts of users, plans and payments, and that the host's updater is the fork's: a failed check rolls everything back by itself;
 - leaves auto-update on: the fork has its own release repo and its own signing key, so the panel will not "update itself" back to upstream. The `--disable-auto-update` flag is only for older fork builds whose release repo still pointed at upstream.
 
 Preview the script's plan without touching anything: the same request with `--dry-run`. If the image does not pull, make the package public: GitHub → Packages → arikan → Package settings → Change visibility → Public (the script prints this hint when it happens).
 
 **3. After the switch.** Turn the programme on (**Payments → Referrals**) and create campaign tags on the **Payments** page. Everything else — users, plans, payments, nodes, subscription links — stays as it was.
 
-**Rolling back to stock mikan** is the same script with the backup taken before the switch (payments, users and plans return to the state of that moment; the referral programme and campaign tag data is not part of that backup):
+**Rolling back to stock mikan** is the same script with the backup taken before the switch (payments, users and plans return to the state of that moment; the referral programme and campaign tag data is not part of that backup). The stock command and its update units come back with it:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/o0hhs/arikan/main/scripts/install-fork.sh | sudo bash -s -- --rollback /opt/mikan/data/panel/backup-<date>-before-fork.dump

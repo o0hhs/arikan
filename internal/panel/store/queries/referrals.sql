@@ -127,9 +127,16 @@ UPDATE referral_spends SET reverted_at = $2 WHERE payment_id = $1 AND reverted_a
 UPDATE referral_spends SET reverted_at = $2 WHERE id = $1 AND reverted_at IS NULL;
 
 -- name: ListSpentClosedPayments :many
--- Invoices whose balance hold must go back: nobody paid them.
+-- Invoices whose balance hold must go back: nobody paid them, or their money already went
+-- back to the buyer (refunded payments are never applied).
 SELECT s.id, s.payment_id FROM referral_spends s JOIN payments p ON p.id = s.payment_id
-WHERE s.reverted_at IS NULL AND p.status IN ('expired','failed') ORDER BY s.id;
+WHERE s.reverted_at IS NULL AND p.status IN ('expired','failed','refunded') ORDER BY s.id;
+
+-- name: ListLateReferralRefunds :many
+-- Payments reported paid after their referral hold was given back whose refund has to be
+-- finished: the provider refused it, or the panel died in the middle. The reconcile pass
+-- retries them; the error is only set by such an attempt.
+SELECT id FROM payments WHERE error='ref_late_refund_failed' AND status IN ('pending','expired','paid','failed') ORDER BY id;
 
 -- name: ReferralSpendTotals :one
 SELECT COUNT(*) AS n, CAST(COALESCE(SUM(amount), 0) AS BIGINT) AS total

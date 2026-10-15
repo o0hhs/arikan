@@ -18,7 +18,10 @@ func NewTOTPKey(account string) (*otp.Key, error) {
 	return totp.Generate(totp.GenerateOpts{Issuer: "Arikan", AccountName: account, Period: totpPeriod, Digits: otp.DigitsSix, Algorithm: otp.AlgorithmSHA1})
 }
 
-// TOTPGuard validates codes and refuses to accept the same time step twice per admin.
+// TOTPGuard validates codes and refuses to accept the same time step twice per admin
+// while the panel runs. Validate gives the step it accepted; the caller spends that step
+// in the store (ClaimAdminTOTPStep), and the row is what keeps a code one use across a
+// restart — the memory alone would forget.
 type TOTPGuard struct {
 	mu   sync.Mutex
 	used map[int64]int64 // admin id → last accepted step
@@ -26,10 +29,13 @@ type TOTPGuard struct {
 
 func NewTOTPGuard() *TOTPGuard { return &TOTPGuard{used: map[int64]int64{}} }
 
-func (g *TOTPGuard) Validate(adminID int64, secret, code string, now time.Time) bool {
+// Validate returns the time step a code belongs to, ok=false when the code matches none.
+// The window is the current step and its neighbours: a code typed at the edge of a
+// rotation, or one from a clock a little off, still counts.
+func (g *TOTPGuard) Validate(adminID int64, secret, code string, now time.Time) (int64, bool) {
 	code = strings.TrimSpace(code)
 	if len(code) != 6 {
-		return false
+		return 0, false
 	}
 	g.mu.Lock()
 	defer g.mu.Unlock()
@@ -41,10 +47,10 @@ func (g *TOTPGuard) Validate(adminID int64, secret, code string, now time.Time) 
 		ok, err := totp.ValidateCustom(code, secret, time.Unix(s*totpPeriod, 0).UTC(), totp.ValidateOpts{Period: totpPeriod, Skew: 0, Digits: otp.DigitsSix, Algorithm: otp.AlgorithmSHA1})
 		if err == nil && ok {
 			g.used[adminID] = s
-			return true
+			return s, true
 		}
 	}
-	return false
+	return 0, false
 }
 
 // Recovery codes carry ~50 random bits and are rate limited like passwords, so a fast hash is enough.

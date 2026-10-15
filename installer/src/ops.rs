@@ -375,5 +375,14 @@ pub fn uninstall() -> Result<bool> {
         let _ = system::succeeds("sysctl", &["--system"]);
     }
     let _ = fs::remove_file(host::BIN);
+    // The stock command this fork took the name from goes back, so a server whose admin
+    // returns to stock mikan has its own command; its update units stay off (nothing
+    // updates a server that has just been uninstalled), with the line below saying how to
+    // bring the stock updater back.
+    if host::restore_stock() {
+        crate::out(
+            "The stock mikan command is back at /usr/local/bin/mikan; its update units stay off (systemctl enable --now mikan-update.timer mikan-update-request.path turns the stock updater back on).",
+        );
+    }
     Ok(panel)
 }

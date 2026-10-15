@@ -7,6 +7,7 @@ import { api, ApiError, apiCodeText, errorText, unwrap, type Schemas } from "../
 import { onFormError } from "../../lib/fields";
 import { qk, useNodes, useSettings, useTelegram } from "../../api/hooks";
 import { useDraft } from "../../lib/draft";
+import { safeHref } from "../../lib/url";
 import { TELEGRAM_TABS } from "../search";
 import { BackToAddons } from "./addon-row";
 import { ago, num } from "../../lib/format";
@@ -261,6 +262,9 @@ function InfrastructureCard({ v, draft, setDraft, error }: { v: View; draft: Sch
   const qc = useQueryClient();
   const toast = useToast();
   const [connectURL, setConnectURL] = useState("");
+  // The server builds this link (https://t.me/<bot>?start=infra_…); only the links a
+  // browser may follow are shown.
+  const connectHref = safeHref(connectURL);
   const connect = useMutation({
     mutationFn: () => unwrap(api.POST("/api/v1/telegram/infrastructure/connect", {})),
     onSuccess: (r) => {
@@ -305,10 +309,10 @@ function InfrastructureCard({ v, draft, setDraft, error }: { v: View; draft: Sch
             </Button>
           )}
         </div>
-        {connectURL ? (
+        {connectHref ? (
           <div className="banner info my-3">
             <span>{t("telegram.infra.linkHint")}</span>
-            <a className="font-medium underline" href={connectURL} target="_blank" rel="noreferrer noopener">
+            <a className="font-medium underline" href={connectHref} target="_blank" rel="noreferrer noopener">
               {t("telegram.infra.openBot")}
             </a>
           </div>
