@@ -175,17 +175,16 @@ func (b *Bot) welcome(ctx context.Context, cfg Config, w *words, chat int64, not
 		rows = append(rows, []tgate.Button{{Text: w.trial, CallbackData: "tr", Style: tgate.StylePrimary}})
 	}
 	if btn, ok := b.freeButton(ctx, cfg, w, chat); ok {
-		btn.Style = tgate.StyleSuccess
 		rows = append(rows, []tgate.Button{btn})
 	}
 	if b.canBuyNew(ctx) {
 		rows = append(rows, []tgate.Button{{Text: w.buy, CallbackData: "b", Style: tgate.StyleSuccess}})
 	}
 	if sup := b.supportURL(ctx); sup != "" {
-		rows = append(rows, []tgate.Button{{Text: labelOf(cfg, "support", w.support), URL: sup}})
+		rows = append(rows, []tgate.Button{dressed(cfg, "support", w.support, tgate.Button{URL: sup})})
 	}
 	if b.referralButton(ctx, cfg) {
-		rows = append(rows, []tgate.Button{{Text: labelOf(cfg, "referral", w.refReferral), CallbackData: "f"}})
+		rows = append(rows, []tgate.Button{dressed(cfg, "referral", w.refReferral, tgate.Button{CallbackData: "f"})})
 	}
 	if rows == nil {
 		return text, nil

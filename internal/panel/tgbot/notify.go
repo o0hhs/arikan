@@ -55,7 +55,7 @@ func (b *Bot) noticeMessage(ctx context.Context, cfg Config, w *words, u db.User
 		}
 	}
 	if kind != "traffic_90" {
-		rows = append(rows, []tgate.Button{{Text: labelOf(cfg, "renew", "💳"), CallbackData: "r"}})
+		rows = append(rows, []tgate.Button{dressed(cfg, "renew", "💳", tgate.Button{CallbackData: "r"})})
 	}
 	var kb *tgate.Keyboard
 	if len(rows) > 0 {
