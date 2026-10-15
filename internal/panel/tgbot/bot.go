@@ -87,11 +87,15 @@ var (
 const maxLinksRead = 3
 
 // onMessage: /start (with a code from a subscription page), a subscription link, or
-// anything else — every message brings the main menu back to the bottom of the chat.
+// anything else — every message brings the main menu back to the bottom of the chat. The
+// admin's premium emoji is the one exception: the bot answers its id instead (emojiHelp).
 func (b *Bot) onMessage(ctx context.Context, m *tgate.Message) {
 	chat := m.Chat.ID
 	cfg := b.config(ctx)
 	w := wordsFor(cfg.Lang)
+	if b.emojiHelp(ctx, m, w) {
+		return
+	}
 	if cfg.CleanChat {
 		id := m.MessageID
 		b.d.Outbox.Reply(chat, "", 1, func(ctx context.Context, c *tgate.Client) error { return c.Delete(ctx, chat, id) })

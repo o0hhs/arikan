@@ -36,10 +36,14 @@ type MenuButton struct {
 	Action string `json:"action" enum:"sub,devices,connect,renew,referral,support,app,url,page"`
 	Label  string `json:"label"`
 	Style  string `json:"style,omitempty" enum:",primary,success,danger" doc:"Цвет кнопки в свежих клиентах Telegram: primary — синий, success — зелёный, danger — красный; пусто — обычная тёмная"`
-	On     bool   `json:"on"`
-	Row    bool   `json:"row" doc:"В одном ряду с предыдущей"`
-	URL    string `json:"url,omitempty" doc:"Для action=url: https:// или tg://"`
-	Text   string `json:"text,omitempty" doc:"Для action=page: текст страницы"`
+	// EmojiID is the premium emoji before the label (Bot API's icon_custom_emoji_id): a
+	// custom emoji's id, a number. Telegram shows it only for a bot whose owner has Premium;
+	// without it the menu goes out as it is (the label's own emoji stay).
+	EmojiID string `json:"emoji_id,omitempty" doc:"Премиум-эмодзи перед надписью: id эмодзи (число). Показывают его лишь боты, у владельца которых есть Telegram Premium; иначе кнопка идёт без него"`
+	On      bool   `json:"on"`
+	Row     bool   `json:"row" doc:"В одном ряду с предыдущей"`
+	URL     string `json:"url,omitempty" doc:"Для action=url: https:// или tg://"`
+	Text    string `json:"text,omitempty" doc:"Для action=page: текст страницы"`
 }
 
 // Texts the admin writes. Variables: {name} {brand} {until} {days} {used} {left} {limit}
@@ -127,6 +131,7 @@ var (
 	ErrButtons     = errors.New("tg_buttons")
 	ErrButtonLabel = errors.New("tg_button_label")
 	ErrButtonStyle = errors.New("tg_button_style")
+	ErrButtonEmoji = errors.New("tg_button_emoji")
 	ErrButtonURL   = errors.New("tg_button_url")
 	ErrButtonText  = errors.New("tg_button_text")
 	ErrText        = errors.New("tg_text")
@@ -150,6 +155,10 @@ func (c *Config) Validate() error {
 		b.Style = strings.TrimSpace(b.Style)
 		if !tgate.ValidStyle(b.Style) {
 			return ErrButtonStyle
+		}
+		b.EmojiID = strings.TrimSpace(b.EmojiID)
+		if !tgate.ValidEmojiID(b.EmojiID) {
+			return ErrButtonEmoji
 		}
 		switch b.Action {
 		case "url":

@@ -62,6 +62,10 @@ type words struct {
 	// A campaign tag in a /start link says where the chat came from; the panel counts it.
 	campThanks, campThanksNamed string
 
+	// The answer to the panel's admin who sent the bot a premium emoji: its id, to paste
+	// into a menu button (%s is the ids, as HTML).
+	emojiID string
+
 	// A refund takes back what the payment gave.
 	refundedNew, refundedRenew, refundedPackage, refundedGone string
 }
@@ -191,6 +195,8 @@ var ru = words{
 	refEarnedDaysEvery:  "🎁 По вашей ссылке набралось %d оплат: подписка продлена на %s.",
 	campThanks:          "👋 Спасибо, что зашли! Выбирайте тариф — мы рядом.",
 	campThanksNamed:     "👋 Спасибо, что зашли по ссылке «%s»! Выбирайте тариф — мы рядом.",
+
+	emojiID: "Премиум-эмодзи: %s\n\nВставьте этот id кнопке в панели (Telegram → Меню → «Премиум-эмодзи»). Показать эмодзи может бот, у владельца которого есть Telegram Premium; без него кнопка уйдёт без эмодзи.",
 
 	refundedNew:     "↩️ Платёж за тариф «%s» возвращён. Подписка «%s» отключена.",
 	refundedRenew:   "↩️ Платёж за продление «%s» возвращён. Срок подписки «%s» уменьшен. Окончание: %s.",
@@ -323,6 +329,8 @@ var en = words{
 	refEarnedDaysEvery:  "🎁 Your link has brought %d payments: your subscription is extended by %s.",
 	campThanks:          "👋 Thanks for stopping by! Pick a plan — we are right here.",
 	campThanksNamed:     "👋 Thanks for stopping by from “%s”! Pick a plan — we are right here.",
+
+	emojiID: "Premium emoji: %s\n\nPaste this id into a button in the panel (Telegram → Menu → “Premium emoji”). Only a bot whose owner has Telegram Premium can show it; without one the button goes out without the emoji.",
 
 	refundedNew:     "↩️ The payment for plan “%s” is refunded. Subscription “%s” is turned off.",
 	refundedRenew:   "↩️ The payment for the renewal “%s” is refunded. The term of subscription “%s” is shortened. Ends: %s.",

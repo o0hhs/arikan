@@ -217,37 +217,38 @@ func (b *Bot) menu(ctx context.Context, cfg Config, w *words, chat int64, subs i
 		var btn tgate.Button
 		switch mb.Action {
 		case "sub":
-			btn = tgate.Button{Text: mb.Label, CallbackData: "s", Style: mb.Style}
+			btn = tgate.Button{Text: mb.Label, CallbackData: "s"}
 		case "devices":
-			btn = tgate.Button{Text: mb.Label, CallbackData: "d", Style: mb.Style}
+			btn = tgate.Button{Text: mb.Label, CallbackData: "d"}
 		case "connect":
-			btn = tgate.Button{Text: mb.Label, CallbackData: "c", Style: mb.Style}
+			btn = tgate.Button{Text: mb.Label, CallbackData: "c"}
 		case "renew":
-			btn = tgate.Button{Text: mb.Label, CallbackData: "r", Style: mb.Style}
+			btn = tgate.Button{Text: mb.Label, CallbackData: "r"}
 		case "referral":
 			if !b.referralButton(ctx, cfg) {
 				continue
 			}
-			btn = tgate.Button{Text: mb.Label, CallbackData: "f", Style: mb.Style}
+			btn = tgate.Button{Text: mb.Label, CallbackData: "f"}
 		case "support":
 			sup := b.supportURL(ctx)
 			if sup == "" {
 				continue
 			}
-			btn = tgate.Button{Text: mb.Label, URL: sup, Style: mb.Style}
+			btn = tgate.Button{Text: mb.Label, URL: sup}
 		case "app":
 			var ok bool
 			if btn, ok = b.pageButton(ctx, cfg, w, mb.Label); !ok {
 				continue
 			}
-			btn.Style = mb.Style
 		case "url":
-			btn = tgate.Button{Text: mb.Label, URL: mb.URL, Style: mb.Style}
+			btn = tgate.Button{Text: mb.Label, URL: mb.URL}
 		case "page":
-			btn = tgate.Button{Text: mb.Label, CallbackData: "p:" + mb.ID, Style: mb.Style}
+			btn = tgate.Button{Text: mb.Label, CallbackData: "p:" + mb.ID}
 		default:
 			continue
 		}
+		// The color and the premium emoji the admin gave the button go on whatever opens it.
+		btn.Style, btn.IconCustomEmojiID = mb.Style, mb.EmojiID
 		if mb.Row && len(rows) > 0 && len(rows[len(rows)-1]) < 3 {
 			rows[len(rows)-1] = append(rows[len(rows)-1], btn)
 		} else {

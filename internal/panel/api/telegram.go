@@ -43,6 +43,7 @@ type TelegramView struct {
 	Infrastructure infraalerts.AlertsConfig `json:"infrastructure"`
 	AdminChatSet   bool                     `json:"admin_chat_set"`
 	ChannelError   string                   `json:"channel_error,omitempty" doc:"Почему бот не может проверить подписку на канал: channel_not_admin (бот не администратор канала), channel_not_found, unreachable или ответ Telegram. Пока ошибка есть, обязательная подписка никого не останавливает"`
+	EmojiRefused   *tgbot.EmojiRefusal      `json:"emoji_refused,omitempty" doc:"Бот прислал меню без премиум-эмодзи: Telegram отказал в этих id (у владельца бота нет Telegram Premium). Сохранение меню снимает пометку"`
 }
 
 type TelegramRoute struct {
@@ -189,6 +190,11 @@ func (h *handlers) telegramView(ctx context.Context) (TelegramView, error) {
 		st := h.d.Gateway.Status()
 		v.Running, v.Error = st.Running, st.Error
 		v.ChannelError = h.d.Gateway.ChannelError(ctx)
+	}
+	if r, _, err := settings.Get[tgbot.EmojiRefusal](ctx, h.d.Settings, tgbot.KeyEmojiRefused); err != nil {
+		return v, err
+	} else if len(r.IDs) > 0 {
+		v.EmojiRefused = &r
 	}
 	v.Config = h.d.Telegram.Config(ctx)
 	// The address carries the sub path, which is the panel's secret.
@@ -360,6 +366,11 @@ func (h *handlers) updateTelegram(ctx context.Context, in *patchTelegramInput) (
 		}
 		if b.Config != nil {
 			if err := settings.Set(ctx, set, tgate.KeyConfig, *b.Config); err != nil {
+				return err
+			}
+			// A menu saved now is a menu the bot sends afresh: Telegram's last refusal of
+			// its emoji says nothing about this one.
+			if err := settings.Set(ctx, set, tgbot.KeyEmojiRefused, tgbot.EmojiRefusal{}); err != nil {
 				return err
 			}
 		}

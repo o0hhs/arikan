@@ -89,6 +89,14 @@ type Backend interface {
 
 	// BotUsername is the bot's own @name, for the invite links; "" while it is unknown.
 	BotUsername(ctx context.Context) string
+	// AdminChat is the chat the panel's alerts go to (0 when none is connected): the one
+	// account the bot answers about the panel itself — the id of the premium emoji it is
+	// sent, for one (GET /tg/admin-chat).
+	AdminChat(ctx context.Context) int64
+	// NoteEmojiRefused tells the panel that Telegram would not take a button's premium
+	// emoji, so its page can say why the menu the bot sends carries none (POST
+	// /tg/emoji-refused). ids are the refused ones, errText Telegram's own words.
+	NoteEmojiRefused(ctx context.Context, ids []string, errText string) error
 	// ReferralOn: the admin has the referral programme on (the menu button asks this, the
 	// screen asks Referral for the account's own numbers).
 	ReferralOn(ctx context.Context) bool
