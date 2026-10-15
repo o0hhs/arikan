@@ -38,7 +38,8 @@ func versions(ix release.Index) string {
 	return strings.Join(v, " ")
 }
 
-// The first index starts from the releases before it; each next one carries the last on.
+// The first index is the release it is made for (this project has no releases before it);
+// each next one carries the last on.
 func TestIndexSeedsThenGrows(t *testing.T) {
 	f := newFixture(t, changelog)
 	from := f.write("upgrade-from", "# the lowest version\n0.4.5\n")
@@ -47,10 +48,10 @@ func TestIndexSeedsThenGrows(t *testing.T) {
 		t.Fatal(err)
 	}
 	ix := f.readIndex(first)
-	if got := versions(ix); got != "0.4.5/stable/0.4.0 0.5.0.0/stable/0.4.5 0.5.0.1/stable/0.4.5" {
+	if got := versions(ix); got != "0.5.0.1/stable/0.4.5" {
 		t.Fatalf("seeded: %s", got)
 	}
-	if ix.Schema != release.IndexSchema || ix.Releases[2].Manifest != "https://github.com/o0hhs/arikan/releases/download/v0.5.0.1/manifest.json" {
+	if ix.Schema != release.IndexSchema || ix.Releases[0].Manifest != "https://github.com/o0hhs/arikan/releases/download/v0.5.0.1/manifest.json" {
 		t.Fatalf("seeded: %+v", ix)
 	}
 	// A pre-release goes to beta, and "latest" is none of the index's business.
@@ -59,14 +60,38 @@ func TestIndexSeedsThenGrows(t *testing.T) {
 	if err := makeIndex([]string{"-version", "0.5.0.2-rc.1", "-from", "0.5.0.0", "-in", in, "-out", second}); err != nil {
 		t.Fatal(err)
 	}
-	if got := versions(f.readIndex(second)); got != "0.4.5/stable/0.4.0 0.5.0.0/stable/0.4.5 0.5.0.1/stable/0.4.5 0.5.0.2-rc.1/beta/0.5.0.0" {
+	if got := versions(f.readIndex(second)); got != "0.5.0.1/stable/0.4.5 0.5.0.2-rc.1/beta/0.5.0.0" {
 		t.Fatalf("with the pre-release: %s", got)
 	}
 	// The same release again (a workflow run again) replaces its entry.
 	if err := makeIndex([]string{"-version", "0.5.0.1", "-from", "0.5.0.0", "-in", filepath.Join(second, "index.json"), "-out", second}); err != nil {
 		t.Fatal(err)
 	}
-	if got := versions(f.readIndex(second)); got != "0.4.5/stable/0.4.0 0.5.0.0/stable/0.4.5 0.5.0.1/stable/0.5.0.0 0.5.0.2-rc.1/beta/0.5.0.0" {
+	if got := versions(f.readIndex(second)); got != "0.5.0.1/stable/0.5.0.0 0.5.0.2-rc.1/beta/0.5.0.0" {
+		t.Fatalf("again: %s", got)
+	}
+}
+
+// An index that lists a release this project never published (its manifest is not there,
+// and an updater sent through that entry fails) is repaired with -drop: the entry goes, the
+// rest stays, and the repair is signed like any index.
+func TestIndexDropsReleasesThatWereNeverPublished(t *testing.T) {
+	f := newFixture(t, changelog)
+	old := []byte(`{"schema":1,"published":"2026-10-01T10:00:00Z","releases":[{"version":"0.4.5","channel":"stable","manifest":"https://github.com/o0hhs/arikan/releases/download/v0.4.5/manifest.json","from":"0.4.0"},{"version":"0.5.0.0","channel":"stable","manifest":"https://github.com/o0hhs/arikan/releases/download/v0.5.0.0/manifest.json","from":"0.4.5"},{"version":"0.5.1.1","channel":"stable","manifest":"https://github.com/o0hhs/arikan/releases/download/v0.5.1.1/manifest.json","from":"0.5.0.0"}]}`)
+	in := f.write("index.json", string(old))
+	f.write("index.json.sig", release.Sign(old, f.priv))
+	out := filepath.Join(f.dir, "repaired")
+	if err := makeIndex([]string{"-version", "0.5.1.1", "-from", "0.5.0.0", "-in", in, "-drop", "0.4.5, 0.5.0.0", "-out", out}); err != nil {
+		t.Fatal(err)
+	}
+	if got := versions(f.readIndex(out)); got != "0.5.1.1/stable/0.5.0.0" {
+		t.Fatalf("repaired: %s", got)
+	}
+	// Dropping what is not there is not an error: a repair run twice does nothing more.
+	if err := makeIndex([]string{"-version", "0.5.1.1", "-from", "0.5.0.0", "-in", filepath.Join(out, "index.json"), "-drop", "0.4.5", "-out", out}); err != nil {
+		t.Fatal(err)
+	}
+	if got := versions(f.readIndex(out)); got != "0.5.1.1/stable/0.5.0.0" {
 		t.Fatalf("again: %s", got)
 	}
 }
@@ -175,7 +200,7 @@ func TestGoalsIntoIndex(t *testing.T) {
 	if len(ix.Goals.Items) != 2 || ix.Goals.Items[0].Raised != 40 || ix.Goals.Items[1].Version != "0.5.0.3" || ix.Goals.Donate != "https://web.tribute.tg/d/REA" {
 		t.Fatalf("goals: %+v", ix.Goals)
 	}
-	if got := versions(ix); got != "0.4.5/stable/0.4.0 0.5.0.0/stable/0.4.5 0.5.0.1/stable/0.4.5" {
+	if got := versions(ix); got != "0.5.0.1/stable/0.4.5" {
 		t.Fatalf("releases changed: %s", got)
 	}
 	next := filepath.Join(f.dir, "next")

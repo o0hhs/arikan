@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"time"
 
 	"mikan/internal/release"
@@ -18,10 +19,14 @@ import (
 // seed is the index the first release that keeps one starts from, when the "updates"
 // release has none yet: the releases before it, each with the lowest version it updates
 // from directly.
-var seed = []release.Entry{
-	{Version: "0.4.5", Channel: release.Stable, Manifest: manifestURL("v0.4.5"), From: "0.4.0"},
-	{Version: "0.5.0.0", Channel: release.Stable, Manifest: manifestURL("v0.5.0.0"), From: "0.4.5"},
-}
+//
+// This fork's own releases begin with 0.5.1.1 — the first one that kept an index. The
+// versions before it (0.4.5, 0.5.0.0) were published by upstream, not here: an entry for
+// one of them names a manifest this project never published (it 404s), and an updater
+// whose way to the newest release goes through that entry fails instead of updating. So
+// there is nothing to seed: a server old enough to need such a hop is moved by
+// scripts/install-fork.sh, and `from` still lets one jump to a release directly.
+var seed []release.Entry
 
 func manifestURL(tag string) string {
 	return fmt.Sprintf("https://github.com/%s/releases/download/%s/manifest.json", release.Repo, tag)
@@ -37,7 +42,8 @@ func makeIndex(args []string) error {
 	fromFile := fs.String("from-file", "", "file with that version (# comments allowed)")
 	tag := fs.String("tag", "", "release tag the manifest is downloaded from (default v<version>)")
 	in := fs.String("in", "", "the current index.json (its signature next to it, .sig)")
-	seeded := fs.Bool("seed", false, "start from the releases before the index instead of -in")
+	seeded := fs.Bool("seed", false, "start an index with this release alone (this project has no releases before it)")
+	drop := fs.String("drop", "", "comma-separated versions to leave out of the carried-on index (a release that was never published)")
 	out := fs.String("out", "dist", "output directory")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -72,6 +78,7 @@ func makeIndex(args []string) error {
 
 	var top map[string]json.RawMessage
 	var entries []json.RawMessage
+	var dropped []string
 	switch {
 	case *in != "" && *seeded:
 		return errors.New("-in or -seed, not both")
@@ -103,6 +110,27 @@ func makeIndex(args []string) error {
 	default:
 		return errors.New("-in index.json, or -seed for the first index")
 	}
+	// A repair for an index that lists a release this project never published (its manifest
+	// is not there, and an updater sent through such an entry fails): the versions named
+	// here are left out. Meant to be run by hand against the published index, not by the
+	// release workflow, which carries the index on as it is.
+	if *drop != "" {
+		gone := map[string]bool{}
+		for _, v := range strings.Split(*drop, ",") {
+			gone[strings.TrimSpace(v)] = true
+		}
+		kept := make([]json.RawMessage, 0, len(entries))
+		for _, raw := range entries {
+			var fields map[string]json.RawMessage
+			var v string
+			if json.Unmarshal(raw, &fields) == nil && json.Unmarshal(fields["version"], &v) == nil && gone[v] {
+				dropped = append(dropped, v)
+				continue
+			}
+			kept = append(kept, raw)
+		}
+		entries = kept
+	}
 	data, err := addEntry(top, entries, e, time.Now().UTC().Truncate(time.Second))
 	if err != nil {
 		return err
@@ -124,7 +152,12 @@ func makeIndex(args []string) error {
 			return err
 		}
 	}
-	fmt.Printf("index: %d releases; %s on %s from %s\n", len(ix.Releases), e.Version, e.Channel, e.From)
+	what := ""
+	if len(dropped) > 0 {
+		slices.Sort(dropped)
+		what = fmt.Sprintf("; dropped %s", strings.Join(slices.Compact(dropped), " "))
+	}
+	fmt.Printf("index: %d releases; %s on %s from %s%s\n", len(ix.Releases), e.Version, e.Channel, e.From, what)
 	return nil
 }
 

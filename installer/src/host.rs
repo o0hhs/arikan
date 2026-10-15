@@ -103,6 +103,19 @@ fn ufw(args: &[&str]) -> Result<()> {
 
 pub const BIN: &str = "/usr/local/bin/arikan";
 
+/// The command and the units stock mikan installs: a server that moves to this fork keeps
+/// them unless they are taken over, and both are a hazard then. The daily timer and the
+/// panel's Update button run /usr/local/bin/mikan, and that command fetches the releases of
+/// Miroshka000/mikan — the day upstream publishes above this fork, stock mikan is pulled
+/// over it. Both are this fork's own with another name (a test keeps them such).
+pub const STOCK_BIN: &str = "/usr/local/bin/mikan";
+/// Where the stock command is kept when this fork takes its name over. Kept, not deleted:
+/// it is not ours to throw away, and a rollback (`install-fork.sh --rollback`) wants it.
+pub const STOCK_KEPT: &str = "/usr/local/bin/mikan.stock";
+/// The stock units that start the stock updater: the timer that fires nightly and the watch
+/// on the update request the panel's button (or a node's panel) leaves.
+const STOCK_ACTIVATORS: [&str; 2] = ["mikan-update.timer", "mikan-update-request.path"];
+
 /// Puts this binary at /usr/local/bin/arikan, the server's command, unless it runs from there.
 pub fn install_self() -> Result<()> {
     let me = std::env::current_exe()?;
@@ -166,7 +179,8 @@ fn version_of(path: &Path) -> Result<String> {
     Err(last.map_or_else(|| anyhow::anyhow!("the downloaded command does not run"), Into::into))
 }
 
-const UNIT_NAMES: [&str; 4] = ["arikan-update.service", "arikan-update.timer", "arikan-update-request.service", "arikan-update-request.path"];
+const UNIT_NAMES: [&str; 4] =
+    ["arikan-update.service", "arikan-update.timer", "arikan-update-request.service", "arikan-update-request.path"];
 
 /// The unit files of a panel or of a node: the same four, except that the path unit watches
 /// the request of the one the server runs (the panel's Update button, or the panel asking
@@ -249,7 +263,9 @@ fn units_current_in(dir: &Path, panel: bool) -> bool {
 }
 
 /// The update timer and the watch on the update request: a panel's (its Update button) or a
-/// node's (the panel asking over the node API).
+/// node's (the panel asking over the node API). A server that ran stock mikan has the stock
+/// ones as well, running the stock command: they are retired here, so what is left after
+/// this is this fork's updater and nothing that looks upstream.
 pub fn install_units(panel: bool) -> Result<()> {
     if !Path::new("/run/systemd/system").exists() {
         bail!("no systemd");
@@ -260,7 +276,71 @@ pub fn install_units(panel: bool) -> Result<()> {
     systemctl(&["daemon-reload"])?;
     systemctl(&["enable", "--now", "arikan-update.timer"])?;
     systemctl(&["enable", "--now", "arikan-update-request.path"])?;
+    retire_stock();
     Ok(())
+}
+
+/// Takes the stock mikan updater out of the way. Its units are stopped and disabled (their
+/// files stay: nothing of upstream's is deleted, and a rollback turns them on again), its
+/// command is kept at STOCK_KEPT, and /usr/local/bin/mikan becomes a link to this fork's
+/// command — the same name for the same thing, the way the image links its own two. After
+/// this nothing on the host reaches upstream: `mikan update` is `arikan update`, and the
+/// nightly timer is this fork's. Errors are ignored: a takeover that cannot be made is not
+/// worth failing an install or an update over, and the next one (every update runs this)
+/// tries again.
+pub fn retire_stock() {
+    let mut disable = vec!["disable", "--now"];
+    disable.extend(STOCK_ACTIVATORS);
+    let _ = systemctl(&disable);
+    retire_stock_at(Path::new(STOCK_BIN), Path::new(STOCK_KEPT), Path::new(BIN));
+}
+
+/// What retire_stock does with the paths, all of it that can be tested: the stock command
+/// (when there is one, and it is not already this fork's own command) moves to kept, and
+/// this fork's command takes its name.
+///
+/// The check that bin is this fork's own command is by its resolved path, not by what the
+/// name looks like: releases before the rename (0.5.1.1) run from /usr/local/bin/mikan —
+/// their units are mikan-update.* and /usr/local/bin/arikan is a link to them — and an
+/// update to a later release replaces that very file. Deleting it as "the stock command"
+/// would break the command the server updates itself with.
+fn retire_stock_at(bin: &Path, kept: &Path, ours: &Path) {
+    if fs::symlink_metadata(bin).is_err() {
+        return; // no stock command here (a fork that never had one): none is invented
+    }
+    // Already this fork's own command: a build from before the rename runs from this very
+    // file, and an update replaces it there — moving it aside would break the command the
+    // server updates itself with.
+    if let (Ok(a), Ok(b)) = (fs::canonicalize(bin), fs::canonicalize(ours))
+        && a == b
+    {
+        return;
+    }
+    // The stock command is kept once: a second takeover (an update after a migration)
+    // finds the older one still there and does not put a fork's own older build in its
+    // place — a rollback wants the command a stock server came with.
+    if !kept.exists() && fs::rename(bin, kept).is_err() {
+        return;
+    }
+    let _ = fs::remove_file(bin);
+    let _ = std::os::unix::fs::symlink(ours, bin);
+}
+
+/// The other way, for `arikan uninstall`: the stock command comes back under its own name
+/// (the takeover kept it at STOCK_KEPT) and this fork's link goes; true when it did. Its
+/// units are left disabled — nothing updates a server whose admin has just uninstalled,
+/// and `systemctl enable --now mikan-update.timer mikan-update-request.path` brings the
+/// stock updater back for a server returning to stock mikan. A command of its own at
+/// /usr/local/bin/mikan (the admin put stock back) is not touched.
+pub fn restore_stock() -> bool {
+    restore_stock_at(Path::new(STOCK_BIN), Path::new(STOCK_KEPT), Path::new(BIN))
+}
+
+fn restore_stock_at(bin: &Path, kept: &Path, ours: &Path) -> bool {
+    if !kept.exists() || fs::read_link(bin).ok().as_deref() != Some(ours) {
+        return false;
+    }
+    fs::remove_file(bin).is_ok() && fs::rename(kept, bin).is_ok()
 }
 
 pub fn remove_units() {
@@ -415,6 +495,88 @@ mod tests {
         let old = fs::read_to_string(d.join("arikan-update-request.path")).unwrap().replace("data/node/", "data/panel/");
         fs::write(d.join("arikan-update-request.path"), old).unwrap();
         assert!(!units_current_in(&d, false));
+        fs::remove_dir_all(&d).unwrap();
+    }
+
+    // The stock command and units are this fork's own with another name: were upstream to
+    // rename one, the takeover would leave a unit behind still running upstream's command.
+    #[test]
+    fn the_stock_updater_is_this_fork_s_with_another_name() {
+        assert_eq!(BIN.replace("arikan", "mikan"), STOCK_BIN);
+        let stock: Vec<String> = UNIT_NAMES.iter().map(|u| u.replace("arikan", "mikan")).collect();
+        for name in STOCK_ACTIVATORS {
+            assert!(stock.iter().any(|s| s == name), "{name} is not one of stock mikan's units");
+        }
+    }
+
+    // A server that ran stock mikan: its command is kept under the other name and this
+    // fork's command takes its name. A link that is already this fork's is left alone, and
+    // a second run changes nothing. A fork that never had the stock command invents none.
+    #[test]
+    fn the_takeover_keeps_the_stock_command_and_takes_its_name() {
+        let d = tmpdir("stock");
+        let ours = d.join("arikan");
+        fs::write(&ours, "#!/bin/sh\necho arikan\n").unwrap();
+        let bin = d.join("mikan");
+        let kept = d.join("mikan.stock");
+        retire_stock_at(&bin, &kept, &ours);
+        assert!(!bin.exists() && !kept.exists(), "the name was invented on a server that never had it");
+        fs::write(&bin, "#!/bin/sh\necho mikan\n").unwrap();
+        retire_stock_at(&bin, &kept, &ours);
+        assert_eq!(fs::read_to_string(&kept).unwrap(), "#!/bin/sh\necho mikan\n", "the stock command was lost");
+        assert_eq!(fs::read_link(&bin).unwrap(), ours, "mikan does not run this fork's command");
+        retire_stock_at(&bin, &kept, &ours);
+        assert_eq!(fs::read_link(&bin).unwrap(), ours);
+        assert_eq!(fs::read_to_string(&kept).unwrap(), "#!/bin/sh\necho mikan\n");
+        fs::remove_dir_all(&d).unwrap();
+    }
+
+    // An update after a migration: a release from before the rename runs from
+    // /usr/local/bin/mikan and /usr/local/bin/arikan is a link to it — the takeover must
+    // leave that very file alone (it is what the server updates itself with) and must not
+    // put a fork build where the stock command is kept. Another command under the old name
+    // while the stock one is kept: the name becomes this fork's link, what is kept stays.
+    #[test]
+    fn the_takeover_leaves_this_fork_s_own_command_alone() {
+        let d = tmpdir("ours");
+        let ours = d.join("arikan");
+        let bin = d.join("mikan");
+        let kept = d.join("mikan.stock");
+        // a release from before the rename: the command lives at the old name, and this
+        // fork's name is a link to it
+        fs::write(&bin, "fork 0.5.1.1").unwrap();
+        fs::write(&kept, "stock").unwrap();
+        std::os::unix::fs::symlink(&bin, &ours).unwrap();
+        retire_stock_at(&bin, &kept, &ours);
+        assert_eq!(fs::read_to_string(&bin).unwrap(), "fork 0.5.1.1", "the running command was moved or removed");
+        assert_eq!(fs::read_to_string(&kept).unwrap(), "stock", "a fork build took the stock command's place");
+        // A command of someone else's under the old name while the stock one is kept: the old
+        // name becomes this fork's link and what is kept stays the stock command.
+        fs::remove_file(&ours).unwrap();
+        fs::write(&ours, "fork 0.5.1.2").unwrap();
+        retire_stock_at(&bin, &kept, &ours);
+        assert_eq!(fs::read_link(&bin).unwrap(), ours, "the old name did not become this fork's link");
+        assert_eq!(fs::read_to_string(&kept).unwrap(), "stock", "the stock command was replaced");
+        fs::remove_dir_all(&d).unwrap();
+    }
+
+    // Uninstall: the stock command comes back under its own name and the fork's link goes.
+    // A command of its own there (the admin put stock back) is not touched, and with no
+    // stock command kept there is nothing to put back.
+    #[test]
+    fn the_stock_command_comes_back_under_its_name() {
+        let d = tmpdir("restore");
+        let ours = d.join("arikan");
+        fs::write(&ours, "fork").unwrap();
+        let bin = d.join("mikan");
+        let kept = d.join("mikan.stock");
+        assert!(!restore_stock_at(&bin, &kept, &ours), "a stock command appeared from nowhere");
+        fs::write(&bin, "stock").unwrap();
+        retire_stock_at(&bin, &kept, &ours);
+        assert!(restore_stock_at(&bin, &kept, &ours));
+        assert_eq!(fs::read_to_string(&bin).unwrap(), "stock");
+        assert!(!kept.exists(), "the kept command stays after it was put back");
+        assert!(!restore_stock_at(&bin, &kept, &ours), "a command of its own was touched");
         fs::remove_dir_all(&d).unwrap();
     }
 
