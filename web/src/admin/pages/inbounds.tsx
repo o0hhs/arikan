@@ -66,7 +66,7 @@ export function InboundsPage() {
           </div>
         ) : (
           <div className="flex flex-wrap items-center gap-3">
-            <label htmlFor="inbounds-node" className="text-[13px] font-medium text-[var(--ink-700)]">
+            <label htmlFor="inbounds-node" className="text-[13px] font-medium text-[var(--md-on-surface-variant)]">
               {t("inbounds.node")}
             </label>
             <select id="inbounds-node" className="input max-w-[320px]" value={nodeId} onChange={(e) => setNodeId(Number(e.target.value))}>
@@ -106,7 +106,7 @@ export function InboundsPage() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <h2 className="font-display truncate text-lg font-medium tracking-tight">{i.sub_name}</h2>
-                      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[var(--ink-500)]">
+                      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[var(--md-on-surface-variant)]">
                         <span>{i.preset === "custom" ? t("inbounds.customOf", { type: i.type }) : i.title}</span>
                         <span>·</span>
                         <span>{t("inbounds.port", { port: i.listen ? hostPort(i.listen, i.port) : i.port, network: i.network })}</span>
@@ -136,16 +136,16 @@ export function InboundsPage() {
                         <Pill tone="warn">{t("inbounds.sharedKey")}</Pill>
                       </span>
                     ) : null}
-                    {i.dest ? <span className="text-xs text-[var(--ink-500)]">{t("inbounds.maskedAs", { dest: maskedAs(i) })}</span> : null}
+                    {i.dest ? <span className="text-xs text-[var(--md-on-surface-variant)]">{t("inbounds.maskedAs", { dest: maskedAs(i) })}</span> : null}
                   </div>
                   {i.apps.length > 0 && i.apps.length < 5 ? (
-                    <p className="mt-2 text-xs text-[var(--ink-500)]">{t("inbounds.appsLine", { list: i.apps.map((a) => tMaybe(`inbounds.apps.${a}`) ?? a).join(", ") })}</p>
+                    <p className="mt-2 text-xs text-[var(--md-on-surface-variant)]">{t("inbounds.appsLine", { list: i.apps.map((a) => tMaybe(`inbounds.apps.${a}`) ?? a).join(", ") })}</p>
                   ) : null}
                   {i.enabled && i.node_cert && nodes.data?.find((n) => n.id === i.node_id)?.tls?.pinned ? (
-                    <p className="mt-2 text-xs text-[var(--ink-500)]">{t("certs.pinnedNote")}</p>
+                    <p className="mt-2 text-xs text-[var(--md-on-surface-variant)]">{t("certs.pinnedNote")}</p>
                   ) : null}
                   {i.status === "error" && i.error ? (
-                    <p className="mt-3 text-[13px] text-[var(--berry-600)]" role="alert">
+                    <p className="mt-3 text-[13px] text-[var(--md-error)]" role="alert">
                       {listenerError(i.error)}
                     </p>
                   ) : null}
@@ -193,16 +193,16 @@ function AutoInfo({ i }: { i: Inbound }) {
       {i.enabled && a.cut_off ? (
         <div className="mt-3 flex flex-col items-start gap-1.5" role="status">
           <Pill tone="warn">{a.reached ? t("inbounds.cutOffOf", { n: a.blocked, total: a.blocked + a.reached }) : t("inbounds.cutOff", { n: a.blocked })}</Pill>
-          {a.stuck ? <span className="text-xs text-[var(--ink-500)]">{t(`inbounds.stuck.${a.stuck}`)}</span> : null}
+          {a.stuck ? <span className="text-xs text-[var(--md-on-surface-variant)]">{t(`inbounds.stuck.${a.stuck}`)}</span> : null}
         </div>
       ) : null}
       {i.enabled && a.target_ok === false ? (
-        <p className="mt-3 text-[13px] text-[var(--berry-600)]" role="alert">
+        <p className="mt-3 text-[13px] text-[var(--md-error)]" role="alert">
           {t("inbounds.targetDown", { reason: tMaybe(`inbounds.targetErr.${a.target_error ?? ""}`) ?? a.target_error ?? "" })}
         </p>
       ) : null}
       {a.last ? (
-        <p className="mt-3 text-xs text-[var(--ink-500)]">
+        <p className="mt-3 text-xs text-[var(--md-on-surface-variant)]">
           {t(a.last.kind === "port" ? "inbounds.lastPort" : "inbounds.lastSni", { old: a.last.old, new: a.last.new, ago: ago(a.last.at) })} · {t(`inbounds.reason.${a.last.reason}`)}
         </p>
       ) : null}

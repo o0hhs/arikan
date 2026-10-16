@@ -41,7 +41,7 @@ export function LimitPicker({
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-2 text-[13px]">
-        <span className="text-[var(--ink-600)]">{label}</span>
+        <span className="text-[var(--md-on-surface-variant)]">{label}</span>
         <div className="seg" role="group" aria-label={label}>
           {presets.map((p) => (
             <button key={p} type="button" aria-pressed={value === p && typing === null} disabled={busy} onClick={() => pick(p)}>
@@ -57,7 +57,7 @@ export function LimitPicker({
             {own && typing === null ? format(value) : t("userDrawer.limitOther")}
           </button>
         </div>
-        {unit ? <span className="text-xs text-[var(--ink-500)]">{unit}</span> : null}
+        {unit ? <span className="text-xs text-[var(--md-on-surface-variant)]">{unit}</span> : null}
       </div>
       {typing !== null ? (
         <form
@@ -91,7 +91,7 @@ export function LimitPicker({
           <Button size="sm" variant="ghost" type="button" onClick={() => setTyping(null)}>
             {t("common.cancel")}
           </Button>
-          {typing !== "" && !ok ? <span className="w-full text-xs text-[var(--berry-600)]">{t("userDrawer.limitRange", { min, max })}</span> : null}
+          {typing !== "" && !ok ? <span className="w-full text-xs text-[var(--md-error)]">{t("userDrawer.limitRange", { min, max })}</span> : null}
         </form>
       ) : null}
     </div>

@@ -6,9 +6,16 @@
  *  1. the light base (:root and [data-tone="light"]): Mikan, every token;
  *  2. the dark base ([data-tone="dark"]): what every dark theme shares;
  *  3. one block per theme ([data-theme="…"]): only what makes it itself.
+ * On top of them, one layer that every theme shares: the Material 3 Expressive roles —
+ * the shape, type and motion scales below, and the colour roles at the end of the file.
+ * They are written as derivations (var() and color-mix() over the palette), so a theme
+ * brings its own M3 palette by bringing its own ink, accent and status ramps; nothing in
+ * the colour layer is per-theme, and a new theme needs no M3 block of its own.
  *
  * The attributes sit on <html> (components/theme.tsx, public/theme-boot.js), and on a theme
- * preview in the picker, which therefore draws itself from the same tokens.
+ * preview in the picker, which therefore draws itself from the same tokens. The subscription
+ * page and the Mini App carry them too (sub/page.ts): data-theme/data-tone for a panel theme,
+ * data-scheme for their own four palettes, hence the .sub-look selectors it appears in.
  *
  * The backdrop (.atmo in app.css) takes five glows: --glow-a…c on the left ("warm"),
  * --glow-d…e on the right ("cool"), dimmed by --glow-opacity, with grain on top.
@@ -67,6 +74,94 @@
   --grain-blend: multiply; --grain-opacity: 0.055;
   /* A theme's own drawing over the glows (stars, waves, a grid); none by default. */
   --pattern: none; --pattern-size: auto; --pattern-opacity: 0; --pattern-blur: 0px;
+}
+
+/* ---------- Material 3 Expressive: the scales that are not colours ---------- */
+
+/*
+ * Shape, type and motion are the same for every theme — only the palette changes — so they
+ * are declared once on :root. What a theme does change is the display face (the terminal
+ * theme's headings are mono, for instance); the type roles name the stacks rather than a
+ * face, so a theme that swaps --font-display-stack moves the roles with it.
+ *
+ * The three scales are the M3 Expressive ones, narrowed to what the panel needs: a radius
+ * per surface size, the fifteen type roles, and the durations and curves of the motion
+ * system. app.css spends them; nothing here paints anything by itself.
+ */
+:root {
+  /* Corners: xs for a mark, md for a field or a button, lg/lg-increased for cards,
+     xl for sheets and the sidebar, xxl for the hero surfaces of a phone. */
+  --md-shape-xs: 4px;
+  --md-shape-sm: 8px;
+  --md-shape-md: 12px;
+  --md-shape-lg: 16px;
+  --md-shape-lg-increased: 20px;
+  --md-shape-xl: 28px;
+  --md-shape-xl-increased: 32px;
+  --md-shape-xxl: 48px;
+  --md-shape-full: 999px;
+  /* The names app.css and the pages already use, kept as the same three steps. */
+  --r-md: var(--md-shape-md);
+  --r-lg: var(--md-shape-lg-increased);
+  --r-xl: var(--md-shape-xl);
+
+  /* The type scale. Display and headline roles take the display face (Unbounded, whose
+     tight fit wants the negative tracking); title, body and label take the UI face.
+     The weights sit on the expressive side of the scale: 500 on the large roles rather
+     than the baseline 400, because Unbounded at 400 on a dark theme reads thin. */
+  --md-display-large: 500 57px/64px var(--font-display-stack);
+  --md-display-medium: 500 45px/52px var(--font-display-stack);
+  --md-display-small: 500 36px/44px var(--font-display-stack);
+  --md-headline-large: 500 32px/40px var(--font-display-stack);
+  --md-headline-medium: 500 28px/36px var(--font-display-stack);
+  --md-headline-small: 500 24px/32px var(--font-display-stack);
+  --md-title-large: 500 22px/28px var(--font-display-stack);
+  --md-title-medium: 600 16px/24px var(--font-ui-stack);
+  --md-title-small: 600 14px/20px var(--font-ui-stack);
+  --md-body-large: 400 16px/24px var(--font-ui-stack);
+  --md-body-medium: 400 14px/20px var(--font-ui-stack);
+  --md-body-small: 400 12px/16px var(--font-ui-stack);
+  --md-label-large: 500 14px/20px var(--font-ui-stack);
+  --md-label-medium: 500 12px/16px var(--font-ui-stack);
+  --md-label-small: 500 11px/16px var(--font-ui-stack);
+  --md-tracking-display: -0.02em;
+  --md-tracking-title: -0.01em;
+
+  /* Motion: the four duration steps of each size and M3's curves. The panel reads the
+     calibrations by size rather than by milliseconds — a state layer is "short2", a
+     sheet is "long1" — so the numbers can be retuned in one place. */
+  --md-motion-short1: 50ms; --md-motion-short2: 100ms; --md-motion-short3: 150ms; --md-motion-short4: 200ms;
+  --md-motion-medium1: 250ms; --md-motion-medium2: 300ms; --md-motion-medium3: 350ms; --md-motion-medium4: 400ms;
+  --md-motion-long1: 450ms; --md-motion-long2: 500ms; --md-motion-long3: 550ms; --md-motion-long4: 600ms;
+  --md-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --md-ease-standard-decelerate: cubic-bezier(0, 0, 0, 1);
+  --md-ease-standard-accelerate: cubic-bezier(0.3, 0, 1, 1);
+  --md-ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
+  --md-ease-emphasized-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
+  --md-ease-emphasized-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
+  --md-ease-spring: cubic-bezier(0.34, 1.32, 0.5, 1);
+  /* --ease-out and --ease-spring are what app.css has always asked for: the same curves. */
+  --ease-out: var(--md-ease-emphasized-decelerate);
+  --ease-spring: var(--md-ease-spring);
+
+  /* Elevation: M3's levels over the shadows this panel has always drawn. */
+  --md-elevation-1: var(--shadow-sm);
+  --md-elevation-2: var(--shadow-md);
+  --md-elevation-3: var(--shadow-lg);
+}
+
+/*
+ * The performance mode zeros the motion tokens themselves, not only the animations using
+ * them (app.css): a transition written against a token then lands where it should at once
+ * instead of drawing a 100ms fade on a device that cannot afford one.
+ */
+html[data-perf="1"] {
+  --md-motion-short1: 0ms; --md-motion-short2: 0ms; --md-motion-short3: 0ms; --md-motion-short4: 0ms;
+  --md-motion-medium1: 0ms; --md-motion-medium2: 0ms; --md-motion-medium3: 0ms; --md-motion-medium4: 0ms;
+  --md-motion-long1: 0ms; --md-motion-long2: 0ms; --md-motion-long3: 0ms; --md-motion-long4: 0ms;
+  --md-ease-standard: linear; --md-ease-standard-decelerate: linear; --md-ease-standard-accelerate: linear;
+  --md-ease-emphasized: linear; --md-ease-emphasized-decelerate: linear; --md-ease-emphasized-accelerate: linear;
+  --md-ease-spring: linear;
 }
 
 [data-tone="dark"] {
@@ -583,10 +678,134 @@
 /* Unbounded's tight tracking squeezes a monospace face. */
 [data-theme="terminal"] :is(.page-title, .kpi-value, .kpi-value small, .brand-name, .dr-title h2, .dialog h2, .state-box h2, .gauge-label b, .metric-value) { letter-spacing: -0.01em; }
 
+/* ---------- Material 3 Expressive: the colour roles ---------- */
+
+/*
+ * The M3 roles, derived from whatever palette is in force. Nothing here is per-theme: each
+ * value is a var() reference into the ramps above or a color-mix() over them, and custom
+ * properties resolve where they are used, so the same two blocks give Ocean its teal roles,
+ * Graphite its greys and the Mini App's four palettes theirs.
+ *
+ * The two tones read the ramps at their two ends. A light theme's accent ramp goes pale
+ * (50) to deep (700), so primary is the deep end with the palette's white ink on it; a dark
+ * theme's goes deep to pale, so primary is 500 with the palette's dark ink (--on-fill, which
+ * every theme already pairs with its accent). The containers are the tinted steps the same
+ * palettes already carry: mikan-100/50 for primary and the status ramps' own 50 for error
+ * and tertiary. Secondary is the accent quietened towards the ink — there is no second
+ * accent ramp — and tertiary is the second hue each palette already has (lagoon, the "info"
+ * ramp), so a theme that recolours its statuses recolours those roles with it.
+ * check-contrast.mjs checks every on/container pair of this layer, in every theme.
+ */
+
+:root, [data-tone="light"], [data-theme], .sub-look[data-scheme="light"] {
+  --md-primary: var(--mikan-700);
+  --md-on-primary: var(--on-fill);
+  --md-primary-container: var(--mikan-100);
+  --md-on-primary-container: var(--ink-900);
+
+  --md-secondary: color-mix(in srgb, var(--mikan-700) 62%, var(--ink-700));
+  --md-on-secondary: var(--on-fill);
+  --md-secondary-container: color-mix(in srgb, var(--mikan-500) 16%, var(--surface-solid));
+  --md-on-secondary-container: var(--ink-900);
+
+  --md-tertiary: var(--lagoon-600);
+  --md-on-tertiary: var(--on-fill);
+  --md-tertiary-container: var(--lagoon-50);
+  --md-on-tertiary-container: var(--ink-900);
+
+  --md-error: var(--berry-600);
+  --md-on-error: var(--on-danger);
+  --md-error-container: var(--berry-50);
+  --md-on-error-container: var(--ink-900);
+
+  /* Surfaces run from the page itself to the raised steps above a card: lowest is the
+     page's own ground, highest the strip a field or a selected item sits on. */
+  --md-surface: var(--bg);
+  --md-on-surface: var(--ink-900);
+  --md-surface-variant: var(--ink-50);
+  --md-on-surface-variant: var(--ink-500);
+  --md-surface-container-lowest: var(--bg);
+  --md-surface-container-low: color-mix(in srgb, var(--surface-solid) 88%, var(--bg));
+  --md-surface-container: var(--surface-solid);
+  --md-surface-container-high: var(--raised);
+  --md-surface-container-highest: color-mix(in srgb, var(--raised) 93%, var(--ink-900));
+
+  /* The one outline for things you can act on (3:1 is what WCAG asks of a control's edge)
+     and the hairline for dividers, which carry no meaning of their own. */
+  --md-outline: var(--ink-400);
+  --md-outline-variant: var(--hairline);
+
+  /* The inverse pair: the snackbar, the code block — a surface that steps out of the page.
+     The action on it is the surface's own ink, quietened: the accent itself would sit on a
+     surface that is already the accent's own colour (Latte's fill is its accent, Dawn's is
+     a step away), and the ink is what every theme has already checked against that fill. */
+  --md-inverse-surface: var(--fill);
+  --md-inverse-on-surface: var(--on-fill);
+  --md-inverse-primary: color-mix(in srgb, var(--on-fill) 88%, var(--fill));
+  --md-scrim: var(--scrim);
+
+  /* State layers: the ink already on the surface, at M3's opacities. */
+  --md-state-hover: color-mix(in srgb, currentColor 8%, transparent);
+  --md-state-press: color-mix(in srgb, currentColor 12%, transparent);
+
+  /* --wash is the quiet strip a snippet or a log line sits on; it had no value of its own
+     (node-turn.tsx asked for it before it existed), so the role gives it one. */
+  --wash: var(--md-surface-container-high);
+}
+
+[data-tone="dark"], .sub-look[data-scheme="dark"] {
+  --md-primary: var(--mikan-500);
+  --md-on-primary: var(--on-fill);
+  --md-primary-container: var(--mikan-100);
+  --md-on-primary-container: var(--ink-900);
+
+  --md-secondary: color-mix(in srgb, var(--mikan-500) 72%, var(--ink-700));
+  --md-on-secondary: var(--on-fill);
+  --md-secondary-container: color-mix(in srgb, var(--mikan-500) 20%, var(--surface-solid));
+  --md-on-secondary-container: var(--ink-900);
+
+  --md-tertiary: var(--lagoon-500);
+  --md-on-tertiary: var(--on-fill);
+  --md-tertiary-container: var(--lagoon-50);
+  --md-on-tertiary-container: var(--ink-900);
+
+  --md-error: var(--berry-600);
+  --md-on-error: var(--on-danger);
+  --md-error-container: var(--berry-50);
+  --md-on-error-container: var(--ink-900);
+
+  --md-surface: var(--bg);
+  --md-on-surface: var(--ink-900);
+  --md-surface-variant: var(--ink-50);
+  /* The dark ramp is the light one turned around: 900 is the brightest ink and 500 the
+     mid grey, so the role that is "the quiet text" is 700 here and the edge that has to
+     hold 3:1 against a raised surface is 500. Both are what check-contrast.mjs asserts. */
+  --md-on-surface-variant: var(--ink-700);
+  --md-surface-container-lowest: var(--bg);
+  --md-surface-container-low: color-mix(in srgb, var(--surface-solid) 88%, var(--bg));
+  --md-surface-container: var(--surface-solid);
+  --md-surface-container-high: var(--raised);
+  --md-surface-container-highest: color-mix(in srgb, var(--raised) 93%, var(--ink-900));
+
+  --md-outline: var(--ink-500);
+  --md-outline-variant: var(--hairline);
+
+  --md-inverse-surface: var(--fill);
+  --md-inverse-on-surface: var(--on-fill);
+  --md-inverse-primary: color-mix(in srgb, var(--on-fill) 88%, var(--fill));
+  --md-scrim: var(--scrim);
+
+  /* Every role of the layer is declared in both blocks, previews included: a theme preview
+     draws itself on an element of its own, and a role left out here would be inherited —
+     resolved against the admin's palette instead of the one being previewed. */
+  --wash: var(--md-surface-container-high);
+}
+
 /* ---------- what every dark theme does to the components ---------- */
 
-[data-tone="dark"] .btn-primary:hover:not(:disabled) { background: var(--fill-hover); }
-/* An accent at 45% over a dark card reads as mud: a disabled primary button goes grey. */
-[data-tone="dark"] .btn-primary:disabled { opacity: 1; background: var(--ink-100); color: var(--ink-400); box-shadow: none; }
+/* The M3 layer (app.css) needs nothing here: a role is the same role in both tones — what
+   changes with the tone is the palette the role is derived from. These rules are for the
+   components that predate the roles and genuinely differ by tone. */
+
 /* Pastel avatars with light initials: the colour moves to the letter, the circle gets a tint of it. */
 [data-tone="dark"] .avatar { background: color-mix(in srgb, var(--av, #ede7e1) 20%, var(--surface-solid)); color: var(--av, #ede7e1); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--av, #ede7e1) 25%, transparent); }

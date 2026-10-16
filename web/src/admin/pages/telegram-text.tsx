@@ -75,9 +75,9 @@ export function TgTextPreview({ text, vars, label }: { text: string; vars?: Reco
   if (!text.trim()) return null;
   return (
     <div className="mt-2" aria-live="polite">
-      <div className="mb-1 text-xs text-[var(--ink-500)]">{label}</div>
+      <div className="mb-1 text-xs text-[var(--md-on-surface-variant)]">{label}</div>
       {q.isError ? (
-        <p className="text-xs text-[var(--berry-600)]" role="alert">
+        <p className="text-xs text-[var(--md-error)]" role="alert">
           {errorText(q.error)}
         </p>
       ) : q.data === undefined ? (
@@ -104,7 +104,7 @@ export function MarkdownHint() {
     ["`", "telegram.md.code"],
   ] as const;
   return (
-    <p className="text-xs leading-5 text-[var(--ink-500)]">
+    <p className="text-xs leading-5 text-[var(--md-on-surface-variant)]">
       {t("telegram.md.lead")}{" "}
       {marks.map(([m, key]) => (
         <Fragment key={key}>

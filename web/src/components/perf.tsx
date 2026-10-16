@@ -40,7 +40,7 @@ export function PerfCard() {
           <SwitchRow label={t("perf.switch")} sub={t("perf.hint")} checked={on} onChange={set} />
         </li>
       </ul>
-      <p className="mt-3 text-xs text-[var(--ink-500)]">{t("perf.note")}</p>
+      <p className="mt-3 text-xs text-[var(--md-on-surface-variant)]">{t("perf.note")}</p>
     </section>
   );
 }

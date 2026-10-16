@@ -17,11 +17,12 @@ export function ShieldBanner({ tone = "warn", role, className, children }: { ton
   );
 }
 
-/** The badge of an addon from a source: whose it is, and what that does not vouch for in its hint. */
+/** The badge of an addon from a source: whose it is, and what that does not vouch for in its
+ * hint. The panel's own source is this panel's own addon: it says so and warns of nothing. */
 export function OriginMark({ origin }: { origin: MarketOrigin }) {
   return (
-    <span title={t("market.unofficialHint", { title: origin.title })}>
-      <Pill tone="warn">{unofficialLabel(origin)}</Pill>
+    <span title={t(origin.builtin ? "market.ownHint" : "market.unofficialHint", { title: origin.title })}>
+      <Pill tone={origin.builtin ? "ok" : "warn"}>{unofficialLabel(origin)}</Pill>
     </span>
   );
 }

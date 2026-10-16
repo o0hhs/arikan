@@ -145,7 +145,7 @@ function PreviewPage(p: PreviewProps) {
   const shell = (children: React.ReactNode) => (
     <div onClickCapture={stay}>
       <PageBackdrop look={p.config.look} image={p.background} />
-      <PageShell config={p.config} brand={p.brand} logo={p.logo} right={<span className="ml-auto text-xs font-semibold text-[var(--ink-500)]">{getLocale().toUpperCase()}</span>}>
+      <PageShell config={p.config} brand={p.brand} logo={p.logo} right={<span className="ml-auto text-xs font-semibold text-[var(--md-on-surface-variant)]">{getLocale().toUpperCase()}</span>}>
         {children}
       </PageShell>
     </div>
@@ -167,7 +167,7 @@ function PreviewPage(p: PreviewProps) {
       promo={
         <section className="glass sub-card p-4" inert>
           <h2 className="text-[15px] font-semibold">{promoTitle || t("sub.promoTitle")}</h2>
-          <p className="mt-1 text-xs text-[var(--ink-500)]">{t("sub.promoHint")}</p>
+          <p className="mt-1 text-xs text-[var(--md-on-surface-variant)]">{t("sub.promoHint")}</p>
           <div className="mt-3 flex gap-2">
             <input className="input min-w-0 flex-1" placeholder="WELCOME30" readOnly />
             <Button variant="primary">{t("sub.promoApply")}</Button>

@@ -101,11 +101,11 @@ function FieldControl({ id, f, value, onChange, error, disabled }: { id: string;
           <input type="checkbox" id={id} className="check" checked={value === true} onChange={(e) => onChange(e.target.checked)} disabled={disabled} aria-invalid={!!error} aria-describedby={noteId} /> {label}
         </label>
         {error ? (
-          <div className="mt-1 text-xs text-[var(--berry-600)]" role="alert" id={noteId}>
+          <div className="mt-1 text-xs text-[var(--md-error)]" role="alert" id={noteId}>
             {error}
           </div>
         ) : help ? (
-          <div className="mt-1 text-xs text-[var(--ink-500)]" id={noteId}>
+          <div className="mt-1 text-xs text-[var(--md-on-surface-variant)]" id={noteId}>
             {help}
           </div>
         ) : null}

@@ -86,8 +86,8 @@ function AddForm({ full, limit, onAdded }: { full: boolean; limit: number | unde
         <Button variant="primary" type="submit" loading={add.isPending} disabled={full}>
           <Link2 size={16} aria-hidden /> {t("sources.add")}
         </Button>
-        {full ? <span className="text-xs text-[var(--ink-500)]">{t("sources.full", { n: limit ?? "" })}</span> : null}
-        {add.isPending ? <span className="text-xs text-[var(--ink-500)]">{t("sources.reading")}</span> : null}
+        {full ? <span className="text-xs text-[var(--md-on-surface-variant)]">{t("sources.full", { n: limit ?? "" })}</span> : null}
+        {add.isPending ? <span className="text-xs text-[var(--md-on-surface-variant)]">{t("sources.reading")}</span> : null}
       </div>
     </form>
   );
@@ -96,7 +96,7 @@ function AddForm({ full, limit, onAdded }: { full: boolean; limit: number | unde
 /** What a failed add names: ids the catalog or another source holds, or entries left out and why. */
 function SkippedList({ items }: { items: unknown[] }) {
   return (
-    <ul className="-mt-2 flex flex-col gap-1 text-xs text-[var(--ink-500)]" aria-label={t("sources.skippedTitle")}>
+    <ul className="-mt-2 flex flex-col gap-1 text-xs text-[var(--md-on-surface-variant)]" aria-label={t("sources.skippedTitle")}>
       {items.map((it, i) => {
         const o = typeof it === "string" ? { id: it, reason: "" } : (it as { id?: string; reason?: string });
         return (
@@ -139,18 +139,20 @@ function SourceCard({ s, index, onChanged }: { s: Source; index: number; onChang
   const keyChanged = s.error === "source_key_changed";
   const entries = s.entries;
   return (
-    <li className="reveal flex min-w-0 flex-col gap-3 rounded-[12px] border border-[var(--hairline)] bg-[var(--surface-soft)] p-4" style={{ "--i": Math.min(index, 8) } as React.CSSProperties}>
+    <li className="reveal flex min-w-0 flex-col gap-3 rounded-md border border-[var(--hairline)] bg-[var(--md-surface-container-low)] p-4" style={{ "--i": Math.min(index, 8) } as React.CSSProperties}>
       <div className="flex flex-wrap items-start gap-2">
         <div className="min-w-0 flex-1">
           <h3 className="addon-card-title">{s.title}</h3>
-          <div className="mono mt-1 break-all text-xs text-[var(--ink-500)]">{s.url}</div>
+          <div className="mono mt-1 break-all text-xs text-[var(--md-on-surface-variant)]">{s.url}</div>
         </div>
+        {s.builtin ? <Pill tone="ok">{t("sources.builtin")}</Pill> : null}
         {s.signed ? <Pill tone="ok">{t("sources.signed")}</Pill> : <Pill tone="warn">{t("sources.unsigned")}</Pill>}
       </div>
+      {s.builtin ? <div className="text-xs text-[var(--md-on-surface-variant)]">{t("sources.builtinText", { url: s.url })}</div> : null}
       {s.signed ? (
         <div className="flex flex-wrap items-center gap-2 text-xs">
-          <KeyRound size={14} className="shrink-0 text-[var(--ink-500)]" aria-hidden />
-          <span className="text-[var(--ink-500)]">{t("sources.fingerprint")}</span>
+          <KeyRound size={14} className="shrink-0 text-[var(--md-on-surface-variant)]" aria-hidden />
+          <span className="text-[var(--md-on-surface-variant)]">{t("sources.fingerprint")}</span>
           <span className="mono break-all">{s.fingerprint}</span>
         </div>
       ) : (
@@ -174,7 +176,7 @@ function SourceCard({ s, index, onChanged }: { s: Source; index: number; onChang
           ) : null}
         </div>
       ) : null}
-      <div className="text-xs text-[var(--ink-500)]">
+      <div className="text-xs text-[var(--md-on-surface-variant)]">
         {[
           s.fetched_at ? t("sources.fetched", { when: ago(s.fetched_at) }) : t("sources.notFetched"),
           t("sources.entriesN", { n: entries }),
@@ -184,19 +186,23 @@ function SourceCard({ s, index, onChanged }: { s: Source; index: number; onChang
           .join(" · ")}
       </div>
       {s.skipped.length ? (
-        <details className="text-xs text-[var(--ink-500)]">
+        <details className="text-xs text-[var(--md-on-surface-variant)]">
           <summary className="cursor-pointer">{t("sources.skippedN", { n: s.skipped.length })}</summary>
           <SkippedList items={s.skipped} />
         </details>
       ) : null}
       <div className="flex flex-wrap items-center justify-end gap-2 border-t border-[var(--hairline)] pt-3">
-        {inUse ? <span className="mr-auto min-w-0 text-xs text-[var(--ink-500)]">{t("sources.inUseHint")}</span> : null}
+        {inUse ? <span className="mr-auto min-w-0 text-xs text-[var(--md-on-surface-variant)]">{t("sources.inUseHint")}</span> : null}
         <Button size="sm" loading={refresh.isPending} onClick={() => refresh.mutate(undefined)} aria-label={t("sources.refreshLabel", { name: s.title })}>
           <RefreshCw size={16} aria-hidden /> {t("sources.refresh")}
         </Button>
-        <Button size="sm" variant="danger" disabled={inUse} onClick={() => setRemove(true)} aria-label={t("sources.removeLabel", { name: s.title })}>
-          <Trash2 size={16} aria-hidden /> {t("sources.remove")}
-        </Button>
+        {/* The source the panel ships with stays: it is readded at the next start, and this
+            panel's own bot comes from it. */}
+        {s.builtin ? null : (
+          <Button size="sm" variant="danger" disabled={inUse} onClick={() => setRemove(true)} aria-label={t("sources.removeLabel", { name: s.title })}>
+            <Trash2 size={16} aria-hidden /> {t("sources.remove")}
+          </Button>
+        )}
       </div>
       <Confirm
         open={remove}
@@ -226,7 +232,7 @@ function SourcesSkeleton() {
   return (
     <ul className="flex flex-col gap-3" aria-busy aria-label={t("common.loading")}>
       {[0, 1].map((i) => (
-        <li key={i} className="flex flex-col gap-3 rounded-[12px] border border-[var(--hairline)] p-4">
+        <li key={i} className="flex flex-col gap-3 rounded-md border border-[var(--hairline)] p-4">
           <Skeleton style={{ height: 16, width: "40%", borderRadius: 8 }} />
           <Skeleton style={{ height: 12, width: "80%", borderRadius: 8 }} />
           <Skeleton style={{ height: 32, width: 120, borderRadius: 10 }} />

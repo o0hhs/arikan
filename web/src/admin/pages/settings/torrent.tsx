@@ -52,7 +52,7 @@ export function TorrentCard() {
       <QueryBoundary query={q} pending={<Skeleton style={{ height: 120 }} />}>
         {(v) => (
           <>
-            <p className="text-xs text-[var(--ink-500)]">{t("settings.torrent.enableHint")}</p>
+            <p className="text-xs text-[var(--md-on-surface-variant)]">{t("settings.torrent.enableHint")}</p>
             <label className="mt-4 block text-[13px] font-medium" htmlFor="torrent-ban">
               {t("settings.torrent.ban")}
             </label>
@@ -70,7 +70,7 @@ export function TorrentCard() {
                 </option>
               ))}
             </select>
-            <p id="torrent-ban-hint" className="mt-1.5 text-xs text-[var(--ink-500)]">
+            <p id="torrent-ban-hint" className="mt-1.5 text-xs text-[var(--md-on-surface-variant)]">
               {t("settings.torrent.banHint")}
             </p>
             <div className="mt-4 text-[13px] font-medium">{t("settings.torrent.exempt")}</div>
@@ -94,7 +94,7 @@ export function TorrentCard() {
                 ))}
               </ul>
             ) : (
-              <p className="mt-1 text-xs text-[var(--ink-500)]">{t("settings.torrent.exemptNone")}</p>
+              <p className="mt-1 text-xs text-[var(--md-on-surface-variant)]">{t("settings.torrent.exemptNone")}</p>
             )}
           </>
         )}
@@ -126,7 +126,7 @@ export function TorrentHitsCard() {
       >
         {() =>
           items.length === 0 ? (
-            <p className="text-[13px] text-[var(--ink-500)]">{t("settings.torrent.hitsEmpty")}</p>
+            <p className="text-[13px] text-[var(--md-on-surface-variant)]">{t("settings.torrent.hitsEmpty")}</p>
           ) : (
             <>
               <ul className="row-list" aria-busy={list.isFetching}>
@@ -158,15 +158,15 @@ export function HitRow({ h, showUser }: { h: Hit; showUser?: boolean }) {
           </Link>
         ) : null}
         <span>{t(`settings.torrent.kinds.${h.kind}`)}</span>
-        <span className="mono truncate text-xs text-[var(--ink-500)]">{h.dest}</span>
-        {h.hits > 1 ? <span className="num text-xs text-[var(--ink-500)]">×{num(h.hits)}</span> : null}
+        <span className="mono truncate text-xs text-[var(--md-on-surface-variant)]">{h.dest}</span>
+        {h.hits > 1 ? <span className="num text-xs text-[var(--md-on-surface-variant)]">×{num(h.hits)}</span> : null}
         {h.lifted_at ? (
           <Pill tone="off">{t("settings.torrent.lifted")}</Pill>
         ) : h.banned_until ? (
           <Pill tone={banned ? "bad" : "off"}>{t("settings.torrent.bannedUntil", { date: `${dateShort(h.banned_until)} ${time(h.banned_until)}` })}</Pill>
         ) : null}
       </div>
-      <div className="mt-0.5 text-xs text-[var(--ink-500)]">
+      <div className="mt-0.5 text-xs text-[var(--md-on-surface-variant)]">
         {dateShort(h.at)} {time(h.at)}
         {h.node_name ? ` · ${h.node_name}` : ""} · {h.inbound} · <span className="mono">{h.ip}</span>
       </div>

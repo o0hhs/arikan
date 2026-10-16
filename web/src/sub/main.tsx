@@ -11,7 +11,7 @@ import { subDicts } from "../i18n/sub";
 import { APPS } from "./apps";
 import { hashParams, initData, json, okData, openOutside, pageURL, postJSON, request, subRoot, tgEvent, tgMode, tokenOf } from "./net";
 import { applyLook, readPage, titleOf, type DocView } from "./page";
-import { FreePlan, loadShop, Shop, type ShopData } from "./shop";
+import { AccessCode, Builder, FreePlan, loadShop, Shop, type ShopData } from "./shop";
 import { PromoSection } from "./promo";
 import { ReissueSection } from "./reissue";
 import type { Info, TgSub } from "./types";
@@ -293,13 +293,42 @@ function SubPage() {
   // The free plan, for an account without a subscription and for one whose free
   // subscription has ended: the subscription it gives shows once the session reloads.
   const freePlan = shop?.free ? <FreePlan offer={shop.free} subRoot={subRoot} initData={initData} openLink={openOutside} onTaken={refresh} /> : null;
+  // The tariff constructor, when the admin set one up: the buyer builds the plan and pays for
+  // it. It stands after the plans on sale, and works for a new subscription and a renewal.
+  const builtPlan = shop?.built ? (
+    <Builder
+      built={shop.built}
+      data={shop}
+      subRoot={subRoot}
+      initData={initData}
+      token={token}
+      openInvoice={(slug) => tgEvent("web_app_open_invoice", { slug })}
+      openLink={openOutside}
+      onRefresh={refresh}
+    />
+  ) : null;
+  // An access code: it opens a plan others do not see. The page shows it beside the shop, so a
+  // code from the bot's button (#promocodes) has somewhere to be typed. The plans a code of
+  // this account opened are named above it.
+  const accessCode = (
+    <>
+      {shop?.access?.length
+        ? shop.access.map((a) => (
+            <p key={a.tariff_id} className="text-xs text-[var(--leaf-600)]">
+              {t("sub.accessOwn", { code: a.code, name: a.name })}
+            </p>
+          ))
+        : null}
+      <AccessCode subRoot={subRoot} initData={initData} onTaken={refresh} />
+    </>
+  );
   const plansForNew = !!shop?.allow_new && !!shop.offers.length;
   if (tg.state === "none" && (plansForNew || trialShop || freePlan)) {
     return (
       <Shell>
         <section className="glass sub-card p-6 text-center">
           <h1 className="font-display text-xl font-medium">{t("sub.tgNoSubTitle")}</h1>
-          <p className="mt-2 text-[13px] text-[var(--ink-500)]">{t("sub.tgNoSubText")}</p>
+          <p className="mt-2 text-[13px] text-[var(--md-on-surface-variant)]">{t("sub.tgNoSubText")}</p>
         </section>
         {trialShop}
         {freePlan}
@@ -307,6 +336,8 @@ function SubPage() {
           <>
             <PromoSection token="" activeCode={promoCode} onApplied={(c) => setPromoCode(c)} onBonusApplied={refresh} title={titleOf(config, "promo")} />
             {shopFor("", t("sub.shopNew"))}
+            {builtPlan}
+            {accessCode}
           </>
         ) : null}
       </Shell>
@@ -317,7 +348,7 @@ function SubPage() {
       <Shell>
         <section className="glass sub-card p-6 text-center" role={tg.state === "failed" ? "alert" : undefined}>
           <h1 className="font-display text-xl font-medium">{tg.state === "none" ? t("sub.tgNoSubTitle") : t("sub.loadFailed")}</h1>
-          <p className="mt-2 text-[13px] text-[var(--ink-500)]">{tg.state === "none" ? t("sub.tgNoSubText") : t("sub.tgFailed")}</p>
+          <p className="mt-2 text-[13px] text-[var(--md-on-surface-variant)]">{tg.state === "none" ? t("sub.tgNoSubText") : t("sub.tgFailed")}</p>
           {tg.state === "failed" ? (
             <Button variant="primary" className="mt-4" onClick={() => void session()}>
               {t("common.retry")}
@@ -332,7 +363,7 @@ function SubPage() {
       <Shell>
         <section className="glass sub-card p-6 text-center" role="alert">
           <h1 className="font-display text-xl font-medium">{t("sub.loadFailed")}</h1>
-          <p className="mt-2 text-[13px] text-[var(--ink-500)]">{t("sub.loadFailedText")}</p>
+          <p className="mt-2 text-[13px] text-[var(--md-on-surface-variant)]">{t("sub.loadFailedText")}</p>
           <Button
             variant="primary"
             className="mt-4"
@@ -351,7 +382,7 @@ function SubPage() {
     return (
       <Shell>
         {tgMode ? (
-          <p className="px-1 text-[13px] text-[var(--ink-500)]" role="status">
+          <p className="px-1 text-[13px] text-[var(--md-on-surface-variant)]" role="status">
             {t("sub.tgLoading")}
           </p>
         ) : null}
@@ -379,14 +410,14 @@ function SubPage() {
   return (
     <Shell brand={current.brand}>
       {tg.subs.length > 1 ? (
-        <div className="flex gap-1 overflow-x-auto rounded-[14px] bg-[var(--hover)] p-1" role="group" aria-label={t("sub.link")}>
+        <div className="flex gap-1 overflow-x-auto rounded-lg bg-[var(--md-surface-container-high)] p-1" role="group" aria-label={t("sub.link")}>
           {tg.subs.map((s) => (
             <button
               key={s.token}
               type="button"
               aria-pressed={subURL.endsWith("/" + s.token)}
               onClick={() => setSubURL(subRoot + "/" + s.token)}
-              className="h-8 shrink-0 rounded-[10px] px-3 text-xs font-semibold text-[var(--ink-600)] aria-pressed:bg-[var(--surface-solid)] aria-pressed:text-[var(--ink-900)] aria-pressed:shadow-sm"
+              className="h-8 shrink-0 rounded-md px-3 text-xs font-semibold text-[var(--md-on-surface-variant)] aria-pressed:bg-[var(--md-surface-container)] aria-pressed:text-[var(--md-on-surface)] aria-pressed:shadow-sm"
             >
               {s.name}
             </button>
@@ -406,6 +437,8 @@ function SubPage() {
             <>
               {shopFor(token, titleOf(config, "shop") || t("sub.shop"))}
               {packagesShop}
+              {builtPlan}
+              {accessCode}
               {freePlan}
             </>
           ) : null

@@ -385,7 +385,12 @@ func (h *handlers) updateTelegram(ctx context.Context, in *patchTelegramInput) (
 			if was, _, err := settings.Get[bool](ctx, set, tgate.KeyEnabled); err != nil {
 				return err
 			} else if *b.Enabled && !was {
+				// Asking for the bot again: the panel may install its own bot addon and hand
+				// the bot to it, whatever the admin chose before.
 				if err := settings.Set(ctx, set, panelapi.AutoBotKey, true); err != nil {
+					return err
+				}
+				if err := settings.Set(ctx, set, panelapi.BotChosenKey, false); err != nil {
 					return err
 				}
 			}

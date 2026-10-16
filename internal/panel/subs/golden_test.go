@@ -176,6 +176,21 @@ var goldenVariants = []struct {
 	{"multi-custom", goldenMulti, true, App{Family: FamilyMihomo, Core: Version{1, 19, 32}}, Groups{Main: "Прокси", Auto: "Fast"}},
 	{"multi-old-core", goldenMulti, true, App{Family: FamilyMihomo, Core: Version{1, 18, 0}}, Groups{}},
 	{"multi-stash", goldenMulti, true, App{Family: FamilyStash}, Groups{}},
+	// An ended subscription: the servers stay and the notice stands on top of them.
+	{"expired-plain", goldenExpired, false, App{Family: FamilyMihomo, Core: Version{1, 19, 32}}, Groups{}},
+	{"expired-custom", goldenExpired, true, App{Family: FamilyMihomo, Core: Version{1, 19, 32}}, Groups{Main: "Прокси", Auto: "Fast"}},
+}
+
+// goldenNotice is what the handler puts in place of a working subscription when it ended.
+func goldenNotice() *Notice {
+	return &Notice{Name: "⛔ The subscription has ended — renew it in the bot: https://t.me/example_bot"}
+}
+
+// goldenExpired is the one-node user with the notice of an ended subscription.
+func goldenExpired(t *testing.T) Profile {
+	prof := goldenSingle(t)
+	prof.Notice = goldenNotice()
+	return prof
 }
 
 // The mihomo profile of every user in every mode.

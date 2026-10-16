@@ -17,12 +17,12 @@ SELECT COUNT(*) FROM promo_codes WHERE deleted=0 AND enabled=1
 
 -- name: CreatePromoCode :one
 INSERT INTO promo_codes
-(code,name,description,type,value,currency,starts_at,ends_at,max_uses,per_user_limit,discount_ttl,min_order,max_discount,tariff_ids,pool_id,first_purchase_only,new_users_only,enabled,deleted,created_at,created_by)
-VALUES (sqlc.arg(code),sqlc.arg(name),sqlc.arg(description),sqlc.arg(type),sqlc.arg(value),sqlc.arg(currency),sqlc.narg(starts_at),sqlc.narg(ends_at),sqlc.narg(max_uses),sqlc.arg(per_user_limit),sqlc.arg(discount_ttl),sqlc.arg(min_order),sqlc.arg(max_discount),sqlc.arg(tariff_ids),sqlc.narg(pool_id),sqlc.arg(first_purchase_only),sqlc.arg(new_users_only),sqlc.arg(enabled),0,sqlc.arg(created_at),sqlc.narg(created_by)) RETURNING *;
+(code,name,description,type,value,currency,starts_at,ends_at,max_uses,per_user_limit,discount_ttl,min_order,max_discount,tariff_ids,pool_id,first_purchase_only,new_users_only,enabled,deleted,created_at,created_by,access_mode,access_ttl)
+VALUES (sqlc.arg(code),sqlc.arg(name),sqlc.arg(description),sqlc.arg(type),sqlc.arg(value),sqlc.arg(currency),sqlc.narg(starts_at),sqlc.narg(ends_at),sqlc.narg(max_uses),sqlc.arg(per_user_limit),sqlc.arg(discount_ttl),sqlc.arg(min_order),sqlc.arg(max_discount),sqlc.arg(tariff_ids),sqlc.narg(pool_id),sqlc.arg(first_purchase_only),sqlc.arg(new_users_only),sqlc.arg(enabled),0,sqlc.arg(created_at),sqlc.narg(created_by),sqlc.arg(access_mode),sqlc.arg(access_ttl)) RETURNING *;
 
 -- name: UpdatePromoCode :one
 UPDATE promo_codes SET
-code=sqlc.arg(code),name=sqlc.arg(name),description=sqlc.arg(description),type=sqlc.arg(type),value=sqlc.arg(value),currency=sqlc.arg(currency),starts_at=sqlc.narg(starts_at),ends_at=sqlc.narg(ends_at),max_uses=sqlc.narg(max_uses),per_user_limit=sqlc.arg(per_user_limit),discount_ttl=sqlc.arg(discount_ttl),min_order=sqlc.arg(min_order),max_discount=sqlc.arg(max_discount),tariff_ids=sqlc.arg(tariff_ids),pool_id=sqlc.narg(pool_id),first_purchase_only=sqlc.arg(first_purchase_only),new_users_only=sqlc.arg(new_users_only),enabled=sqlc.arg(enabled) WHERE id=sqlc.arg(id) AND deleted=0 RETURNING *;
+code=sqlc.arg(code),name=sqlc.arg(name),description=sqlc.arg(description),type=sqlc.arg(type),value=sqlc.arg(value),currency=sqlc.arg(currency),starts_at=sqlc.narg(starts_at),ends_at=sqlc.narg(ends_at),max_uses=sqlc.narg(max_uses),per_user_limit=sqlc.arg(per_user_limit),discount_ttl=sqlc.arg(discount_ttl),min_order=sqlc.arg(min_order),max_discount=sqlc.arg(max_discount),tariff_ids=sqlc.arg(tariff_ids),pool_id=sqlc.narg(pool_id),first_purchase_only=sqlc.arg(first_purchase_only),new_users_only=sqlc.arg(new_users_only),enabled=sqlc.arg(enabled),access_mode=sqlc.arg(access_mode),access_ttl=sqlc.arg(access_ttl) WHERE id=sqlc.arg(id) AND deleted=0 RETURNING *;
 
 -- name: DeletePromoCode :execrows
 UPDATE promo_codes SET deleted=1, enabled=0, pool_id=NULL WHERE id=sqlc.arg(id) AND deleted=0;
@@ -107,3 +107,44 @@ WHERE r.tg_id=sqlc.arg(tg_id) AND r.status='applied' ORDER BY r.id DESC LIMIT CA
 
 -- name: ReleaseAppliedPromoRedemption :execrows
 UPDATE promo_redemptions SET status='released' WHERE id=sqlc.arg(id) AND status='applied';
+
+-- name: CreatePromoAccess :one
+-- sqlc.arg(expires_at) is 0 for an access that never ends (it goes in as NULL).
+INSERT INTO promo_access (promo_id,tariff_id,user_id,tg_id,granted_at,expires_at,note)
+VALUES (sqlc.arg(promo_id),sqlc.arg(tariff_id),sqlc.narg(user_id),sqlc.arg(tg_id),sqlc.arg(granted_at),NULLIF(sqlc.arg(expires_at),0),sqlc.arg(note)) RETURNING *;
+
+-- name: GetPromoAccess :one
+-- The account's access to the tariff one code gave. An access that has run out or was taken
+-- away (the admin removed the row) is not found: the shop hides the tariff and the checkout
+-- refuses again.
+SELECT * FROM promo_access
+WHERE promo_id=sqlc.arg(promo_id) AND tg_id=sqlc.arg(tg_id) AND tariff_id=sqlc.arg(tariff_id)
+  AND (expires_at IS NULL OR expires_at>CAST(sqlc.arg(now) AS BIGINT));
+
+-- name: HasPromoAccess :one
+-- Whether the account may use the tariff now: a grant of its own, from a code that stands
+-- (enabled, not deleted, inside its window). The shop and the checkout ask this.
+SELECT count(*) > 0 AS ok FROM promo_access a JOIN promo_codes c ON c.id=a.promo_id
+WHERE a.tg_id=sqlc.arg(tg_id) AND a.tariff_id=sqlc.arg(tariff_id)
+  AND (a.expires_at IS NULL OR a.expires_at>CAST(sqlc.arg(now) AS BIGINT))
+  AND c.deleted=0 AND c.enabled=1
+  AND (c.starts_at IS NULL OR c.starts_at<=CAST(sqlc.arg(now) AS BIGINT)) AND (c.ends_at IS NULL OR c.ends_at>CAST(sqlc.arg(now) AS BIGINT));
+
+-- name: ListPromoAccessTariffs :many
+-- The ids of the tariffs the account's access codes open right now, for the shop.
+SELECT DISTINCT a.tariff_id FROM promo_access a JOIN promo_codes c ON c.id=a.promo_id
+WHERE a.tg_id=sqlc.arg(tg_id) AND (a.expires_at IS NULL OR a.expires_at>CAST(sqlc.arg(now) AS BIGINT))
+  AND c.deleted=0 AND c.enabled=1
+  AND (c.starts_at IS NULL OR c.starts_at<=CAST(sqlc.arg(now) AS BIGINT)) AND (c.ends_at IS NULL OR c.ends_at>CAST(sqlc.arg(now) AS BIGINT));
+
+-- name: ListPromoAccess :many
+-- One Telegram account's live accesses with their codes, the latest first: what the Mini App
+-- says about the tariff a code opened.
+SELECT a.*, CAST(c.code AS TEXT) AS code, CAST(c.type AS TEXT) AS type FROM promo_access a JOIN promo_codes c ON c.id=a.promo_id
+WHERE a.tg_id=sqlc.arg(tg_id) AND (a.expires_at IS NULL OR a.expires_at>CAST(sqlc.arg(now) AS BIGINT))
+  AND c.deleted=0 AND c.enabled=1
+  AND (c.starts_at IS NULL OR c.starts_at<=sqlc.arg(now)) AND (c.ends_at IS NULL OR c.ends_at>sqlc.arg(now))
+ORDER BY a.id DESC;
+
+-- name: SetPromoAccessUser :exec
+UPDATE promo_access SET user_id=sqlc.narg(user_id) WHERE id=sqlc.arg(id);

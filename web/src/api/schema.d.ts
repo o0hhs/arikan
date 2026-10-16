@@ -3025,6 +3025,38 @@ export interface components {
             /** @description SNI для клиентов; пусто — как обычно */
             sni: string;
         };
+        CoefficientsBody: {
+            /** Format: double */
+            devices?: number;
+            /** Format: double */
+            duration?: number;
+            /** Format: double */
+            speed?: number;
+            /** Format: double */
+            traffic?: number;
+        };
+        CoefficientsView: {
+            /**
+             * Format: double
+             * @description Множитель устройств
+             */
+            devices: number;
+            /**
+             * Format: double
+             * @description Множитель срока
+             */
+            duration: number;
+            /**
+             * Format: double
+             * @description Множитель скорости
+             */
+            speed: number;
+            /**
+             * Format: double
+             * @description Множитель трафика: 1 — гигабайт сверх тарифа стоит как у самого тарифа
+             */
+            traffic: number;
+        };
         Config: {
             /** @description Кнопки главного меню по порядку */
             buttons: components["schemas"]["MenuButton"][];
@@ -3677,6 +3709,8 @@ export interface components {
             version: string;
         };
         MarketOrigin: {
+            /** @description Источник, с которым панель выпускается (релизы Arikan): аддон самой панели, подписанный её релизным ключом */
+            builtin: boolean;
             /** Format: int64 */
             id: number;
             /** @description Источник подписан закреплённым ключом; без подписи тот, кто управляет адресом, управляет и обновлениями */
@@ -4366,6 +4400,12 @@ export interface components {
         };
         PatchPaymentSettingsInputBody: {
             allow_new?: boolean;
+            coefficients?: components["schemas"]["CoefficientsBody"];
+            /**
+             * Format: int64
+             * @description Тариф-основа конструктора, нужен срок; 0: выключить
+             */
+            custom_tariff_id?: number;
             enabled?: boolean;
             /**
              * @description none: без условий; channel: только подписчикам канала бота, канал должен быть указан на странице Telegram
@@ -4532,6 +4572,13 @@ export interface components {
             allow_new: boolean;
             /** @description Что принимает оплату прямо сейчас: включено, настроено, для Stars — бот запущен */
             available: components["schemas"]["PaymentSettingsViewAvailableStruct"];
+            /** @description Коэффициенты конструктора: во сколько раз дороже единица роста по сравнению с ценой самого тарифа (1 — как у тарифа) */
+            coefficients: components["schemas"]["CoefficientsView"];
+            /**
+             * Format: int64
+             * @description Тариф-основа конструктора: покупатель сам собирает трафик, устройства, скорость и срок, цена считается от цены первого срока тарифа и коэффициентов; null — конструктора нет. Тариф может быть скрыт из витрины: в конструкторе он продаётся по частям, а сам тариф — по коду доступа
+             */
+            custom_tariff_id: number | null;
             /** @description Продажа подписок: выключено — бот и Mini App ничего не продают, новые счета не создаются, уже открытые засчитываются */
             enabled: boolean;
             /**
@@ -4726,6 +4773,11 @@ export interface components {
             stars_rate: number;
         };
         PromoBody: {
+            /**
+             * Format: int64
+             * @description Для access_paid и access_free: сколько секунд действует доступ, полученный по коду; 0 — бессрочно. Для остальных типов 0
+             */
+            access_ttl: number;
             code: string;
             /** @description Для fixed: RUB или XTR; RUB — копейки, XTR — Stars. Для percent: пусто — любая валюта, тогда min_order и max_discount равны 0. Для остальных типов не используется. */
             currency: string;
@@ -4769,8 +4821,11 @@ export interface components {
              */
             starts_at?: number;
             tariff_ids: number[];
-            /** @enum {string} */
-            type: "days" | "traffic" | "percent" | "fixed";
+            /**
+             * @description access_paid: тариф виден и покупается по своему прайсу; access_free: подписка по тарифу выдаётся сразу. tariff_ids должен содержать ровно один тариф
+             * @enum {string}
+             */
+            type: "days" | "traffic" | "percent" | "fixed" | "access_paid" | "access_free";
             /**
              * Format: int64
              * @description days: дни; traffic: байты (минимум 1 GiB); percent: проценты 1-100; fixed: сумма в минимальных единицах оплаты
@@ -4778,6 +4833,11 @@ export interface components {
             value: number;
         };
         PromoCodeView: {
+            /**
+             * Format: int64
+             * @description Срок доступа, который даёт код доступа, в секундах; 0 — бессрочно. Для остальных типов 0
+             */
+            access_ttl: number;
             code: string;
             /** Format: date-time */
             created_at: string;
@@ -4809,8 +4869,11 @@ export interface components {
             starts_at?: string;
             status: string;
             tariff_ids: number[];
-            /** @enum {string} */
-            type: "days" | "traffic" | "percent" | "fixed";
+            /**
+             * @description days и traffic — бонус, percent и fixed — скидка, access_paid и access_free — код доступа к тарифу (tariff_ids: ровно один)
+             * @enum {string}
+             */
+            type: "days" | "traffic" | "percent" | "fixed" | "access_paid" | "access_free";
             /** Format: int64 */
             used_count: number;
             /** Format: int64 */
@@ -5232,6 +5295,8 @@ export interface components {
         SourceView: {
             /** Format: date-time */
             added_at: string;
+            /** @description Источник, с которым панель выпускается (релизы Arikan): его не добавляют и не убирают, ключ — релизный ключ форка */
+            builtin: boolean;
             /**
              * Format: int64
              * @description Сколько записей источник предлагает: сами записи в /marketplace

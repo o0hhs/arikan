@@ -51,10 +51,10 @@ function PermissionList({ perms, fresh = [] }: { perms: string[]; fresh?: string
           <li key={p} className="text-[13px]">
             <div className="flex flex-wrap items-center gap-2 font-semibold">
               {k ? t(k.label) : p}
-              <span className="mono text-xs font-normal text-[var(--ink-500)]">{p}</span>
+              <span className="mono text-xs font-normal text-[var(--md-on-surface-variant)]">{p}</span>
               {fresh.includes(p) ? <Pill tone="warn">{t("market.permNew")}</Pill> : null}
             </div>
-            {k ? <div className="mt-1 text-xs text-[var(--ink-500)]">{t(k.text)}</div> : null}
+            {k ? <div className="mt-1 text-xs text-[var(--md-on-surface-variant)]">{t(k.text)}</div> : null}
           </li>
         );
       })}
@@ -62,8 +62,12 @@ function PermissionList({ perms, fresh = [] }: { perms: string[]; fresh?: string
   );
 }
 
-/** Where an unofficial addon comes from, and what that does and does not vouch for. */
+/** Where an unofficial addon comes from, and what that does and does not vouch for. The panel's
+ * own source needs no warning: its file is signed with the key this panel trusts anyway. */
 function OriginWarning({ origin, className }: { origin: MarketOrigin; className?: string }) {
+  if (origin.builtin) {
+    return <div className={`text-xs text-[var(--md-on-surface-variant)]${className ? ` ${className}` : ""}`}>{t("market.ownText", { title: origin.title })}</div>;
+  }
   return <ShieldBanner className={className}>{t(origin.signed ? "market.originSigned" : "market.originUnsigned", { title: origin.title })}</ShieldBanner>;
 }
 
@@ -99,7 +103,7 @@ export function ApproveDialog({ entry, granted, onClose }: { entry: MarketEntry 
           {entry.origin ? <OriginWarning origin={entry.origin} className="mt-4" /> : null}
           {entry.image ? (
             <dl className="mt-4 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-[13px]">
-              <dt className="text-[var(--ink-500)]">{t("market.image")}</dt>
+              <dt className="text-[var(--md-on-surface-variant)]">{t("market.image")}</dt>
               <dd className="mono break-all">{`${entry.image}@${entry.digest}`}</dd>
             </dl>
           ) : null}
@@ -124,33 +128,33 @@ export function MarketDetails({ a, name, onClose }: { a: MarketInstalled | null;
           <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2">
             {a.version ? (
               <>
-                <dt className="text-[var(--ink-500)]">{t("addons.version")}</dt>
+                <dt className="text-[var(--md-on-surface-variant)]">{t("addons.version")}</dt>
                 <dd className="num">{a.version}</dd>
               </>
             ) : null}
-            <dt className="text-[var(--ink-500)]">{t("market.ownMode")}</dt>
+            <dt className="text-[var(--md-on-surface-variant)]">{t("market.ownMode")}</dt>
             <dd>{t(`market.mode.${a.mode}`)}</dd>
             {a.origin ? (
               <>
-                <dt className="text-[var(--ink-500)]">{t("market.sourceOf")}</dt>
+                <dt className="text-[var(--md-on-surface-variant)]">{t("market.sourceOf")}</dt>
                 <dd className="break-words">{a.origin.title}</dd>
               </>
             ) : null}
             {a.source === "custom" ? (
               <>
-                <dt className="text-[var(--ink-500)]">{t("market.image")}</dt>
+                <dt className="text-[var(--md-on-surface-variant)]">{t("market.image")}</dt>
                 <dd className="mono break-all" title={a.digest}>{`${a.image}@${shortDigest(a.digest)}`}</dd>
               </>
             ) : a.source === "external" ? (
               <>
-                <dt className="text-[var(--ink-500)]">{t("market.address")}</dt>
+                <dt className="text-[var(--md-on-surface-variant)]">{t("market.address")}</dt>
                 <dd className={a.url ? "mono break-all" : undefined}>{a.url || t("market.noAddress")}</dd>
               </>
             ) : null}
           </dl>
           <div>
             <h3 className="font-semibold">{t("market.granted")}</h3>
-            {a.granted.length ? <PermissionList perms={a.granted} /> : <p className="mt-2 text-[var(--ink-500)]">{t("market.noPerms")}</p>}
+            {a.granted.length ? <PermissionList perms={a.granted} /> : <p className="mt-2 text-[var(--md-on-surface-variant)]">{t("market.noPerms")}</p>}
             {actsAsAdmin(a.granted) ? <AdminWarning /> : null}
           </div>
         </div>
@@ -325,8 +329,8 @@ function OwnForm({
             <label key={p.id} className="flex items-start gap-2 text-[13px]">
               <input type="checkbox" className="check mt-0.5 shrink-0" checked={o.permissions.includes(p.id)} onChange={() => toggle(p.id)} />
               <span className="min-w-0">
-                <span className="font-semibold">{t(p.label)}</span> <span className="mono text-xs text-[var(--ink-500)]">{p.id}</span>
-                <span className="mt-0.5 block text-xs text-[var(--ink-500)]">{t(p.text)}</span>
+                <span className="font-semibold">{t(p.label)}</span> <span className="mono text-xs text-[var(--md-on-surface-variant)]">{p.id}</span>
+                <span className="mt-0.5 block text-xs text-[var(--md-on-surface-variant)]">{t(p.text)}</span>
               </span>
             </label>
           ))}

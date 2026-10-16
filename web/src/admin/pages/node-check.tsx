@@ -92,7 +92,7 @@ function itemText(it: Item): { title: string; text: string } {
 const STATUS_ICON: Record<Status, { icon: typeof CircleCheck; cls: string }> = {
   ok: { icon: CircleCheck, cls: "text-[var(--leaf-700)]" },
   warn: { icon: TriangleAlert, cls: "text-[var(--honey-600)]" },
-  fail: { icon: CircleX, cls: "text-[var(--berry-600)]" },
+  fail: { icon: CircleX, cls: "text-[var(--md-error)]" },
   skip: { icon: CircleMinus, cls: "text-[var(--ink-400)]" },
 };
 
@@ -140,11 +140,11 @@ function Fix({ fix, params, actions, panelServer }: { fix?: string | null; param
     ) : null;
   const words = tMaybe(`nodeCheck.fix.${fix}`, p);
   return (
-    <div className="mt-2 text-[13px] text-[var(--ink-600)]">
+    <div className="mt-2 text-[13px] text-[var(--md-on-surface-variant)]">
       {words ? <p>{words}</p> : null}
       {cmds.length > 0 ? (
         <>
-          <p className="mt-2 text-xs text-[var(--ink-500)]">{panelServer || fix === "restart_panel" ? t("nodeCheck.onPanel") : t("nodeCheck.onNode")}</p>
+          <p className="mt-2 text-xs text-[var(--md-on-surface-variant)]">{panelServer || fix === "restart_panel" ? t("nodeCheck.onPanel") : t("nodeCheck.onNode")}</p>
           {cmds.map((c) => (
             <Command key={c} cmd={c} />
           ))}
@@ -159,8 +159,8 @@ function Details({ text }: { text?: string | null }) {
   if (!text) return null;
   return (
     <details className="mt-2 text-xs">
-      <summary className="cursor-pointer text-[var(--ink-500)]">{t("nodeCheck.details")}</summary>
-      <code className="mono mt-1 block break-all text-[var(--ink-600)]">{text}</code>
+      <summary className="cursor-pointer text-[var(--md-on-surface-variant)]">{t("nodeCheck.details")}</summary>
+      <code className="mono mt-1 block break-all text-[var(--md-on-surface-variant)]">{text}</code>
     </details>
   );
 }
@@ -201,9 +201,9 @@ function CheckList({ items, actions, panelServer }: { items: Item[]; actions?: F
             <li key={i} className="flex gap-3 py-3">
               <StatusMark status={it.status} />
               <div className="min-w-0 flex-1">
-                <div className="text-[13px] font-semibold text-[var(--ink-900)]">{title}</div>
-                {text ? <p className="mt-1 text-[13px] text-[var(--ink-600)]">{text}</p> : null}
-                {geo ? <p className="mt-1 text-xs text-[var(--ink-500)]">{geo}</p> : null}
+                <div className="text-[13px] font-semibold text-[var(--md-on-surface)]">{title}</div>
+                {text ? <p className="mt-1 text-[13px] text-[var(--md-on-surface-variant)]">{text}</p> : null}
+                {geo ? <p className="mt-1 text-xs text-[var(--md-on-surface-variant)]">{geo}</p> : null}
                 {it.status === "fail" || it.status === "warn" ? <Fix fix={it.fix} params={it.params} actions={actions} panelServer={panelServer} /> : null}
                 {it.status !== "ok" ? <Details text={it.detail} /> : null}
               </div>
@@ -269,7 +269,7 @@ export function NodeCheckDrawer({ node, onClose, actions }: { node: Node | null;
       }
     >
       <div className="pt-5">
-        <p className="mb-4 text-[13px] text-[var(--ink-600)]">{t("nodeCheck.lead")}</p>
+        <p className="mb-4 text-[13px] text-[var(--md-on-surface-variant)]">{t("nodeCheck.lead")}</p>
         <div aria-live="polite" aria-busy={check.isPending}>
           {check.isPending ? (
             <>
@@ -303,11 +303,11 @@ function RussiaCheck({ node }: { node: Node }) {
   const failing = res?.cities.some((c) => c.ports.some((p) => !p.ok));
   return (
     <section className="mt-6 border-t border-[var(--hairline)] pt-5" aria-labelledby="russia-title">
-      <h3 id="russia-title" className="text-[15px] font-semibold text-[var(--ink-900)]">
+      <h3 id="russia-title" className="text-[15px] font-semibold text-[var(--md-on-surface)]">
         {t("nodeCheck.russia.title")}
       </h3>
-      <p className="mt-1 text-[13px] text-[var(--ink-600)]">{t("nodeCheck.russia.lead")}</p>
-      <p className="mt-2 text-xs text-[var(--ink-500)]">{t("nodeCheck.russia.caveat")}</p>
+      <p className="mt-1 text-[13px] text-[var(--md-on-surface-variant)]">{t("nodeCheck.russia.lead")}</p>
+      <p className="mt-2 text-xs text-[var(--md-on-surface-variant)]">{t("nodeCheck.russia.caveat")}</p>
       <Button className="mt-3" size="sm" loading={run.isPending} onClick={() => run.mutate()}>
         <Globe size={16} aria-hidden /> {t("nodeCheck.russia.button")}
       </Button>
@@ -329,7 +329,7 @@ function RussiaCheck({ node }: { node: Node }) {
             <div className="overflow-x-auto">
               <table className="w-full text-left text-[13px]">
                 <thead>
-                  <tr className="text-xs text-[var(--ink-500)]">
+                  <tr className="text-xs text-[var(--md-on-surface-variant)]">
                     <th className="py-2 pr-3 font-medium">{t("nodeCheck.russia.city")}</th>
                     {res.ports.map((p) => (
                       <th key={p.port} className="py-2 pr-3 font-medium">
@@ -355,7 +355,7 @@ function RussiaCheck({ node }: { node: Node }) {
                 </tbody>
               </table>
             </div>
-            <p className="mt-2 text-xs text-[var(--ink-500)]">{t("nodeCheck.russia.checkedAt", { ago: ago(res.at) })}</p>
+            <p className="mt-2 text-xs text-[var(--md-on-surface-variant)]">{t("nodeCheck.russia.checkedAt", { ago: ago(res.at) })}</p>
           </>
         ) : null}
       </div>
@@ -368,7 +368,7 @@ export function NodeProblem({ n, onCheck, actions }: { n: Node; onCheck: () => v
   if (n.local) {
     return (
       <div className="mt-3 text-[13px]" role="alert">
-        <p className="text-[var(--berry-600)]">{t("nodes.localOffline")}</p>
+        <p className="text-[var(--md-error)]">{t("nodes.localOffline")}</p>
         <Fix fix="restart_panel" panelServer />
       </div>
     );
@@ -378,8 +378,8 @@ export function NodeProblem({ n, onCheck, actions }: { n: Node; onCheck: () => v
     code === "timeout" ? "open_port" : code === "pin_mismatch" ? "rekey" : code === "tls" ? "free_port" : code === "unreachable" ? "check_host" : code === "dns" ? "check_dns" : "start_node";
   return (
     <div className="mt-3 text-[13px]" role="alert">
-      <p className="text-[var(--berry-600)]">{codeText(code, n.error_params)}</p>
-      <p className="mt-1 text-xs text-[var(--ink-500)]">
+      <p className="text-[var(--md-error)]">{codeText(code, n.error_params)}</p>
+      <p className="mt-1 text-xs text-[var(--md-on-surface-variant)]">
         {n.last_ok_at ? t("nodeCheck.lastSeen", { ago: ago(n.last_ok_at) }) : t("nodeCheck.neverSeen")}
         {n.last_ok_at && n.error_since ? ` · ${t("nodeCheck.lostAgo", { ago: ago(n.error_since) })}` : null}
       </p>
@@ -404,10 +404,10 @@ export function HelloLine({ n, actions }: { n: Node; actions: FixActions }) {
       </div>
     );
   }
-  if (h.ok) return <p className="mt-3 text-xs text-[var(--ink-500)]">{t("nodeCheck.helloOk", { ago: ago(h.at) })}</p>;
+  if (h.ok) return <p className="mt-3 text-xs text-[var(--md-on-surface-variant)]">{t("nodeCheck.helloOk", { ago: ago(h.at) })}</p>;
   // A node that does not answer has its reason shown already; this says it is installed.
   return (
-    <p className="mt-3 text-xs text-[var(--ink-500)]">
+    <p className="mt-3 text-xs text-[var(--md-on-surface-variant)]">
       {t("nodeCheck.helloFail", { ago: ago(h.at) })}: {codeText(h.code, h.params)}
     </p>
   );
@@ -480,7 +480,7 @@ export function JoinProgress({ id, actions }: { id: number; actions: FixActions 
       text: reached ? t("nodeCheck.join.reach", { port }) : t("nodeCheck.join.reachWait", { port }),
       extra: blocked ? (
         <>
-          <p className="mt-1 text-[13px] text-[var(--berry-600)]">{codeText(hello?.code ?? code, hello?.params ?? n.error_params)}</p>
+          <p className="mt-1 text-[13px] text-[var(--md-error)]">{codeText(hello?.code ?? code, hello?.params ?? n.error_params)}</p>
           <Fix fix={(hello?.code ?? code) === "refused" ? "start_node" : (hello?.code ?? code) === "unreachable" ? "check_host" : "open_port"} params={hello?.params ?? n.error_params} actions={actions} />
         </>
       ) : null,
@@ -491,7 +491,7 @@ export function JoinProgress({ id, actions }: { id: number; actions: FixActions 
       text: ok ? t("nodeCheck.join.key") : t("nodeCheck.join.keyWait"),
       extra: keyBad ? (
         <>
-          <p className="mt-1 text-[13px] text-[var(--berry-600)]">{codeText(code, n.error_params)}</p>
+          <p className="mt-1 text-[13px] text-[var(--md-error)]">{codeText(code, n.error_params)}</p>
           <Fix fix={code === "pin_mismatch" ? "rekey" : code === "tls" ? "free_port" : "start_node"} params={n.error_params} actions={actions} />
         </>
       ) : null,
@@ -511,7 +511,7 @@ export function JoinProgress({ id, actions }: { id: number; actions: FixActions 
   });
   return (
     <section className="mt-5" aria-labelledby="join-title">
-      <h3 id="join-title" className="text-[15px] font-semibold text-[var(--ink-900)]">
+      <h3 id="join-title" className="text-[15px] font-semibold text-[var(--md-on-surface)]">
         {t("nodeCheck.join.title")}
       </h3>
       <ol className="mt-2" aria-live="polite">
@@ -519,7 +519,7 @@ export function JoinProgress({ id, actions }: { id: number; actions: FixActions 
           <li key={s.key} className="flex gap-3 py-2">
             <StatusMark status={s.status === "done" ? "ok" : s.status === "fail" ? "fail" : "skip"} />
             <div className="min-w-0 flex-1">
-              <div className="text-[13px] text-[var(--ink-900)]">
+              <div className="text-[13px] text-[var(--md-on-surface)]">
                 {s.text}
                 <span className="sr-only">
                   {" "}
@@ -531,14 +531,14 @@ export function JoinProgress({ id, actions }: { id: number; actions: FixActions 
           </li>
         ))}
       </ol>
-      {!installed ? <p className="mt-1 text-xs text-[var(--ink-500)]">{t("nodeCheck.join.installHint")}</p> : null}
+      {!installed ? <p className="mt-1 text-xs text-[var(--md-on-surface-variant)]">{t("nodeCheck.join.installHint")}</p> : null}
       {done ? (
         <div className="banner info mt-3" role="status">
           <CircleCheck size={18} className="shrink-0" aria-hidden />
           <span>{t("nodeCheck.join.done")}</span>
         </div>
       ) : (
-        <p className="mt-3 text-xs text-[var(--ink-500)]">{t("nodeCheck.join.closeHint")}</p>
+        <p className="mt-3 text-xs text-[var(--md-on-surface-variant)]">{t("nodeCheck.join.closeHint")}</p>
       )}
     </section>
   );

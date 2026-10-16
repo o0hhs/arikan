@@ -98,24 +98,24 @@ export function CertDrawer({
         </DrawerFooter>
       }
     >
-      <p className="pt-5 text-[13px] text-[var(--ink-600)]">{lead}</p>
+      <p className="pt-5 text-[13px] text-[var(--md-on-surface-variant)]">{lead}</p>
       {current ? (
-        <div className={`panel-soft mt-4 p-3 ${current.error ? "border-[var(--berry-600)]" : ""}`}>
+        <div className={`panel-soft mt-4 p-3 ${current.error ? "border-[var(--md-error)]" : ""}`}>
           {current.error ? (
-            <p className="text-[13px] text-[var(--berry-600)]" role="alert">
+            <p className="text-[13px] text-[var(--md-error)]" role="alert">
               {tMaybe(`errors.acme.${current.error}`) ?? current.error}
             </p>
           ) : (
             <>
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-xs text-[var(--ink-500)]">{t("cert.now")}</span>
+                <span className="text-xs text-[var(--md-on-surface-variant)]">{t("cert.now")}</span>
                 <span className="flex gap-1.5">
                   {current.trusted ? <Pill tone="ok">{t("cert.trusted")}</Pill> : <Pill tone="off">{t("cert.pinned")}</Pill>}
                   {left < 14 ? <Pill tone="warn">{t("cert.soon", { n: Math.max(left, 0) })}</Pill> : null}
                 </span>
               </div>
               <div className="mono mt-1 truncate text-[13px]">{current.names?.join(", ")}</div>
-              <div className="mt-1 text-xs text-[var(--ink-500)]">{t("cert.issued", { issuer: current.issuer || "—", until: certUntil(current.not_after) })}</div>
+              <div className="mt-1 text-xs text-[var(--md-on-surface-variant)]">{t("cert.issued", { issuer: current.issuer || "—", until: certUntil(current.not_after) })}</div>
             </>
           )}
         </div>
@@ -152,8 +152,8 @@ export function CertDrawer({
           accept=".pem,.key,.txt"
           secret
         />
-        <p className="text-xs text-[var(--ink-500)]">{t("cert.cliHint")}</p>
-        <code className="mono mt-2 block overflow-x-auto whitespace-pre rounded-xl bg-[var(--ink-50)] p-3 text-[12px]">{t("cert.cliExample")}</code>
+        <p className="text-xs text-[var(--md-on-surface-variant)]">{t("cert.cliHint")}</p>
+        <code className="mono mt-2 block overflow-x-auto whitespace-pre rounded-xl bg-[var(--md-surface-container-highest)] p-3 text-[12px]">{t("cert.cliExample")}</code>
       </form>
       {has ? (
         <div className="mt-5 border-t border-[var(--hairline)] pt-4">
@@ -211,7 +211,7 @@ function PemField({
               {icon}
               <span className="mono truncate">{file}</span>
             </span>
-            <button type="button" className="text-xs font-medium text-[var(--ink-500)] hover:text-[var(--ink-900)]" onClick={() => onChange("", "")}>
+            <button type="button" className="text-xs font-medium text-[var(--md-on-surface-variant)] hover:text-[var(--md-on-surface)]" onClick={() => onChange("", "")}>
               {t("cert.replace")}
             </button>
           </div>

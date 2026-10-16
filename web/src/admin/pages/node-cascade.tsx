@@ -27,7 +27,7 @@ export function CascadeDrawer({ node, onClose }: { node: { id: number; name: str
   return (
     <Drawer open={!!node} onOpenChange={(v) => !v && onClose()} title={t("cascade.title")} meta={node?.name}>
       <div className="pt-5">
-        <p className="mb-4 text-[13px] text-[var(--ink-600)]">{t("cascade.intro")}</p>
+        <p className="mb-4 text-[13px] text-[var(--md-on-surface-variant)]">{t("cascade.intro")}</p>
         <QueryBoundary query={cascade} pending={<Skeleton style={{ height: 240, borderRadius: 16 }} />}>
           {(c) => <Body key={node!.id} nodeId={node!.id} c={c} refetch={() => void cascade.refetch()} checking={cascade.isFetching} />}
         </QueryBoundary>
@@ -74,7 +74,7 @@ function Body({ nodeId, c, refetch, checking }: { nodeId: number; c: Cascade; re
           ) : null}
         </div>
         {c.exits.length === 0 ? (
-          <p className="text-xs text-[var(--ink-500)]">{t("cascade.exitsNone")}</p>
+          <p className="text-xs text-[var(--md-on-surface-variant)]">{t("cascade.exitsNone")}</p>
         ) : (
           <ul className="row-list">
             {c.exits.map((e) => (
@@ -92,7 +92,7 @@ function Body({ nodeId, c, refetch, checking }: { nodeId: number; c: Cascade; re
                     <Pill tone="off">{t("cascade.unknown")}</Pill>
                   )}
                 </div>
-                <div className="mt-1 text-xs text-[var(--ink-500)]">
+                <div className="mt-1 text-xs text-[var(--md-on-surface-variant)]">
                   {[...e.inbounds, ...(e.relay ? [t("cascade.relayed")] : [])].join(", ")}
                   {e.probe ? ` · ${ago(e.probe.checked_at)}` : ""}
                 </div>
@@ -100,12 +100,12 @@ function Body({ nodeId, c, refetch, checking }: { nodeId: number; c: Cascade; re
             ))}
           </ul>
         )}
-        <p className="mt-2 text-xs text-[var(--ink-500)]">{t("cascade.exitsHint")}</p>
+        <p className="mt-2 text-xs text-[var(--md-on-surface-variant)]">{t("cascade.exitsHint")}</p>
       </section>
 
       <section className="border-t border-[var(--hairline)] pt-4">
         <h3 className="mb-1 text-[13px] font-semibold">{t("cascade.relay")}</h3>
-        <p className="mb-3 text-xs text-[var(--ink-500)]">
+        <p className="mb-3 text-xs text-[var(--md-on-surface-variant)]">
           {c.relay && c.relay.sources.length
             ? t("cascade.sources", { list: c.relay.sources.map((s) => s.name || name(s.node_id)).join(", "), port: c.relay.port })
             : t("cascade.sourcesNone")}

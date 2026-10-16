@@ -162,18 +162,18 @@ function BotSummary({ v, onConnect }: { v: View; onConnect: () => void }) {
   return (
     <section className="card glass reveal" aria-label={t("telegram.summary")}>
       <div className="flex flex-wrap items-center gap-3">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[var(--hover)] text-[var(--ink-700)]" aria-hidden>
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[var(--md-surface-container-high)] text-[var(--md-on-surface-variant)]" aria-hidden>
           <Bot size={20} />
         </span>
         <div className="min-w-0 flex-1">
           {v.token_set && v.bot ? (
-            <a className="font-semibold text-[var(--ink-900)] hover:underline" href={`https://t.me/${encodeURIComponent(v.bot.username)}`} target="_blank" rel="noreferrer noopener">
+            <a className="font-semibold text-[var(--md-on-surface)] hover:underline" href={`https://t.me/${encodeURIComponent(v.bot.username)}`} target="_blank" rel="noreferrer noopener">
               @{v.bot.username}
             </a>
           ) : (
             <div className="font-semibold">{t("telegram.notConnected")}</div>
           )}
-          <div className="truncate text-xs text-[var(--ink-500)]">
+          <div className="truncate text-xs text-[var(--md-on-surface-variant)]">
             {v.token_set ? (
               <>
                 {t("telegram.stats", { linked: v.linked, accounts: v.accounts })}
@@ -197,12 +197,12 @@ function BotSummary({ v, onConnect }: { v: View; onConnect: () => void }) {
         )}
       </div>
       {v.error && v.enabled ? (
-        <p className="mt-3 text-[13px] text-[var(--berry-600)]" role="alert">
+        <p className="mt-3 text-[13px] text-[var(--md-error)]" role="alert">
           {tMaybe(`telegram.err.${v.error}`) ?? v.error}
         </p>
       ) : null}
       {v.channel_error && v.config.channel.required ? (
-        <p className="mt-3 text-[13px] text-[var(--berry-600)]" role="alert">
+        <p className="mt-3 text-[13px] text-[var(--md-error)]" role="alert">
           {channelErrorText(v.channel_error)}
         </p>
       ) : null}
@@ -252,7 +252,7 @@ function ChannelCard({ draft, setDraft, v }: { draft: Config; setDraft: (c: Conf
           {t("telegram.channel.ok")}
         </p>
       ) : state === "checking" ? (
-        <p className="text-xs text-[var(--ink-500)]">{t("telegram.channel.checking")}</p>
+        <p className="text-xs text-[var(--md-on-surface-variant)]">{t("telegram.channel.checking")}</p>
       ) : null}
     </section>
   );
@@ -327,7 +327,7 @@ function InfrastructureCard({ v, draft, setDraft, error }: { v: View; draft: Sch
         <SwitchRow label={t("telegram.infra.changes")} sub={t("telegram.infra.changesHint")} checked={draft.public_changes} onChange={(on) => change("public_changes", on)} />
       </div>
       <h3 className="mt-4 mb-1 text-[13px] font-semibold">{t("telegram.infra.events")}</h3>
-      <p className="mb-3 text-xs text-[var(--ink-500)]">{t("telegram.infra.eventsHint")}</p>
+      <p className="mb-3 text-xs text-[var(--md-on-surface-variant)]">{t("telegram.infra.eventsHint")}</p>
       <div className="grid gap-2 sm:grid-cols-2">
         {(
           [
@@ -440,15 +440,15 @@ function BackupCard() {
       </div>
       {shown ? <div className="banner warn mb-3">{t("telegram.infra.backupKeepIt")}</div> : null}
       <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
-        <div className="text-xs text-[var(--ink-500)]">
+        <div className="text-xs text-[var(--md-on-surface-variant)]">
           {b.last_ok ? t("telegram.infra.backupLast", { when: ago(b.last_ok), size }) : t("telegram.infra.backupNever")}
-          {b.last_error ? <div className="text-[var(--berry-600)]">{t("telegram.infra.backupFailed", { error: apiCodeText(b.last_error) })}</div> : null}
+          {b.last_error ? <div className="text-[var(--md-error)]">{t("telegram.infra.backupFailed", { error: apiCodeText(b.last_error) })}</div> : null}
         </div>
         <Button size="sm" loading={send.isPending || b.sending} disabled={!b.admin_chat_set || !b.password_set || b.sending} onClick={() => send.mutate()}>
           {b.sending ? t("telegram.infra.backupSending") : t("telegram.infra.backupSendNow")}
         </Button>
       </div>
-      <div className="mt-4 text-xs text-[var(--ink-500)]">{t("telegram.infra.backupRestore")}</div>
+      <div className="mt-4 text-xs text-[var(--md-on-surface-variant)]">{t("telegram.infra.backupRestore")}</div>
       <pre className="code-block mt-1 text-xs">{"age -d -o arikan.tar.gz arikan-….tar.gz.age\narikan restore arikan.tar.gz"}</pre>
     </section>
   );
@@ -498,7 +498,7 @@ function ConnectCard({ v }: { v: View }) {
       {showForm ? (
         <form onSubmit={submit} noValidate>
           {!v.token_set ? (
-            <ol className="mb-4 flex list-decimal flex-col gap-1 pl-5 text-[13px] text-[var(--ink-600)]">
+            <ol className="mb-4 flex list-decimal flex-col gap-1 pl-5 text-[13px] text-[var(--md-on-surface-variant)]">
               <li>{t("telegram.step1")}</li>
               <li>{t("telegram.step2")}</li>
             </ol>
@@ -608,11 +608,11 @@ function RouteCard({ v }: { v: View }) {
         </div>
       </div>
       <div className="panel-soft mb-4 flex items-center gap-3 p-3">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[var(--hover)] text-[var(--ink-700)]" aria-hidden>
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[var(--md-surface-container-high)] text-[var(--md-on-surface-variant)]" aria-hidden>
           <Icon size={20} />
         </span>
         <div className="min-w-0">
-          <div className="text-xs text-[var(--ink-500)]">{t("telegram.routeNow")}</div>
+          <div className="text-xs text-[var(--md-on-surface-variant)]">{t("telegram.routeNow")}</div>
           <div className="truncate text-[13px] font-semibold">{now}</div>
         </div>
       </div>
@@ -632,7 +632,7 @@ function RouteCard({ v }: { v: View }) {
             ]}
           />
         </div>
-        {mode === "direct" ? <p className="mb-4 text-xs text-[var(--ink-500)]">{t("telegram.routeDirectHint")}</p> : null}
+        {mode === "direct" ? <p className="mb-4 text-xs text-[var(--md-on-surface-variant)]">{t("telegram.routeDirectHint")}</p> : null}
         {mode === "node" ? (
           nodes.isPending ? (
             <Skeleton style={{ height: 40, borderRadius: 12, maxWidth: 320 }} />
@@ -675,7 +675,7 @@ function RouteCard({ v }: { v: View }) {
           </Field>
         ) : null}
         {error && mode === "direct" ? (
-          <p className="mb-3 text-xs text-[var(--berry-600)]" role="alert">
+          <p className="mb-3 text-xs text-[var(--md-error)]" role="alert">
             {error}
           </p>
         ) : null}
@@ -755,7 +755,7 @@ function MenuCard({ draft, setDraft, refused }: { draft: Config; setDraft: (c: C
                   </button>
                 ) : null}
               </div>
-              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[var(--ink-500)]">
+              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[var(--md-on-surface-variant)]">
                 <span>{actionLabel(b.action)}</span>
                 {i > 0 ? (
                   <label className="flex items-center gap-1.5">
@@ -891,7 +891,7 @@ function TextsCard({ draft, setDraft, defaults }: { draft: Config; setDraft: (c:
           onChange={(e) => setDraft({ ...draft, texts: { ...draft.texts, free_button: e.target.value } })}
         />
       </Field>
-      <p className="text-xs text-[var(--ink-500)]">{t("telegram.variables")}</p>
+      <p className="text-xs text-[var(--md-on-surface-variant)]">{t("telegram.variables")}</p>
       <div className="mt-2">
         <MarkdownHint />
       </div>
@@ -963,7 +963,7 @@ function BroadcastCard({ v }: { v: View }) {
         <Button variant="primary" disabled={!ready || !text.trim()} onClick={() => setConfirm(true)}>
           <Send size={16} aria-hidden /> {t("telegram.broadcastButton")}
         </Button>
-        <span className="text-xs text-[var(--ink-500)]">{busy ? t("telegram.broadcasting") : !v.running ? t("telegram.broadcastOff") : t("telegram.broadcastHint")}</span>
+        <span className="text-xs text-[var(--md-on-surface-variant)]">{busy ? t("telegram.broadcasting") : !v.running ? t("telegram.broadcastOff") : t("telegram.broadcastHint")}</span>
       </div>
       {v.broadcast && <BroadcastProgress b={v.broadcast} />}
       <Confirm
@@ -985,16 +985,16 @@ function BroadcastProgress({ b }: { b: Schemas["TelegramBroadcast"] }) {
   const sec = Math.ceil((b.total - done) / 20);
   const eta = sec < 60 ? t("telegram.broadcastEtaSec", { n: Math.max(1, sec) }) : t("telegram.broadcastEtaMin", { n: Math.ceil(sec / 60) });
   return (
-    <div className="mt-4 rounded-2xl border border-[var(--hairline)] bg-[var(--glass-strong)] p-3" aria-live="polite">
+    <div className="mt-4 rounded-2xl border border-[var(--hairline)] bg-[var(--md-surface-container-low)] p-3" aria-live="polite">
       <div className="flex items-baseline justify-between gap-3 text-[13px]">
         <span className="font-medium">{b.active ? t("telegram.broadcastGoing") : t("telegram.broadcastLast", { when: ago(new Date(b.started * 1000).toISOString()) })}</span>
-        <span className="tabular-nums text-[var(--ink-500)]">{t("telegram.broadcastCount", { done: num(b.sent), total: num(b.total) })}</span>
+        <span className="tabular-nums text-[var(--md-on-surface-variant)]">{t("telegram.broadcastCount", { done: num(b.sent), total: num(b.total) })}</span>
       </div>
       <div className="mt-2" role="progressbar" aria-label={t("telegram.broadcast")} aria-valuemin={0} aria-valuemax={b.total} aria-valuenow={done}>
         <Bar pct={b.total ? (done / b.total) * 100 : 100} />
       </div>
       {(b.active || b.failed > 0) && (
-        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-[var(--ink-500)]">
+        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-[var(--md-on-surface-variant)]">
           {b.active && <span>{eta}</span>}
           {b.failed > 0 && <span>{t("telegram.broadcastFailed", { n: num(b.failed) })}</span>}
         </div>
@@ -1052,7 +1052,7 @@ function Preview({ draft, v, bare }: { draft: Config; v: View; bare?: boolean })
   return (
     <section {...(bare ? {} : rise(1))} aria-label={t("telegram.preview")}>
       {bare ? (
-        <p className="mb-3 text-[13px] text-[var(--ink-500)]">{t("telegram.previewSub")}</p>
+        <p className="mb-3 text-[13px] text-[var(--md-on-surface-variant)]">{t("telegram.previewSub")}</p>
       ) : (
         <div className="card-head">
           <div>
@@ -1088,7 +1088,7 @@ function Preview({ draft, v, bare }: { draft: Config; v: View; bare?: boolean })
         </motion.div>
       </div>
       {!v.mini_app_url && draft.buttons.some((b) => b.action === "app" && b.on) ? (
-        <p className="mt-3 flex items-start gap-2 text-xs text-[var(--ink-500)]">
+        <p className="mt-3 flex items-start gap-2 text-xs text-[var(--md-on-surface-variant)]">
           <TriangleAlert size={14} className="mt-0.5 shrink-0 text-[var(--honey-600)]" aria-hidden /> {t("telegram.miniAppNoCert")}
         </p>
       ) : null}

@@ -36,7 +36,7 @@ export function GrantsSection({ u }: { u: User }) {
         {(list) =>
           list.length === 0 ? (
             adding ? null : (
-              <p className="text-xs text-[var(--ink-500)]">{t("grants.none")}</p>
+              <p className="text-xs text-[var(--md-on-surface-variant)]">{t("grants.none")}</p>
             )
           ) : (
             <ul className="row-list">
@@ -61,12 +61,12 @@ function GrantRow({ g, pools }: { g: Grant; pools: Schemas["PoolView"][] | undef
           +{bytes(g.bytes)} · {targetName(g.pool_id, pools)}
         </span>
         {g.active ? (
-          <span className="num text-xs text-[var(--ink-600)]">{t("grants.left", { bytes: bytes(g.remaining) })}</span>
+          <span className="num text-xs text-[var(--md-on-surface-variant)]">{t("grants.left", { bytes: bytes(g.remaining) })}</span>
         ) : (
           <Pill tone="off">{expired ? t("grants.expired") : t("grants.usedUp")}</Pill>
         )}
       </div>
-      <div className="mt-0.5 text-xs text-[var(--ink-500)]">
+      <div className="mt-0.5 text-xs text-[var(--md-on-surface-variant)]">
         {[dateShort(g.created_at), source, g.note, g.expires_at ? t("grants.until", { date: dateShort(g.expires_at) }) : t("grants.noEnd")].filter(Boolean).join(" · ")}
       </div>
     </li>
@@ -112,7 +112,7 @@ function GrantForm({ u, pools, onDone }: { u: User; pools: Schemas["PoolView"][]
         <Field label={t("packages.size")} htmlFor="gr-gb" error={errors.bytes}>
           <div className="flex items-center gap-2">
             <input id="gr-gb" className="input max-w-[120px]" inputMode="decimal" value={gb} onChange={(e) => setGb(e.target.value)} aria-invalid={!!errors.bytes} autoFocus />
-            <span className="text-[var(--ink-500)]">{t("units.gb")}</span>
+            <span className="text-[var(--md-on-surface-variant)]">{t("units.gb")}</span>
           </div>
         </Field>
         <Field label={t("packages.target")} htmlFor="gr-pool" error={errors.pool_id}>

@@ -148,7 +148,7 @@ function TrafficCard() {
           <h2 className="card-title" id="traffic-title">
             {t("dashboard.traffic")}
           </h2>
-          <div className="mt-1.5 flex gap-4 text-[13px] text-[var(--ink-600)]">
+          <div className="mt-1.5 flex gap-4 text-[13px] text-[var(--md-on-surface-variant)]">
             <span className="inline-flex items-center gap-2">
               <i className="h-2 w-2 rounded-full bg-[var(--mikan-500)]" /> {t("chart.down")}
             </span>
@@ -172,12 +172,12 @@ function TrafficCard() {
         {() => (
           <>
             <TrafficChart points={points} range={range} />
-            <div className="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-[13px] text-[var(--ink-500)]">
+            <div className="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-[13px] text-[var(--md-on-surface-variant)]">
               <span>
-                {t("chart.down")} <b className="num font-semibold text-[var(--ink-900)]">{bytes(totalDown)}</b>
+                {t("chart.down")} <b className="num font-semibold text-[var(--md-on-surface)]">{bytes(totalDown)}</b>
               </span>
               <span>
-                {t("chart.up")} <b className="num font-semibold text-[var(--ink-900)]">{bytes(totalUp)}</b>
+                {t("chart.up")} <b className="num font-semibold text-[var(--md-on-surface)]">{bytes(totalUp)}</b>
               </span>
             </div>
           </>
@@ -252,7 +252,7 @@ function ServerCard() {
           <div key={l.id} className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-3${i >= INBOUNDS_SHOWN && !allInbounds ? " max-xl:hidden" : ""}`}>
             <div className="min-w-0">
               <div className="text-[13px] font-medium">{l.sub_name}</div>
-              <div className="truncate text-xs text-[var(--ink-500)]">
+              <div className="truncate text-xs text-[var(--md-on-surface-variant)]">
                 {l.port}/{l.network}
                 {l.dest ? ` · ${t("inbounds.maskedAs", { dest: maskedAs(l) })}` : ""}
               </div>
@@ -274,7 +274,7 @@ function ServerCard() {
           {allInbounds ? t("dashboard.lessInbounds") : t("dashboard.moreInbounds", { n: list.length - INBOUNDS_SHOWN })}
         </button>
       ) : null}
-      <div className="panel-soft mt-3 flex shrink-0 items-start gap-2 p-3 text-xs leading-4 text-[var(--ink-600)]">
+      <div className="panel-soft mt-3 flex shrink-0 items-start gap-2 p-3 text-xs leading-4 text-[var(--md-on-surface-variant)]">
         <ShieldCheck size={16} className="shrink-0 text-[var(--leaf-500)]" aria-hidden />
         <span>{t("dashboard.safetyNote")}</span>
       </div>
@@ -326,7 +326,7 @@ function NodeTrafficCard() {
       >
         {(data) =>
           total === 0 ? (
-            <p className="py-6 text-center text-[13px] text-[var(--ink-500)]">{t("dashboard.nodeTrafficEmpty")}</p>
+            <p className="py-6 text-center text-[13px] text-[var(--md-on-surface-variant)]">{t("dashboard.nodeTrafficEmpty")}</p>
           ) : (
             <ul className="row-list" aria-busy={shares.isPlaceholderData}>
               {data.items.map((n) => {
@@ -335,7 +335,7 @@ function NodeTrafficCard() {
                   <li key={n.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 py-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_auto]">
                     <span className="truncate text-[13px] font-medium">{nodeLabel(n)}</span>
                     <span className="num text-right text-[13px] sm:order-3 sm:min-w-[132px]">
-                      <b className="font-semibold">{bytes(n.bytes)}</b> <span className="text-[var(--ink-500)]">{percent(pct)}</span>
+                      <b className="font-semibold">{bytes(n.bytes)}</b> <span className="text-[var(--md-on-surface-variant)]">{percent(pct)}</span>
                     </span>
                     <Bar pct={pct} label={nodeLabel(n)} className="col-span-2 sm:order-2 sm:col-span-1 [&>i]:!bg-[var(--mikan-400)]" />
                   </li>
@@ -384,7 +384,7 @@ function AttentionCard() {
           <Skeleton style={{ height: 36 }} />
         </div>
       ) : list.length === 0 ? (
-        <p className="flex flex-1 items-center justify-center py-6 text-center text-[13px] text-[var(--ink-500)]">{t("dashboard.attentionEmpty")}</p>
+        <p className="flex flex-1 items-center justify-center py-6 text-center text-[13px] text-[var(--md-on-surface-variant)]">{t("dashboard.attentionEmpty")}</p>
       ) : (
         <div className="row-list">
           {list.map((u) => {
@@ -397,7 +397,7 @@ function AttentionCard() {
                     <b className="truncate font-semibold">{u.name}</b>
                     <StatePill state={u.state} />
                   </div>
-                  <div className="text-xs text-[var(--ink-500)]">
+                  <div className="text-xs text-[var(--md-on-surface-variant)]">
                     {u.state === "limited" ? t("dashboard.used", { bytes: bytes(u.used_up + u.used_down) }) : u.expires_at ? t("dashboard.until", { date: dateShort(u.expires_at), left: exp.text }) : ""}
                   </div>
                 </div>
@@ -447,10 +447,10 @@ function TopCard() {
       ) : o.isPending ? (
         <Skeleton style={{ height: 120 }} />
       ) : top.length === 0 ? (
-        <p className="flex flex-1 items-center justify-center py-6 text-center text-[13px] text-[var(--ink-500)]">{t("dashboard.topEmpty")}</p>
+        <p className="flex flex-1 items-center justify-center py-6 text-center text-[13px] text-[var(--md-on-surface-variant)]">{t("dashboard.topEmpty")}</p>
       ) : (
         top.map((u, i) => (
-          <Link key={u.id} to="/users" search={{ state: "all", q: "", user: u.id }} className="grid grid-cols-[24px_minmax(0,1fr)_auto] items-center gap-3 rounded-xl py-2 hover:bg-[var(--hover)]">
+          <Link key={u.id} to="/users" search={{ state: "all", q: "", user: u.id }} className="grid grid-cols-[24px_minmax(0,1fr)_auto] items-center gap-3 rounded-xl py-2 hover:bg-[var(--md-surface-container-high)]">
             <span className="font-display text-xs text-[var(--ink-400)]">{i + 1}</span>
             <div className="min-w-0">
               <div className="mb-1.5 truncate text-[13px] font-medium">{u.name}</div>

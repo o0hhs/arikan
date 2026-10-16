@@ -38,7 +38,7 @@ export function TorrentSection({ u }: { u: User }) {
     <Section title={t("userDrawer.torrent.title")}>
       {u.torrent_ban ? (
         <div className="panel-soft mb-3 flex flex-wrap items-center justify-between gap-3 p-3">
-          <span className="text-[13px] font-medium text-[var(--berry-600)]">
+          <span className="text-[13px] font-medium text-[var(--md-error)]">
             {t("userDrawer.torrent.banned", { date: `${dateShort(u.torrent_ban)} ${time(u.torrent_ban)}` })}
           </span>
           <Button size="sm" loading={lift.isPending} onClick={() => lift.mutate()}>
@@ -49,7 +49,7 @@ export function TorrentSection({ u }: { u: User }) {
       <SwitchRow className="py-1" label={t("userDrawer.torrent.exempt")} sub={t("userDrawer.torrent.exemptHint")} checked={exempt} disabled={save.isPending} onChange={setExempt} />
       {recent.length ? (
         <>
-          <div className="mt-3 text-xs font-medium text-[var(--ink-600)]">{t("userDrawer.torrent.recent")}</div>
+          <div className="mt-3 text-xs font-medium text-[var(--md-on-surface-variant)]">{t("userDrawer.torrent.recent")}</div>
           <ul className="row-list">
             {recent.map((h) => (
               <HitRow key={h.id} h={h} />
@@ -57,7 +57,7 @@ export function TorrentSection({ u }: { u: User }) {
           </ul>
         </>
       ) : hits.data ? (
-        <p className="mt-2 text-xs text-[var(--ink-500)]">{t("userDrawer.torrent.none")}</p>
+        <p className="mt-2 text-xs text-[var(--md-on-surface-variant)]">{t("userDrawer.torrent.none")}</p>
       ) : null}
     </Section>
   );

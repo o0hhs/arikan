@@ -22,7 +22,7 @@ type Scope = APIKey["scope"];
 export function ApiPage() {
   return (
     <>
-      <Link to="/settings" search={{ tab: "security" }} className="mb-2 inline-flex items-center gap-1 rounded-lg text-[13px] font-medium text-[var(--ink-500)] hover:text-[var(--ink-900)]">
+      <Link to="/settings" search={{ tab: "security" }} className="mb-2 inline-flex items-center gap-1 rounded-lg text-[13px] font-medium text-[var(--md-on-surface-variant)] hover:text-[var(--md-on-surface)]">
         <ChevronLeft size={16} aria-hidden /> {t("apiPage.back")}
       </Link>
       <PageHeader title={t("apiPage.title")} sub={t("apiPage.subtitle")} />
@@ -104,7 +104,7 @@ function KeyRow({ k, onRevoke }: { k: APIKey; onRevoke: () => void }) {
           <span className="tag">{k.scope === "full" ? t("apiPage.scopeFull") : t("apiPage.scopeRead")}</span>
           {expired ? <span className="pill bad">{t("apiPage.expired")}</span> : null}
         </div>
-        <div className="mt-1 text-xs text-[var(--ink-500)]">
+        <div className="mt-1 text-xs text-[var(--md-on-surface-variant)]">
           <span className="mono">{k.prefix}…</span> · {t("apiPage.created", { date: dateShort(k.created_at) })}
           {k.expires_at && !expired ? <> · {t("apiPage.expires", { date: dateShort(k.expires_at) })}</> : null}
           {" · "}

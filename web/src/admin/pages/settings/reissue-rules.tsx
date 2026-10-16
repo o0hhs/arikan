@@ -29,7 +29,7 @@ export function ReissueRules({ s }: { s: Schemas["SettingsView"] }) {
   return (
     <div className="mt-4 border-t border-[var(--line)] pt-4">
       <h3 className="text-[14px] font-medium">{t("settings.reissueTitle")}</h3>
-      <p className="mt-1 mb-3 text-xs text-[var(--ink-500)]">{t("settings.reissueSub")}</p>
+      <p className="mt-1 mb-3 text-xs text-[var(--md-on-surface-variant)]">{t("settings.reissueSub")}</p>
       <div className="flex flex-col gap-3">
         <LimitPicker
           label={t("settings.reissueLimit")}
@@ -56,7 +56,7 @@ export function ReissueRules({ s }: { s: Schemas["SettingsView"] }) {
           />
         ) : null}
       </div>
-      <p className="mt-3 text-xs text-[var(--ink-600)]" role="status">
+      <p className="mt-3 text-xs text-[var(--md-on-surface-variant)]" role="status">
         {summary}
       </p>
     </div>

@@ -16,9 +16,12 @@ type PromoTab = (typeof PROMO_TABS)[number];
 
 const empty: PromoCode = {
   id: 0, code: "", name: "", description: "", type: "days", value: 30, currency: "", used_count: 0,
-  per_user_limit: 1, discount_ttl: 0, min_order: 0, max_discount: 0, tariff_ids: [], first_purchase_only: false,
+  per_user_limit: 1, discount_ttl: 0, access_ttl: 0, min_order: 0, max_discount: 0, tariff_ids: [], first_purchase_only: false,
   new_users_only: false, enabled: true, status: "active", created_at: "",
 };
+
+/** An access code opens one hidden plan instead of giving days, traffic or a discount. */
+const isAccess = (type: string) => type === "access_paid" || type === "access_free";
 
 type Draft = Omit<PromoCode, "created_at" | "created_by" | "min_order" | "max_discount"> & {
   starts_at: string; ends_at: string; max_uses: string | number | undefined; value: string | number; min_order: string | number; max_discount: string | number;
@@ -80,6 +83,7 @@ function redemptionStatusText(status: string) {
 function valueText(p: PromoCode) {
   if (p.type === "traffic") return `${(p.value / GiB).toFixed(1)} ${t("promocodes.trafficUnit")}`;
   if (p.type === "days") return `${p.value} ${t("promocodes.daysUnit")}`;
+  if (isAccess(p.type)) return p.access_ttl ? t("promocodes.accessTtlDays", { n: Math.round(p.access_ttl / 86400) }) : t("promocodes.accessForever");
   return p.type === "percent" ? `${p.value}%` : money(p.value, p.currency);
 }
 
@@ -95,13 +99,17 @@ export function PromoSection({ sub, onSub }: { sub: PromoTab; onSub: (next: Prom
 
   const save = async (p: Omit<PromoCode, "created_at" | "created_by">) => {
     const body = {
-      code: p.code, name: p.name, description: p.description, type: p.type, value: Number(p.value),
+      code: p.code, name: p.name, description: p.description, type: p.type,
+      // An access code carries no value of its own: it opens a plan (the panel keeps 1).
+      value: isAccess(p.type) ? 1 : Number(p.value),
       currency: p.type === "fixed" || p.type === "percent" ? p.currency : "",
       starts_at: epoch(p.starts_at), ends_at: epoch(p.ends_at), max_uses: p.max_uses ? Number(p.max_uses) : undefined,
-      per_user_limit: Number(p.per_user_limit) || 1, discount_ttl: Number(p.discount_ttl) || 0,
-      min_order: Number(p.min_order) || 0, max_discount: Number(p.max_discount) || 0, tariff_ids: p.tariff_ids,
+      per_user_limit: Number(p.per_user_limit) || 1, discount_ttl: isAccess(p.type) ? 0 : Number(p.discount_ttl) || 0,
+      access_ttl: isAccess(p.type) ? (Number(p.access_ttl) || 0) * 86400 : 0,
+      min_order: isAccess(p.type) ? 0 : Number(p.min_order) || 0, max_discount: isAccess(p.type) ? 0 : Number(p.max_discount) || 0,
+      tariff_ids: p.tariff_ids,
       pool_id: p.type === "traffic" ? p.pool_id : undefined,
-      first_purchase_only: p.first_purchase_only, new_users_only: p.new_users_only, enabled: p.enabled,
+      first_purchase_only: isAccess(p.type) ? false : p.first_purchase_only, new_users_only: isAccess(p.type) ? false : p.new_users_only, enabled: p.enabled,
     };
     if (p.id) await update.mutateAsync({ id: p.id, body });
     else await create.mutateAsync(body);
@@ -158,7 +166,7 @@ function Codes({ onEdit, onCreate }: { onEdit: (p: PromoCode) => void; onCreate:
                       <Pill tone={statusTone(p.status)}>{statusText(p.status)}</Pill>
                       <span className="text-[13px] font-medium">{valueText(p)}</span>
                     </div>
-                    <div className="mt-1 truncate text-xs text-[var(--ink-500)]">
+                    <div className="mt-1 truncate text-xs text-[var(--md-on-surface-variant)]">
                       {[p.name || p.description, t("promocodes.usedOf", { n: p.used_count, max: p.max_uses ? String(p.max_uses) : "∞" })].filter(Boolean).join(" · ")}
                     </div>
                   </div>
@@ -234,7 +242,7 @@ function Redemptions() {
                 <li key={r.id} className="py-3">
                   <div className="flex flex-wrap items-center gap-2 text-[13px]">
                     <b className="mono">{r.code}</b>
-                    <span className="text-[var(--ink-500)]">{redemptionStatusText(r.status)}</span>
+                    <span className="text-[var(--md-on-surface-variant)]">{redemptionStatusText(r.status)}</span>
                     {r.days ? <span>+{r.days} {t("promocodes.daysUnit")}</span> : null}
                     {r.bytes ? (
                       <span>
@@ -243,7 +251,7 @@ function Redemptions() {
                     ) : null}
                     {r.discount_amount ? <span>−{money(r.discount_amount, r.currency)}</span> : null}
                   </div>
-                  <div className="mt-1 text-xs text-[var(--ink-500)]">
+                  <div className="mt-1 text-xs text-[var(--md-on-surface-variant)]">
                     {dateShort(r.redeemed_at)} {time(r.redeemed_at)} · {r.user_id != null ? `${t("promocodes.user")} #${r.user_id}` : t("promocodes.noUser")} · {t("promocodes.telegramId")} {r.tg_id}
                   </div>
                 </li>
@@ -327,10 +335,11 @@ function PromoForm({ value, onSave, onSaving, onBlocked }: { value: PromoCode; o
     }
   };
   const discount = p.type === "percent" || p.type === "fixed";
+  const access = isAccess(p.type);
   const step = p.type === "fixed" && p.currency === "RUB" ? "0.01" : "1";
   return (
     <form id="promo-form" className="pt-4" onSubmit={(e) => void submit(e)} noValidate>
-      <p className="mb-4 text-[13px] text-[var(--ink-500)]">{t("promocodes.createHint")}</p>
+      <p className="mb-4 text-[13px] text-[var(--md-on-surface-variant)]">{access ? t("promocodes.accessHintType") : t("promocodes.createHint")}</p>
       {error ? (
         <div className="banner err mb-4" role="alert">
           {error}
@@ -346,12 +355,44 @@ function PromoForm({ value, onSave, onSaving, onBlocked }: { value: PromoCode; o
             <option value="traffic">{t("promocodes.traffic")}</option>
             <option value="percent">{t("promocodes.percent")}</option>
             <option value="fixed">{t("promocodes.fixed")}</option>
+            <option value="access_paid">{t("promocodes.accessPaid")}</option>
+            <option value="access_free">{t("promocodes.accessFree")}</option>
           </select>
         </Field>
-        <Field label={p.type === "fixed" && p.currency ? `${t("promocodes.value")}, ${unitOf(p.currency)}` : t("promocodes.value")} htmlFor="pc-value">
-          <input id="pc-value" className="input" type="number" inputMode="decimal" min={step === "0.01" ? "0.01" : "1"} step={step} max={p.type === "days" ? 36500 : undefined} value={p.value} onChange={set("value")} />
-        </Field>
+        {access ? (
+          <Field label={t("promocodes.value")} htmlFor="pc-value" hint={t("promocodes.accessValueHint")}>
+            <input id="pc-value" className="input" value={t("promocodes.accessValue")} disabled readOnly />
+          </Field>
+        ) : (
+          <Field label={p.type === "fixed" && p.currency ? `${t("promocodes.value")}, ${unitOf(p.currency)}` : t("promocodes.value")} htmlFor="pc-value">
+            <input id="pc-value" className="input" type="number" inputMode="decimal" min={step === "0.01" ? "0.01" : "1"} step={step} max={p.type === "days" ? 36500 : undefined} value={p.value} onChange={set("value")} />
+          </Field>
+        )}
       </div>
+      {access ? (
+        <>
+          <Field label={t("promocodes.accessTariff")} htmlFor="pc-access-tariff" hint={t("promocodes.accessTariffHint")} error={tariffs.isError ? errorText(tariffs.error) : undefined}>
+            <select
+              id="pc-access-tariff"
+              className="input"
+              value={p.tariff_ids[0] ?? 0}
+              disabled={tariffs.isError}
+              onChange={(e) => setP((x) => ({ ...x, tariff_ids: e.target.value ? [Number(e.target.value)] : [] }))}
+            >
+              <option value={0}>{t("promocodes.allTariffs")}</option>
+              {(tariffs.data ?? []).map((tariff) => (
+                <option key={tariff.id} value={tariff.id}>
+                  {tariff.on_sale ? tariff.name : `${tariff.name} · ${t("promocodes.accessHidden")}`}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label={t("promocodes.accessTtl")} htmlFor="pc-access-ttl" hint={t("promocodes.accessTtlHint")}>
+            <input id="pc-access-ttl" className="input max-w-[200px]" type="number" min="0" placeholder={t("promocodes.noLimit")} value={p.access_ttl ? Math.round(p.access_ttl / 86400) : ""} onChange={(e) => setP((x) => ({ ...x, access_ttl: Number(e.target.value) * 86400 || 0 }))} />
+          </Field>
+        </>
+      ) : null}
+      <div className="banner soft mb-4 text-[13px]">{t("promocodes.createHint")}</div>
       {discount ? (
         <Field label={t("promocodes.currency")} htmlFor="pc-currency" hint={p.type === "percent" && !p.currency ? t("promocodes.anyCurrencyHint") : undefined}>
           <select id="pc-currency" className="input" value={p.currency} onChange={set("currency")}>
@@ -425,9 +466,13 @@ function PromoForm({ value, onSave, onSaving, onBlocked }: { value: PromoCode; o
             <input id="pc-ttl" className="input max-w-[200px]" type="number" min="0" max={30 * 24 * 60 * 60} value={p.discount_ttl} onChange={set("discount_ttl")} />
           </Field>
         ) : null}
-        <Field label={t("promocodes.tariffsLabel")} hint={t("promocodes.allTariffsHint")}>
-          {tariffs.isError ? (
-            <p className="text-[13px] text-[var(--berry-600)]" role="alert">
+        <Field label={t("promocodes.tariffsLabel")} hint={access ? t("promocodes.accessTariffHint") : t("promocodes.allTariffsHint")}>
+          {access ? (
+            <p className="text-[13px] text-[var(--md-on-surface-variant)]">
+              {p.tariff_ids.length ? (tariffs.data ?? []).find((x) => x.id === p.tariff_ids[0])?.name ?? "—" : t("promocodes.accessNone")}
+            </p>
+          ) : tariffs.isError ? (
+            <p className="text-[13px] text-[var(--md-error)]" role="alert">
               {errorText(tariffs.error)}
             </p>
           ) : (
@@ -447,8 +492,12 @@ function PromoForm({ value, onSave, onSaving, onBlocked }: { value: PromoCode; o
           )}
         </Field>
         <div className="row-list">
-          <SwitchRow label={t("promocodes.firstPurchaseOnly")} checked={p.first_purchase_only} onChange={flag("first_purchase_only")} />
-          <SwitchRow label={t("promocodes.newUsersOnly")} checked={p.new_users_only} onChange={flag("new_users_only")} />
+          {access ? null : (
+            <>
+              <SwitchRow label={t("promocodes.firstPurchaseOnly")} checked={p.first_purchase_only} onChange={flag("first_purchase_only")} />
+              <SwitchRow label={t("promocodes.newUsersOnly")} checked={p.new_users_only} onChange={flag("new_users_only")} />
+            </>
+          )}
         </div>
         <Field label={t("promocodes.description")} htmlFor="pc-description">
           <input id="pc-description" className="input" value={p.description} onChange={set("description")} />

@@ -145,6 +145,10 @@ func TestInvoiceFailure(t *testing.T) {
 		{fmt.Errorf("wrapped: %w", billing.ErrTooMany), http.StatusConflict, "too_many_invoices", false},
 		{billing.ErrNotYours, http.StatusConflict, "not_yours", false},
 		{billing.ErrProviderOff, http.StatusConflict, "provider_off", false},
+		// The buyer's own numbers are outside what the plan gives: their business, told.
+		{billing.ErrBadOptions, http.StatusConflict, "bad_options", false},
+		{fmt.Errorf("plan: %w", billing.ErrBadOptions), http.StatusConflict, "bad_options", false},
+		{billing.ErrNoConstructor, http.StatusConflict, "constructor_off", false},
 		{promo.ErrRefundUnsupported, http.StatusConflict, "promo_unavailable", false},
 		{promo.ErrAlreadyApplied, http.StatusConflict, "promo_unavailable", false},
 		{fmt.Errorf("invoice: %w", promo.ErrReservationExpired), http.StatusConflict, "promo_unavailable", false},

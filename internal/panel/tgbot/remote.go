@@ -187,12 +187,23 @@ func (s remoteShop) Config(ctx context.Context) billing.Config {
 	return c
 }
 
-func (s remoteShop) Offers(ctx context.Context) ([]billing.Offer, billing.Available, error) {
+// Offers asks for the chat's account so a tariff an access code opened is offered too. A
+// panel too old for the argument (released before 0.5.1.4) is asked without it: without an
+// access code the answer is the same.
+func (s remoteShop) Offers(ctx context.Context, tgID int64) ([]billing.Offer, billing.Available, error) {
 	var (
 		o []billing.Offer
 		a billing.Available
 	)
-	err := s.r.call(ctx, "Shop.Offers", nil, &o, &a)
+	if tgID == 0 {
+		err := s.r.call(ctx, "Shop.Offers", nil, &o, &a)
+		return o, a, err
+	}
+	err := s.r.call(ctx, "Shop.Offers", []any{tgID}, &o, &a)
+	if err != nil {
+		o, a = nil, billing.Available{}
+		err = s.r.call(ctx, "Shop.Offers", nil, &o, &a)
+	}
 	return o, a, err
 }
 
