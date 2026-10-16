@@ -14,7 +14,7 @@ import (
 func TestVLESSTLSPresets(t *testing.T) {
 	cert := proto.Cert{CertPath: "/data/tls/node.crt", KeyPath: "/data/tls/node.key"}
 	slot := proto.Slot{Name: "s000001", UUID: "0b4ddc4c-7c4f-4a36-9d62-6f1a44b8c4e1", Secret: "x"}
-	for _, id := range []string{presets.PresetTLSXHTTP, presets.PresetTLSVision} {
+	for _, id := range []string{presets.PresetTLSXHTTP, presets.PresetTLSVision, presets.PresetCDN} {
 		src, err := presets.NewConfig(id, "")
 		if err != nil {
 			t.Fatal(err)
@@ -62,6 +62,24 @@ func TestVLESSTLSPresets(t *testing.T) {
 		case presets.PresetTLSXHTTP:
 			if q.Get("type") != "xhttp" || q.Get("path") == "" || q.Get("flow") != "" || !xray || singbox {
 				t.Fatalf("xhttp: %s xray=%v sing-box=%v", c.URI, xray, singbox)
+			}
+		case presets.PresetCDN:
+			// The CDN inbound is XHTTP on the node certificate, in the mode a CDN carries:
+			// one POST up, one streaming GET down. A GET uplink would need packet-up, which
+			// mihomo's server refuses, so the mode is pinned here by a test.
+			if q.Get("type") != "xhttp" || q.Get("mode") != "stream-one" || q.Get("path") == "" || q.Get("flow") != "" || !xray || singbox {
+				t.Fatalf("cdn: %s xray=%v sing-box=%v", c.URI, xray, singbox)
+			}
+			// The distribution domain lives in "behind a proxy"; with none the client gets
+			// the node's own address, which is what this call passes.
+			if c.Mihomo["server"] != "panel.example.com" || c.Mihomo["network"] != "xhttp" {
+				t.Fatalf("cdn mihomo: %v", c.Mihomo)
+			}
+			// No host is baked into xhttp-config: the admin sets it with the CDN.
+			if opts, _ := c.Mihomo["xhttp-opts"].(map[string]any); opts != nil {
+				if h, set := opts["host"]; set && h != "" {
+					t.Fatalf("cdn opts carry a host: %v", opts)
+				}
 			}
 		case presets.PresetTLSVision:
 			if q.Get("type") != "tcp" || q.Get("flow") != "xtls-rprx-vision" || !xray || !singbox {

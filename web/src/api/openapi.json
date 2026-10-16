@@ -2014,6 +2014,7 @@
               "vless_tls_xhttp",
               "vless_tls_vision",
               "vless_tls_ws",
+              "vless_tls_xhttp_cdn",
               "anytls",
               "vless_reality_xhttp_pq",
               "trusttunnel",

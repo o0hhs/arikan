@@ -1,0 +1,162 @@
+---
+title: Getting through whitelists over a CDN
+description: VLESS · TLS · XHTTP behind a CDN provider: the distribution and origin domains, nginx on the node, port 80, and checking the chain layer by layer.
+---
+
+When an operator leaves only a whitelist working — messengers, state services, banks — ordinary protocols go silent. A CDN gives you an address that is on that list: the client dials the **distribution domain**, the CDN network accepts the request and reaches the **origin** on your node over a separate connection.
+
+```text
+client  ──TLS──> cdn.example.com    (distribution domain, DNS points at the CDN)
+CDN     ──TLS──> origin.example.com (origin domain, DNS points at the node)
+                      └── mihomo on the node
+```
+
+:::note
+This is the same way through that a cascade with a white IP used to give, but instead of an expensive address that may be struck off the list tomorrow, the infrastructure here is the CDN's. It has many points of entry, and restricting all of it is harder.
+:::
+
+## What you need
+
+1. A node with a public IPv4 (the panel's **Nodes**).
+2. Two names: an **origin domain** (pointing at the node) and a **distribution domain** (pointing at the CDN).
+3. A certificate for the origin domain — the panel issues it itself once the domain is set on the node card.
+4. A distribution domain with a certificate on the CDN's side — usually the provider issues it.
+5. A CDN with a pull-origin mode. Suitable providers are listed below.
+
+:::caution
+**A domain without a CDN is not enough, and a CDN without a domain is not enough.** Two names are two different legs of the connection: the client only ever sees the distribution domain, while the CDN reaches the node by the origin domain. One domain cannot serve both.
+:::
+
+## Step 1. The origin domain and the node's certificate
+
+The origin domain is an ordinary name pointing at the node's IP. The panel needs it for one more reason: the certificate is issued for it. The CDN reaches the origin over HTTPS and verifies that certificate.
+
+1. Add an A record, for example `origin.example.com` → the node's IP.
+2. In the panel, open the node card and put that domain in the **Domain** field.
+3. Wait for the panel to issue the certificate (**Nodes** → the node card, certificate state).
+
+Without a certificate the CDN fails to verify the origin and its log shows a TLS refusal.
+
+:::note
+A node without a domain gets a certificate for its IP address. A CDN normally does not accept that: most providers give no way to turn origin certificate verification off. The origin domain is therefore not a formality.
+:::
+
+## Step 2. An inbound made for a CDN
+
+In the panel add the **VLESS · TLS · XHTTP · CDN** inbound.
+
+- The `stream-one` mode: the uplink goes as a single POST, the downlink as a streaming GET. This is what every CDN carries.
+- Keep the offered port or change it: it is the CDN that faces the outside, not this port.
+- The certificate is the origin domain from step 1.
+
+Then, in that inbound's **Behind a proxy** block, put the address your clients will dial — that is, the **distribution domain**:
+
+- **Address for clients**: `cdn.example.com`
+- **Port for clients**: `443`
+- **SNI for clients**: `cdn.example.com`
+
+The subscription now hands clients the CDN's address instead of the node's.
+
+## Step 3. The CDN resource
+
+The order differs between providers, but the meaning is the same:
+
+1. Create a resource with the **origin** `origin.example.com` (type: static or general HTTP).
+2. Attach the **distribution domain** `cdn.example.com` to it: the provider gives you a CNAME to put in DNS.
+3. Issue a certificate for the distribution domain — usually the provider does this itself.
+4. Make sure the provider **does not rewrite the method or the body** and passes POST through.
+
+:::tip[Which provider to pick]
+Among Russian CDNs with a pull-origin mode the usual choices are **Yandex Cloud CDN**, **VK Cloud**, **Selectel**, **Timeweb**, **Beget** and **Beeline**. Their common advantage is that they themselves are likely to stay reachable where a whitelist is turned on.
+
+**Cloudflare does not fit this scheme**: Roskomnadzor blocks it, and it has no ordinary pull-origin for arbitrary transports. Cloudflare Workers even less so — that is not a CDN but code running at the edge, and it does not act as a transparent proxy.
+:::
+
+## Step 4. What answers "ordinary" requests
+
+Sooner or later the CDN asks the origin for a path your transport does not have — and a scanner or the CDN itself will see that answer. So that the node does not look like an empty server, it has **a page of its own** (see [Nodes](/arikan/en/nodes/nodes/#the-nodes-page)): files in `/opt/mikan/data/node/www` on the node's server, its own certificate, port 443 or `127.0.0.1:18443` when 443 belongs to an inbound.
+
+Put your own `index.html` and `404.html` there — the node never overwrites them. The node holds port 80 too: it answers ACME checks and sends everything else with a **301** to HTTPS, so `http://origin.example.com` leads to an ordinary website.
+
+## Checking the chain layer by layer
+
+Do not change the XHTTP settings until every layer below them works. The order:
+
+1. Domains and certificates line up: `origin.example.com` points at the node, `cdn.example.com` at the CDN, both with a valid certificate.
+2. The origin answers over HTTPS **directly**, bypassing the CDN:
+
+   ```bash
+   curl -sv https://origin.example.com/ -o /dev/null
+   ```
+
+3. The CDN gets an answer from the origin — visible in its log or console.
+4. A request to the transport path reaches the node.
+5. The client got a fresh subscription: it carries `cdn.example.com`.
+
+Only then is it worth touching the mode, the padding and the other XHTTP fields.
+
+One command can check the layers, using the script in the repository:
+
+```bash
+bash scripts/cdn-check.sh --cdn cdn.example.com --origin origin.example.com --path /your-path/
+```
+
+It changes nothing: it looks at the DNS of both names, the origin's certificate (validity, names, issuer), the origin's answer directly, the CDN's answer and the response time at both ends, then sends a POST and a GET to the transport path. A failure names the layer, and that already shows what to fix. It also catches a `405` on POST: that is the answer to the scheme's main question — whether the CDN you picked passes an XHTTP uplink.
+
+## When it does not work
+
+| What you see | Where to look |
+|---|---|
+| `502` | origin domain resolution, its port, TLS/SNI, the certificate, the `Host` header; the same request directly, without the CDN |
+| `504` | the origin's response time directly and through the CDN; some CDNs have a fixed window (Yandex wants an answer within five seconds) that raising a timeout in nginx will not change |
+| `403` | access rules and the WAF on the CDN's side |
+| `404` | the `Host` header and the path: the request landed in the wrong handler |
+| `405` | the request method. CDNs often pass only `GET`, `HEAD` and `OPTIONS`, while an XHTTP uplink is a POST — change the CDN or the mode |
+| `413` | a body size limit: check it on every layer |
+| `429` | rate and connection limits |
+| Works, then freezes | the CDN's maximum connection duration and idle time, read timeouts; `proxy_read_timeout` sets the gap between read operations, not the length of the whole response |
+| Works over Wi-Fi, not on mobile | that proves a route exists, not that the CDN's node is reachable on a given operator: try another node or another provider |
+
+## If nginx already stands in front of the node
+
+Then the CDN arrives at nginx, and nginx routes by path: the transport path to the local XHTTP port, everything else to the node's page. A template for the `http` block:
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name origin.example.com;
+
+    ssl_certificate     /etc/letsencrypt/live/origin.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/origin.example.com/privkey.pem;
+
+    # The transport path: use your own (the panel shows it on the inbound).
+    location /your-path/ {
+        proxy_pass http://127.0.0.1:11443;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_buffering off;
+        proxy_request_buffering off;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+
+    # Everything else is an ordinary website.
+    location / {
+        root /var/www/origin;
+        try_files $uri $uri/ =404;
+    }
+}
+```
+
+:::caution
+`proxy_buffering off` and `proxy_request_buffering off` are mandatory here: with buffering on, nginx accumulates the request and response bodies and the streaming transport stops working. Port `11443` comes from the **VLESS · TLS · XHTTP · CDN** inbound — use your own.
+:::
+
+## What the panel does not do
+
+- **It does not set the CDN up for you**: the resource, the distribution domain and its certificate live in the provider's console.
+- **It does not issue a certificate for the distribution domain**: that is the CDN's side.
+- **It does not guarantee a way through whitelists**: the reachability of CDN nodes differs between operators and regions, and the outcome depends on the network.
+
+The scheme needs attention: after changes at the CDN or in the core, the chain has to be checked again. For a service you can add load and cost estimates, connection limits, origin monitoring and a plan for replacing the CDN.

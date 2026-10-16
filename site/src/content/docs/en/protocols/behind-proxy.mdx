@@ -52,3 +52,5 @@ Automatic fixes are off for a connection behind a proxy and can't be turned on:
 3. In the connection's **Behind a proxy** block: client address `cdn.example.com`, port 443, SNI `cdn.example.com`.
 
 The node's other protocols are not touched: they go to its address as before.
+
+WebSocket alone is not enough to get through a whitelist: it is an older transport, and in Russia it gets blocked sooner than XHTTP. The scheme with two domains, XHTTP and the node's own page is covered separately: [Getting through whitelists over a CDN](/arikan/en/protocols/cdn/).

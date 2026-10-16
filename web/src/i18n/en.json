@@ -1073,6 +1073,7 @@
     "vless_tls_xhttp": "Plain TLS on the real certificate of the panel's domain, like a website: answers strangers as a web server, keeps few connections",
     "vless_tls_vision": "Classic VLESS Vision on the real certificate of the panel's domain: works in almost every app. Gets frozen quickly on 443 in Russia",
     "vless_tls_ws": "WebSocket on a real certificate: gets through on operators where only WS works, and through a CDN (Cloudflare, Yandex). For a CDN, put its address in the \"behind a proxy\" block",
+    "vless_tls_xhttp_cdn": "XHTTP on a real certificate, made for a CDN: the client dials the distribution domain, the CDN reaches the node over TLS, and the node answers strangers as an ordinary website. The stream-one mode (one POST up, one streaming GET down) is carried by every CDN",
     "anytls": "TLS with padding against packet-size analysis. Needs a mihomo or sing-box app",
     "vless_reality_xhttp_pq": "XHTTP with post-quantum encryption: traffic recorded today stays sealed in the future too. Needs a recent mihomo or Xray, sing-box will not connect",
     "trusttunnel": "AdGuard's protocol: HTTP/2 on the node's real certificate. It answers a request without a key with 407, like a proxy, so an active scanner can tell it: keep it off a node whose IP you need to keep clean",
@@ -1084,7 +1085,8 @@
     "custom": "Your own mihomo protocol settings in the editor: any supported type and parameters",
     "trojan_realityWarn": "Russian DPI recognises Trojan by the shape of its traffic and blocks it quickly: keep it as a spare, VLESS REALITY is the main choice.",
     "vless_reality_grpcWarn": "VLESS without Vision: both the handshake and the stream have a simpler shape, and in Russia such inbounds get blocked sooner than XHTTP or Vision.",
-    "vless_tls_wsWarn": "VLESS without Vision: both the handshake and the stream have a simpler shape, and in Russia such inbounds get blocked sooner than XHTTP or Vision. Keep it where WebSocket or a CDN is the only way through."
+    "vless_tls_wsWarn": "VLESS without Vision: both the handshake and the stream have a simpler shape, and in Russia such inbounds get blocked sooner than XHTTP or Vision. Keep it where WebSocket or a CDN is the only way through.",
+    "vless_tls_xhttp_cdnWarn": "Works only where the CDN is reachable on the operator's network. Put the distribution domain in the \"behind a proxy\" block and point an origin domain at the node: without a domain of your own the CDN cannot verify its certificate."
   },
   "inbounds": {
     "subtitle": "Protocols clients use to reach the server. Keys and passwords are generated automatically.",
@@ -1451,8 +1453,10 @@
     "routesAutoKind": "Auto choice",
     "routesAutoFastest": "The fastest",
     "routesAutoFallback": "The first that works",
+    "routesAutoBalance": "Load balancing",
     "routesAutoFastestHint": "The app tests every server and keeps the fastest.",
     "routesAutoFallbackHint": "The app keeps the first working server in the nodes' order and moves on only when it fails. Fewer switches.",
+    "routesAutoBalanceHint": "The app spreads the load over the working servers instead of sending everything through one. A site stays on its own server, so sessions do not break.",
     "routesInterval": "Test servers",
     "routesIntervalHint": "How often the app tests servers for the auto choice and the country groups.",
     "routesIntervalSec": "{n, plural, one {every # second} other {every # seconds}}",
