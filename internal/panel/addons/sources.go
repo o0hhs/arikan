@@ -51,6 +51,10 @@ const (
 	// OfficialBotID is the id the panel hands the bot slot to by itself (app/botaddon.go): no
 	// source can offer an addon under it.
 	OfficialBotID = "telegram"
+	// ForkBotID is the bot of this fork's own source: a release publishes cmd/mikan-telegram
+	// as its entry (addons/telegram), and the panel prefers it to the official one — the
+	// fork's bot is the one that carries what this panel does (app/botaddon.go).
+	ForkBotID = "arikan-telegram"
 )
 
 // Codes of what a source did wrong; the API and the stored error column carry them as they
@@ -660,6 +664,65 @@ func (m *Manager) ForgetSource(id int64) {
 	m.mu.Lock()
 	delete(m.sources, id)
 	m.mu.Unlock()
+}
+
+// The fork's own addons source: the third-party sources are the admin's to add, and one the
+// panel ships with (BuiltinSourceURL). Its file is read and checked like any source's — the
+// key it signs with is pinned, the image by its digest — and it is the source the fork's own
+// bot addon comes from (app/botaddon.go). The fetch and its checks are here; the admin's side
+// is internal/panel/api/addon_sources.go.
+
+// BuiltinSourceURL is the addons source every Arikan panel ships with: this fork's own
+// releases, whose mikan-addon.json is signed with the fork's release key (release.PublicKey)
+// — the key the fork's releases and their manifests are already trusted by. The row is put in
+// the sources table when the panel starts (EnsureBuiltinSource) and is not the admin's to
+// remove. A variable so a test can point it at its own file.
+var BuiltinSourceURL = "github.com/" + release.Repo
+
+// BuiltinSourceKey is that source's pinned key: the fork's release key. A variable like the
+// address, for the same reason.
+var BuiltinSourceKey = release.PublicKey
+
+// BuiltinSourceTitle names that source in the admin's list before its file is read.
+const BuiltinSourceTitle = "Arikan"
+
+// IsBuiltinSource: url is the source the panel ships with.
+func IsBuiltinSource(url string) bool { return url == BuiltinSourceURL }
+
+// BuiltinSourceStore is what putting the source in the table needs; *db.Queries has it.
+type BuiltinSourceStore interface {
+	AddAddonSource(ctx context.Context, arg db.AddAddonSourceParams) (db.AddonSource, error)
+	ListAddonSources(ctx context.Context) ([]db.AddonSource, error)
+}
+
+// EnsureBuiltinSource puts the fork's own source in the table once, pinned to the fork's
+// release key: the file it offers is then read like any other source's, and a signature with
+// another key — or none at all — is refused (the release publishes .sig beside the file). A
+// row the admin added themselves from the same address is left as it is, and so is one that
+// is already there. The caller logs what it gets: a panel that cannot write it still starts.
+func (m *Manager) EnsureBuiltinSource(ctx context.Context, q BuiltinSourceStore, now time.Time) error {
+	rows, err := q.ListAddonSources(ctx)
+	if err != nil {
+		return err
+	}
+	for _, s := range rows {
+		if IsBuiltinSource(s.Url) {
+			return nil
+		}
+	}
+	_, err = q.AddAddonSource(ctx, db.AddAddonSourceParams{Url: BuiltinSourceURL, Key: BuiltinSourceKey, Title: BuiltinSourceTitle, AddedAt: now.Unix()})
+	if err == nil {
+		return nil
+	}
+	// The url is unique: a row that appeared meanwhile is the answer.
+	if rows, lerr := q.ListAddonSources(ctx); lerr == nil {
+		for _, s := range rows {
+			if IsBuiltinSource(s.Url) {
+				return nil
+			}
+		}
+	}
+	return err
 }
 
 // sourceTTL is how long the last fetch of a source holds: a good one for the fresh time, a
