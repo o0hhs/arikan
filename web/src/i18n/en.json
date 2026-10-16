@@ -1081,7 +1081,10 @@
     "shadowsocks_2022": "The classic: fast and understood by every app. One key for all clients",
     "sudoku": "Hides traffic as HTTP and text. One key for all clients",
     "snell": "The Surge app's protocol. One key for all clients",
-    "custom": "Your own mihomo protocol settings in the editor: any supported type and parameters"
+    "custom": "Your own mihomo protocol settings in the editor: any supported type and parameters",
+    "trojan_realityWarn": "Russian DPI recognises Trojan by the shape of its traffic and blocks it quickly: keep it as a spare, VLESS REALITY is the main choice.",
+    "vless_reality_grpcWarn": "VLESS without Vision: both the handshake and the stream have a simpler shape, and in Russia such inbounds get blocked sooner than XHTTP or Vision.",
+    "vless_tls_wsWarn": "VLESS without Vision: both the handshake and the stream have a simpler shape, and in Russia such inbounds get blocked sooner than XHTTP or Vision. Keep it where WebSocket or a CDN is the only way through."
   },
   "inbounds": {
     "subtitle": "Protocols clients use to reach the server. Keys and passwords are generated automatically.",
@@ -1278,6 +1281,7 @@
     "clashOnlyNote": "Only Clash apps on a recent mihomo get it: Koala Clash, SlothClash, FlClash, Clash Verge, ClashFest. Happ, v2RayTun and Hiddify will not see it.",
     "domainCertNote": "The certificate is a real one on the panel's node when the panel has a domain, and on a node with a certificate of its own. Other nodes use a self-signed one: apps check it against the pin in the subscription, but from outside the port no longer looks like an ordinary website.",
     "sharedKey": "Shared key",
+    "dpiWarnTitle": "Warning",
     "sharedWarnTitle": "One key for all clients",
     "sharedWarn": "This protocol has one key for everyone. Traffic counting, limits and devices do not work on it, and a disabled client keeps access until the key changes. To change the key, delete the protocol and add it again.",
     "appsLine": "Delivered to: {list}",

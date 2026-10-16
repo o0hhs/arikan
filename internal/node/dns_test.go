@@ -21,7 +21,7 @@ import (
 // sectionOf is the built config's top-level key, decoded.
 func sectionOf(t *testing.T, st nodeapi.DesiredState, key string) map[string]any {
 	t.Helper()
-	raw, _, err := buildConfig(st, proto.Cert{}, false)
+	raw, _, err := buildConfig(st, proto.Cert{}, false, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,7 +125,7 @@ func TestResolverFollowsTheState(t *testing.T) {
 	apply := func(addr string) {
 		t.Helper()
 		st := nodeapi.DesiredState{DNS: &nodeapi.DNS{Nameserver: []string{addr}, Default: []string{addr}}}
-		raw, _, err := buildConfig(st, proto.Cert{}, false)
+		raw, _, err := buildConfig(st, proto.Cert{}, false, 0)
 		if err != nil {
 			t.Fatal(err)
 		}

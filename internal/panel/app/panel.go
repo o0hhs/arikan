@@ -189,6 +189,9 @@ func NewPanel(st *store.Store, o Options) (*Panel, error) {
 	if p.Nodes != nil {
 		// A relay made for a new exit keeps off the ports other programs hold on its server.
 		deps.Inbounds.SetHostLookup(p.Nodes.HostPorts)
+		// A REALITY dest may name the node's own page on loopback, as it may name the
+		// panel's HTTPS on the panel's own node.
+		deps.Inbounds.SetSiteLookup(p.Nodes.SitePort)
 	}
 	// A REALITY target given by name is looked up when it is saved: the node dials it past the
 	// rules that fence its users in.

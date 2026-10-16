@@ -15,6 +15,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -98,6 +99,20 @@ func New(dataDir string, holder *tlscert.Holder, fallback *tls.Certificate, set 
 	m := &Manager{dir: root, iss: newIssuer(root, set), holder: holder, fallback: fallback,
 		set: set, log: log, now: now, wake: make(chan struct{}, 1), challenge: acmechallenge.New(listen), customDir: filepath.Join(dataDir, "tls", "custom"),
 		journal: newJournal(root)}
+	// A panel answers challenges on port 80 while one is pending and gives the port back
+	// after; MIKAN_HTTP_REDIRECT=1 makes it hold the port and send everything else on to
+	// HTTPS as well. Off by default: a panel often shares its server with other sites, while
+	// a node turns it on by itself.
+	if raw := os.Getenv("MIKAN_HTTP_REDIRECT"); raw != "" {
+		if on, err := strconv.ParseBool(raw); err != nil {
+			log.Warn("MIKAN_HTTP_REDIRECT is not on or off: port 80 answers challenges only", "value", raw)
+		} else if on {
+			m.challenge.SetRedirect(true)
+			if err := m.challenge.Start(); err != nil {
+				log.Warn("no HTTP redirect on port 80", "listen", m.challenge.Addr(), "err", err)
+			}
+		}
+	}
 	m.status.Store(&Status{Kind: "self-signed", WantCA: CALetsEncrypt, CheckedAt: now()})
 	return m
 }

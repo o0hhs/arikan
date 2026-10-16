@@ -3056,6 +3056,9 @@
           },
           "type": {
             "type": "string"
+          },
+          "warning": {
+            "type": "string"
           }
         },
         "required": [

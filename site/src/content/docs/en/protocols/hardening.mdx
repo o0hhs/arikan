@@ -1,0 +1,49 @@
+---
+title: Heavy blocking
+description: "What the panel does against Russian blocking and what it does not — point by point: 443 and SNI, the answer on 80, the node's page, the node's API port, Vision and Trojan."
+---
+
+This section is about the part of the fight against blocking that the panel already does, and about what stays in your hands. In short: the panel closes everything that can be closed on a single server, while splitting one port 443 by SNI is the job of an external front (nginx, Caddy, HAProxy).
+
+## 443 and SNI: there is no splitter inside the panel
+
+One port belongs to one process. Both mihomo and the panel know only "one listener per port", so **splitting several transports by SNI on 443 does not exist inside them** — neither in the panel nor in the core. The answer is an external front on 443 handing connections to the protocols on loopback ports: [Behind a proxy](/arikan/en/protocols/behind-proxy/) with nginx stream or HAProxy; every connection has the **Behind a proxy** block for it (the clients' address and port).
+
+What the panel does instead:
+
+- REALITY needs no splitter: the client's SNI is another site's domain, and one REALITY inbound keeps 443.
+- Automatic tuning and port moves when a port gets blocked: [Autotune](/arikan/en/protocols/autotune/).
+
+## Port 80 answers 301 to HTTPS
+
+The node holds port 80: it answers the certificate authority's checks (`/.well-known/acme-challenge/`) and sends everything else to `https://` of the same address with a **301**. So `http://your.example.com` leads to its `https` instead of a "404", and to a stranger the domain looks like an ordinary site. On the panel the same is off by default (a panel often shares its server with other sites) and is turned on with `MIKAN_HTTP_REDIRECT=1` in `/opt/mikan/.env`.
+
+When nginx or Caddy holds port 80, the installer writes them the same rule: the challenge goes to the panel or the node, everything else gets the 301. More: [Node certificate](/arikan/en/nodes/nodes/#node-certificate).
+
+## The node's page
+
+A node has an HTTPS page of its own: the files of `/opt/mikan/data/node/www` (your `index.html`, `404.html`), the node's certificate, TLS 1.2 and above, HSTS only with a public certificate. It listens on 443 and, when an inbound holds that port (the usual case), on the loopback port `127.0.0.1:18443`. Put your files there too (`scp`); the node never overwrites them.
+
+A useful consequence: a REALITY target may point at that page — dest `127.0.0.1:<the page's port>`. Every client handshake then mirrors a real page on your own domain instead of somebody else's site: the domain, the certificate and the content are yours, with neither the panel nor a third party involved. More: [The node's page](/arikan/en/nodes/nodes/#the-nodes-page).
+
+## The node's API port is open to the panel alone
+
+The port the panel manages a node over is opened by the installer **to the panel's address only**: the node writes down the addresses its panel connects from (IPv4 and IPv6), the installer puts a `ufw` rule for them, and after changing the rule it waits for the panel to connect again and puts the wide rule back when it does not. A scanner does not see the port, and the panel is never shut out. `arikan doctor` on the node says when the port is open to everyone anyway, or when the rule is still for the panel's old address, and prints the command that fixes it. The panel's own node has no such port: it has a unix socket.
+
+## Vision and Trojan
+
+Choosing a protocol, the panel warns about the transports Russian DPI blocks sooner than the rest:
+
+- **Trojan · REALITY** — recognised by the shape of its traffic; keep it as a spare;
+- **VLESS without Vision** (gRPC, WebSocket) — both the handshake and the stream have a simpler shape than Vision's or XHTTP's.
+
+The warning never forbids: the panel says what is known, and the decision stays yours. On 443 the default is **VLESS · REALITY · XHTTP**: in 2026 Russian DPI "freezes" 443/tcp after bursts of parallel TLS handshakes, and XHTTP keeps few, long-lived connections. Vision on 443 freezes quickly too — better on another port (8443 by default) for older clients without XHTTP.
+
+## What the panel does not do
+
+An honest list, so that you do not look for what is not there:
+
+- **It does not split transports by SNI** — that is an external nginx/Caddy/HAProxy ([Behind a proxy](/arikan/en/protocols/behind-proxy/)).
+- **It does not do domain fronting** and does not swap the SNI for somebody's CDN: REALITY already masks as another site, and the CDN scheme is a separate story (VLESS · TLS · WebSocket + a CDN).
+- **It does not hide the panel's own API port**: the panel answers on its address and port; move them and close them in your hoster's firewall.
+- **It does not promise a way through operator whitelists**: [TURN](/arikan/en/nodes/turn/) and [Behind a proxy](/arikan/en/protocols/behind-proxy/) are for that, but the outcome depends on the operator.

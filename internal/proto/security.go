@@ -17,6 +17,11 @@ type Options struct {
 	// SelfStealPort allows REALITY dest 127.0.0.1:<port>: the panel's own HTTPS with a
 	// real certificate for the server's domain, so the SNI matches the IP.
 	SelfStealPort int
+	// SitePort allows REALITY dest 127.0.0.1:<port> too: the node's own page
+	// (data/node/www, internal/node/site.go) with the certificate the panel ordered for the
+	// node. The handshake of every client then mirrors a real page on the node's own domain
+	// and depends on nobody else's site.
+	SitePort int
 	// AnyDest skips the dest check (rendering clients of an already accepted template).
 	AnyDest bool
 }
@@ -32,7 +37,7 @@ func validateReality(r map[string]any, o Options) error {
 	}
 	// The node dials dest for every probe of the port, so an internal address here would
 	// publish that service to the internet.
-	if !o.AnyDest && !PublicHost(host) && !(o.SelfStealPort > 0 && (host == "127.0.0.1" || host == "localhost") && port == strconv.Itoa(o.SelfStealPort)) {
+	if !o.AnyDest && !PublicHost(host) && !loopbackDest(host, port, o) {
 		return fail("reality_dest_private", "reality-config.dest")
 	}
 	if _, err := RealityPublicKey(str(r["private-key"])); err != nil {
@@ -58,6 +63,17 @@ func validateReality(r map[string]any, o Options) error {
 		return fail("config_key", "reality-config.proxy")
 	}
 	return nil
+}
+
+// loopbackDest says whether a dest of this installation may name a loopback address: the
+// panel's own HTTPS (self-steal), or the node's own page (site), each on the one port the
+// installation says it answers on. Any other loopback dest would publish an internal
+// service to the internet: the node dials dest for every probe of the port.
+func loopbackDest(host, port string, o Options) bool {
+	if host != "127.0.0.1" && host != "localhost" {
+		return false
+	}
+	return (o.SelfStealPort > 0 && port == strconv.Itoa(o.SelfStealPort)) || (o.SitePort > 0 && port == strconv.Itoa(o.SitePort))
 }
 
 // realityKeys remembers the public key of each private key asked about (a panel has a

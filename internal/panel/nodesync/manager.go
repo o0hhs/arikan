@@ -339,6 +339,16 @@ func (m *Manager) HostPorts(id int64) *nodeapi.HostPorts {
 	return hv.HostPorts()
 }
 
+// SitePort is where a node's own page answers on loopback, 0 while it does not or the panel
+// has not heard from it: a REALITY dest of that node may name it.
+func (m *Manager) SitePort(id int64) int {
+	hv, ok := m.Health(id)
+	if !ok || hv.Health.Site == nil || !hv.Health.Site.OK {
+		return 0
+	}
+	return hv.Health.Site.Port
+}
+
 // Validate runs mihomo's parser on an inbound on the node that will run it.
 func (m *Manager) Validate(ctx context.Context, id int64, req nodeapi.ValidateRequest) error {
 	v, err := clientOf[interface {
