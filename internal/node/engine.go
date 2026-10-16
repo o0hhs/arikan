@@ -90,6 +90,7 @@ type Engine struct {
 	turn *turnSupervisor
 
 	routes  string             // routesKey of what tunnel's proxies and rules hold now
+	dns     string             // dnsKey of what the resolver and the sniffer hold now
 	probeMu sync.Mutex         // one outbound probe at a time
 	warpMu  sync.Mutex         // the kept results below
 	warpGen int                // moves when a new config drops the kept results
@@ -108,6 +109,13 @@ func routesKey(st nodeapi.DesiredState, allowPrivate bool) string {
 		E []nodeapi.Exit
 		R []string
 	}{st.Warp, st.Exits, rules(st, allowPrivate)})
+	return string(raw)
+}
+
+// dnsKey covers the resolver and the sniffer, which are swapped on their own: neither
+// takes part in the proxies-and-rules update.
+func dnsKey(st nodeapi.DesiredState) string {
+	raw, _ := json.Marshal(struct{ D *nodeapi.DNS }{st.DNS})
 	return string(raw)
 }
 
@@ -297,6 +305,12 @@ func (e *Engine) Apply(st nodeapi.DesiredState) (nodeapi.ApplyResult, error) {
 		e.probes = nil
 		e.warpGen++
 		e.warpMu.Unlock()
+	}
+	// The resolver and the sniffer follow the state like the rules do, and are swapped the
+	// same way: only when their own part of the config changed.
+	if key := dnsKey(st); key != e.dns {
+		e.applyDNS(cfg)
+		e.dns = key
 	}
 
 	e.Reg.SetSlots(st.Slots)
