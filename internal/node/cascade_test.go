@@ -71,6 +71,9 @@ func TestCascadeConfig(t *testing.T) {
 	if strings.Join(names, ",") != "WARP,NODE-3" {
 		t.Fatalf("proxies: %v", names)
 	}
+	// The cascade's WARP would start a WireGuard device whose goroutines log through
+	// mihomo's global logger and race with the log level a later test's Start writes;
+	// warpAsSocks5 keeps the proxy (and its name, the rules resolve) without a device.
 	raw = warpAsSocks5(t, raw)
 	parsed, err := executor.ParseWithBytes(raw)
 	if err != nil {
