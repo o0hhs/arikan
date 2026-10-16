@@ -366,6 +366,12 @@ function RulesCard({ s }: { s: Settings }) {
     trialRub: s.trial_rub ? String(s.trial_rub / 100) : "",
     free: s.free_tariff_id ?? 0,
     freeCondition: s.free_condition,
+    custom: s.custom_tariff_id ?? 0,
+    // The multipliers: written as they are, 1 being the plan's own rate.
+    kTraffic: String(s.coefficients.traffic),
+    kDevices: String(s.coefficients.devices),
+    kSpeed: String(s.coefficients.speed),
+    kDuration: String(s.coefficients.duration),
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const submit = (e: FormEvent) => {
@@ -376,6 +382,19 @@ function RulesCard({ s }: { s: Settings }) {
     const rubN = rubKopecks(form.trialRub);
     if (form.trialStars.trim() && !isStars(starsN)) errs.trial_stars = t("tariffs.errStars");
     if (form.trialRub.trim() && !isKopecks(rubN)) errs.trial_rub = t("tariffs.errRub");
+    // A multiplier outside what the panel prices with: said here, not left to the server.
+    const kT = Number(form.kTraffic) || 0;
+    const kD = Number(form.kDevices) || 0;
+    const kS = Number(form.kSpeed) || 0;
+    const kY = Number(form.kDuration) || 0;
+    if (form.custom) {
+      for (const [key, v] of [["kTraffic", kT], ["kDevices", kD], ["kSpeed", kS], ["kDuration", kY]] as const) {
+        if (v < 0.1 || v > 10) errs[key] = t("payments.badCoefficient");
+      }
+    }
+    const kChanged =
+      !!form.custom &&
+      (kT !== s.coefficients.traffic || kD !== s.coefficients.devices || kS !== s.coefficients.speed || kY !== s.coefficients.duration);
     setErrors(errs);
     if (Object.keys(errs).length) return;
     save.mutate({
@@ -388,6 +407,9 @@ function RulesCard({ s }: { s: Settings }) {
       free_tariff_id: form.free,
       // Sent only when changed: a channel removed from the bot since does not block saving the rest.
       ...(form.freeCondition !== s.free_condition ? { free_condition: form.freeCondition } : {}),
+      custom_tariff_id: form.custom,
+      // The multipliers go in one object; the panel refuses one outside 0.1–10 with its own words.
+      ...(kChanged ? { coefficients: { traffic: kT, devices: kD, speed: kS, duration: kY } } : {}),
     });
   };
   return (
@@ -458,6 +480,36 @@ function RulesCard({ s }: { s: Settings }) {
                   </option>
                 </select>
               </Field>
+            ) : null}
+          </div>
+          <div className="pt-4">
+            <Field label={t("payments.custom")} htmlFor="pay-custom" hint={t("payments.customSub")}>
+              <select id="pay-custom" className="input" value={form.custom} onChange={(e) => setForm((f) => ({ ...f, custom: Number(e.target.value) }))}>
+                <option value={0}>{t("payments.customOff")}</option>
+                {(tariffs.data ?? []).map((tr) => (
+                  <option key={tr.id} value={tr.id}>
+                    {tr.name}
+                    {tr.on_sale ? "" : ` · ${t("payments.customHidden")}`}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            {form.custom ? (
+              <div className="grid gap-x-3 sm:grid-cols-2" role="group" aria-label={t("payments.coefficients")}>
+                <Field label={t("payments.coefTraffic")} htmlFor="pay-kt" hint={t("payments.coefSub")} error={errors.kTraffic}>
+                  <input id="pay-kt" className="input max-w-[140px]" inputMode="decimal" value={form.kTraffic} onChange={(e) => setForm((f) => ({ ...f, kTraffic: e.target.value }))} aria-invalid={!!errors.kTraffic} />
+                </Field>
+                <Field label={t("payments.coefDevices")} htmlFor="pay-kd" hint={t("payments.coefSub")} error={errors.kDevices}>
+                  <input id="pay-kd" className="input max-w-[140px]" inputMode="decimal" value={form.kDevices} onChange={(e) => setForm((f) => ({ ...f, kDevices: e.target.value }))} aria-invalid={!!errors.kDevices} />
+                </Field>
+                <Field label={t("payments.coefSpeed")} htmlFor="pay-ks" hint={t("payments.coefSub")} error={errors.kSpeed}>
+                  <input id="pay-ks" className="input max-w-[140px]" inputMode="decimal" value={form.kSpeed} onChange={(e) => setForm((f) => ({ ...f, kSpeed: e.target.value }))} aria-invalid={!!errors.kSpeed} />
+                </Field>
+                <Field label={t("payments.coefDuration")} htmlFor="pay-ky" hint={t("payments.coefSub")} error={errors.kDuration}>
+                  <input id="pay-ky" className="input max-w-[140px]" inputMode="decimal" value={form.kDuration} onChange={(e) => setForm((f) => ({ ...f, kDuration: e.target.value }))} aria-invalid={!!errors.kDuration} />
+                </Field>
+                <p className="text-xs text-[var(--md-on-surface-variant)] sm:col-span-2">{t("payments.coefficientsSub")}</p>
+              </div>
             ) : null}
           </div>
         </div>
