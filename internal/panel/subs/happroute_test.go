@@ -110,3 +110,34 @@ func TestProfileRules(t *testing.T) {
 		t.Fatalf("own profile: %+v", p)
 	}
 }
+
+// Settings → Routing reaches Happ too: its resolvers become the ones the admin chose,
+// and an entry Happ cannot take (by name, or a system resolver) leaves the default.
+func TestHappResolvers(t *testing.T) {
+	cfg := Config{Brand: "VPN", Routes: Routes{DNS: DNS{
+		Nameserver: []string{"system", "https://8.8.8.8/dns-query#Auto"},
+		Default:    []string{"77.88.8.8"},
+	}}}
+	p := decodeHapp(t, happAutoRouting(cfg))
+	if p.RemoteDNS != "8.8.8.8" || p.RemoteDNSIP != "8.8.8.8" || p.RemoteDNSDomain != "https://8.8.8.8/dns-query" || p.RemoteDNSType != "DoH" {
+		t.Fatalf("remote: %+v", p)
+	}
+	if p.DomesticDNS != "77.88.8.8" || p.DomesticDNSDomain != "https://77.88.8.8/dns-query" {
+		t.Fatalf("domestic: %+v", p)
+	}
+	// The Russian zone's own policy wins over the bootstrap list for the sites that go
+	// direct, and a DoH server by name keeps the panel's default: Happ resolves by address.
+	cfg.Routes.DNS.Default = []string{"1.1.1.1"}
+	cfg.Routes.DNS.Policy = []DNSPolicy{{Match: "geosite:category-ru", Servers: []string{"https://dns.alidns.com/dns-query"}}}
+	p = decodeHapp(t, happAutoRouting(cfg))
+	if p.DomesticDNS != "77.88.8.8" || p.RemoteDNS != "8.8.8.8" {
+		t.Fatalf("by name: %+v", p)
+	}
+	// A plain resolver, as the panel's presets write them, is raised to its DoH by address.
+	if ns, ok := firstHappNS([]string{"77.88.8.8"}); !ok || ns.addr != "77.88.8.8" || ns.domain != "https://77.88.8.8/dns-query" || ns.ip != "77.88.8.8" {
+		t.Fatalf("plain: %+v %v", ns, ok)
+	}
+	if _, ok := firstHappNS([]string{"system", "dns.google", "https://dns.google/dns-query"}); ok {
+		t.Fatal("a resolver by name must not be taken")
+	}
+}
