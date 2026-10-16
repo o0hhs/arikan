@@ -3,6 +3,12 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
+## 0.5.1.6
+### en
+**The CDN preset's protocol can be added to a node again.** The panel released as 0.5.1.5 offered **VLESS · TLS · XHTTP · CDN** in Protocols → Add and refused every attempt with `422 expected value to be one of "..."`: the preset was in the panel's own catalog, which is where the list of protocols comes from, but missing from the list the API checks a create request against, so the request never reached the node. It is in that list now, and a protocol of the preset is created and runs as the CDN page describes. A test keeps the catalog and that list in step, so the next preset cannot be missing there.
+### ru
+**Протокол CDN-пресета снова добавляется на ноду.** Панель версии 0.5.1.5 предлагала **VLESS · TLS · XHTTP · CDN** в «Протоколах» → «Добавить» и отказывала на любой попытке с `422 expected value to be one of "…"`: пресет был в собственном каталоге панели, откуда и берётся список протоколов, но отсутствовал в списке, с которым API сверяет запрос на создание, — и запрос до ноды не доходил. Теперь он в списке: подключение этого пресета создаётся и работает так, как написано на странице про CDN. Тест держит каталог и этот список вместе, чтобы следующий пресет там не потерялся.
+
 ## 0.5.1.5
 ### en
 **An inbound made for a CDN, and a way to check the chain before blaming the tunnel.** Where an operator leaves only a whitelist working, a CDN gives an address that is on it: the client dials the **distribution domain**, the CDN's network reaches the **origin domain** on the node over a separate connection, and the node terminates XHTTP as usual.
