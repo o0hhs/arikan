@@ -56,7 +56,7 @@ The **Certificate** row shows which certificate is in use right now: a public on
 
 ## Node certificate
 
-The panel itself orders a public certificate for each remote node: for its domain if it has one, otherwise for its IP (a six-day Let's Encrypt certificate, renewed automatically). The certificate authority checks the node on port 80 (HTTP-01). The node opens port 80 only for the few seconds of a check and releases it after.
+The panel itself orders a public certificate for each remote node: for its domain if it has one, otherwise for its IP (a six-day Let's Encrypt certificate, renewed automatically). The certificate authority checks the node on port 80 (HTTP-01). The node holds port 80 on its server: it answers the checks and sends everything else to HTTPS of the same address with a 301 — so http://you.example.com leads to its https, and the node's own page (below) is visible over http too. If another program needs the port, `MIKAN_HTTP_REDIRECT=0` in `/opt/mikan/.env` on the node's server and `cd /opt/mikan && docker compose up -d` makes the node take the port only for the seconds of a check, as before.
 
 - **Port 80/tcp** must be open on the node's server. The installer opens it in ufw, and `arikan update` opens it on nodes installed earlier. Open your hosting provider's firewall yourself.
 - If port 80 on the node is held by another program, the panel says so and names it. For nginx and Caddy one command on the node's server is enough; the panel shows it with the node's address:

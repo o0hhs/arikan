@@ -66,9 +66,26 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("MIKAN_ACME_LISTEN: %w", err)
 	}
+	// Port 80: the panel's HTTP-01 challenges, and a 301 to HTTPS for everything else (a
+	// browser reaching the node's domain over http lands on the node's own page). A node of
+	// its own server (it has a join key) takes the port by default; the panel's own node
+	// leaves it alone, the panel answers port 80 there. MIKAN_HTTP_REDIRECT says it outright.
+	defRedirect := os.Getenv("MIKAN_NODE_JOIN") != ""
+	redirect, err := strconv.ParseBool(envOr("MIKAN_HTTP_REDIRECT", strconv.FormatBool(defRedirect)))
+	if err != nil {
+		return fmt.Errorf("MIKAN_HTTP_REDIRECT: %w", err)
+	}
 	eng, err := node.Start(node.Options{DataDir: dataDir, Version: version, Log: log, DeviceRelease: release, AllowPrivate: allowPrivate, ACMEListen: acmeListen})
 	if err != nil {
 		return err
+	}
+	if redirect {
+		eng.Challenge.SetRedirect(true)
+		// A web server of the admin's may hold the port; the challenges then come through it
+		// (MIKAN_ACME_LISTEN) and there is nothing to redirect on this side.
+		if err := eng.Challenge.Start(); err != nil {
+			log.Warn("no HTTP redirect on port 80", "listen", eng.Challenge.Addr(), "err", err)
+		}
 	}
 	if err := os.MkdirAll(filepath.Dir(sock), 0o700); err != nil {
 		return err
