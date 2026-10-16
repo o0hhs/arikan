@@ -279,11 +279,13 @@ type PurchaseInput struct {
 
 // Purchase applies a paid tariff on q's transaction, so the payment and its effect commit
 // together. in.UserID 0 (or a user deleted since the invoice) makes a new subscription
-// named in.Name. A renewal takes the tariff's limits, adds its term after the current one
-// (from now when that already ended) and turns the user on, one the admin switched off too:
-// the buyer paid for the term, and the admin who wants someone out deletes the subscription
-// or stops selling to them (decided 2026-10-11). ErrNoSlots: refill and run again.
-// The caller calls Changed after the commit.
+// named in.Name. A renewal of the tariff the user is already on takes that tariff's limits,
+// adds its term after the current one (from now when that already ended) and turns the user
+// on, one the admin switched off too: the buyer paid for the term, and the admin who wants
+// someone out deletes the subscription or stops selling to them (decided 2026-10-11).
+// Buying another tariff is a switch, not a renewal: the new term starts now and the days
+// the old one had left are not added to it (decided 2026-10-16). ErrNoSlots: refill and run
+// again. The caller calls Changed after the commit.
 func (s *Users) Purchase(ctx context.Context, q *db.Queries, in PurchaseInput) (u db.User, created bool, err error) {
 	if in.UserID != 0 {
 		u, err = q.GetUser(ctx, in.UserID)
@@ -302,7 +304,10 @@ func (s *Users) Purchase(ctx context.Context, q *db.Queries, in PurchaseInput) (
 	}
 	now := s.now()
 	base := now
-	if u.ExpiresAt.Valid && time.Unix(u.ExpiresAt.Int64, 0).After(now) {
+	// Only a renewal of the tariff the subscription is already on adds its term after the
+	// running one. A purchase of another tariff (the trial, then a paid one) is a switch:
+	// its term starts now, so the days the old tariff had left do not carry into the new.
+	if u.TariffID.Valid && u.TariffID.Int64 == t.ID && u.ExpiresAt.Valid && time.Unix(u.ExpiresAt.Int64, 0).After(now) {
 		base = time.Unix(u.ExpiresAt.Int64, 0)
 	}
 	billingDay := t.BillingDay
