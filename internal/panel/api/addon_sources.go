@@ -34,6 +34,7 @@ type SourceView struct {
 	ID             int64            `json:"id"`
 	URL            string           `json:"url"`
 	Title          string           `json:"title"`
+	Builtin        bool             `json:"builtin" doc:"Источник, с которым панель выпускается (релизы Arikan): его не добавляют и не убирают, ключ — релизный ключ форка"`
 	Signed         bool             `json:"signed" doc:"Ключ источника закреплён: подпись с другим ключом или без подписи панель не принимает"`
 	Fingerprint    string           `json:"fingerprint,omitempty" doc:"Отпечаток закреплённого ключа, для сверки с автором"`
 	NewFingerprint string           `json:"new_fingerprint,omitempty" doc:"Источник подписан уже другим ключом (error source_key_changed): отпечаток нового, который админ может принять"`
@@ -244,7 +245,7 @@ func (b sourceBoard) originOf(addon string) (db.AddonSource, bool) {
 }
 
 func (b sourceBoard) mark(s db.AddonSource) *MarketOrigin {
-	return &MarketOrigin{ID: s.ID, Title: s.Title, Signed: s.Key != ""}
+	return &MarketOrigin{ID: s.ID, Title: s.Title, Signed: s.Key != "", Builtin: addons.IsBuiltinSource(s.Url)}
 }
 
 // entriesOf is what the source offers: its entries under ids it holds.
@@ -320,7 +321,8 @@ func (h *handlers) sourcesView(ctx context.Context, st addons.State, c *addons.C
 }
 
 func sourceView(b sourceBoard, s db.AddonSource) SourceView {
-	sv := SourceView{ID: s.ID, URL: s.Url, Title: s.Title, Signed: s.Key != "", Fingerprint: addons.Fingerprint(s.Key), AddedAt: time.Unix(s.AddedAt, 0).UTC(),
+	sv := SourceView{ID: s.ID, URL: s.Url, Title: s.Title, Builtin: addons.IsBuiltinSource(s.Url), Signed: s.Key != "",
+		Fingerprint: addons.Fingerprint(s.Key), AddedAt: time.Unix(s.AddedAt, 0).UTC(),
 		Error: s.Error, Skipped: []SourceSkipView{}, Installed: []string{}}
 	if s.FetchedAt > 0 {
 		t := time.Unix(s.FetchedAt, 0).UTC()
@@ -549,6 +551,11 @@ func (h *handlers) removeSource(ctx context.Context, in *sourceIDInput) (*source
 	}
 	if err != nil {
 		return nil, err
+	}
+	if addons.IsBuiltinSource(src.Url) {
+		// The panel's own source: it would be readded at the next start, and the fork's bot
+		// comes from it.
+		return nil, huma.Error409Conflict("source_builtin")
 	}
 	board, err := h.sourceBoard(ctx, st, nil, false)
 	if err != nil {

@@ -26,9 +26,10 @@ import (
 
 // MarketOrigin is the source an unofficial entry or addon comes from.
 type MarketOrigin struct {
-	ID     int64  `json:"id"`
-	Title  string `json:"title"`
-	Signed bool   `json:"signed" doc:"Источник подписан закреплённым ключом; без подписи тот, кто управляет адресом, управляет и обновлениями"`
+	ID      int64  `json:"id"`
+	Title   string `json:"title"`
+	Signed  bool   `json:"signed" doc:"Источник подписан закреплённым ключом; без подписи тот, кто управляет адресом, управляет и обновлениями"`
+	Builtin bool   `json:"builtin" doc:"Источник, с которым панель выпускается (релизы Arikan): аддон самой панели, подписанный её релизным ключом"`
 }
 
 type MarketEntry struct {

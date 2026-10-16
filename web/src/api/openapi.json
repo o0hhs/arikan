@@ -3510,6 +3510,10 @@
       "MarketOrigin": {
         "additionalProperties": false,
         "properties": {
+          "builtin": {
+            "description": "Источник, с которым панель выпускается (релизы Arikan): аддон самой панели, подписанный её релизным ключом",
+            "type": "boolean"
+          },
           "id": {
             "format": "int64",
             "type": "integer"
@@ -3525,7 +3529,8 @@
         "required": [
           "id",
           "title",
-          "signed"
+          "signed",
+          "builtin"
         ],
         "type": "object"
       },
@@ -7537,6 +7542,10 @@
             "format": "date-time",
             "type": "string"
           },
+          "builtin": {
+            "description": "Источник, с которым панель выпускается (релизы Arikan): его не добавляют и не убирают, ключ — релизный ключ форка",
+            "type": "boolean"
+          },
           "entries": {
             "description": "Сколько записей источник предлагает: сами записи в /marketplace",
             "format": "int64",
@@ -7590,6 +7599,7 @@
           "id",
           "url",
           "title",
+          "builtin",
           "signed",
           "added_at",
           "entries",

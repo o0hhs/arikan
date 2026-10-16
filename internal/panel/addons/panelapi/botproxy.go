@@ -38,6 +38,11 @@ const SlotKey = "addons.bot"
 // installs a bot from the catalog. Absent means true.
 const AutoBotKey = "addons.bot_auto"
 
+// BotChosenKey is true once the admin handed the bot to an addon by hand (PUT
+// /api/v1/telegram/bot-addon): the panel's own bot then no longer takes the bot over
+// (app/botaddon.go prefers this fork's bot). Absent means the panel decided it.
+const BotChosenKey = "addons.bot_chosen"
+
 const (
 	maxBuffered = 2000           // updates kept for an addon that does not read them
 	keepUpdates = 24 * time.Hour // as long as Telegram keeps them itself
