@@ -162,3 +162,29 @@ func TestSingBoxModes(t *testing.T) {
 		t.Fatalf("a closed group stays a member: %v", net)
 	}
 }
+
+// The auto group in sing-box: the load balancer of the Clash profile comes over as the
+// core's own test group (sing-box has no load-balance outbound), with the settings the
+// Clash profile carried.
+func TestSingBoxAutoKinds(t *testing.T) {
+	lists(t)
+	prof := twoNodes(t)
+	prof.Routes.Servers.NoCountries = true
+	for _, tc := range []struct{ auto, want string }{
+		{AutoFastest, "urltest"},
+		{AutoFallback, "urltest"},
+		{AutoLoadBalance, "urltest"},
+	} {
+		prof.Routes.Servers.Auto = tc.auto
+		o := outbound(renderSingBox(t, prof, RoutingAll, ""), "Авто")
+		if o == nil || o["type"] != tc.want {
+			t.Fatalf("auto %q: %v", tc.auto, o)
+		}
+		if o["url"] != "https://www.gstatic.com/generate_204" || o["interval"] != "300s" {
+			t.Fatalf("auto %q: %v", tc.auto, o)
+		}
+		if _, ok := o["tolerance"]; ok != (tc.auto == AutoFastest) {
+			t.Fatalf("auto %q tolerance: %v", tc.auto, o)
+		}
+	}
+}

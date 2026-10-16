@@ -34,10 +34,47 @@ func TestOwnLists(t *testing.T) {
 	}
 }
 
+// The three ways of picking a server. url-test and fallback are pinned byte for byte: the
+// load-balance mode must not move them.
+func TestAutoKinds(t *testing.T) {
+	prof := twoNodes(t)
+	prof.Routes.Servers.NoCountries = true
+	base := stringOf(t, prof)
+	if !strings.Contains(base, "type: url-test") || !strings.Contains(base, "tolerance: 50") {
+		t.Fatalf("the default is the fastest:\n%s", base)
+	}
+	prof.Routes.Servers.Auto = AutoLoadBalance
+	lb := stringOf(t, prof)
+	if !strings.Contains(lb, "type: load-balance") || strings.Contains(lb, "tolerance") {
+		t.Fatalf("a load balancer has no tolerance:\n%s", lb)
+	}
+	// The strategy is mihomo's own default (consistent-hashing: a destination keeps one
+	// server), not a field the panel writes.
+	if strings.Contains(lb, "strategy") {
+		t.Fatalf("the strategy is left to the core's default:\n%s", lb)
+	}
+	// The mode swaps the type and drops the tolerance, and touches nothing else.
+	want := strings.Replace(base, "type: url-test\n", "type: load-balance\n", 1)
+	want = strings.Replace(want, "    tolerance: 50\n", "", 1)
+	if lb != want {
+		t.Fatalf("load-balance differs from the fastest beyond its type:\n--- got\n%s\n--- want\n%s", lb, want)
+	}
+}
+
+// stringOf is the mihomo profile of prof in the given mode, as the app gets it.
+func stringOf(t *testing.T, prof Profile) string {
+	t.Helper()
+	raw, err := Mihomo(prof, Groups{}, RoutingAll)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(raw)
+}
+
 // How servers are picked: no group per country, the first that works, the interval.
 func TestServerChoice(t *testing.T) {
 	prof := twoNodes(t)
-	prof.Routes.Servers = Servers{NoCountries: true, Auto: "fallback", Interval: 120}
+	prof.Routes.Servers = Servers{NoCountries: true, Auto: AutoFallback, Interval: 120}
 	cfg, raw := renderRouted(t, prof, RoutingAll)
 	if len(cfg.Groups) != 3 || strings.Contains(string(raw), "🇺🇸 США\n") {
 		t.Fatalf("groups: %+v", cfg.Groups)
@@ -90,5 +127,14 @@ func TestOwnListsCheck(t *testing.T) {
 	}
 	if err := (Routes{Lists: []RouteList{ok, ok}}).Check(exists); err == nil || err.Error() != "routes_list_name" {
 		t.Errorf("a name twice: %v", err)
+	}
+	// The three auto kinds are accepted; anything else is not.
+	for _, kind := range []string{AutoFastest, AutoFallback, AutoLoadBalance} {
+		if err := (Routes{Servers: Servers{Auto: kind}}).Check(exists); err != nil {
+			t.Errorf("auto %q: %v", kind, err)
+		}
+	}
+	if err := (Routes{Servers: Servers{Auto: "round-robin"}}).Check(exists); err == nil || err.Error() != "routes_servers" {
+		t.Errorf("an unknown auto kind: %v", err)
 	}
 }
