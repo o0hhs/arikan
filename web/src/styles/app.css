@@ -55,6 +55,23 @@
   [hidden] { display: none !important; }
 }
 
+/*
+ * The panel's font (lib/font.ts), chosen beside the themes. Unlayered on purpose: the theme
+ * tokens in styles/themes.css are unlayered as well, and a layered rule loses to an unlayered
+ * one whatever its specificity — inside @layer base these two did nothing at all.
+ * "theme" is the default and leaves the stacks to the palette (the Material ones name Roboto);
+ * the other two replace both stacks on <html>, and the attribute selector beats a theme's own
+ * rule: a font the admin picked is picked.
+ */
+html[data-font="roboto"] {
+  --font-ui-stack: "Roboto Flex Variable", Roboto, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display-stack: var(--font-ui-stack);
+}
+html[data-font="system"] {
+  --font-ui-stack: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --font-display-stack: var(--font-ui-stack);
+}
+
 @layer components {
   .mono { font-family: var(--font-mono-stack); font-size: 12px; letter-spacing: -0.01em; }
   .num { font-variant-numeric: tabular-nums; }
@@ -138,13 +155,15 @@
   .card-sub { font: var(--md-body-small); color: var(--md-on-surface-variant); margin-top: 2px; }
   .panel-soft { border-radius: var(--md-shape-lg); background: var(--md-surface-container-low); border: 1px solid var(--md-outline-variant); }
 
-  /* buttons: the M3 set, under the names the pages already use. A button is a stadium in
-     this scale (the expressive shape), and each variant is one pair of roles: filled
-     (primary/on-primary), tonal (secondary-container/on-secondary-container), text and
-     outlined (primary on the surface), error (error/on-error). Hover and press are state
-     layers of the ink that is already on the button, so every pair stays readable. */
-  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 40px; padding: 0 20px; border-radius: var(--md-shape-full); font: var(--md-label-large); white-space: nowrap; transition: background-color var(--md-motion-short4) var(--md-ease-standard), box-shadow var(--md-motion-short4) var(--md-ease-standard), color var(--md-motion-short4) var(--md-ease-standard), transform var(--md-motion-short2) var(--md-ease-emphasized); user-select: none; }
-  .btn:active:not(:disabled) { transform: scale(0.97); }
+  /* buttons: the M3 set, under the names the pages already use. A button is a stadium at
+     rest and morphs its corners in when pressed — the expressive shape change: the press
+     itself is quick and accelerating, the release settles back on the emphasized curve.
+     Each variant is one pair of roles: filled (primary/on-primary), tonal
+     (secondary-container/on-secondary-container), text and outlined (primary on the
+     surface), error (error/on-error). Hover and press are state layers of the ink that is
+     already on the button, so every pair stays readable. */
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 40px; padding: 0 20px; border-radius: var(--md-shape-full); font: var(--md-label-large); white-space: nowrap; transition: background-color var(--md-motion-short4) var(--md-ease-standard), box-shadow var(--md-motion-short4) var(--md-ease-standard), color var(--md-motion-short4) var(--md-ease-standard), border-radius var(--md-motion-medium1) var(--md-ease-emphasized); user-select: none; }
+  .btn:active:not(:disabled) { border-radius: var(--md-shape-md); transition: background-color var(--md-motion-short2) var(--md-ease-standard), border-radius var(--md-motion-short3) var(--md-ease-emphasized-accelerate); }
   .btn:disabled { cursor: not-allowed; }
   .btn-primary { background: var(--md-primary); color: var(--md-on-primary); box-shadow: var(--md-elevation-1); }
   .btn-primary:hover:not(:disabled) { background: color-mix(in srgb, var(--md-on-primary) 8%, var(--md-primary)); box-shadow: var(--md-elevation-2); }
@@ -162,12 +181,14 @@
   .btn-danger-solid { background: var(--md-error); color: var(--md-on-error); box-shadow: var(--md-elevation-1); }
   .btn-danger-solid:hover:not(:disabled) { background: color-mix(in srgb, var(--md-on-error) 8%, var(--md-error)); }
   .btn-sm { height: 32px; padding: 0 14px; font: var(--md-label-medium); border-radius: var(--md-shape-full); }
+  .btn-sm:active:not(:disabled) { border-radius: var(--md-shape-sm); }
   .btn-block { width: 100%; }
   /* Disabled: the surface's own highest container and a quieted label — M3's 12%/38% pair,
      with the label a touch stronger so it can still be read. */
   :is(.btn-primary, .btn-glass, .btn-outlined, .btn-danger-solid):disabled { opacity: 1; background: var(--md-surface-container-highest); color: color-mix(in srgb, var(--md-on-surface) 48%, transparent); box-shadow: none; border-color: transparent; }
   :is(.btn-ghost, .btn.danger):disabled { opacity: 1; background: none; color: color-mix(in srgb, var(--md-on-surface) 42%, transparent); }
-  .icon-btn { display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: var(--md-shape-full); color: var(--md-on-surface-variant); transition: background-color var(--md-motion-short4) var(--md-ease-standard), color var(--md-motion-short4) var(--md-ease-standard); }
+  .icon-btn { display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: var(--md-shape-full); color: var(--md-on-surface-variant); transition: background-color var(--md-motion-short4) var(--md-ease-standard), color var(--md-motion-short4) var(--md-ease-standard), border-radius var(--md-motion-medium1) var(--md-ease-emphasized); }
+  .icon-btn:active:not(:disabled) { border-radius: var(--md-shape-md); transition: border-radius var(--md-motion-short3) var(--md-ease-emphasized-accelerate); }
   .icon-btn:hover:not(:disabled) { background: color-mix(in srgb, var(--md-on-surface) 8%, transparent); color: var(--md-on-surface); }
   .icon-btn:disabled { opacity: 0.38; cursor: not-allowed; }
   .link-btn { color: var(--md-primary); font-weight: 500; }
@@ -218,7 +239,8 @@
   /* A page's few sections (up to four): one bar as wide as the content, equal parts, no scrolling.
      The M3 segmented button: a rounded track, the chosen segment on the secondary container. */
   .tabs { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 4px; padding: 4px; border-radius: var(--md-shape-full); background: var(--md-surface-container-high); border: 1px solid var(--md-outline-variant); width: 100%; }
-  .tabs button { min-width: 0; display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 36px; padding: 0 14px; border-radius: var(--md-shape-full); font: var(--md-label-large); color: var(--md-on-surface-variant); transition: background-color var(--md-motion-short4) var(--md-ease-standard), color var(--md-motion-short4) var(--md-ease-standard), box-shadow var(--md-motion-short4) var(--md-ease-standard); }
+  .tabs button { min-width: 0; display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 36px; padding: 0 14px; border-radius: var(--md-shape-full); font: var(--md-label-large); color: var(--md-on-surface-variant); transition: background-color var(--md-motion-short4) var(--md-ease-standard), color var(--md-motion-short4) var(--md-ease-standard), box-shadow var(--md-motion-short4) var(--md-ease-standard), border-radius var(--md-motion-medium1) var(--md-ease-emphasized); }
+  .tabs button:active { border-radius: var(--md-shape-sm); transition: border-radius var(--md-motion-short3) var(--md-ease-emphasized-accelerate); }
   .tabs button > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tabs button svg { flex: none; }
   .tabs button:hover { color: var(--md-on-surface); background: color-mix(in srgb, var(--md-on-surface) 8%, transparent); }
@@ -275,7 +297,8 @@
   .card > .disclosure:last-child .disclosure-body { padding-bottom: 0; }
   .disclosure-body > .dr-sec:first-child { border-top: 0; padding-top: 4px; }
   .seg { display: inline-flex; padding: 4px; gap: 4px; border-radius: var(--md-shape-full); background: var(--md-surface-container-high); border: 1px solid var(--md-outline-variant); }
-  .seg button { height: 28px; padding: 0 14px; border-radius: var(--md-shape-full); font: var(--md-label-medium); color: var(--md-on-surface-variant); transition: background-color var(--md-motion-short4) var(--md-ease-standard), color var(--md-motion-short4) var(--md-ease-standard); }
+  .seg button { height: 28px; padding: 0 14px; border-radius: var(--md-shape-full); font: var(--md-label-medium); color: var(--md-on-surface-variant); transition: background-color var(--md-motion-short4) var(--md-ease-standard), color var(--md-motion-short4) var(--md-ease-standard), border-radius var(--md-motion-medium1) var(--md-ease-emphasized); }
+  .seg button:active { border-radius: var(--md-shape-sm); transition: border-radius var(--md-motion-short3) var(--md-ease-emphasized-accelerate); }
   .seg button:hover { color: var(--md-on-surface); background: color-mix(in srgb, var(--md-on-surface) 8%, transparent); }
   .seg-block { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); width: 100%; }
   .seg-block button { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -304,7 +327,8 @@
   /* users */
   /* A filter chip is an M3 chip: outlined on the surface, the chosen one on the secondary
      container — the same pair the segmented controls and the navigation use. */
-  .chip { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px; border-radius: var(--md-shape-full); background: transparent; border: 1px solid var(--md-outline-variant); font: var(--md-label-large); color: var(--md-on-surface-variant); transition: background-color var(--md-motion-short4) var(--md-ease-standard), color var(--md-motion-short4) var(--md-ease-standard), border-color var(--md-motion-short4) var(--md-ease-standard); white-space: nowrap; }
+  .chip { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px; border-radius: var(--md-shape-full); background: transparent; border: 1px solid var(--md-outline-variant); font: var(--md-label-large); color: var(--md-on-surface-variant); transition: background-color var(--md-motion-short4) var(--md-ease-standard), color var(--md-motion-short4) var(--md-ease-standard), border-color var(--md-motion-short4) var(--md-ease-standard), border-radius var(--md-motion-medium1) var(--md-ease-emphasized); white-space: nowrap; }
+  .chip:active:not(:disabled) { border-radius: var(--md-shape-sm); transition: background-color var(--md-motion-short2) var(--md-ease-standard), border-radius var(--md-motion-short3) var(--md-ease-emphasized-accelerate); }
   .chip:hover { background: color-mix(in srgb, var(--md-on-surface) 8%, transparent); color: var(--md-on-surface); }
   .chip[aria-pressed="true"] { background: var(--md-secondary-container); border-color: transparent; color: var(--md-on-secondary-container); }
   .chip:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -423,7 +447,8 @@
   .gauge-label { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; }
   .gauge-label b { font: var(--md-title-large); letter-spacing: var(--md-tracking-title); display: block; }
   .gauge-label span { font: var(--md-label-medium); color: var(--md-on-surface-variant); }
-  .chip-btn { height: 32px; padding: 0 14px; border-radius: var(--md-shape-full); background: var(--md-surface-container-high); border: 1px solid var(--md-outline-variant); font: var(--md-label-medium); color: var(--md-on-surface-variant); transition: background-color var(--md-motion-short4) var(--md-ease-standard), border-color var(--md-motion-short4) var(--md-ease-standard), color var(--md-motion-short4) var(--md-ease-standard); }
+  .chip-btn { height: 32px; padding: 0 14px; border-radius: var(--md-shape-full); background: var(--md-surface-container-high); border: 1px solid var(--md-outline-variant); font: var(--md-label-medium); color: var(--md-on-surface-variant); transition: background-color var(--md-motion-short4) var(--md-ease-standard), border-color var(--md-motion-short4) var(--md-ease-standard), color var(--md-motion-short4) var(--md-ease-standard), border-radius var(--md-motion-medium1) var(--md-ease-emphasized); }
+  .chip-btn:active:not(:disabled) { border-radius: var(--md-shape-sm); transition: border-radius var(--md-motion-short3) var(--md-ease-emphasized-accelerate); }
   .chip-btn:hover:not(:disabled) { background: var(--md-surface-container-highest); color: var(--md-on-surface); }
   .chip-btn:disabled { opacity: 0.45; cursor: not-allowed; }
   .chip-btn[aria-pressed="true"] { background: var(--md-secondary-container); border-color: transparent; color: var(--md-on-secondary-container); }
