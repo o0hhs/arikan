@@ -80,6 +80,12 @@ func TestFiltersConfigParses(t *testing.T) {
 		if err := json.Unmarshal(raw, &cfg); err != nil {
 			t.Fatal(err)
 		}
+		// This test is about the filter rules, not about WARP's shape (warp_test covers
+		// that): the WARP outbound is replaced by an inert socks5 of the same name before
+		// parsing, because parsing a WireGuard proxy starts a device whose goroutines log
+		// through mihomo's global logger and race with the log level the next test's Start
+		// writes — the -race run of this package caught exactly that.
+		raw = warpAsSocks5(t, raw)
 		parsed, err := executor.ParseWithBytes(raw)
 		if err != nil {
 			t.Fatalf("mihomo refuses the config with %+v: %v", f, err)
@@ -198,4 +204,33 @@ func TestIngressInTunnel(t *testing.T) {
 	if _, err := d.Write([]byte("x")); err == nil {
 		t.Fatal("the denied connection is still open")
 	}
+}
+
+// warpAsSocks5 replaces every WireGuard outbound of a rendered config with an inert socks5
+// of the same name; the rules of the test keep resolving, and no device starts (see the
+// comment at the parse in TestFiltersConfigParses).
+func warpAsSocks5(t *testing.T, raw []byte) []byte {
+	t.Helper()
+	var cfg map[string]any
+	if err := json.Unmarshal(raw, &cfg); err != nil {
+		t.Fatal(err)
+	}
+	proxies, ok := cfg["proxies"].([]any)
+	if !ok {
+		return raw
+	}
+	for i, p := range proxies {
+		m, ok := p.(map[string]any)
+		if !ok || m["type"] != "wireguard" {
+			continue
+		}
+		name, _ := m["name"].(string)
+		proxies[i] = map[string]any{"name": name, "type": "socks5", "server": "127.0.0.1", "port": 1}
+	}
+	cfg["proxies"] = proxies
+	out, err := json.Marshal(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return out
 }
