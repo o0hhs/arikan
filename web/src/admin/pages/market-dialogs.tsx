@@ -62,8 +62,12 @@ function PermissionList({ perms, fresh = [] }: { perms: string[]; fresh?: string
   );
 }
 
-/** Where an unofficial addon comes from, and what that does and does not vouch for. */
+/** Where an unofficial addon comes from, and what that does and does not vouch for. The panel's
+ * own source needs no warning: its file is signed with the key this panel trusts anyway. */
 function OriginWarning({ origin, className }: { origin: MarketOrigin; className?: string }) {
+  if (origin.builtin) {
+    return <div className={`text-xs text-[var(--md-on-surface-variant)]${className ? ` ${className}` : ""}`}>{t("market.ownText", { title: origin.title })}</div>;
+  }
   return <ShieldBanner className={className}>{t(origin.signed ? "market.originSigned" : "market.originUnsigned", { title: origin.title })}</ShieldBanner>;
 }
 

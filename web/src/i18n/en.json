@@ -529,6 +529,7 @@
       "source_exists": "This source is already added.",
       "source_limit": "The sources are at their limit: remove one to add another.",
       "source_in_use": "An addon from this source is installed. Remove it first.",
+"source_builtin": "The source this panel ships with cannot be removed: the panel's own bot comes from it",
       "source_unknown": "No such source."
     },
     "acme": {
@@ -3005,6 +3006,9 @@
     "ownTrustHint": "It cannot be installed without this tick.",
     "ownUpdate": "Update",
     "unofficial": "unofficial · {title}",
+"own": "Arikan's own addon",
+"ownHint": "The panel's own addon: the source it ships with, signed with Arikan's release key",
+"ownText": "An addon from “{title}” — the source this panel ships with. Its file is signed with the same release key Arikan's releases are signed with, and the image is pinned by its digest",
     "unofficialHint": "From the source \"{title}\", not the official catalog: nobody has reviewed this code",
     "originSigned": "An addon from the source \"{title}\", not from the official catalog. The source's signature only says the file is from its author, not that the code is safe: the official catalog has not reviewed it. The image is pinned by its digest. A new build with the same permissions is installed by the update button without a new approval; if it asks for more permissions, it has to be approved again.",
     "originUnsigned": "An addon from the source \"{title}\", which is not signed: whoever controls its address controls what is offered to you. the official catalog has not reviewed the code. The image is pinned by its digest. A new build with the same permissions is installed by the update button without a new approval; if it asks for more permissions, it has to be approved again.",
@@ -3764,6 +3768,8 @@
     "empty": "No sources",
     "emptyText": "Add a link to an author's file, their catalog or a GitHub repository: its addons show in the Catalog tab as unofficial.",
     "signed": "signed",
+"builtin": "built-in",
+"builtinText": "The source this panel ships with: Arikan's own releases, signed with its release key. The panel's own bot comes from it. It is neither added nor removed here",
     "unsigned": "unsigned",
     "fingerprint": "Key fingerprint",
     "unsignedWarn": "The source is not signed: whoever controls this address controls what is offered to you. Updates still wait for your approval, but the author cannot be checked by a key.",

@@ -3596,6 +3596,8 @@ export interface components {
             version: string;
         };
         MarketOrigin: {
+            /** @description Источник, с которым панель выпускается (релизы Arikan): аддон самой панели, подписанный её релизным ключом */
+            builtin: boolean;
             /** Format: int64 */
             id: number;
             /** @description Источник подписан закреплённым ключом; без подписи тот, кто управляет адресом, управляет и обновлениями */
@@ -5090,6 +5092,8 @@ export interface components {
         SourceView: {
             /** Format: date-time */
             added_at: string;
+            /** @description Источник, с которым панель выпускается (релизы Arikan): его не добавляют и не убирают, ключ — релизный ключ форка */
+            builtin: boolean;
             /**
              * Format: int64
              * @description Сколько записей источник предлагает: сами записи в /marketplace
