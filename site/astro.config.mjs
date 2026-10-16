@@ -85,6 +85,7 @@ export default defineConfig({
 						{ slug: 'protocols/presets' },
 						{ slug: 'protocols/autotune' },
 						{ slug: 'protocols/behind-proxy' },
+						{ slug: 'protocols/cdn' },
 						{ slug: 'protocols/xhttp-masking' },
 						{ slug: 'protocols/hardening' },
 					],
