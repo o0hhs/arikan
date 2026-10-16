@@ -235,6 +235,29 @@ func TestBusyPortNamesTheHolder(t *testing.T) {
 	}
 }
 
+// A held port is told apart from any other listen failure on every platform: the wording and
+// the errno of "in use" are the operating system's, and Windows says neither of the Unix two.
+func TestAddressInUseIsRecognised(t *testing.T) {
+	held, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer held.Close()
+	_, err = net.Listen("tcp", held.Addr().String())
+	if err == nil {
+		t.Fatal("listening on a held address")
+	}
+	if !addressInUse(err) {
+		t.Fatalf("a held port is not seen as in use: %v", err)
+	}
+	// Another kind of failure is not in use: a name that cannot resolve is not a busy port.
+	if _, err := net.Listen("tcp", "no-such-host.invalid:80"); err == nil {
+		t.Fatal("listening on a name that cannot resolve")
+	} else if addressInUse(err) {
+		t.Fatalf("an unresolvable name is taken for a held port: %v", err)
+	}
+}
+
 func TestRefusesWhatIsNoToken(t *testing.T) {
 	s := New("127.0.0.1:0")
 	for _, c := range [][2]string{

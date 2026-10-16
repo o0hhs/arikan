@@ -15,7 +15,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 )
 
@@ -269,7 +268,7 @@ func (s *Server) schedule() {
 func (s *Server) start() error {
 	ln, err := s.listen("tcp", s.addr)
 	if err != nil {
-		if errors.Is(err, syscall.EADDRINUSE) || strings.Contains(err.Error(), "address already in use") {
+		if addressInUse(err) {
 			be := &BusyError{Addr: s.addr}
 			if _, p, perr := net.SplitHostPort(s.addr); perr == nil && s.holder != nil {
 				if port, aerr := strconv.Atoi(p); aerr == nil {
