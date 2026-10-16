@@ -161,6 +161,9 @@ func singboxOutbound(m map[string]any) (map[string]any, bool) {
 		o["type"], o["password"] = "anytls", str(m["password"])
 	case "ss":
 		o["type"], o["method"], o["password"] = "shadowsocks", str(m["cipher"]), str(m["password"])
+	case "socks5":
+		// The notice entry of an ended subscription (Notice): a server that answers nothing.
+		o["type"] = "socks"
 	default:
 		return nil, false
 	}

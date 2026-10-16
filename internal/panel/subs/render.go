@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
+	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -133,6 +134,11 @@ type Profile struct {
 	Inbounds []db.Inbound // enabled and allowed for this user, in display order
 	Nodes    []Node       // enabled nodes in display order; inbounds of other nodes are skipped
 	Direct   []string     // hosts that bypass the tunnel: the panel and every node
+	// Notice, when set, is a server entry of its own and goes first in the profile: it
+	// reaches nowhere and says why (an ended subscription, where to renew). An entry rather
+	// than a profile of its own, so the apps keep showing the servers they have, with the
+	// notice on top of the list.
+	Notice *Notice
 	// Fingerprint is the panel's default uTLS profile (proto.ClientInput.Fingerprint).
 	Fingerprint string
 	// Rules are the admin's own Clash rules (ServedRules), before the built-in routing.
@@ -147,6 +153,13 @@ type Profile struct {
 	Routes Routes
 	App    App
 	Lang   string
+}
+
+// Notice is the entry a profile carries when the subscription cannot be used: the whole
+// message is its name (the apps show it as a server's name), and it is the first entry, so it
+// is what the app shows and picks first.
+type Notice struct {
+	Name string
 }
 
 type proxy struct {
@@ -168,10 +181,27 @@ func NodePrefix(name string) string {
 
 func isRegional(r rune) bool { return r >= 0x1F1E6 && r <= 0x1F1FF }
 
-// build renders the user's proxies node by node, in the nodes' order.
+// noticeProxy is the Notice as a proxy entry: an address that answers nothing (127.0.0.1:1,
+// the port reserved for nothing), named with the whole message. Every format carries it — mihomo
+// and sing-box take a SOCKS server with no keys, the share links a vless one — so an ended
+// subscription looks the same in every app.
+func noticeProxy(n Notice) proxy {
+	return proxy{
+		name: n.Name,
+		yaml: map[string]any{"name": n.Name, "type": "socks5", "server": "127.0.0.1", "port": 1},
+		uri:  "vless://00000000-0000-0000-0000-000000000000@127.0.0.1:1?encryption=none&type=tcp#" + url.PathEscape(n.Name),
+	}
+}
+
+// build renders the user's proxies node by node, in the nodes' order. A profile's Notice goes
+// first: it is the entry that tells why nothing works, and the apps pick the first server.
 func build(p Profile) ([]proxy, error) {
 	var out []proxy
 	used := map[string]bool{}
+	if p.Notice != nil {
+		out = append(out, noticeProxy(*p.Notice))
+		used[p.Notice.Name] = true
+	}
 	slot := proto.Slot{Name: p.Slot.Name, UUID: p.Slot.Uuid, Secret: p.Slot.Secret}
 	multi := len(p.Nodes) > 1
 	for _, n := range p.Nodes {
