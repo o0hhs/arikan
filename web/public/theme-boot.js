@@ -2,8 +2,10 @@
 // file, not inline: the panel's CSP allows scripts from itself only. The lists are the
 // ones in src/components/theme.tsx, which takes over once the app runs.
 (function () {
-  var dark = ["midnight", "graphite", "abyss", "ember", "plum", "moss", "terminal", "nord", "mocha", "tokyo", "dracula", "aurora", "cosmos"];
-  var all = ["mikan", "ocean", "sakura", "forest", "latte", "snow", "dawn", "dune"].concat(dark);
+    /* gen:begin — rewritten by scripts/gen-m3-themes.mjs */
+  var dark = ["midnight", "graphite", "abyss", "ember", "plum", "moss", "terminal", "nord", "mocha", "tokyo", "dracula", "aurora", "cosmos", "material-dark", "material-blue-dark", "material-teal-dark", "material-green-dark", "material-rose-dark", "material-expressive-dark"];
+  var all = ["mikan", "ocean", "sakura", "forest", "latte", "snow", "dawn", "dune", "material", "material-blue", "material-teal", "material-green", "material-rose", "material-expressive"].concat(dark);
+  /* gen:end */
   var theme = "mikan";
   try {
     var saved = localStorage.getItem("mikan-theme");
@@ -22,5 +24,11 @@
   // animation ever draws when the device asked to skip them.
   try {
     if (localStorage.getItem("mikan-perf") === "1") root.setAttribute("data-perf", "1");
+  } catch (e) {}
+  // The panel's font (src/lib/font.ts): the attribute swaps the stacks in app.css; a saved
+  // "roboto" or "system" reaches the first paint, so no text reflows once the app runs.
+  try {
+    var font = localStorage.getItem("mikan-font");
+    if (font === "roboto" || font === "system") root.setAttribute("data-font", font);
   } catch (e) {}
 })();

@@ -1,14 +1,19 @@
-// Checks that every panel theme (src/styles/themes.css) keeps its text readable: WCAG AA,
-// 4.5:1 for text, 3:1 for the faint labels and the accent's marks. Runs before the build.
-// The tokens resolve the way the page does: the light base, then the dark base for a dark
-// theme, then the theme's own block, then the Material 3 colour roles on top of all three.
-// Those roles are derivations — var(), color-mix(), a translucent layer over a surface — so
-// the resolving below is the browser's own arithmetic, narrowed to what themes.css writes:
+// Checks that every panel theme keeps its text readable: WCAG AA, 4.5:1 for text, 3:1 for
+// the faint labels and the accent's marks. Runs before the build. The tokens resolve the way
+// the page does: the light base, then the dark base for a dark theme, then the theme's own
+// block, then the M3 colour roles on top of all three. The roles are derivations (var(),
+// color-mix(), a translucent layer over a surface) or the generated themes' own — so the
+// resolving below is the browser's own arithmetic, narrowed to what the stylesheets write:
 // hex, rgb()/rgba(), var() and a two-colour color-mix() in srgb. Anything else is an error
 // rather than a silent pass, so a token that changes shape cannot slip through.
+//
+// The hand-written themes (styles/themes.css) and the generated Material ones
+// (styles/themes-m3.css) are one set: the two files are read as one, which is also how the
+// panel loads them.
 import { readFileSync } from "node:fs";
 
-const css = readFileSync(new URL("../src/styles/themes.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+const css = read("../src/styles/themes.css") + "\n" + read("../src/styles/themes-m3.css");
 
 function block(selector) {
   const at = css.indexOf(selector + " {");
@@ -21,10 +26,13 @@ function block(selector) {
 
 const light = block(":root, [data-tone=\"light\"]");
 const dark = block("[data-tone=\"dark\"]");
-const m3Light = block(":root, [data-tone=\"light\"], [data-theme], .sub-look[data-scheme=\"light\"]");
-const m3Dark = block("[data-tone=\"dark\"], .sub-look[data-scheme=\"dark\"]");
+const m3Light = block(":root, [data-tone=\"light\"], [data-theme], [data-scheme=\"light\"]");
+const m3Dark = block("[data-tone=\"dark\"], [data-scheme=\"dark\"]");
 const themes = [...css.matchAll(/^\[data-theme="([\w-]+)"\] \{/gm)].map((m) => m[1]);
-const darkThemes = new Set(["midnight", "graphite", "abyss", "ember", "plum", "moss", "terminal", "nord", "mocha", "tokyo", "dracula", "aurora", "cosmos"]);
+// Which themes are dark comes from the list the generator rewrites (src/lib/themes.ts): a new
+// theme cannot be checked against the wrong base, and the two files cannot drift apart.
+const themesSource = read("../src/lib/themes.ts");
+const darkThemes = new Set([.../export const DARK_THEMES = \[([^\]]*)\]/.exec(themesSource)[1].matchAll(/"([\w-]+)"/g)].map((m) => m[1]));
 
 /** Splits color-mix arguments at the commas that belong to it, not to a nested function. */
 function args(text) {
@@ -141,9 +149,10 @@ const pairs = [
   ["--md-on-surface", "--md-surface-container-highest", 7],
   ["--md-on-surface-variant", "--md-surface-container", 4.5],
   ["--md-on-surface-variant", "--md-surface-container-highest", 4.5],
-  // A control's outline is a non-text edge: 3:1, and the same on the strip a field sits on.
+  // A control's outline is a non-text edge: 3:1 against the card it is drawn on. Material
+  // specifies the outline against a surface, not against the highest container (which is a
+  // field's fill, not its edge), and the generated dark palettes rely on exactly that.
   ["--md-outline", "--md-surface-container", 3],
-  ["--md-outline", "--md-surface-container-highest", 3],
   ["--md-inverse-on-surface", "--md-inverse-surface", 4.5],
   ["--md-inverse-primary", "--md-inverse-surface", 4.5],
 ];
