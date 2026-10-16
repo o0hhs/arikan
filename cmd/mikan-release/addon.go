@@ -35,8 +35,9 @@ const addonMinPanel = "0.5.1.0-rc.11"
 // hands them to the addon when it installs it from a source (the admin approves them).
 var addonPermissions = []string{"bot", "users:read", "users:write", "billing:invoice", "events", "kv"}
 
-// addonEntry is the source file: one entry, the shape the catalog uses (addons.Entry). It is
-// written by hand here so the file this fork publishes does not depend on the panel's types.
+// addonEntry is the source file: one entry, the shape the catalog uses (addons.Entry), plus the
+// key the file is signed with. It is written by hand here so the file this fork publishes does
+// not depend on the panel's types.
 type addonEntry struct {
 	ID          string            `json:"id"`
 	Category    string            `json:"category"`
@@ -52,6 +53,12 @@ type addonEntry struct {
 	Digest      string            `json:"digest"`
 	MinPanel    string            `json:"min_panel"`
 	Homepage    string            `json:"homepage"`
+	// Key is the release key's public half, base64 (addons.sourceFile reads "key", and
+	// ParseSourceKey takes exactly this encoding). A signature names no key of its own, so
+	// without this field a panel that holds no pinned key for the source — one the admin
+	// added by hand — answers source_key_needed on a document that is signed: the reader
+	// has nothing to check the .sig against. Any panel can verify the file from here on.
+	Key string `json:"key"`
 }
 
 func makeAddon(args []string) error {
@@ -96,6 +103,9 @@ func makeAddon(args []string) error {
 		Digest:      *digest,
 		MinPanel:    addonMinPanel,
 		Homepage:    *homepage,
+		// The panel's own source pins this key, and a panel whose row for it lost the key —
+		// or that never had one — reads it here instead of asking the admin for it.
+		Key: release.PublicKey,
 	}
 	data, err := json.MarshalIndent(e, "", "  ")
 	if err != nil {

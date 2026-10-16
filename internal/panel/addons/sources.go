@@ -693,22 +693,44 @@ func IsBuiltinSource(url string) bool { return url == BuiltinSourceURL }
 type BuiltinSourceStore interface {
 	AddAddonSource(ctx context.Context, arg db.AddAddonSourceParams) (db.AddonSource, error)
 	ListAddonSources(ctx context.Context) ([]db.AddonSource, error)
+	// UpdateAddonSource repairs the panel's own row (an install that added the address by
+	// hand, before the panel shipped with it, holds no key and no title).
+	UpdateAddonSource(ctx context.Context, arg db.UpdateAddonSourceParams) error
 }
 
 // EnsureBuiltinSource puts the fork's own source in the table once, pinned to the fork's
 // release key: the file it offers is then read like any other source's, and a signature with
-// another key — or none at all — is refused (the release publishes .sig beside the file). A
-// row the admin added themselves from the same address is left as it is, and so is one that
-// is already there. The caller logs what it gets: a panel that cannot write it still starts.
+// another key — or none at all — is refused (the release publishes .sig beside the file).
+//
+// The row may already be there without that key: a panel upgraded from a release that had no
+// source of its own, where the admin added the same address by hand. That row is repaired in
+// place — it is the panel's own address, and without the key the source is shown as unsigned
+// and its signed file cannot be verified. A row the admin added themselves carrying a key or a
+// title of their own is theirs and is left exactly as it is. A panel that cannot write still
+// starts: the caller logs what it gets.
 func (m *Manager) EnsureBuiltinSource(ctx context.Context, q BuiltinSourceStore, now time.Time) error {
 	rows, err := q.ListAddonSources(ctx)
 	if err != nil {
 		return err
 	}
 	for _, s := range rows {
-		if IsBuiltinSource(s.Url) {
-			return nil
+		if !IsBuiltinSource(s.Url) {
+			continue
 		}
+		if s.Key != "" && s.Title != "" {
+			return nil // already the panel's own row, or the admin's own with words of their own
+		}
+		key, title := s.Key, s.Title
+		if key == "" {
+			key = BuiltinSourceKey
+		}
+		if title == "" {
+			title = BuiltinSourceTitle
+		}
+		if err := q.UpdateAddonSource(ctx, db.UpdateAddonSourceParams{ID: s.ID, Key: key, Title: title}); err != nil {
+			return err
+		}
+		return nil
 	}
 	_, err = q.AddAddonSource(ctx, db.AddAddonSourceParams{Url: BuiltinSourceURL, Key: BuiltinSourceKey, Title: BuiltinSourceTitle, AddedAt: now.Unix()})
 	if err == nil {

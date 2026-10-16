@@ -767,6 +767,21 @@ func (q *Queries) SetAddonSourceKey(ctx context.Context, arg SetAddonSourceKeyPa
 	return err
 }
 
+const updateAddonSource = `-- name: UpdateAddonSource :exec
+UPDATE addon_sources SET key = $2, title = $3 WHERE id = $1
+`
+
+type UpdateAddonSourceParams struct {
+	ID    int64
+	Key   string
+	Title string
+}
+
+func (q *Queries) UpdateAddonSource(ctx context.Context, arg UpdateAddonSourceParams) error {
+	_, err := q.db.ExecContext(ctx, updateAddonSource, arg.ID, arg.Key, arg.Title)
+	return err
+}
+
 const upsertAddonGrant = `-- name: UpsertAddonGrant :exec
 INSERT INTO addon_grants (addon_id, version, permissions, approved_by, approved_at)
 VALUES ($1, $2, $3, $4, $5)
