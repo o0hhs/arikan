@@ -105,8 +105,11 @@ type InboundPatch struct {
 	Listen     *string
 	AutoPort   *bool
 	AutoSNI    *bool
-	Outbound   *string // direct, warp or node
-	ExitNodeID *int64  // for Outbound node
+	Outbound *string // direct, warp, node or link
+	// ExitNodeID is for Outbound node, OutboundID for Outbound link: the external server
+	// the admin added by a share link.
+	ExitNodeID *int64
+	OutboundID *int64
 	PoolID     *int64  // 0: the main traffic
 
 	// FromPort, when set, applies the patch only while the inbound is on this port: an
@@ -369,12 +372,18 @@ func (s *Inbounds) update(ctx context.Context, id int64, p InboundPatch) (prev, 
 		next.PoolID = sql.NullInt64{Int64: *p.PoolID, Valid: *p.PoolID != 0}
 	}
 	if p.Outbound != nil {
-		next.Outbound, next.ExitNodeID = *p.Outbound, sql.NullInt64{}
-		if *p.Outbound == "node" {
+		next.Outbound, next.ExitNodeID, next.OutboundID = *p.Outbound, sql.NullInt64{}, sql.NullInt64{}
+		switch *p.Outbound {
+		case "node":
 			if p.ExitNodeID == nil {
 				return fail(ErrNotFound)
 			}
 			next.Outbound, next.ExitNodeID = "direct", sql.NullInt64{Int64: *p.ExitNodeID, Valid: true}
+		case "link":
+			if p.OutboundID == nil {
+				return fail(ErrNotFound)
+			}
+			next.Outbound, next.OutboundID = "direct", sql.NullInt64{Int64: *p.OutboundID, Valid: true}
 		}
 	}
 	if p.Port != nil {
@@ -465,7 +474,7 @@ func (s *Inbounds) update(ctx context.Context, id int64, p InboundPatch) (prev, 
 			}
 		}
 		if p.Outbound != nil {
-			if err := q.SetInboundExit(ctx, db.SetInboundExitParams{ExitNodeID: next.ExitNodeID, Outbound: next.Outbound, ID: id}); err != nil {
+			if err := q.SetInboundRoute(ctx, db.SetInboundRouteParams{Outbound: next.Outbound, ExitNodeID: next.ExitNodeID, OutboundID: next.OutboundID, ID: id}); err != nil {
 				return err
 			}
 		}

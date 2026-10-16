@@ -458,16 +458,29 @@ type Relay struct {
 	Users  []Slot          `json:"users"`  // one per source node
 }
 
-// Exit is another node as an outbound: Proxy is the mihomo proxy reaching its relay,
-// Inbounds the local listeners (RelayListener included) whose traffic goes there.
+// Exit is an outbound the panel names, with the local listeners (RelayListener included)
+// whose traffic goes there. Two kinds, by the name's prefix: NODE-<id> is another node of
+// the panel, whose relay the panel reaches by building the proxy itself (Proxy); OUT-<id>
+// is an outbound the admin added by a share link (Link, read by the node — the link
+// parser lives in mihomo, which only the node carries).
 type Exit struct {
-	Name     string          `json:"name"` // the proxy's name in rules, NODE-<id>
-	Proxy    json.RawMessage `json:"proxy"`
+	Name     string          `json:"name"`
+	Proxy    json.RawMessage `json:"proxy,omitempty"`
+	Link     string          `json:"link,omitempty"`
 	Inbounds []string        `json:"inbounds"`
 }
 
 // ExitName is the proxy name of node id as an exit.
 func ExitName(id int64) string { return "NODE-" + strconv.FormatInt(id, 10) }
+
+// OutboundName is the proxy name of an outbound the admin added by link.
+func OutboundName(id int64) string { return "OUT-" + strconv.FormatInt(id, 10) }
+
+// IsExitName says whether name is a proxy the panel placed: the prefixes above. Anything
+// else in a state is not a proxy of ours and is not dialled.
+func IsExitName(name string) bool {
+	return strings.HasPrefix(name, "NODE-") || strings.HasPrefix(name, "OUT-")
+}
 
 // ProbeResult is the internet as seen through one outbound of the node.
 type ProbeResult = WarpStatus

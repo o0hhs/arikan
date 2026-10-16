@@ -30,7 +30,12 @@ var privateRules = []string{
 	"IP-CIDR6,fe80::/10,REJECT",
 }
 
-func rules(st nodeapi.DesiredState, allowPrivate bool) []string {
+// live are the outbounds that made it into the config: a rule naming a proxy that is not
+// there is refused by mihomo, and mihomo refuses the whole config over one bad rule. An
+// outbound that was left out (a link that does not read) therefore gets no rule either —
+// its inbounds fall through to what comes next. nil: every named outbound counts, which is
+// what routesKey wants (it only has to change when the state does).
+func rules(st nodeapi.DesiredState, allowPrivate bool, live map[string]bool) []string {
 	var r []string
 	if !allowPrivate {
 		r = append(r, privateRules...)
@@ -38,29 +43,40 @@ func rules(st nodeapi.DesiredState, allowPrivate bool) []string {
 	// Outbound SMTP from a shared VPN IP gets the address blacklisted within hours.
 	r = append(r, "DST-PORT,25,REJECT")
 	r = append(r, egressRules(st.Filters)...)
-	r = append(r, exitRules(st)...)
+	r = append(r, exitRules(st, live)...)
 	r = append(r, warpRules(st)...)
 	return append(r, "MATCH,DIRECT")
 }
 
 // outbounds are the proxies besides DIRECT: WARP and the other nodes used as exits.
-func outbounds(st nodeapi.DesiredState) ([]any, error) {
+//
+// An outbound the admin added by link that does not read is left out and reported like a
+// rejected listener: a typo in one link must not hold up every other change of the state
+// (the admin sees it in the node's check). WARP and another node's relay are the panel's
+// own builds: an error about those is the state's.
+func outbounds(st nodeapi.DesiredState, rejected *[]nodeapi.ListenerStatus) ([]any, map[string]bool, error) {
 	out := []any{}
 	if st.Warp != nil {
 		p, err := warpProxyConfig(st.Warp)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		out = append(out, p)
 	}
+	live := map[string]bool{}
 	for _, e := range st.Exits {
 		p, err := exitProxyConfig(e)
 		if err != nil {
-			return nil, err
+			if strings.HasPrefix(e.Name, "OUT-") {
+				*rejected = append(*rejected, nodeapi.ListenerStatus{Name: e.Name, Error: err.Error()})
+				continue
+			}
+			return nil, nil, err
 		}
+		live[e.Name] = true
 		out = append(out, p)
 	}
-	return out, nil
+	return out, live, nil
 }
 
 // buildConfig renders the mihomo config as JSON, which mihomo's YAML parser accepts.
@@ -92,7 +108,7 @@ func buildConfig(st nodeapi.DesiredState, cert proto.Cert, allowPrivate bool) (r
 		l, err := relayListener(st.Relay, cert)
 		keep(nodeapi.RelayListener, l, err)
 	}
-	proxies, err := outbounds(st)
+	proxies, live, err := outbounds(st, &rejected)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -107,7 +123,7 @@ func buildConfig(st nodeapi.DesiredState, cert proto.Cert, allowPrivate bool) (r
 		"dns":               dnsSection(st.DNS),
 		"sniffer":           snifferSection(),
 		"proxies":           proxies,
-		"rules":             rules(st, allowPrivate),
+		"rules":             rules(st, allowPrivate, live),
 		"listeners":         listeners,
 	}
 	raw, err = json.Marshal(cfg)
