@@ -60,6 +60,7 @@ func makeAddon(args []string) error {
 	image := fs.String("image", "", "image repository the bot was pushed to, e.g. ghcr.io/o0hhs/arikan")
 	digest := fs.String("digest", "", "sha256 digest of the pushed multi-arch bot image")
 	homepage := fs.String("homepage", "https://github.com/o0hhs/arikan", "where the addon comes from")
+	sign := fs.Bool("sign", false, "sign the file with RELEASE_SIGNING_KEY (file.sig); the panel's own source pins that key")
 	out := fs.String("out", "dist", "output directory")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -109,5 +110,17 @@ func makeAddon(args []string) error {
 		return err
 	}
 	fmt.Printf("%s: %s %s %s@%s\n", path, e.ID, e.Version, e.Image, e.Digest)
+	if *sign {
+		key, err := privateKey(os.Getenv("RELEASE_SIGNING_KEY"))
+		if err != nil {
+			return err
+		}
+		// The signature is over the exact bytes: the panel's own source carries the release
+		// key's public half, so a file signed with another key (or none) is refused there.
+		if err := os.WriteFile(path+".sig", []byte(release.Sign(data, key)+"\n"), 0o644); err != nil {
+			return err
+		}
+		fmt.Printf("%s.sig: signed with the release key\n", path)
+	}
 	return nil
 }

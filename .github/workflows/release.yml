@@ -363,13 +363,15 @@ jobs:
       - name: the addon source file
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
         run: |
-          go run ./cmd/mikan-release addon -version "${{ steps.name.outputs.version }}" \
+          go run ./cmd/mikan-release addon -sign -version "${{ steps.name.outputs.version }}" \
             -image "${{ steps.name.outputs.image }}" -digest "${{ steps.build.outputs.digest }}" \
             -homepage "https://github.com/$GITHUB_REPOSITORY" -out dist
-          # An asset of the release the bot's source is read from: adding the source again
-          # takes the newest one, and the panel's own update does not touch it.
-          gh release upload "$GITHUB_REF_NAME" dist/mikan-addon.json --clobber
+          # An asset of the release the bot's source is read from. The signature is what the
+          # panel's own source (addons.BuiltinSourceURL) pins: it accepts this file only from
+          # this key, and it is read from github.com/<owner>/<repo>'s latest release.
+          gh release upload "$GITHUB_REF_NAME" dist/mikan-addon.json dist/mikan-addon.json.sig --clobber
 
   # :latest names the image of the newest published release: it moves only once the
   # release exists, and never to a pre-release. The tag points at the pushed digest, so
