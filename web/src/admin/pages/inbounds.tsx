@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Copy, Pencil, Plus, Trash2 } from "lucide-react";
+import { Copy, Pencil, Plus, RadioTower, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { api, errorText, unwrap, type Inbound, type Schemas } from "../../api/client";
 import { qk, useInbounds, useNodes } from "../../api/hooks";
@@ -15,6 +15,7 @@ import { hostPort, listenerError } from "./inbound/shared";
 import { AddDrawer } from "./inbound/add";
 import { CopyDrawer } from "./inbound/copy";
 import { EditDrawer } from "./inbound/edit";
+import { TurnDrawer } from "./node-turn";
 
 export function InboundsPage() {
   const all = useInbounds();
@@ -32,6 +33,9 @@ export function InboundsPage() {
   const [editing, setEditing] = useState<Inbound | null>(null);
   const [copying, setCopying] = useState<Inbound | null>(null);
   const [removing, setRemoving] = useState<Inbound | null>(null);
+  // VK TURN ("WL") is set up on a node, not on one inbound, so it acts on the node this
+  // page shows: the same one the list above is filtered by.
+  const [turning, setTurning] = useState(false);
   const patch = useMutation({
     mutationFn: ({ id, body }: { id: number; body: Schemas["PatchInboundInputBody"] }) => unwrap(api.PATCH("/api/v1/inbounds/{id}", { params: { path: { id } }, body })),
     onSettled: () => void qc.invalidateQueries({ queryKey: qk.inbounds }),
@@ -53,10 +57,16 @@ export function InboundsPage() {
         title={t("nav.inbounds")}
         sub={t("inbounds.subtitle")}
         actions={
-          <Button variant="primary" onClick={() => setAdding(true)}>
-            <Plus size={18} aria-hidden />
-            <span className="max-[760px]:hidden">{t("common.add")}</span>
-          </Button>
+          <>
+            <Button onClick={() => setTurning(true)} disabled={!node} title={node ? t("turn.menu") : undefined}>
+              <RadioTower size={18} aria-hidden />
+              <span className="max-[760px]:hidden">{t("turn.menu")}</span>
+            </Button>
+            <Button variant="primary" onClick={() => setAdding(true)}>
+              <Plus size={18} aria-hidden />
+              <span className="max-[760px]:hidden">{t("common.add")}</span>
+            </Button>
+          </>
         }
       />
       {multi && nodes.data ? (
@@ -169,6 +179,7 @@ export function InboundsPage() {
         }
       </QueryBoundary>
       <AddDrawer open={adding} onOpenChange={setAdding} nodeId={nodeId} nodeName={multi && node ? nodeLabel(node) : undefined} />
+      <TurnDrawer node={turning && node ? { id: node.id, name: nodeLabel(node) } : null} onClose={() => setTurning(false)} />
       <EditDrawer inbound={editing} onClose={() => setEditing(null)} />
       <CopyDrawer inbound={copying} onClose={() => setCopying(null)} />
       <Confirm
