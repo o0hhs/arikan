@@ -500,7 +500,15 @@ fn run(plan: &Plan, tx: &Sender<Event>) -> StepResult<()> {
         // wait for. What it says never fails the install.
         let Some(port) = api_port else { return Ok(None) };
         note(tx, Step::Start, "waiting for the panel to connect");
-        Ok(hello::wait(since, hello::LIMIT).map(|h| hello::lines(&h, Some(port))))
+        let report = hello::wait(since, hello::LIMIT);
+        // The panel has (or has not) connected: the API port it needs is put behind the
+        // address it came from instead of staying open to everyone. A node without a panel
+        // address yet keeps its port open and says so.
+        let explicit: Vec<std::net::IpAddr> = plan.panel_ip.into_iter().collect();
+        if let Ok(mut install) = crate::ops::Install::load() {
+            crate::paneladdr::scope_saying(&mut install, &explicit, &mut |s| note(tx, Step::Start, s.to_string()));
+        }
+        Ok(report.map(|h| hello::lines(&h, Some(port))))
     })
     .map_err(kept)?;
     // Everything is done: the install is not unfinished any more.

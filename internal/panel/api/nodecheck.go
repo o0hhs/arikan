@@ -199,6 +199,8 @@ func (h *handlers) helloItem(id int64) CheckItem {
 	for k, val := range r.Params {
 		params[k] = val
 	}
+	// The address the node's hello came from is the node's own: where it stands.
+	h.geoParams(params, r.SeenIP)
 	switch {
 	case r.OK && r.Params[nodehello.IPDiffers] == "1":
 		return CheckItem{ID: "hello", Status: nodeapi.CheckWarn, Code: nodehello.IPDiffers, Params: params, Fix: "check_host"}
@@ -370,6 +372,26 @@ func (h *handlers) portItems(ctx context.Context, n db.Node) []CheckItem {
 	return out
 }
 
+// geoParams adds where an address is to an item: the country, and the network it belongs
+// to. An address alone cannot say that a node advertised as one country leaves through
+// another, or that an "exit" is a hosting provider's address. Nothing is added for an
+// address the databases do not cover, or while they are still on their way.
+func (h *handlers) geoParams(params map[string]string, ip string) {
+	if h.d.Geo == nil || ip == "" {
+		return
+	}
+	info := h.d.Geo.Addr(ip)
+	if info.Country != "" {
+		params["country"], params["flag"] = info.Country, info.Flag
+	}
+	if info.ASN != 0 {
+		params["asn"] = strconv.Itoa(info.ASN)
+		if info.Org != "" {
+			params["org"] = info.Org
+		}
+	}
+}
+
 // nodeDiagItems are the node's own look at its server.
 func (h *handlers) nodeDiagItems(ctx context.Context, id int64) []CheckItem {
 	d, err := h.d.Nodes.Diagnose(ctx, id)
@@ -462,6 +484,7 @@ func (h *handlers) exitItem(ctx context.Context, entry, exit int64, name string)
 	}
 	if p.OK {
 		params["ip"] = p.IP
+		h.geoParams(params, p.IP)
 		return CheckItem{ID: "cascade", Status: nodeapi.CheckOK, Params: params}
 	}
 	it := CheckItem{ID: "cascade", Status: nodeapi.CheckFail, Params: params, Detail: strings.TrimSpace(p.Error + " " + p.Detail)}

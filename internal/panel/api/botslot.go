@@ -67,6 +67,11 @@ func (h *handlers) setBotSlot(ctx context.Context, in *botSlotInput) (*botSlotOu
 	if err := settings.Set(ctx, h.d.Settings, panelapi.SlotKey, id); err != nil {
 		return nil, err
 	}
+	// The admin's own choice, empty or not: the panel's bot no longer takes the bot over
+	// (app/botaddon.go). Turning the bot off and on again hands the choice back to the panel.
+	if err := settings.Set(ctx, h.d.Settings, panelapi.BotChosenKey, true); err != nil {
+		return nil, err
+	}
 	h.audit(ctx, sessionOf(ctx).AdminID, "telegram.bot_addon", "addon", id, nil)
 	// The gateway starts again: the commands and the menu button are the new holder's to set.
 	if h.d.Gateway != nil {

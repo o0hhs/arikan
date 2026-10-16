@@ -39,6 +39,8 @@ func (h *Handler) miniApp(w http.ResponseWriter, r *http.Request, rest string) {
 		h.miniAppShop(w, r, rest)
 	case r.Method == http.MethodPost && rest == "free" && sameOrigin(r) && h.shop != nil:
 		h.miniAppFree(w, r)
+	case r.Method == http.MethodPost && rest == "access" && sameOrigin(r) && h.promos != nil && h.shop != nil:
+		h.miniAppAccess(w, r)
 	case r.Method == http.MethodPost && (rest == "promo" || rest == "promo-history") && sameOrigin(r) && h.promos != nil:
 		if rest == "promo-history" {
 			h.miniAppPromoHistory(w, r)
@@ -159,11 +161,22 @@ type shopRequest struct {
 	Provider  string `json:"provider"`
 	Token     string `json:"token"`
 	PromoCode string `json:"promo_code"`
+	// Custom is a tariff the buyer put together themselves on the constructor's base tariff
+	// (custom.go); it goes with a pay of that very tariff.
+	Custom *billing.CustomPlan `json:"custom,omitempty"`
 }
 
-// valid: the trial is bought for no subscription and at its own price, without a code.
+// valid: the trial is bought for no subscription and at its own price, without a code; a
+// tariff put together by the buyer is bought for a subscription or as a new one, and never
+// together with a package or the trial.
 func (in shopRequest) valid() bool {
-	return !in.Trial || in.Token == "" && strings.TrimSpace(in.PromoCode) == ""
+	if in.Trial && (in.Token != "" || strings.TrimSpace(in.PromoCode) != "") {
+		return false
+	}
+	if in.Custom != nil && (in.TariffID == 0 || in.PackageID != 0 || in.Trial) {
+		return false
+	}
+	return true
 }
 
 // miniAppShop: "shop" lists what the Telegram account can buy (with token: the traffic
@@ -197,7 +210,7 @@ func (h *Handler) miniAppShop(w http.ResponseWriter, r *http.Request, rest strin
 	} else if in.PackageID != 0 {
 		p, err = h.shop.PackageInvoice(ctx, billing.PackageRequest{TgID: tgID, UserID: userID, PackageID: in.PackageID, Provider: billing.AdapterOf(in.Provider), PromoCode: in.PromoCode})
 	} else {
-		p, err = h.shop.Invoice(ctx, billing.InvoiceRequest{TgID: tgID, UserID: userID, TariffID: in.TariffID, TermDays: in.TermDays, Provider: billing.AdapterOf(in.Provider), PromoCode: in.PromoCode})
+		p, err = h.shop.Invoice(ctx, billing.InvoiceRequest{TgID: tgID, UserID: userID, TariffID: in.TariffID, TermDays: in.TermDays, Provider: billing.AdapterOf(in.Provider), PromoCode: in.PromoCode, Custom: in.Custom})
 	}
 	if err != nil {
 		if strings.TrimSpace(in.PromoCode) != "" && promoError(err) {
@@ -214,11 +227,32 @@ func (h *Handler) miniAppShop(w http.ResponseWriter, r *http.Request, rest strin
 	_ = json.NewEncoder(w).Encode(map[string]string{"url": p.PayUrl, "provider": p.Provider})
 }
 
+// term is one term of an offer as the page reads it.
+type term struct {
+	Days        int64  `json:"days"`
+	Label       string `json:"label"`
+	Description string `json:"description"`
+	Stars       int64  `json:"stars,omitempty"`
+	Rub         int64  `json:"rub,omitempty"`
+}
+
+// offer is a tariff in "shop". Note is the admin's own text about the tariff, shown under the
+// line built from the limits; plain text with line breaks, never markup.
+type offer struct {
+	ID          int64  `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Note        string `json:"note,omitempty"`
+	Stars       int64  `json:"stars,omitempty"`
+	Rub         int64  `json:"rub,omitempty"`
+	Terms       []term `json:"terms"`
+}
+
 // miniAppOffers answers "shop": the tariffs on sale, the payment providers, the traffic
 // packages of the subscription userID (0: none), and the priced trial when the Telegram
 // account tgID may buy it.
 func (h *Handler) miniAppOffers(ctx context.Context, w http.ResponseWriter, tgID, userID int64, fail func(int, string)) {
-	offers, av, err := h.shop.Offers(ctx)
+	offers, av, err := h.shop.Offers(ctx, tgID)
 	if err != nil {
 		fail(http.StatusInternalServerError, "internal")
 		return
@@ -228,25 +262,6 @@ func (h *Handler) miniAppOffers(ctx context.Context, w http.ResponseWriter, tgID
 	if err != nil {
 		fail(http.StatusInternalServerError, "internal")
 		return
-	}
-	// A tariff's terms, the first one also in the offer itself (as before terms).
-	type term struct {
-		Days        int64  `json:"days"`
-		Label       string `json:"label"`
-		Description string `json:"description"`
-		Stars       int64  `json:"stars,omitempty"`
-		Rub         int64  `json:"rub,omitempty"`
-	}
-	type offer struct {
-		ID          int64  `json:"id"`
-		Name        string `json:"name"`
-		Description string `json:"description"`
-		// Note is the admin's own text about the tariff, shown under the line built from the
-		// limits; plain text with line breaks, never markup.
-		Note  string `json:"note,omitempty"`
-		Stars int64  `json:"stars,omitempty"`
-		Rub   int64  `json:"rub,omitempty"`
-		Terms []term `json:"terms"`
 	}
 	// Marketplace adapters take rubles; the buyer sees each by its own name.
 	type addon struct {
@@ -263,10 +278,25 @@ func (h *Handler) miniAppOffers(ctx context.Context, w http.ResponseWriter, tgID
 		Trial *offer `json:"trial,omitempty"`
 		// Free is the free plan this account may take now, if any.
 		Free *freeOffer `json:"free,omitempty"`
+		// Built is the tariff constructor this account may use now, if any.
+		Built *builtOffer `json:"built,omitempty"`
+		// Access lists the access codes this account redeemed (the tariffs they open are
+		// already among the offers).
+		Access []accessItem `json:"access,omitempty"`
 	}{AllowNew: h.shop.Config(ctx).AllowNew, Offers: []offer{}, Packages: packages, Addons: []addon{},
 		Providers: map[string]bool{billing.Stars: av.Stars}}
 	if fo, ok := h.shop.FreeOffer(ctx, tgID); ok {
 		out.Free = &freeOffer{Name: fo.Tariff.Name, Description: billing.Describe(fo.Tariff, fo.Tariff.DurationDays, cfg.Lang), Channel: fo.Channel}
+	}
+	if c, ok := h.shop.CustomConstructor(ctx); ok {
+		out.Built = builtOf(c, cfg.Lang)
+	}
+	if accs, err := h.promos.Accesses(ctx, tgID); err == nil {
+		for _, a := range accs {
+			if t, err := h.st.Q.GetTariff(ctx, a.TariffID); err == nil {
+				out.Access = append(out.Access, accessItem{TariffID: a.TariffID, Name: t.Name, Code: a.Code, Mode: a.Mode})
+			}
+		}
 	}
 	if to, _, ok := h.shop.TrialOffer(ctx, tgID); ok {
 		out.Trial = &offer{ID: to.Tariff.ID, Name: to.Tariff.Name, Description: billing.Describe(to.Tariff, to.Tariff.DurationDays, cfg.Lang), Note: to.Tariff.Description, Stars: to.Stars, Rub: to.Rub, Terms: []term{}}
@@ -291,6 +321,178 @@ type freeOffer struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	Channel     string `json:"channel,omitempty"`
+}
+
+// accessItem is an access code an account redeemed, as "shop" lists it: which tariff it opens
+// and with which code.
+type accessItem struct {
+	TariffID int64  `json:"tariff_id"`
+	Name     string `json:"name"`
+	Code     string `json:"code"`
+	Mode     string `json:"mode"` // access_paid or access_free
+}
+
+// builtTerm is one term of the constructor's base tariff, with its prices.
+type builtTerm struct {
+	Days  int64 `json:"days"`
+	Stars int64 `json:"stars,omitempty"`
+	Rub   int64 `json:"rub,omitempty"`
+}
+
+// builtLimit is a dimension of the constructor: the tariff's own number (0: endless) and the
+// bounds a plan may ask for. The page prices a preview itself with rates, the same way the
+// panel does, and the panel prices the order again when it is opened.
+type builtLimit struct {
+	Value int64 `json:"value"`
+	Min   int64 `json:"min"`
+	Max   int64 `json:"max"`
+}
+
+// builtOffer is the tariff constructor as the page sees it: the base tariff, its terms and
+// what may be put together.
+type builtOffer struct {
+	ID          int64                `json:"id"`
+	Name        string               `json:"name"`
+	Description string               `json:"description"`
+	Limits      string               `json:"limits"`
+	Reset       string               `json:"reset"`
+	Days        builtLimit           `json:"days"`
+	Traffic     builtLimit           `json:"traffic"`
+	Devices     builtLimit           `json:"devices"`
+	Speed       builtLimit           `json:"speed"`
+	Rates       billing.Coefficients `json:"rates"`
+	Terms       []builtTerm          `json:"terms"`
+	Stars       int64                `json:"stars,omitempty"`
+	Rub         int64                `json:"rub,omitempty"`
+}
+
+// builtOf is the constructor in "shop". A dimension the tariff leaves endless has no range to
+// build in: min and max are 0 and the page shows it as fixed.
+func builtOf(c billing.Constructor, lang string) *builtOffer {
+	out := &builtOffer{ID: c.Tariff.ID, Name: c.Tariff.Name, Description: billing.DescribeOffer(billing.Offer{Tariff: c.Tariff}, lang),
+		Limits: billing.DescribeLimits(c.Tariff, lang), Reset: c.Tariff.ResetStrategy, Rates: c.Rates, Stars: c.Stars, Rub: c.Rub,
+		Days:    builtLimit{Value: c.Days, Min: 1, Max: c.MaxDays},
+		Traffic: builtLimit{Value: c.Traffic},
+		Devices: builtLimit{Value: c.Devices},
+		Speed:   builtLimit{Value: c.Speed},
+	}
+	if c.Traffic > 0 {
+		out.Traffic.Min, out.Traffic.Max = c.TrafficMin, c.TrafficMax
+	}
+	if c.Devices > 0 {
+		out.Devices.Min, out.Devices.Max = c.DevicesMin, c.DevicesMax
+	}
+	if c.Speed > 0 {
+		out.Speed.Min, out.Speed.Max = c.SpeedMin, c.SpeedMax
+	}
+	for _, t := range c.Terms {
+		out.Terms = append(out.Terms, builtTerm{Days: t.Days, Stars: t.Stars, Rub: t.Rub})
+	}
+	return out
+}
+
+// accessRequest is the body of "access": the code the buyer typed.
+type accessRequest struct {
+	miniAuth
+	Token string `json:"token"`
+	Code  string `json:"code"`
+}
+
+// valid: a request without a code is refused before Telegram is asked who sent it.
+func (in *accessRequest) valid() bool { return strings.TrimSpace(in.Code) != "" }
+
+// miniAppAccess takes an access code (promo access_paid or access_free) for the Telegram
+// account. Paid: the account may now see and buy the tariff, and the answer says so (the page
+// offers it). Free: a subscription on the tariff is given right away and the answer carries
+// its link. The reason a code does not work is not told ("promo_unavailable" for all of it),
+// so codes cannot be probed for existence or audience.
+func (h *Handler) miniAppAccess(w http.ResponseWriter, r *http.Request) {
+	var in accessRequest
+	tgID, users, fail, ok := h.mini(w, r, &in)
+	if !ok {
+		return
+	}
+	if !h.promoLimit.allow(tgID, h.now(), in.Code) {
+		fail(http.StatusTooManyRequests, "promo_try_later")
+		return
+	}
+	userID, ok := ownerOf(users, in.Token)
+	if !ok {
+		fail(http.StatusForbidden, billing.ErrNotYours.Error())
+		return
+	}
+	ctx := r.Context()
+	p, err := h.promos.Check(ctx, tgID, userID, in.Code)
+	if err != nil {
+		fail(h.promoAttempt(err))
+		return
+	}
+	tariffID, ok := promo.TariffOf(p)
+	if !ok {
+		fail(http.StatusConflict, "promo_unavailable")
+		return
+	}
+	access, err := h.promos.GrantAccess(ctx, tgID, userID, in.Code)
+	if err != nil {
+		fail(h.promoAttempt(err))
+		return
+	}
+	t, err := h.st.Q.GetTariff(ctx, tariffID)
+	if err != nil {
+		h.log.Warn("mini app: the tariff of an access code is gone", "tariff", tariffID, "err", err)
+		fail(http.StatusInternalServerError, "internal")
+		return
+	}
+	if access.Mode != promo.TypeAccessFree {
+		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "type": access.Mode, "tariff_id": t.ID, "name": t.Name,
+			"tariff": h.accessOffer(ctx, tgID, t, userID)})
+		return
+	}
+	u, err := h.shop.AccessPlan(ctx, tgID, t, nil)
+	switch {
+	case errors.Is(err, billing.ErrTooManySubs):
+		fail(http.StatusConflict, err.Error())
+		return
+	case errors.Is(err, billing.ErrNotForSale), errors.Is(err, billing.ErrBadOptions):
+		fail(http.StatusConflict, "promo_unavailable")
+		return
+	case err != nil:
+		h.log.Warn("mini app: the subscription of an access code was not given", "err", err)
+		fail(http.StatusInternalServerError, "internal")
+		return
+	}
+	_ = h.promos.SetAccessUser(ctx, access.ID, u.ID)
+	_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "type": access.Mode, "tariff_id": t.ID, "name": u.Name, "token": u.SubToken})
+}
+
+// accessOffer is the tariff an access code opened as "shop" offers it, so the page can show
+// it without asking for the whole shop again.
+func (h *Handler) accessOffer(ctx context.Context, tgID int64, t db.Tariff, userID int64) *offer {
+	_, av, err := h.shop.Offers(ctx, tgID)
+	if err != nil {
+		return nil
+	}
+	cfg, _ := h.cfg(ctx)
+	terms, err := domain.TermsOf(ctx, h.st.Q, t)
+	if err != nil {
+		return nil
+	}
+	v := &offer{ID: t.ID, Name: t.Name, Description: billing.Describe(t, t.DurationDays, cfg.Lang), Note: t.Description, Terms: []term{}}
+	for _, tr := range terms {
+		stars, rub := av.Prices(tr.PriceStars, tr.PriceRub)
+		if stars == 0 && rub == 0 {
+			continue
+		}
+		v.Terms = append(v.Terms, term{Days: tr.Days, Label: billing.TermLabel(t, tr.Days, cfg.Lang),
+			Description: billing.Describe(t, tr.Days, cfg.Lang), Stars: stars, Rub: rub})
+		if v.Stars == 0 && v.Rub == 0 {
+			v.Stars, v.Rub = stars, rub
+		}
+	}
+	if len(v.Terms) == 0 {
+		return nil
+	}
+	return v
 }
 
 // miniAppFree takes the free plan for the Telegram account: the token of the new
@@ -357,7 +559,7 @@ func (h *Handler) miniAppPromo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if in.ValidateOnly {
-		tariffID, amount, currency, err := h.miniAppPromoOrder(r.Context(), userID, in.TariffID, in.TermDays, in.PackageID, billing.AdapterOf(in.Provider))
+		tariffID, amount, currency, err := h.miniAppPromoOrder(r.Context(), tgID, userID, in.TariffID, in.TermDays, in.PackageID, billing.AdapterOf(in.Provider))
 		if err != nil {
 			fail(http.StatusConflict, "promo_unavailable")
 			return
@@ -398,7 +600,7 @@ func (h *Handler) miniAppPromo(w http.ResponseWriter, r *http.Request) {
 
 // miniAppPromoOrder is the order a discount code is checked against: the tariff, and the
 // price of the chosen term (days nil: the first) or of the package, with provider.
-func (h *Handler) miniAppPromoOrder(ctx context.Context, userID, tariffID int64, days *int64, packageID int64, provider string) (int64, int64, string, error) {
+func (h *Handler) miniAppPromoOrder(ctx context.Context, tgID, userID, tariffID int64, days *int64, packageID int64, provider string) (int64, int64, string, error) {
 	if h.shop == nil || provider == "" {
 		return 0, 0, "", promo.ErrUnavailable
 	}
@@ -420,7 +622,7 @@ func (h *Handler) miniAppPromoOrder(ctx context.Context, userID, tariffID int64,
 		}
 		return 0, 0, "", promo.ErrUnavailable
 	}
-	offers, _, err := h.shop.Offers(ctx)
+	offers, _, err := h.shop.Offers(ctx, tgID)
 	if err != nil {
 		return 0, 0, "", err
 	}
@@ -512,7 +714,7 @@ func promoAttemptCode(err error) string {
 // the cause yet (billing logs a provider's failure itself).
 func invoiceFailure(err error) (status int, code string, unexplained bool) {
 	for _, e := range []error{billing.ErrNotForSale, billing.ErrNewOff, billing.ErrTooManySubs, billing.ErrTooMany, billing.ErrNotYours,
-		billing.ErrTrialUsed, billing.ErrTrialOff} {
+		billing.ErrTrialUsed, billing.ErrTrialOff, billing.ErrBadOptions, billing.ErrNoConstructor} {
 		if errors.Is(err, e) {
 			return http.StatusConflict, e.Error(), false
 		}

@@ -36,7 +36,7 @@ The panel stores only the key's fingerprint. If you lose it, the "Change key" bu
 
 The key carries the panel's address: when the node starts, it reports itself to the panel with a signed request, and the panel dials the node back at once. Keys from older panels have no panel address, so there is no such check for them and the node works as before. If the node's server goes out to the internet from a different IP than the one set in the panel, both the terminal and the panel say so: "the node reported from IP Y, the panel has X". Fix the address in **Configure**.
 
-The key contains the node's private key. To keep it out of the process list, you can pass it through the `MIKAN_JOIN_KEY` variable. The `--panel-ip IP` flag opens the node's API port only to the panel's address.
+The key contains the node's private key. To keep it out of the process list, you can pass it through the `MIKAN_JOIN_KEY` variable. The node's API port is open to the panel's address alone: the node works out the address itself, and `--panel-ip IP` sets it by hand, see [The node's API port](#the-nodes-api-port).
 
 You can also add a node from the panel's server: `arikan node add --name NAME --host IP` prints the key.
 
@@ -56,7 +56,7 @@ The **Certificate** row shows which certificate is in use right now: a public on
 
 ## Node certificate
 
-The panel itself orders a public certificate for each remote node: for its domain if it has one, otherwise for its IP (a six-day Let's Encrypt certificate, renewed automatically). The certificate authority checks the node on port 80 (HTTP-01). The node opens port 80 only for the few seconds of a check and releases it after.
+The panel itself orders a public certificate for each remote node: for its domain if it has one, otherwise for its IP (a six-day Let's Encrypt certificate, renewed automatically). The certificate authority checks the node on port 80 (HTTP-01). The node holds port 80 on its server: it answers the checks and sends everything else to HTTPS of the same address with a 301 — so http://you.example.com leads to its https, and the node's own page (below) is visible over http too. If another program needs the port, `MIKAN_HTTP_REDIRECT=0` in `/opt/mikan/.env` on the node's server and `cd /opt/mikan && docker compose up -d` makes the node take the port only for the seconds of a check, as before.
 
 - **Port 80/tcp** must be open on the node's server. The installer opens it in ufw, and `arikan update` opens it on nodes installed earlier. Open your hosting provider's firewall yourself.
 - If port 80 on the node is held by another program, the panel says so and names it. For nginx and Caddy one command on the node's server is enough; the panel shows it with the node's address:
@@ -73,6 +73,29 @@ The panel itself orders a public certificate for each remote node: for its domai
 
 The order in which a certificate is chosen, the errors and the "Check the certificate" button are described in [Domain and certificates](/arikan/en/start/domain/#node-certificate).
 
+## The node's API port
+
+The panel manages the node over this port. It answers the panel alone: TLS with its certificate pinned, the node's key in `.env`. The installer opens it **to the panel's address only**:
+
+- the node works the address out itself: it writes down the addresses its panel connects from (`data/node/panel-addr` on the node's server, IPv4 and IPv6), and the installer takes them from there;
+- `--panel-ip IP` at install and at `arikan join` sets the address by hand;
+- changing the rule, the installer waits for the panel to connect again and puts the rule "for everyone" back when it does not: the panel is never left locked out;
+- `arikan update` rewrites the rule on nodes installed earlier and when the panel moved: addresses the panel no longer uses go, new ones come;
+- `arikan doctor` on the node says when the port is open to everyone or the rule is still for the panel's old address, and prints the command that fixes it.
+
+If the panel moved and cannot reach the node (the rule shut it out), run `ufw allow PORT/tcp` on the node's server; the node scopes the port again by itself on the next update (`arikan update`). The port does not become open to strangers in the meantime: the node answers its panel alone.
+
+The panel's own node has no such port: the panel talks to it over a unix socket (`/run/mikan/node.sock`, mode 0600). There is nothing to close.
+
+## The node's page
+
+A node has an HTTPS page of its own: an ordinary site serving the files of `/opt/mikan/data/node/www` with the node's certificate — the public one the panel orders. No panel headers, TLS 1.2 and above, and HSTS (`max-age=31536000`) only with a public certificate: with a self-signed one a browser would remember https-only for a year and offer no way past the warning.
+
+- Put your own files into `/opt/mikan/data/node/www` (`scp`): `index.html`, `404.html` and anything else. The node never overwrites what is there; until you do, a neutral page is served.
+- It listens on port 443. If an inbound holds 443 — the usual case — the page moves to the loopback port `127.0.0.1:18443`: it does not answer on the internet then, but it still works as a REALITY target. Where it really is, `arikan doctor` on the node's server says, line "Page".
+- `MIKAN_SITE_LISTEN` in `/opt/mikan/.env` sets the address by hand: `0.0.0.0:443` for the internet, `127.0.0.1:18443` for loopback only, `off` to serve no page. After a change: `cd /opt/mikan && docker compose up -d`.
+- A REALITY target may name the node's page: dest `127.0.0.1:<the page's port>`. Every client handshake then mirrors a real page on the node's own domain instead of somebody else's site, depending on neither the panel nor a third party. The panel accepts such a dest once the node has reported its page; the "Check" button by the dest field checks from the panel and cannot see a remote node's loopback — check on the node's server instead (`arikan doctor`, the node's log).
+
 ## Server order
 
 When there is more than one node, up and down arrows appear on the cards. The order of nodes in the panel becomes the order of servers in the subscription, in all apps.
@@ -83,7 +106,7 @@ When the panel cannot reach a node, the card shows the concrete reason and what 
 
 | Reason | What happened | What to do |
 |---|---|---|
-| Timed out | the API port does not answer: the hoster's firewall or ufw closed it, or the server is off | open the port in the hoster's control panel; on the server `ufw allow PORT/tcp` |
+| Timed out | the API port does not answer: the hoster's firewall or ufw closed it, or the server is off. After the panel moved, the rule may still be for its old address | open the port in the hoster's control panel; on the node's server `ufw allow PORT/tcp` — the node scopes the port to the panel's new address itself |
 | Connection refused | the server answers, but nothing listens on the port: the node is not installed, stopped or crashed | `arikan status`, `arikan logs node`, or run the install command |
 | No route | the IP cannot be reached: the address is wrong or the server is off | the "Change address" button |
 | Name not found | DNS does not know the node's name | check the domain's record or use the IP |

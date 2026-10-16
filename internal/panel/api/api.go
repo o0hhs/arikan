@@ -26,6 +26,7 @@ import (
 	"mikan/internal/panel/checkhost"
 	"mikan/internal/panel/dnscheck"
 	"mikan/internal/panel/domain"
+	"mikan/internal/panel/geoip"
 	"mikan/internal/panel/nodesync"
 	"mikan/internal/panel/nodeupdate"
 	"mikan/internal/panel/panelimport"
@@ -141,6 +142,9 @@ type Deps struct {
 	DNS *dnscheck.Checker
 	// CheckHost checks a node's ports from Russia (check-host.net); nil: not offered.
 	CheckHost *checkhost.Client
+	// Geo says where an address of a node or of one of its exits is: the country and the
+	// network, from the databases the node checks show; nil: they say nothing about it.
+	Geo *geoip.Lookup
 	// DataDir is the panel's data directory, whose disk "Check server" looks at; "": none.
 	DataDir string
 }
@@ -295,6 +299,8 @@ func New(d Deps) (http.Handler, huma.API, error) {
 	h.registerWarp()
 	h.registerTurn()
 	h.registerCascade()
+	h.registerOutbounds()
+	h.registerDatabaseBackup()
 	h.registerPools()
 	h.registerPackages()
 	h.registerAudit()

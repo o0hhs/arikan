@@ -256,14 +256,48 @@ fn nginx_location(port: u16, indent: &str) -> String {
     )
 }
 
-/// A server block of its own for domain on port 80: the challenge, and nothing else. Short,
-/// so that the finish screen of a narrow terminal shows it whole.
+/// A server block of its own for domain on port 80: the challenge, and everything else sent
+/// on to HTTPS (301), where the panel or the admin's own site answers. Short, so that the
+/// finish screen of a narrow terminal shows it whole.
 pub fn nginx_server(domain: &str, port: u16, ipv6: bool) -> String {
     let v6 = if ipv6 { "    listen [::]:80;\n" } else { "" };
     format!(
-        "server {{\n    listen 80;\n{v6}    server_name {domain};\n{}    location / {{ return 404; }}\n}}\n",
+        "server {{\n    listen 80;\n{v6}    server_name {domain};\n{}    location / {{ return 301 https://$host$request_uri; }}\n}}\n",
         nginx_location(port, "    ")
     )
+}
+
+/// Whether a file in nginx's config is a snippet of this installer's: the name it writes
+/// now, and the name releases before the rename wrote (mikan-acme-*). An older one that is
+/// not recognised is read as the admin's own server block for the domain, and the rule is
+/// then put beside it instead of in place of it — with the challenge passed to a port
+/// nothing listens on any more.
+fn is_our_snippet(name: &str) -> bool {
+    name.starts_with("arikan-acme-") || name.starts_with("mikan-acme-")
+}
+
+/// A snippet of an older release moved out of the way: it answers port 80 for the same
+/// domain a second time... Undo puts it back.
+struct MovedSnippet {
+    from: PathBuf,
+    to: PathBuf,
+}
+
+impl MovedSnippet {
+    /// Moves an old snippet of this installer's aside, next to the new one, under a name
+    /// with a dot in front (nginx's `*` and `*.conf` do not match it).
+    fn aside(dir: &Path, domain: &str) -> Option<Self> {
+        let from = dir.join(format!("mikan-acme-{domain}.conf"));
+        if !fs::symlink_metadata(&from).is_ok_and(|m| m.is_file()) {
+            return None;
+        }
+        let to = dir.join(format!(".{}.{}.old", from.file_name()?.to_string_lossy(), stamp()));
+        fs::rename(&from, &to).ok().map(|()| Self { from, to })
+    }
+
+    fn undo(self) {
+        let _ = fs::rename(&self.to, &self.from);
+    }
 }
 
 /// The file the installer writes: the server block, and who wrote it.
@@ -492,7 +526,7 @@ fn nginx(run: &mut dyn Run, domain: &str, port: u16, consent: bool) -> Report {
         snippet: nginx_server(domain, port, ipv6),
     };
     let name = format!("arikan-acme-{domain}.conf");
-    let ours = |f: &Path| f.file_name().is_some_and(|n| n.to_string_lossy().starts_with("arikan-acme-"));
+    let ours = |f: &Path| f.file_name().is_some_and(|n| is_our_snippet(&n.to_string_lossy()));
     // A server block for the domain is there already: a second one would take its requests
     // (or be ignored), so the rule goes into it, one line of the admin's.
     if let Ok(conf) = &conf
@@ -532,12 +566,22 @@ fn nginx(run: &mut dyn Run, domain: &str, port: u16, consent: bool) -> Report {
         Ok(c) => c,
         Err(e) => return report(own(format!("{} cannot be written ({e})", path.display()))),
     };
+    // A snippet of a release before the rename answers port 80 for the same domain, with the
+    // challenge passed to a port that is not the one now: it goes, and comes back when the
+    // rule does not work out.
+    let old = MovedSnippet::aside(&dir, domain);
     if let Err(e) = run.run("nginx", &["-t"]) {
         change.undo();
+        if let Some(old) = old {
+            old.undo();
+        }
         return report(own(format!("nginx -t did not pass with the rule ({}), so it was taken out again", short(&e))));
     }
     if let Err(e) = reload(run, "nginx", &["nginx", "-s", "reload"]) {
         change.undo();
+        if let Some(old) = old {
+            old.undo();
+        }
         return report(own(format!("nginx did not reload ({}), so the rule was taken out again", short(&e))));
     }
     Report { front: "nginx".into(), added: Some(path), manual: None }
@@ -554,10 +598,10 @@ fn caddy_end(domain: &str) -> String {
 }
 
 /// A plain-HTTP site for domain: Caddy gets no certificate for it, so it does not compete
-/// with the panel, and passes only the challenge on.
+/// with the panel, passes the challenge on and sends everything else to HTTPS with a 301.
 pub fn caddy_site(domain: &str, port: u16) -> String {
     format!(
-        "http://{domain} {{\n\thandle /.well-known/acme-challenge/* {{\n\t\treverse_proxy 127.0.0.1:{port}\n\t}}\n\thandle {{\n\t\trespond 404\n\t}}\n}}\n"
+        "http://{domain} {{\n\thandle /.well-known/acme-challenge/* {{\n\t\treverse_proxy 127.0.0.1:{port}\n\t}}\n\thandle {{\n\t\tredir https://{{host}}{{uri}} permanent\n\t}}\n}}\n"
     )
 }
 
@@ -771,8 +815,19 @@ mod tests {
     /// An nginx -T dump of a Debian-like layout under root.
     fn dump(root: &Path, site: &str) -> String {
         let r = root.display();
+        // conf.d/*.conf is one of the includes above, so its files are part of the dump.
+        let mut extra = String::new();
+        let mut names: Vec<_> = fs::read_dir(root.join("conf.d"))
+            .map(|d| d.flatten().filter(|e| e.file_name().to_string_lossy().ends_with(".conf")).map(|e| e.path()).collect())
+            .unwrap_or_default();
+        names.sort();
+        for path in names {
+            if let Ok(text) = fs::read_to_string(&path) {
+                extra.push_str(&format!("# configuration file {}:\n{text}\n", path.display()));
+            }
+        }
         format!(
-            "# configuration file {r}/nginx.conf:\nuser www-data;\nevents {{ worker_connections 768; }}\nhttp {{\n    include mime.types;\n    include {r}/conf.d/*.conf;\n    include {r}/sites-enabled/*;\n}}\n\n# configuration file {r}/mime.types:\ntypes {{ text/html html; }}\n\n# configuration file {r}/sites-enabled/default:\n{site}\n"
+            "# configuration file {r}/nginx.conf:\nuser www-data;\nevents {{ worker_connections 768; }}\nhttp {{\n    include mime.types;\n    include {r}/conf.d/*.conf;\n    include {r}/sites-enabled/*;\n}}\n\n# configuration file {r}/mime.types:\ntypes {{ text/html html; }}\n\n# configuration file {r}/sites-enabled/default:\n{site}\n{extra}"
         )
     }
 
@@ -818,7 +873,9 @@ mod tests {
         assert!(s.contains("server_name vpn.example.com;") && s.contains("listen 80;") && !s.contains("[::]"));
         assert!(s.contains("location /.well-known/acme-challenge/ {\n        proxy_pass http://127.0.0.1:18080;\n"));
         assert!(s.contains("proxy_set_header Host $host;"), "the challenge server checks the Host");
-        assert!(s.contains("return 404;"));
+        // everything that is not a challenge goes on to HTTPS, where the site is
+        assert!(s.contains("return 301 https://$host$request_uri;"));
+        assert!(!s.contains("404"));
         assert!(nginx_server("vpn.example.com", 18080, true).contains("listen [::]:80;"));
         // it reads back as one server for the domain on port 80
         let conf = parse_nginx(&format!("# configuration file /etc/nginx/conf.d/x.conf:\n{s}"));
@@ -855,6 +912,37 @@ mod tests {
         let kept: Vec<_> = fs::read_dir(root.join("conf.d")).unwrap().flatten().map(|e| e.file_name().into_string().unwrap()).collect();
         assert_eq!(kept.len(), 2);
         assert!(kept.iter().any(|n| n.starts_with(".arikan-acme-vpn.example.com.conf.") && n.ends_with(".bak")));
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    // A snippet written before the rename is this installer's, not the admin's: the rule for
+    // the domain goes into a file of its own, and the old file — still answering port 80 for
+    // the domain and passing the challenge to a dead port — is put out of the way.
+    #[test]
+    fn an_old_snippet_of_this_installer_is_ours_and_goes() {
+        assert!(is_our_snippet("arikan-acme-vpn.example.com.conf") && is_our_snippet("mikan-acme-vpn.example.com.conf"));
+        assert!(!is_our_snippet("vpn.example.com.conf") && !is_our_snippet("mikan-site.conf"));
+        let root = layout("nginx-old");
+        let old = root.join("conf.d/mikan-acme-vpn.example.com.conf");
+        fs::write(&old, "# written by mikan 0.5.0\nserver { listen 80; server_name vpn.example.com; location / { return 404; } }\n")
+            .unwrap();
+        let mut run = Fake::default().on("nginx -T", Ok(&dump(&root, DEFAULT_SITE))).on("nginx -t", Ok("")).on("nginx -s reload", Ok(""));
+        let r = nginx(&mut run, "vpn.example.com", 18081, true);
+        let file = root.join("conf.d/arikan-acme-vpn.example.com.conf");
+        assert_eq!(r.added.as_deref(), Some(file.as_path()), "{r:?}");
+        assert!(!old.exists(), "the old snippet still answers the domain");
+        let names: Vec<_> = fs::read_dir(root.join("conf.d")).unwrap().flatten().map(|e| e.file_name().into_string().unwrap()).collect();
+        assert!(names.iter().any(|n| n.starts_with(".mikan-acme-vpn.example.com.conf.") && n.ends_with(".old")), "{names:?}");
+        // The old file is the admin's when its name is the admin's: nothing of theirs is moved.
+        fs::remove_dir_all(&root).unwrap();
+        let root = layout("nginx-admin");
+        let theirs = root.join("conf.d/vpn.example.com.conf");
+        let text = "server {\n    listen 80;\n    server_name vpn.example.com;\n    return 301 https://$host$request_uri;\n}\n";
+        fs::write(&theirs, text).unwrap();
+        let mut run = Fake::default().on("nginx -T", Ok(&dump(&root, DEFAULT_SITE))).on("nginx -t", Ok("")).on("nginx -s reload", Ok(""));
+        let r = nginx(&mut run, "vpn.example.com", 18081, true);
+        assert!(theirs.exists() && fs::read_to_string(&theirs).unwrap() == text, "the admin's file was touched: {r:?}");
+        assert!(r.added.is_none() && r.manual.is_some(), "{r:?}");
         fs::remove_dir_all(&root).unwrap();
     }
 
@@ -938,6 +1026,7 @@ mod tests {
         assert!(text.starts_with(CADDYFILE_TEXT.trim_end()));
         assert!(text.ends_with(&caddy_block("vpn.example.com", 18081)));
         assert!(text.contains("http://vpn.example.com {") && text.contains("reverse_proxy 127.0.0.1:18081"));
+        assert!(text.contains("redir https://{host}{uri} permanent") && !text.contains("respond 404"));
         assert_eq!(
             run.calls,
             [

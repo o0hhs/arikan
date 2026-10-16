@@ -37,7 +37,7 @@ func cascadeState(t *testing.T) nodeapi.DesiredState {
 // the REJECT ones and before WARP's, and only listeners that exist are named.
 func TestCascadeConfig(t *testing.T) {
 	st := cascadeState(t)
-	raw, _, err := buildConfig(st, proto.Cert{CertPath: "/tmp/c.pem", KeyPath: "/tmp/k.pem"}, false)
+	raw, _, err := buildConfig(st, proto.Cert{CertPath: "/tmp/c.pem", KeyPath: "/tmp/k.pem"}, false, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,6 +71,10 @@ func TestCascadeConfig(t *testing.T) {
 	if strings.Join(names, ",") != "WARP,NODE-3" {
 		t.Fatalf("proxies: %v", names)
 	}
+	// The cascade's WARP would start a WireGuard device whose goroutines log through
+	// mihomo's global logger and race with the log level a later test's Start writes;
+	// warpAsSocks5 keeps the proxy (and its name, the rules resolve) without a device.
+	raw = warpAsSocks5(t, raw)
 	parsed, err := executor.ParseWithBytes(raw)
 	if err != nil {
 		t.Fatalf("mihomo refuses the config: %v", err)
@@ -85,12 +89,12 @@ func TestCascadeConfig(t *testing.T) {
 	// Only VLESS relays and NODE-<id> names.
 	bad := cascadeState(t)
 	bad.Exits[0].Proxy = json.RawMessage(`{"type":"socks5","server":"1.2.3.4","port":1}`)
-	if _, _, err := buildConfig(bad, proto.Cert{}, false); err == nil {
+	if _, _, err := buildConfig(bad, proto.Cert{}, false, 0); err == nil {
 		t.Fatal("a non-VLESS exit was accepted")
 	}
 	bad = cascadeState(t)
 	bad.Exits[0].Name = "DIRECT"
-	if _, _, err := buildConfig(bad, proto.Cert{}, false); err == nil {
+	if _, _, err := buildConfig(bad, proto.Cert{}, false, 0); err == nil {
 		t.Fatal("an exit named like a built-in policy was accepted")
 	}
 	if routesKey(cascadeState(t), false) == routesKey(warpState(), false) {
@@ -122,3 +126,111 @@ func TestRelayBypassesAccounting(t *testing.T) {
 }
 
 func mustAddr(s string) netip.Addr { return netip.MustParseAddr(s) }
+
+// byLinkInbound is a listener the outbound tests send through: a VLESS REALITY one, the
+// only kind a node runs without a certificate of its own.
+func byLinkInbound(t *testing.T) nodeapi.Inbound {
+	t.Helper()
+	tmpl := proto.Template{"type": "vless", "reality-config": map[string]any{"dest": "www.microsoft.com:443", "private-key": relayKey,
+		"short-id": []any{"a1b2c3d4"}, "server-names": []any{"www.microsoft.com"}}}
+	if err := proto.Validate(tmpl, proto.Options{}); err != nil {
+		t.Fatal(err)
+	}
+	return nodeapi.Inbound{Name: "in-vless", Port: "8443", Config: tmpl.JSON()}
+}
+
+// An outbound the admin added by link is read by the node itself (mihomo's own parser),
+// whichever protocol it is, and its inbounds are sent through it like through a relay.
+func TestOutboundByLink(t *testing.T) {
+	st := warpState()
+	st.Inbounds = append(st.Inbounds, byLinkInbound(t))
+	st.Exits = []nodeapi.Exit{
+		{Name: nodeapi.OutboundName(7), Link: "vless://11111111-2222-3333-4444-555555555555@198.51.100.30:443?encryption=none&security=tls&sni=example.com&type=ws#Token", Inbounds: []string{"in-vless"}},
+		{Name: nodeapi.OutboundName(8), Link: "ss://YWVzLTI1Ni1nY206c2VjcmV0@198.51.100.31:8388#SS node", Inbounds: []string{"in-missing"}},
+		{Name: nodeapi.OutboundName(9), Link: "trojan://secret@198.51.100.32:443?sni=example.com", Inbounds: []string{"in-gone"}},
+	}
+	raw, rejected, err := buildConfig(st, proto.Cert{}, false, 0)
+	if err != nil {
+		t.Fatalf("a link outbound broke the config: %v", err)
+	}
+	for _, r := range rejected {
+		if nodeapi.IsExitName(r.Name) {
+			t.Fatalf("an outbound was rejected: %+v", r)
+		}
+	}
+	var cfg struct {
+		Proxies []map[string]any `json:"proxies"`
+		Rules   []string         `json:"rules"`
+	}
+	if err := json.Unmarshal(raw, &cfg); err != nil {
+		t.Fatal(err)
+	}
+	found := map[string]map[string]any{}
+	for _, p := range cfg.Proxies {
+		found[p["name"].(string)] = p
+	}
+	if p := found[nodeapi.OutboundName(7)]; p == nil || p["type"] != "vless" || p["server"] != "198.51.100.30" || p["uuid"] != "11111111-2222-3333-4444-555555555555" {
+		t.Fatalf("vless link read as %+v", p)
+	}
+	if p := found[nodeapi.OutboundName(8)]; p == nil || p["type"] != "ss" || p["cipher"] != "aes-256-gcm" || p["server"] != "198.51.100.31" {
+		t.Fatalf("ss link read as %+v", p)
+	}
+	if p := found[nodeapi.OutboundName(9)]; p == nil || p["type"] != "trojan" || p["server"] != "198.51.100.32" {
+		t.Fatalf("trojan link read as %+v", p)
+	}
+	if got := strings.Join(cfg.Rules, "\n"); !strings.Contains(got, "IN-NAME,in-vless,OUT-7") {
+		t.Fatalf("the inbound does not leave through the outbound:\n%s", got)
+	}
+	// Only the listeners that exist are named, whatever the kind of outbound.
+	for _, name := range []string{"in-missing", "in-gone"} {
+		if strings.Contains(strings.Join(cfg.Rules, "\n"), name) {
+			t.Fatalf("a listener that does not exist is named: %s", name)
+		}
+	}
+	raw = warpAsSocks5(t, raw)
+	parsed, err := executor.ParseWithBytes(raw)
+	if err != nil {
+		t.Fatalf("mihomo refuses the config: %v", err)
+	}
+	for _, id := range []int64{7, 8, 9} {
+		if _, ok := parsed.Proxies[nodeapi.OutboundName(id)]; !ok {
+			t.Fatalf("%s not parsed by mihomo", nodeapi.OutboundName(id))
+		}
+	}
+}
+
+// A link that does not read is left out and said so, and the rest of the state arrives: a
+// typo in one link must not hold up users, quotas and the other outbounds.
+func TestBrokenLinkIsRejectedAlone(t *testing.T) {
+	st := warpState()
+	st.Inbounds = append(st.Inbounds, byLinkInbound(t))
+	st.Exits = []nodeapi.Exit{
+		{Name: nodeapi.OutboundName(4), Link: "vless://broken", Inbounds: []string{"in-vless"}},
+		{Name: nodeapi.OutboundName(5), Link: "trojan://secret@198.51.100.32:443", Inbounds: []string{}},
+	}
+	raw, rejected, err := buildConfig(st, proto.Cert{}, false, 0)
+	if err != nil {
+		t.Fatalf("the whole state was refused: %v", err)
+	}
+	var bad []nodeapi.ListenerStatus
+	for _, r := range rejected {
+		if nodeapi.IsExitName(r.Name) {
+			bad = append(bad, r)
+		}
+	}
+	if len(bad) != 1 || bad[0].Name != nodeapi.OutboundName(4) || bad[0].Error == "" {
+		t.Fatalf("rejected = %+v", bad)
+	}
+	raw = warpAsSocks5(t, raw)
+	if _, err := executor.ParseWithBytes(raw); err != nil {
+		t.Fatalf("the rest of the config does not parse: %v", err)
+	}
+	// The broken one is not in the config: its inbound falls through the rules, it is not
+	// sent to a proxy that is not there.
+	if strings.Contains(string(raw), nodeapi.OutboundName(4)) {
+		t.Fatal("the broken outbound reached the config")
+	}
+	if !strings.Contains(string(raw), nodeapi.OutboundName(5)) {
+		t.Fatal("the working outbound was dropped with it")
+	}
+}

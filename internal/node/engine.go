@@ -52,6 +52,9 @@ type Options struct {
 	// ACMEListen is where the panel's HTTP-01 challenges for this node are answered
 	// (acmechallenge.ParseListen); "" is port 80.
 	ACMEListen string
+	// SiteListen is where the node's own page (data/node/www) is served, "off" to serve
+	// none; "" is the default: port 443, and a loopback port when an inbound holds it.
+	SiteListen string
 }
 
 type Engine struct {
@@ -67,6 +70,8 @@ type Engine struct {
 	// Challenge answers the ACME challenges the panel orders for the node's address, on
 	// port 80 while one is pending.
 	Challenge *acmechallenge.Server
+	// Site is the node's own page, started with the first state that carries a certificate.
+	Site *Site
 
 	mu         sync.Mutex // serializes Apply
 	savedShape string     // policyShape of the policies in the state file
@@ -90,6 +95,7 @@ type Engine struct {
 	turn *turnSupervisor
 
 	routes  string             // routesKey of what tunnel's proxies and rules hold now
+	dns     string             // dnsKey of what the resolver and the sniffer hold now
 	probeMu sync.Mutex         // one outbound probe at a time
 	warpMu  sync.Mutex         // the kept results below
 	warpGen int                // moves when a new config drops the kept results
@@ -107,7 +113,14 @@ func routesKey(st nodeapi.DesiredState, allowPrivate bool) string {
 		W *nodeapi.Warp
 		E []nodeapi.Exit
 		R []string
-	}{st.Warp, st.Exits, rules(st, allowPrivate)})
+	}{st.Warp, st.Exits, rules(st, allowPrivate, nil)})
+	return string(raw)
+}
+
+// dnsKey covers the resolver and the sniffer, which are swapped on their own: neither
+// takes part in the proxies-and-rules update.
+func dnsKey(st nodeapi.DesiredState) string {
+	raw, _ := json.Marshal(struct{ D *nodeapi.DNS }{st.DNS})
 	return string(raw)
 }
 
@@ -203,6 +216,11 @@ func Start(o Options) (*Engine, error) {
 		errs:      map[string]string{}, marker: make(chan string, 8), sys: newSysSampler(),
 		Challenge: acmechallenge.New(cmp.Or(o.ACMEListen, acmechallenge.DefaultListen)),
 	}
+	listen := o.SiteListen
+	if listen == "" {
+		listen = SiteDefaultListen
+	}
+	e.Site = newSite(dataDir, listen, log)
 	e.turn = newTurnSupervisor(log)
 	go e.pumpLogs()
 
@@ -213,7 +231,7 @@ func Start(o Options) (*Engine, error) {
 	e.Reg = NewRegistry(cs.Epoch, cs.Seq, o.DeviceRelease, time.Now)
 	e.tun = &Tunnel{inner: tunnel.Tunnel, reg: e.Reg}
 
-	base, _, err := buildConfig(nodeapi.DesiredState{}, proto.Cert{}, o.AllowPrivate)
+	base, _, err := buildConfig(nodeapi.DesiredState{}, proto.Cert{}, o.AllowPrivate, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -268,7 +286,7 @@ func (e *Engine) Apply(st nodeapi.DesiredState) (nodeapi.ApplyResult, error) {
 		}
 	}
 	e.cert = cert
-	raw, rejected, err := buildConfig(st, cert, e.allowPrivate)
+	raw, rejected, err := buildConfig(st, cert, e.allowPrivate, e.sitePort())
 	if err != nil {
 		return nodeapi.ApplyResult{}, &nodeapi.Error{Code: "invalid_state", Message: err.Error()}
 	}
@@ -297,6 +315,12 @@ func (e *Engine) Apply(st nodeapi.DesiredState) (nodeapi.ApplyResult, error) {
 		e.probes = nil
 		e.warpGen++
 		e.warpMu.Unlock()
+	}
+	// The resolver and the sniffer follow the state like the rules do, and are swapped the
+	// same way: only when their own part of the config changed.
+	if key := dnsKey(st); key != e.dns {
+		e.applyDNS(cfg)
+		e.dns = key
 	}
 
 	e.Reg.SetSlots(st.Slots)
@@ -345,6 +369,13 @@ func (e *Engine) Apply(st nodeapi.DesiredState) (nodeapi.ApplyResult, error) {
 	if hasFailures {
 		listener.PatchInboundListeners(failed, e.tun, true)
 	}
+	// The node's own page serves the certificate of this state. It starts after the
+	// listeners: an inbound on 443 is what holds the port, and the page then moves to
+	// loopback. Without a certificate there is nothing to present, so it waits for one.
+	if cert.CertPath != "" {
+		e.Site.SetCert(cert.CertPath, cert.KeyPath)
+		e.Site.Start()
+	}
 	sort.Slice(statuses, func(i, j int) bool { return statuses[i].Name < statuses[j].Name })
 
 	e.applied = st
@@ -368,7 +399,7 @@ func (e *Engine) Validate(req nodeapi.ValidateRequest) error {
 	in := req.Inbound
 	in.Name = "mikan-validate"
 	probe := []nodeapi.Slot{{Name: "validate", UUID: "00000000-0000-4000-8000-000000000000", Secret: "validate"}}
-	l, err := listenerFor(in, probe, cert, proto.Options{SelfStealPort: req.SelfStealPort})
+	l, err := listenerFor(in, probe, cert, proto.Options{SelfStealPort: req.SelfStealPort, SitePort: e.sitePort()})
 	if err != nil {
 		return err
 	}
@@ -389,7 +420,19 @@ func (e *Engine) TargetAllowed(dest string) bool {
 	e.mu.Lock()
 	self := e.applied.SelfStealPort
 	e.mu.Unlock()
-	return self > 0 && (host == "127.0.0.1" || host == "localhost") && port == strconv.Itoa(self)
+	if host != "127.0.0.1" && host != "localhost" {
+		return false
+	}
+	return (self > 0 && port == strconv.Itoa(self)) || (e.sitePort() > 0 && port == strconv.Itoa(e.sitePort()))
+}
+
+// sitePort is where the node's own page answers on loopback, 0 while it does not: the other
+// loopback address a REALITY dest of this node may name.
+func (e *Engine) sitePort() int {
+	if st := e.Site.Status(); st != nil && st.OK {
+		return st.Port
+	}
+	return 0
 }
 
 // quotaSaveEvery is how often a push that changed only the quotas left reaches the disk:
@@ -445,6 +488,7 @@ func (e *Engine) Health() nodeapi.Health {
 	return nodeapi.Health{
 		Version: e.version, Core: "mihomo " + mihomoVersion(), Revision: rev, StartedAt: e.started,
 		Listeners: ls, Conns: e.Reg.ConnCount(), System: e.sys.last(), Update: e.UpdateStatus(), Host: e.host.get(), Time: time.Now(),
+		Site: e.Site.Status(),
 	}
 }
 

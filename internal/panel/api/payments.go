@@ -17,17 +17,19 @@ import (
 )
 
 type PaymentSettingsView struct {
-	Enabled            bool   `json:"enabled" doc:"Продажа подписок: выключено — бот и Mini App ничего не продают, новые счета не создаются, уже открытые засчитываются"`
-	Stars              bool   `json:"stars" doc:"Telegram Stars: нужен только запущенный бот"`
-	AllowNew           bool   `json:"allow_new" doc:"Новые люди могут купить подписку в боте; иначе — только продление"`
-	RenewResetsTraffic bool   `json:"renew_resets_traffic" doc:"Оплаченное продление обнуляет трафик и начинает новый период; иначе только добавляет срок"`
-	TrialTariffID      *int64 `json:"trial_tariff_id" doc:"Тариф пробного периода: один раз на Telegram-аккаунт без подписки и оплат, кнопка в приветствии бота; null — пробного периода нет. Работает и при выключенной продаже"`
-	TrialStars         int64  `json:"trial_stars" doc:"Цена пробного периода в Stars; 0 вместе с trial_rub — бесплатно"`
-	TrialRub           int64  `json:"trial_rub" doc:"Цена пробного периода в копейках; с ценой пробный период покупают один раз в боте и Mini App, нужна включённая продажа"`
-	Trials             int64  `json:"trials" doc:"Сколько пробных подписок выдано"`
-	FreeTariffID       *int64 `json:"free_tariff_id" doc:"Тариф бесплатного тарифа: кнопка в боте и Mini App, снова взять можно, когда прошлая бесплатная подписка аккаунта закончилась; null: бесплатного тарифа нет. Работает и при выключенной продаже"`
-	FreeCondition      string `json:"free_condition" enum:"none,channel" doc:"Условие бесплатного тарифа: none: без условий, channel: подписка на канал бота (Telegram → Меню и тексты)"`
-	FreePlans          int64  `json:"free_plans" doc:"Сколько бесплатных подписок выдано"`
+	Enabled            bool             `json:"enabled" doc:"Продажа подписок: выключено — бот и Mini App ничего не продают, новые счета не создаются, уже открытые засчитываются"`
+	Stars              bool             `json:"stars" doc:"Telegram Stars: нужен только запущенный бот"`
+	AllowNew           bool             `json:"allow_new" doc:"Новые люди могут купить подписку в боте; иначе — только продление"`
+	RenewResetsTraffic bool             `json:"renew_resets_traffic" doc:"Оплаченное продление обнуляет трафик и начинает новый период; иначе только добавляет срок"`
+	TrialTariffID      *int64           `json:"trial_tariff_id" doc:"Тариф пробного периода: один раз на Telegram-аккаунт без подписки и оплат, кнопка в приветствии бота; null — пробного периода нет. Работает и при выключенной продаже"`
+	TrialStars         int64            `json:"trial_stars" doc:"Цена пробного периода в Stars; 0 вместе с trial_rub — бесплатно"`
+	TrialRub           int64            `json:"trial_rub" doc:"Цена пробного периода в копейках; с ценой пробный период покупают один раз в боте и Mini App, нужна включённая продажа"`
+	Trials             int64            `json:"trials" doc:"Сколько пробных подписок выдано"`
+	FreeTariffID       *int64           `json:"free_tariff_id" doc:"Тариф бесплатного тарифа: кнопка в боте и Mini App, снова взять можно, когда прошлая бесплатная подписка аккаунта закончилась; null: бесплатного тарифа нет. Работает и при выключенной продаже"`
+	FreeCondition      string           `json:"free_condition" enum:"none,channel" doc:"Условие бесплатного тарифа: none: без условий, channel: подписка на канал бота (Telegram → Меню и тексты)"`
+	FreePlans          int64            `json:"free_plans" doc:"Сколько бесплатных подписок выдано"`
+	CustomTariffID     *int64           `json:"custom_tariff_id" doc:"Тариф-основа конструктора: покупатель сам собирает трафик, устройства, скорость и срок, цена считается от цены первого срока тарифа и коэффициентов; null — конструктора нет. Тариф может быть скрыт из витрины: в конструкторе он продаётся по частям, а сам тариф — по коду доступа"`
+	Coefficients       CoefficientsView `json:"coefficients" doc:"Коэффициенты конструктора: во сколько раз дороже единица роста по сравнению с ценой самого тарифа (1 — как у тарифа)"`
 	Available          struct {
 		Stars  bool     `json:"stars"`
 		Addons []string `json:"addons" doc:"Адаптеры маркетплейса, которые принимают оплату прямо сейчас"`
@@ -52,6 +54,10 @@ type patchPaymentSettingsInput struct {
 		// condition a channel set up in the bot.
 		FreeTariffID  *int64  `json:"free_tariff_id,omitempty" minimum:"0" doc:"Тариф бесплатного тарифа, нужен срок; 0: выключить"`
 		FreeCondition *string `json:"free_condition,omitempty" enum:"none,channel" doc:"none: без условий; channel: только подписчикам канала бота, канал должен быть указан на странице Telegram"`
+		// The constructor (custom.go): a base tariff with a term, and the multipliers a plan is
+		// priced with. A multiplier is 0.1 to 10 (1: the tariff's own rate).
+		CustomTariffID *int64            `json:"custom_tariff_id,omitempty" minimum:"0" doc:"Тариф-основа конструктора, нужен срок; 0: выключить"`
+		Coefficients   *CoefficientsBody `json:"coefficients,omitempty"`
 	}
 }
 
@@ -130,12 +136,19 @@ func (h *handlers) paymentSettings(ctx context.Context) (PaymentSettingsView, er
 	if v.FreePlans, err = h.d.Store.Q.CountFreePlans(ctx); err != nil {
 		return v, err
 	}
+	if id := c.CustomTariffID; id != 0 {
+		if t, err := h.d.Store.Q.GetTariff(ctx, id); err == nil && t.Archived == 0 {
+			v.CustomTariffID = &t.ID
+		}
+	}
+	k := h.d.Billing.Coefficients(ctx)
+	v.Coefficients.Traffic, v.Coefficients.Devices, v.Coefficients.Speed, v.Coefficients.Duration = k.Traffic, k.Devices, k.Speed, k.Duration
 	av := h.d.Billing.Available(ctx)
 	v.Available.Stars, v.Available.Addons = av.Stars, av.Addons
 	if v.Available.Addons == nil {
 		v.Available.Addons = []string{}
 	}
-	offers, _, err := h.d.Billing.Offers(ctx)
+	offers, _, err := h.d.Billing.Offers(ctx, 0)
 	if err != nil {
 		return v, err
 	}
@@ -180,6 +193,18 @@ func (h *handlers) updatePaymentSettings(ctx context.Context, in *patchPaymentSe
 	}
 	if b.FreeCondition != nil && *b.FreeCondition == "channel" && (h.d.Gateway == nil || h.d.Gateway.ChannelConfig(ctx).Chat == "") {
 		return nil, fieldErr("body.free_condition", "free_no_channel")
+	}
+	if b.CustomTariffID != nil {
+		if id := *b.CustomTariffID; id != 0 {
+			t, err := h.d.Store.Q.GetTariff(ctx, id)
+			if err != nil || t.Archived != 0 {
+				return nil, fieldErr("body.custom_tariff_id", "tariff_not_found")
+			}
+			// A tariff without a term has no price to scale and no end to its terms.
+			if t.DurationDays <= 0 {
+				return nil, fieldErr("body.custom_tariff_id", "custom_no_term")
+			}
+		}
 	}
 	// The trial costs what a tariff may cost (domain.CheckPrices); 0 is no price at all,
 	// and both prices at 0 make it free.
@@ -234,14 +259,21 @@ func (h *handlers) updatePaymentSettings(ctx context.Context, in *patchPaymentSe
 				c.FreeCondition = billing.FreeChannel
 			}
 		}
-		return settings.Set(ctx, set, billing.KeyConfig, c)
+		if b.CustomTariffID != nil {
+			c.CustomTariffID = *b.CustomTariffID
+		}
+		if err := settings.Set(ctx, set, billing.KeyConfig, c); err != nil {
+			return err
+		}
+		return saveCoefficients(ctx, set, b.Coefficients)
 	})
 	if err != nil {
 		return nil, err
 	}
 	h.audit(ctx, sessionOf(ctx).AdminID, "payments.settings", "", "", map[string]any{"enabled": c.Enabled, "stars": c.Stars,
 		"allow_new": c.AllowNew, "renew_resets_traffic": c.RenewResetsTraffic, "trial_tariff_id": c.TrialTariffID,
-		"trial_stars": c.TrialStars, "trial_rub": c.TrialRub, "free_tariff_id": c.FreeTariffID, "free_condition": freeConditionView(c.FreeCondition)})
+		"trial_stars": c.TrialStars, "trial_rub": c.TrialRub, "free_tariff_id": c.FreeTariffID, "free_condition": freeConditionView(c.FreeCondition),
+		"custom_tariff_id": c.CustomTariffID})
 	v, err := h.paymentSettings(ctx)
 	if err != nil {
 		return nil, err

@@ -1682,6 +1682,68 @@
         ],
         "type": "object"
       },
+      "CoefficientsBody": {
+        "additionalProperties": false,
+        "properties": {
+          "devices": {
+            "format": "double",
+            "maximum": 10,
+            "minimum": 0.1,
+            "type": "number"
+          },
+          "duration": {
+            "format": "double",
+            "maximum": 10,
+            "minimum": 0.1,
+            "type": "number"
+          },
+          "speed": {
+            "format": "double",
+            "maximum": 10,
+            "minimum": 0.1,
+            "type": "number"
+          },
+          "traffic": {
+            "format": "double",
+            "maximum": 10,
+            "minimum": 0.1,
+            "type": "number"
+          }
+        },
+        "type": "object"
+      },
+      "CoefficientsView": {
+        "additionalProperties": false,
+        "properties": {
+          "devices": {
+            "description": "Множитель устройств",
+            "format": "double",
+            "type": "number"
+          },
+          "duration": {
+            "description": "Множитель срока",
+            "format": "double",
+            "type": "number"
+          },
+          "speed": {
+            "description": "Множитель скорости",
+            "format": "double",
+            "type": "number"
+          },
+          "traffic": {
+            "description": "Множитель трафика: 1 — гигабайт сверх тарифа стоит как у самого тарифа",
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": [
+          "traffic",
+          "devices",
+          "speed",
+          "duration"
+        ],
+        "type": "object"
+      },
       "Config": {
         "additionalProperties": false,
         "properties": {
@@ -1998,6 +2060,25 @@
         "required": [
           "name",
           "host"
+        ],
+        "type": "object"
+      },
+      "CreateOutboundInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "link": {
+            "description": "Ссылка vless://, vmess://, trojan://, ss://…",
+            "maxLength": 4096,
+            "type": "string"
+          },
+          "name": {
+            "description": "Название; пусто — имя из ссылки",
+            "maxLength": 64,
+            "type": "string"
+          }
+        },
+        "required": [
+          "link"
         ],
         "type": "object"
       },
@@ -2848,13 +2929,19 @@
             "type": "string"
           },
           "outbound": {
-            "description": "Выход в интернет: напрямую с сервера, через WARP ноды или через другую ноду (каскад)",
+            "description": "Выход в интернет: напрямую с сервера, через WARP ноды, через другую ноду (каскад) или через исходящую, добавленную по ссылке",
             "enum": [
               "direct",
               "warp",
-              "node"
+              "node",
+              "link"
             ],
             "type": "string"
+          },
+          "outbound_id": {
+            "description": "Исходящая по ссылке, через которую выходит трафик, если outbound=link",
+            "format": "int64",
+            "type": "integer"
           },
           "pool_id": {
             "description": "Пул трафика, в который считается подключение; нет — основной трафик",
@@ -2968,6 +3055,9 @@
             "type": "string"
           },
           "type": {
+            "type": "string"
+          },
+          "warning": {
             "type": "string"
           }
         },
@@ -3510,6 +3600,10 @@
       "MarketOrigin": {
         "additionalProperties": false,
         "properties": {
+          "builtin": {
+            "description": "Источник, с которым панель выпускается (релизы Arikan): аддон самой панели, подписанный её релизным ключом",
+            "type": "boolean"
+          },
           "id": {
             "format": "int64",
             "type": "integer"
@@ -3525,7 +3619,8 @@
         "required": [
           "id",
           "title",
-          "signed"
+          "signed",
+          "builtin"
         ],
         "type": "object"
       },
@@ -4357,6 +4452,156 @@
         ],
         "type": "object"
       },
+      "OutboundCheck": {
+        "additionalProperties": false,
+        "properties": {
+          "asn": {
+            "description": "Номер автономной системы адреса",
+            "format": "int64",
+            "type": "integer"
+          },
+          "checked_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "code": {
+            "enum": [
+              "not_applied",
+              "unused",
+              "off",
+              "timeout",
+              "refused",
+              "unreachable",
+              "error"
+            ],
+            "type": "string"
+          },
+          "country": {
+            "description": "Страна этого адреса по геобазе",
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          },
+          "flag": {
+            "type": "string"
+          },
+          "ip": {
+            "description": "Адрес, который видят сайты",
+            "type": "string"
+          },
+          "node": {
+            "type": "string"
+          },
+          "node_id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "ok": {
+            "type": "boolean"
+          },
+          "org": {
+            "description": "Чья это сеть",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ok",
+          "checked_at"
+        ],
+        "type": "object"
+      },
+      "OutboundUse": {
+        "additionalProperties": false,
+        "properties": {
+          "inbound": {
+            "type": "string"
+          },
+          "inbound_id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "node": {
+            "description": "Нода, к которой подключён вход",
+            "type": "string"
+          },
+          "node_id": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "inbound_id",
+          "inbound",
+          "node_id",
+          "node"
+        ],
+        "type": "object"
+      },
+      "OutboundView": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "kind": {
+            "description": "Протокол ссылки: vless, vmess, trojan, ss и другие",
+            "type": "string"
+          },
+          "link": {
+            "description": "Ссылка, как она была вставлена",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "uses": {
+            "description": "Входы, чей трафик выходит через эту исходящую",
+            "items": {
+              "$ref": "#/components/schemas/OutboundUse"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "link",
+          "enabled",
+          "created_at",
+          "updated_at",
+          "uses"
+        ],
+        "type": "object"
+      },
+      "OutboundsOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "outbounds": {
+            "items": {
+              "$ref": "#/components/schemas/OutboundView"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "outbounds"
+        ],
+        "type": "object"
+      },
       "OverviewOutputBody": {
         "additionalProperties": false,
         "properties": {
@@ -5124,13 +5369,20 @@
             "type": "string"
           },
           "outbound": {
-            "description": "Выход в интернет: напрямую, через WARP ноды или через другую ноду",
+            "description": "Выход в интернет: напрямую, через WARP ноды, через другую ноду или через исходящую по ссылке",
             "enum": [
               "direct",
               "warp",
-              "node"
+              "node",
+              "link"
             ],
             "type": "string"
+          },
+          "outbound_id": {
+            "description": "Для outbound=link: через какую исходящую",
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
           },
           "pool_id": {
             "description": "Пул трафика; 0 — основной трафик",
@@ -5215,11 +5467,37 @@
         },
         "type": "object"
       },
+      "PatchOutboundInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "link": {
+            "maxLength": 4096,
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 64,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "PatchPaymentSettingsInputBody": {
         "additionalProperties": false,
         "properties": {
           "allow_new": {
             "type": "boolean"
+          },
+          "coefficients": {
+            "$ref": "#/components/schemas/CoefficientsBody"
+          },
+          "custom_tariff_id": {
+            "description": "Тариф-основа конструктора, нужен срок; 0: выключить",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
           },
           "enabled": {
             "type": "boolean"
@@ -5627,6 +5905,18 @@
             "$ref": "#/components/schemas/PaymentSettingsViewAvailableStruct",
             "description": "Что принимает оплату прямо сейчас: включено, настроено, для Stars — бот запущен"
           },
+          "coefficients": {
+            "$ref": "#/components/schemas/CoefficientsView",
+            "description": "Коэффициенты конструктора: во сколько раз дороже единица роста по сравнению с ценой самого тарифа (1 — как у тарифа)"
+          },
+          "custom_tariff_id": {
+            "description": "Тариф-основа конструктора: покупатель сам собирает трафик, устройства, скорость и срок, цена считается от цены первого срока тарифа и коэффициентов; null — конструктора нет. Тариф может быть скрыт из витрины: в конструкторе он продаётся по частям, а сам тариф — по коду доступа",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
           "enabled": {
             "description": "Продажа подписок: выключено — бот и Mini App ничего не продают, новые счета не создаются, уже открытые засчитываются",
             "type": "boolean"
@@ -5701,6 +5991,8 @@
           "free_tariff_id",
           "free_condition",
           "free_plans",
+          "custom_tariff_id",
+          "coefficients",
           "available",
           "on_sale"
         ],
@@ -6109,6 +6401,12 @@
       "PromoBody": {
         "additionalProperties": false,
         "properties": {
+          "access_ttl": {
+            "description": "Для access_paid и access_free: сколько секунд действует доступ, полученный по коду; 0 — бессрочно. Для остальных типов 0",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
           "code": {
             "maxLength": 64,
             "minLength": 1,
@@ -6187,11 +6485,14 @@
             "type": "array"
           },
           "type": {
+            "description": "access_paid: тариф виден и покупается по своему прайсу; access_free: подписка по тарифу выдаётся сразу. tariff_ids должен содержать ровно один тариф",
             "enum": [
               "days",
               "traffic",
               "percent",
-              "fixed"
+              "fixed",
+              "access_paid",
+              "access_free"
             ],
             "type": "string"
           },
@@ -6211,6 +6512,7 @@
           "currency",
           "per_user_limit",
           "discount_ttl",
+          "access_ttl",
           "min_order",
           "max_discount",
           "tariff_ids",
@@ -6223,6 +6525,11 @@
       "PromoCodeView": {
         "additionalProperties": false,
         "properties": {
+          "access_ttl": {
+            "description": "Срок доступа, который даёт код доступа, в секундах; 0 — бессрочно. Для остальных типов 0",
+            "format": "int64",
+            "type": "integer"
+          },
           "code": {
             "type": "string"
           },
@@ -6299,11 +6606,14 @@
             "type": "array"
           },
           "type": {
+            "description": "days и traffic — бонус, percent и fixed — скидка, access_paid и access_free — код доступа к тарифу (tariff_ids: ровно один)",
             "enum": [
               "days",
               "traffic",
               "percent",
-              "fixed"
+              "fixed",
+              "access_paid",
+              "access_free"
             ],
             "type": "string"
           },
@@ -6327,6 +6637,7 @@
           "used_count",
           "per_user_limit",
           "discount_ttl",
+          "access_ttl",
           "min_order",
           "max_discount",
           "tariff_ids",
@@ -7537,6 +7848,10 @@
             "format": "date-time",
             "type": "string"
           },
+          "builtin": {
+            "description": "Источник, с которым панель выпускается (релизы Arikan): его не добавляют и не убирают, ключ — релизный ключ форка",
+            "type": "boolean"
+          },
           "entries": {
             "description": "Сколько записей источник предлагает: сами записи в /marketplace",
             "format": "int64",
@@ -7590,6 +7905,7 @@
           "id",
           "url",
           "title",
+          "builtin",
           "signed",
           "added_at",
           "entries",
@@ -11262,6 +11578,34 @@
         "x-session-only": true
       }
     },
+    "/api/v1/database/backup": {
+      "get": {
+        "operationId": "download-database-backup",
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {}
+            },
+            "description": "Архив pg_dump (custom)"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Скачать резервную копию базы",
+        "tags": [
+          "settings"
+        ],
+        "x-session-only": true
+      }
+    },
     "/api/v1/filters": {
       "get": {
         "operationId": "get-filters",
@@ -13559,6 +13903,210 @@
         "summary": "Зарегистрировать WARP для ноды в Cloudflare",
         "tags": [
           "node"
+        ],
+        "x-session-only": true
+      }
+    },
+    "/api/v1/outbounds": {
+      "get": {
+        "operationId": "list-outbounds",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OutboundsOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Исходящие, добавленные по ссылке",
+        "tags": [
+          "outbounds"
+        ]
+      },
+      "post": {
+        "operationId": "create-outbound",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOutboundInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OutboundView"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Добавить исходящую по ссылке",
+        "tags": [
+          "outbounds"
+        ],
+        "x-session-only": true
+      }
+    },
+    "/api/v1/outbounds/{id}": {
+      "delete": {
+        "operationId": "delete-outbound",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Удалить исходящую",
+        "tags": [
+          "outbounds"
+        ],
+        "x-session-only": true
+      },
+      "patch": {
+        "operationId": "update-outbound",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchOutboundInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OutboundView"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Переименовать, заменить ссылку или выключить исходящую",
+        "tags": [
+          "outbounds"
+        ],
+        "x-session-only": true
+      }
+    },
+    "/api/v1/outbounds/{id}/check": {
+      "post": {
+        "operationId": "check-outbound",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OutboundCheck"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Проверить исходящую: какой адрес видят сайты через неё",
+        "tags": [
+          "outbounds"
         ],
         "x-session-only": true
       }

@@ -42,6 +42,33 @@ type DesiredState struct {
 	// Shaping splits the node's channel evenly between the users moving traffic; nil: off.
 	// Nodes older than it ignore it.
 	Shaping *Shaping `json:"shaping,omitempty"`
+	// DNS is how the node resolves names for the traffic it carries (the panel's Settings →
+	// Routing); nil: the node's own defaults. Nodes older than it ignore the field.
+	DNS *DNS `json:"dns,omitempty"`
+}
+
+// DNS is the panel's Settings → Routing as far as a node follows it: the resolvers it
+// resolves its users' destinations with. The node also reads the site's name off the
+// connection, so domain rules hold for clients that connect by IP, and names resolve on
+// the node, where the client's own DNS cannot be poisoned.
+type DNS struct {
+	// Nameserver resolves what the profile sends through the tunnel; empty: the node's
+	// defaults (Cloudflare and Google over HTTPS).
+	Nameserver []string `json:"nameserver,omitempty"`
+	// Default resolves the nameservers themselves; empty: the node's defaults.
+	Default []string `json:"default_nameserver,omitempty"`
+	// ProxyServer resolves the addresses of the node's own outbounds (a WARP endpoint, the
+	// relay of another node).
+	ProxyServer []string `json:"proxy_server_nameserver,omitempty"`
+	// Policy resolves the names Match covers ("+.cn", "geosite:category-ru") with Servers.
+	Policy []DNSPolicy `json:"policy,omitempty"`
+}
+
+// DNSPolicy is one nameserver-policy entry, as the profiles get it. Entries that need the
+// geodata (geosite:, rule-set:) are left out by the panel: a node has none.
+type DNSPolicy struct {
+	Match   string   `json:"match"`
+	Servers []string `json:"servers"`
 }
 
 // Shaping is the fair share of a node: ChannelMbps (each way) is split evenly between the
@@ -188,6 +215,19 @@ type Health struct {
 	// Time is the node's clock as it answered: the panel holds it against its own and warns
 	// of a skew. Older nodes send none.
 	Time time.Time `json:"time,omitzero"`
+	// Site is the node's own HTTPS page (data/node/www); nil on nodes before it. Its Port is
+	// the loopback port a REALITY dest of this node may name (0 when the page is not on
+	// loopback): the handshake of a client then mirrors a real page on the node's domain.
+	Site *SiteStatus `json:"site,omitempty"`
+}
+
+// SiteStatus is the node's own page as it runs: where it answers, and what went wrong when it
+// does not. Listen is "" while the page is off (MIKAN_SITE_LISTEN=off, or no www directory).
+type SiteStatus struct {
+	Listen string `json:"listen,omitempty"`
+	Port   int    `json:"port,omitempty"`
+	OK     bool   `json:"ok"`
+	Error  string `json:"error,omitempty"`
 }
 
 // HostPorts are the ports something listens on at the node's server: TCP sockets in the
@@ -431,16 +471,29 @@ type Relay struct {
 	Users  []Slot          `json:"users"`  // one per source node
 }
 
-// Exit is another node as an outbound: Proxy is the mihomo proxy reaching its relay,
-// Inbounds the local listeners (RelayListener included) whose traffic goes there.
+// Exit is an outbound the panel names, with the local listeners (RelayListener included)
+// whose traffic goes there. Two kinds, by the name's prefix: NODE-<id> is another node of
+// the panel, whose relay the panel reaches by building the proxy itself (Proxy); OUT-<id>
+// is an outbound the admin added by a share link (Link, read by the node — the link
+// parser lives in mihomo, which only the node carries).
 type Exit struct {
-	Name     string          `json:"name"` // the proxy's name in rules, NODE-<id>
-	Proxy    json.RawMessage `json:"proxy"`
+	Name     string          `json:"name"`
+	Proxy    json.RawMessage `json:"proxy,omitempty"`
+	Link     string          `json:"link,omitempty"`
 	Inbounds []string        `json:"inbounds"`
 }
 
 // ExitName is the proxy name of node id as an exit.
 func ExitName(id int64) string { return "NODE-" + strconv.FormatInt(id, 10) }
+
+// OutboundName is the proxy name of an outbound the admin added by link.
+func OutboundName(id int64) string { return "OUT-" + strconv.FormatInt(id, 10) }
+
+// IsExitName says whether name is a proxy the panel placed: the prefixes above. Anything
+// else in a state is not a proxy of ours and is not dialled.
+func IsExitName(name string) bool {
+	return strings.HasPrefix(name, "NODE-") || strings.HasPrefix(name, "OUT-")
+}
 
 // ProbeResult is the internet as seen through one outbound of the node.
 type ProbeResult = WarpStatus

@@ -29,6 +29,7 @@ import (
 	"mikan/internal/panel/dnscheck"
 	"mikan/internal/panel/domain"
 	"mikan/internal/panel/events"
+	"mikan/internal/panel/geoip"
 	"mikan/internal/panel/infraalerts"
 	"mikan/internal/panel/nodesync"
 	"mikan/internal/panel/nodeupdate"
@@ -188,6 +189,9 @@ func NewPanel(st *store.Store, o Options) (*Panel, error) {
 	if p.Nodes != nil {
 		// A relay made for a new exit keeps off the ports other programs hold on its server.
 		deps.Inbounds.SetHostLookup(p.Nodes.HostPorts)
+		// A REALITY dest may name the node's own page on loopback, as it may name the
+		// panel's HTTPS on the panel's own node.
+		deps.Inbounds.SetSiteLookup(p.Nodes.SitePort)
 	}
 	// A REALITY target given by name is looked up when it is saved: the node dials it past the
 	// rules that fence its users in.
@@ -245,6 +249,11 @@ func NewPanel(st *store.Store, o Options) (*Panel, error) {
 	deps.Pages = addonPages
 	deps.DNS = o.DNS
 	deps.CheckHost = o.CheckHost
+	// Where a node's or an exit's address is: the databases are downloaded into the data
+	// directory on the first check that asks, in the background.
+	if o.DataDir != "" {
+		deps.Geo = geoip.New(filepath.Join(o.DataDir, "geoip"), o.Log)
+	}
 	deps.DataDir = o.DataDir
 	promos := promo.New(st, o.Now)
 	promos.Changed = deps.Users.Changed

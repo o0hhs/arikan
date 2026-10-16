@@ -54,9 +54,10 @@ func (b *Bot) addonName(ctx context.Context) func(id string) string {
 	return func(id string) string { return shop.AddonName(ctx, id, lang) }
 }
 
-// offers lists what the chat can buy; nil without payments.
-func (b *Bot) offers(ctx context.Context) ([]billing.Offer, billing.Available) {
-	o, av, err := b.d.Backend.Shop().Offers(ctx)
+// offers lists what the chat can buy; nil without payments. tgID is the chat's account: a
+// tariff hidden from the shop is offered to it when an access code it redeemed opens it.
+func (b *Bot) offers(ctx context.Context, tgID int64) ([]billing.Offer, billing.Available) {
+	o, av, err := b.d.Backend.Shop().Offers(ctx, tgID)
 	if err != nil {
 		b.d.Log.Warn("telegram: offers", "err", err)
 		return nil, av
@@ -65,11 +66,11 @@ func (b *Bot) offers(ctx context.Context) ([]billing.Offer, billing.Available) {
 }
 
 // canBuyNew: people without a subscription may buy one here.
-func (b *Bot) canBuyNew(ctx context.Context) bool {
+func (b *Bot) canBuyNew(ctx context.Context, tgID int64) bool {
 	if !b.d.Backend.Shop().Config(ctx).AllowNew {
 		return false
 	}
-	o, _ := b.offers(ctx)
+	o, _ := b.offers(ctx, tgID)
 	return len(o) > 0
 }
 
@@ -90,8 +91,8 @@ func (w *words) price(amount int64, currency string) string {
 }
 
 // shopList: the tariffs on sale as buttons; prefix is "t" (renew) or "tn" (new).
-func (b *Bot) shopList(ctx context.Context, w *words, title, prefix, notice string, back []tgate.Button) (string, *tgate.Keyboard) {
-	offers, _ := b.offers(ctx)
+func (b *Bot) shopList(ctx context.Context, w *words, tgID int64, title, prefix, notice string, back []tgate.Button) (string, *tgate.Keyboard) {
+	offers, _ := b.offers(ctx, tgID)
 	lang := b.lang(ctx)
 	lines := []string{"<b>" + html.EscapeString(title) + "</b>", ""}
 	if notice != "" {
@@ -160,9 +161,9 @@ func tariffArg(s string) (id int64, days *int64) {
 // shopTariff: one tariff and a button per way to pay. A tariff sold for several terms
 // shows its terms first, a button each. arg is <id> or <id>.<days>; prefix is the screen's
 // ("tn" new, "t" renew), pay the pay buttons' ("pn", "py").
-func (b *Bot) shopTariff(ctx context.Context, w *words, arg, prefix, pay string, back []tgate.Button) (string, *tgate.Keyboard) {
+func (b *Bot) shopTariff(ctx context.Context, w *words, tgID int64, arg, prefix, pay string, back []tgate.Button) (string, *tgate.Keyboard) {
 	id, days := tariffArg(arg)
-	offers, av := b.offers(ctx)
+	offers, av := b.offers(ctx, tgID)
 	lang := b.lang(ctx)
 	for _, o := range offers {
 		if o.Tariff.ID != id {

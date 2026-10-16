@@ -90,11 +90,97 @@ pub fn allow(rule: &str) -> Result<()> {
     ufw(&["allow", rule])
 }
 
+/// Removes a rule by its spec (`ufw --force delete allow <spec>`). The specs here are always
+/// built from an address and a port, never from anything a container printed.
+pub fn delete_spec(spec: &str) -> Result<()> {
+    let args: Vec<&str> = ["--force", "delete", "allow"].into_iter().chain(spec.split_whitespace()).collect();
+    ufw(&args)
+}
+
 /// A node's API port for its panel's address only.
 pub fn allow_from(ip: std::net::IpAddr, port: u16) -> Result<()> {
-    let ip = ip.to_string();
-    let port = port.to_string();
-    ufw(&["allow", "from", &ip, "to", "any", "port", &port, "proto", "tcp"])
+    let spec = from_rule(ip, port);
+    let args: Vec<&str> = std::iter::once("allow").chain(spec.split_whitespace()).collect();
+    ufw(&args)
+}
+
+/// The rule that lets one address reach a port: what ufw writes and deletes by.
+pub fn from_rule(ip: std::net::IpAddr, port: u16) -> String {
+    format!("from {ip} to any port {port} proto tcp")
+}
+
+/// Who `ufw status` says may reach `port` over TCP: None for a rule that lets everyone in,
+/// the address otherwise. Only the shapes this installer writes are read, `<port>/tcp` and
+/// `allow from <address> to any port <port> proto tcp`; both appear with `<port>/tcp` in the
+/// To column. A rule without a protocol, or a range that merely covers the port, is not
+/// counted: what it lets in beyond the port is the admin's own decision.
+pub fn port_rules(status: &str, port: u16) -> Vec<Option<std::net::IpAddr>> {
+    let spec = format!("{port}/tcp");
+    let mut out = Vec::new();
+    for line in status.lines() {
+        let words: Vec<&str> = line.split_whitespace().collect();
+        let Some(at) = words.iter().position(|w| matches!(*w, "ALLOW" | "LIMIT")) else { continue };
+        if at == 0 || !words[..at].contains(&spec.as_str()) {
+            continue;
+        }
+        let from = words.get(at + 1).copied().unwrap_or("");
+        if from.eq_ignore_ascii_case("anywhere") || from.eq_ignore_ascii_case("any") {
+            out.push(None);
+        } else if let Ok(ip) = from.parse() {
+            out.push(Some(ip));
+        }
+    }
+    out
+}
+
+/// What `ufw` must change to leave a port reachable from `wanted` and nobody else.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct PortPlan {
+    /// Rule specs for `ufw delete allow`.
+    pub delete: Vec<String>,
+    /// Rule specs for `ufw allow`.
+    pub add: Vec<String>,
+}
+
+impl PortPlan {
+    pub fn nothing(&self) -> bool {
+        self.delete.is_empty() && self.add.is_empty()
+    }
+}
+
+/// The plan that puts `port` behind `wanted`: every wanted address that is not allowed yet
+/// comes, and every other rule for the port goes (the rule for everyone first). An address
+/// in both lists at once: it stays or is added, and whatever else was there goes.
+pub fn port_plan(status: &str, port: u16, wanted: &[std::net::IpAddr]) -> PortPlan {
+    let have = port_rules(status, port);
+    let mut plan = PortPlan::default();
+    for ip in wanted {
+        if !have.contains(&Some(*ip)) {
+            plan.add.push(from_rule(*ip, port));
+        }
+    }
+    for rule in &have {
+        match rule {
+            None => plan.delete.push(format!("{port}/tcp")),
+            Some(ip) if !wanted.contains(ip) => plan.delete.push(from_rule(*ip, port)),
+            _ => {}
+        }
+    }
+    plan
+}
+
+/// Runs a plan. What is added goes first: the scoped rules are in place before the one for
+/// everyone goes, so the change itself never cuts anybody off — and running the same plan
+/// twice changes nothing (adding a rule ufw has, or deleting one it does not, is no error).
+pub fn apply_plan(plan: &PortPlan) -> Result<()> {
+    for spec in &plan.add {
+        let args: Vec<&str> = std::iter::once("allow").chain(spec.split_whitespace()).collect();
+        ufw(&args)?;
+    }
+    for spec in &plan.delete {
+        delete_spec(spec)?;
+    }
+    Ok(())
 }
 
 fn ufw(args: &[&str]) -> Result<()> {
@@ -592,5 +678,69 @@ mod tests {
         let u = update_rules();
         assert_eq!(u[0], "80/tcp");
         assert!(u.contains(&"12443/udp".to_string()) && u.iter().all(|r| valid_rule(r)));
+    }
+
+    /// The rows `ufw status` prints, as a node's server has them.
+    const STATUS: &str = "Status: active
+
+To                         Action      From
+--                         ------      ----
+25305/tcp                  ALLOW       203.0.113.7
+25305/tcp                  ALLOW       Anywhere
+20000:20100/udp            ALLOW       Anywhere
+80/tcp                     ALLOW       Anywhere
+25305/tcp                  ALLOW       2001:db8::1
+443/tcp                    DENY        Anywhere
+80/tcp (v6)                ALLOW       Anywhere (v6)
+22/tcp                     LIMIT       198.51.100.9
+";
+
+    // Who may reach a port is read from the text, the wide rule included: it is exactly what
+    // must be noticed and replaced.
+    #[test]
+    fn who_may_reach_a_port() {
+        let ip = |s: &str| s.parse().unwrap();
+        assert_eq!(port_rules(STATUS, 25305), vec![Some(ip("203.0.113.7")), None, Some(ip("2001:db8::1"))]);
+        assert_eq!(port_rules(STATUS, 80), vec![None, None]); // the v4 row and the v6 one
+        assert_eq!(port_rules(STATUS, 20000), Vec::new()); // a range is not this port
+        assert_eq!(port_rules(STATUS, 443), Vec::new()); // a DENY rule lets nobody in
+        assert_eq!(port_rules(STATUS, 22), vec![Some(ip("198.51.100.9"))]);
+        assert_eq!(port_rules("Status: inactive\n", 25305), Vec::new());
+    }
+
+    // The plan that puts the API port behind the panel: the address it already allows stays,
+    // the wide rule goes, a wanted address that is missing comes, and a stale one goes.
+    #[test]
+    fn the_plan_keeping_a_port_for_the_panel() {
+        let ip = |s: &str| s.parse().unwrap();
+        let plan = port_plan(STATUS, 25305, &[ip("203.0.113.7"), ip("2001:db8::1")]);
+        assert_eq!(plan, PortPlan { add: vec![], delete: vec!["25305/tcp".into()] });
+
+        let plan = port_plan(STATUS, 25305, &[ip("203.0.113.7"), ip("203.0.113.8")]);
+        assert_eq!(
+            plan,
+            PortPlan {
+                add: vec!["from 203.0.113.8 to any port 25305 proto tcp".into()],
+                delete: vec!["25305/tcp".into(), "from 2001:db8::1 to any port 25305 proto tcp".into()],
+            }
+        );
+
+        // Nothing to do when the port already is exactly what is wanted.
+        let only_from = "To                         Action      From\n25305/tcp                  ALLOW       203.0.113.7\n";
+        assert!(port_plan(only_from, 25305, &[ip("203.0.113.7")]).nothing());
+
+        // A port with no rule at all: the addresses come, nothing goes.
+        let plan = port_plan("Status: active\n", 25305, &[ip("203.0.113.7")]);
+        assert_eq!(plan.add, vec!["from 203.0.113.7 to any port 25305 proto tcp".to_string()]);
+        assert!(plan.delete.is_empty());
+
+        // Nobody wanted: every rule for the port goes (how the cli closes it).
+        let plan = port_plan(STATUS, 25305, &[]);
+        assert!(plan.add.is_empty());
+        assert_eq!(plan.delete.len(), 3);
+        assert!(
+            plan.delete.contains(&"25305/tcp".to_string())
+                && plan.delete.contains(&"from 203.0.113.7 to any port 25305 proto tcp".to_string())
+        );
     }
 }

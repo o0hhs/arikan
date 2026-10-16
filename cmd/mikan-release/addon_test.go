@@ -3,7 +3,9 @@ package main
 import (
 	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"os"
 	"path/filepath"
 	"strings"
@@ -103,6 +105,64 @@ func TestAddonFile(t *testing.T) {
 		kept.Kind != addons.KindBot || kept.Mode != addons.ModeClient || kept.MinPanel != e.MinPanel {
 		t.Fatalf("kept: %+v", kept)
 	}
+}
+
+// The file the release signs: the panel's own source (addons.BuiltinSourceURL) pins the
+// release key, so the .sig must verify with it — and with nothing else.
+func TestAddonFileSigned(t *testing.T) {
+	dir := t.TempDir()
+	const digest = "sha256:" + "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+	key := keypair(t)
+	t.Setenv("RELEASE_SIGNING_KEY", key.pem)
+	if err := makeAddon([]string{"-version", "0.5.1.4", "-image", "ghcr.io/o0hhs/arikan", "-digest", digest, "-sign", "-out", dir}); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, addonFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sig, err := os.ReadFile(filepath.Join(dir, addonFile+".sig"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := release.Verify(data, strings.TrimSpace(string(sig)), key.pub); err != nil {
+		t.Fatalf("the release key must verify it: %v", err)
+	}
+	if err := release.Verify(data, strings.TrimSpace(string(sig)), keypair(t).pub); err == nil {
+		t.Fatal("another key must not")
+	}
+	// Without the flag nothing is signed; without a key the flag is an error, not a file that
+	// the panel would refuse in silence.
+	plain := t.TempDir()
+	if err := makeAddon([]string{"-version", "0.5.1.4", "-image", "ghcr.io/o0hhs/arikan", "-digest", digest, "-out", plain}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(plain, addonFile+".sig")); !os.IsNotExist(err) {
+		t.Fatalf("signed without being asked: %v", err)
+	}
+	t.Setenv("RELEASE_SIGNING_KEY", "")
+	if err := makeAddon([]string{"-version", "0.5.1.4", "-image", "ghcr.io/o0hhs/arikan", "-digest", digest, "-sign", "-out", t.TempDir()}); err == nil {
+		t.Fatal("signing without a key is an error")
+	}
+}
+
+// keypair is an Ed25519 key and its PEM, as RELEASE_SIGNING_KEY carries one.
+type testKey struct {
+	pub ed25519.PublicKey
+	pem string
+}
+
+func keypair(t *testing.T) testKey {
+	t.Helper()
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	der, err := x509.MarshalPKCS8PrivateKey(priv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return testKey{pub: pub, pem: string(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der}))}
 }
 
 // What the command refuses: a version, an image or a digest the panel would not take.

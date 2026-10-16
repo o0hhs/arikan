@@ -14,6 +14,7 @@ mod host;
 mod lock;
 mod net;
 mod ops;
+mod paneladdr;
 mod panelfs;
 mod release;
 mod setup;

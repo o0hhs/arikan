@@ -3,12 +3,12 @@
 //! local ones, so that the whole run stays short.
 
 use std::io::Read;
-use std::net::ToSocketAddrs;
+use std::net::{IpAddr, ToSocketAddrs};
 use std::path::Path;
 use std::process::{Command, Stdio};
 use std::sync::mpsc;
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime};
 
 use anyhow::{Result, bail};
 use serde::Deserialize;
@@ -17,7 +17,7 @@ use crate::docker::{self, Service};
 use crate::ops::Install;
 use crate::setup::mark;
 use crate::system::{self, Level, Proto};
-use crate::{DIR, acme, addon, clock, hello, net};
+use crate::{DIR, acme, addon, clock, hello, host, net};
 
 /// How long one request to the outside may take.
 const NET_TIMEOUT: Duration = Duration::from_secs(8);
@@ -116,6 +116,11 @@ pub fn run() -> Result<()> {
         report.add(containers(docker::services().map_err(|e| format!("{e:#}"))));
     }
     report.add(ports(&install, engine.is_some()));
+    if install.node
+        && let Some(item) = site_item()
+    {
+        report.add([item]);
+    }
     report.add([port80_item(system::port_owner(80, Proto::Tcp).as_deref(), install.env.get("MIKAN_ACME_LISTEN"))]);
     report.add(firewall(&install));
 
@@ -143,6 +148,43 @@ pub fn run() -> Result<()> {
         (e, _) => bail!("{e} problem{} found", if e == 1 { "" } else { "s" }),
     }
     Ok(())
+}
+
+/// What the node wrote about its own page into data/node/site.json (internal/node/site.go).
+#[derive(Deserialize, Default, Debug)]
+struct SiteState {
+    #[serde(default)]
+    listen: String,
+    #[serde(default)]
+    port: u16,
+    #[serde(default)]
+    ok: bool,
+    #[serde(default)]
+    error: String,
+}
+
+/// The node's own page (data/node/www over https): the node writes where it answers — or why
+/// it does not — into data/node/site.json, as the first contact with the panel goes into
+/// hello.json. A node that has not started one says nothing.
+fn site_item() -> Option<Item> {
+    let dir = crate::panelfs::Dir::open(Path::new(DIR), "data/node", false).ok()??;
+    let raw = dir.read("site.json", 4 << 10).ok()??;
+    let site: SiteState = serde_json::from_slice(&raw).ok()?;
+    Some(site_lines(&site))
+}
+
+/// What the admin reads about the page.
+fn site_lines(site: &SiteState) -> Item {
+    if site.ok {
+        let dest = if site.port > 0 { format!(", a REALITY dest may name 127.0.0.1:{}", site.port) } else { String::new() };
+        Item::ok("Page", format!("https://{}{}", site.listen, dest))
+    } else {
+        Item::warn(
+            "Page",
+            format!("the node's own page does not run: {}", site.error),
+            "free the port, or set MIKAN_SITE_LISTEN in .env (off serves none)",
+        )
+    }
 }
 
 fn docker_item(version: Option<&str>) -> Item {
@@ -467,11 +509,66 @@ fn firewall(install: &Install) -> Vec<Item> {
         .and_then(|raw| serde_json::from_slice(&raw).ok());
     let panel = (!install.node).then(|| install.env.get("PANEL_PORT").and_then(|p| p.parse().ok())).flatten();
     let mut items = firewall_items(&status, &wants(install.node_port(), panel, state.as_ref()));
+    if let Some(port) = install.node_port() {
+        let seen = crate::paneladdr::current();
+        let addrs = seen.as_ref().map(crate::paneladdr::Seen::addrs).unwrap_or_default();
+        items.extend(api_port_items(
+            &status,
+            port,
+            &addrs,
+            seen.as_ref().and_then(crate::paneladdr::Seen::last),
+            &install.panel_ips(),
+            clock::unix(SystemTime::now()),
+        ));
+    }
     if !install.node {
         let bridge = addon::load_state().map(|s| s.panel_api_bridge).unwrap_or_default();
         items.extend(addons_item(&status, &bridge));
     }
     items
+}
+
+/// How fresh a panel connection must be to tell the panel's address by it: the panel asks the
+/// node for its health every few seconds.
+const SEEN_FRESH: i64 = 15 * 60;
+
+/// What to say about a node's API port: it belongs to the panel alone, and the panel is only
+/// where the node last saw it. A rule for everyone is what a scanner finds; a rule for an
+/// address the panel no longer comes from is a port the panel cannot reach at all, and only
+/// the console can open it again.
+fn api_port_items(status: &str, port: u16, seen: &[IpAddr], last: Option<i64>, scoped: &[IpAddr], now: i64) -> Vec<Item> {
+    const LABEL: &str = "Firewall (ufw)";
+    let rules = host::port_rules(status, port);
+    if rules.is_empty() {
+        // Nothing to do with the port at all: the check for the port being open speaks.
+        return Vec::new();
+    }
+    let fix = |ips: &[IpAddr]| crate::paneladdr::fix_commands(port, ips).join("; ");
+    if rules.iter().any(Option::is_none) {
+        return vec![Item::warn(LABEL, format!("the node's API port {port} is open to everyone"), fix(seen))];
+    }
+    let from: Vec<IpAddr> = rules.iter().flatten().copied().collect();
+    let list = |ips: &[IpAddr]| ips.iter().map(ToString::to_string).collect::<Vec<_>>().join(", ");
+    let fresh = last.is_some_and(|t| now - t <= SEEN_FRESH);
+    if fresh && !seen.is_empty() && !from.iter().any(|ip| seen.contains(ip)) {
+        return vec![Item::warn(
+            LABEL,
+            format!("the node's API port {port} is open for {}, but the panel connects from {}", list(&from), list(seen)),
+            fix(seen),
+        )];
+    }
+    if last.is_some_and(|t| now - t > SEEN_FRESH) && !scoped.is_empty() {
+        return vec![Item::warn(
+            LABEL,
+            format!(
+                "the panel has not reached this node since {} (the rule is for {}): if it cannot, open port {port} from the console and it settles by itself on the next update",
+                clock::Utc::from_unix(last.unwrap_or(0)).stamp(),
+                list(&from)
+            ),
+            format!("ufw allow {port}/tcp"),
+        )];
+    }
+    Vec::new()
 }
 
 /// Custom addons call the panel at the bridge's gateway, which ufw's default `deny incoming`
@@ -737,6 +834,62 @@ Anywhere                   ALLOW       10.0.0.0/8
         assert_eq!((items[1].level, items[1].fix.as_deref()), (Level::Warn, Some("ufw allow 2053")));
         assert_eq!(items[0].lines()[1], "    fix: ufw allow 31235/tcp");
         assert_eq!(firewall_items("Status: active\n", &[]).len(), 1);
+    }
+
+    // The node's API port: a rule for everyone, or one for an address the panel left, is
+    // reported with the command that puts it right.
+    // The node's page: where it answers (and the loopback port a REALITY dest may name), or
+    // why it does not.
+    #[test]
+    fn the_nodes_page_is_reported() {
+        let raw = r#"{"listen":"0.0.0.0:443","port":0,"ok":true}"#;
+        let site: SiteState = serde_json::from_str(raw).unwrap();
+        let item = site_lines(&site);
+        assert_eq!((item.level, item.detail.as_str()), (Level::Ok, "https://0.0.0.0:443"));
+
+        let raw = r#"{"listen":"127.0.0.1:18443","port":18443,"ok":true}"#;
+        let item = site_lines(&serde_json::from_str(raw).unwrap());
+        assert!(item.detail.contains("a REALITY dest may name 127.0.0.1:18443"), "{}", item.detail);
+
+        let raw = r#"{"listen":":443","ok":false,"error":"listen tcp :443: bind: address already in use"}"#;
+        let item = site_lines(&serde_json::from_str(raw).unwrap());
+        assert_eq!(item.level, Level::Warn);
+        assert!(item.detail.contains("address already in use"), "{}", item.detail);
+        assert!(item.fix.as_deref().unwrap_or("").contains("MIKAN_SITE_LISTEN"));
+        // Every field but the error has a default: an older or a damaged file still reads.
+        let item = site_lines(&serde_json::from_str("{}").unwrap());
+        assert_eq!(item.level, Level::Warn);
+    }
+
+    #[test]
+    fn the_node_api_port_is_reported_when_it_is_not_the_panels_alone() {
+        let ip = |s: &str| s.parse().unwrap();
+        let panel = ip("203.0.113.7");
+        let scoped = "Status: active\n\n25305/tcp ALLOW 203.0.113.7\n80/tcp ALLOW Anywhere\n";
+        let now = 1_800_000_000;
+
+        // Right as it should be: the panel's address, seen a minute ago.
+        assert!(api_port_items(scoped, 25305, &[panel], Some(now - 60), &[panel], now).is_empty());
+        // The panel also comes from IPv6 now, and the rule has the v4 address: still fine.
+        assert!(api_port_items(scoped, 25305, &[panel, ip("2001:db8::1")], Some(now - 60), &[panel], now).is_empty());
+        // Open to everyone.
+        let open = "Status: active\n\n25305/tcp ALLOW Anywhere\n";
+        let items = api_port_items(open, 25305, &[panel], Some(now - 60), &[], now);
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].level, Level::Warn);
+        assert!(items[0].detail.contains("open to everyone"), "{}", items[0].detail);
+        assert_eq!(items[0].fix.as_deref(), Some("ufw delete allow 25305/tcp; ufw allow from 203.0.113.7 to any port 25305 proto tcp"));
+        // The rule is for an address the panel left.
+        let items = api_port_items(scoped, 25305, &[ip("198.51.100.9")], Some(now - 60), &[panel], now);
+        assert_eq!(items.len(), 1);
+        assert!(items[0].detail.contains("the panel connects from 198.51.100.9"), "{}", items[0].detail);
+        // The panel has not been seen for an hour: the node may be out of its reach.
+        let items = api_port_items(scoped, 25305, &[panel], Some(now - 3600), &[panel], now);
+        assert_eq!(items.len(), 1);
+        assert!(items[0].detail.contains("has not reached this node"), "{}", items[0].detail);
+        assert_eq!(items[0].fix.as_deref(), Some("ufw allow 25305/tcp"));
+        // No rule at all for the port: the check for missing rules speaks, not this one.
+        assert!(api_port_items("Status: active\n\n80/tcp ALLOW Anywhere\n", 25305, &[panel], None, &[], now).is_empty());
     }
 
     #[test]

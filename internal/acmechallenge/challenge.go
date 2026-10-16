@@ -123,6 +123,9 @@ type Server struct {
 	listen func(network, addr string) (net.Listener, error)
 	// holder names the program on a port, "" when it cannot be told.
 	holder func(port int) string
+	// redirect: the port is held all the time and answers everything that is not a challenge
+	// with a 301 to HTTPS (SetRedirect). Off, it is taken only while a token is pending.
+	redirect bool
 
 	mu     sync.Mutex
 	tokens map[string]entry
@@ -138,6 +141,29 @@ func New(addr string) *Server {
 
 // Addr is where challenges are answered.
 func (s *Server) Addr() string { return s.addr }
+
+// SetRedirect makes the server answer every request that is not a challenge with a 301 to
+// https://<host><path>: a browser reaching this server over http is sent to the site on
+// HTTPS, and the certificate authority's HTTP-01 check still passes, since it follows
+// redirects. Off, as a panel leaves it, the port is free for a web server of the admin's
+// while no challenge is pending. Start takes the port before any is.
+func (s *Server) SetRedirect(on bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.redirect = on
+}
+
+// Start takes the port now, whatever is pending: a server that redirects holds it from here
+// on. A *BusyError when another program holds the address; the server is then as before, and
+// Present/CleanUp still work while a challenge is pending.
+func (s *Server) Start() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.srv != nil {
+		return nil
+	}
+	return s.start()
+}
 
 // Present answers token with keyAuth until CleanUp or TTL; the port is taken now if it is
 // not yet. A *BusyError when another program holds it.
@@ -187,7 +213,9 @@ func (s *Server) Bound() string {
 	return s.ln.Addr().String()
 }
 
-// expire drops the tokens past their time and stops the server without any. Under s.mu.
+// expire drops the tokens past their time and stops the server without any. Under s.mu. A
+// server that redirects keeps the port: it answers the next challenge and sends everything
+// else to HTTPS, so there is nobody to give it back to.
 func (s *Server) expire() {
 	now := s.now()
 	for t, e := range s.tokens {
@@ -195,17 +223,24 @@ func (s *Server) expire() {
 			delete(s.tokens, t)
 		}
 	}
-	if len(s.tokens) == 0 && s.srv != nil {
-		srv := s.srv
-		s.srv, s.ln = nil, nil
-		if s.timer != nil {
-			s.timer.Stop()
-			s.timer = nil
-		}
-		// Close, not Shutdown: a CA's request in flight is over by now, and the port must be
-		// free when this returns.
-		_ = srv.Close()
+	if len(s.tokens) == 0 && !s.redirect {
+		s.stop()
 	}
+}
+
+// stop closes the server and puts the listener down: the port is free when this returns.
+// Close, not Shutdown: a CA's request in flight is over by now. Under s.mu.
+func (s *Server) stop() {
+	if s.srv == nil {
+		return
+	}
+	srv := s.srv
+	s.srv, s.ln = nil, nil
+	if s.timer != nil {
+		s.timer.Stop()
+		s.timer = nil
+	}
+	_ = srv.Close()
 }
 
 // schedule wakes expire when the earliest token runs out. Under s.mu.
@@ -254,28 +289,49 @@ func (s *Server) start() error {
 
 func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 	token, ok := strings.CutPrefix(r.URL.Path, Prefix)
-	if !ok || (r.Method != http.MethodGet && r.Method != http.MethodHead) {
-		http.NotFound(w, r)
-		return
-	}
 	s.mu.Lock()
-	e, found := s.tokens[token]
+	redirect := s.redirect
+	var e entry
+	found := false
+	if ok {
+		e, found = s.tokens[token]
+	}
 	live := found && s.now().Before(e.expires)
 	s.mu.Unlock()
-	if !live {
-		http.NotFound(w, r)
+	if live && (r.Method == http.MethodGet || r.Method == http.MethodHead) {
+		w.Header().Set("Content-Type", "text/plain")
+		_, _ = w.Write([]byte(e.keyAuth))
 		return
 	}
-	w.Header().Set("Content-Type", "text/plain")
-	_, _ = w.Write([]byte(e.keyAuth))
+	// Everything that is not a challenge goes on to HTTPS. No host to send anybody to (an
+	// HTTP/1.0 request without Host): nothing to answer with but the 404.
+	if redirect && r.Host != "" {
+		http.Redirect(w, r, httpsURL(r.Host, r.URL.RequestURI()), http.StatusMovedPermanently)
+		return
+	}
+	http.NotFound(w, r)
 }
 
-// Close gives the port back and forgets every token.
+// httpsURL is where a request over http goes: the same host and path over https. The port of
+// the request (80, or none at all) is left out: https has its own.
+func httpsURL(host, uri string) string {
+	if h, port, err := net.SplitHostPort(host); err == nil {
+		if port == "80" {
+			host = h
+			if strings.Contains(h, ":") {
+				host = "[" + h + "]" // an IPv6 address needs its brackets back
+			}
+		}
+	}
+	return "https://" + host + uri
+}
+
+// Close gives the port back and forgets every token, redirect or not.
 func (s *Server) Close() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	clear(s.tokens)
-	s.expire()
+	s.stop()
 }
 
 // Fetch asks url for the key authorization as a CA would: a plain GET, redirects followed

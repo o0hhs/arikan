@@ -22,6 +22,16 @@ type Params = Record<string, string>;
 /** What the buttons of a fix do; a fix without its action shows only its words. */
 export type FixActions = { rekey?: () => void; update?: () => void; edit?: () => void };
 
+/** Where an address is: the country with its flag, and the network with its owner. The
+ * panel's check fills these from its geo databases (a link to this feature's brief: an
+ * exit named for one country may leave through another). */
+function geoOf(it: { params?: Params | null }): string {
+  const p = it.params ?? {};
+  const country = [p.flag, p.country].filter(Boolean).join(" ");
+  const as = p.asn ? `AS${p.asn}${p.org ? ` ${p.org}` : ""}` : "";
+  return [country, as].filter(Boolean).join(" · ");
+}
+
 /** The link failures after the port opened: something answered on it, the node or not. */
 const ANSWER_CODES = ["pin_mismatch", "tls", "http_status"];
 
@@ -70,7 +80,10 @@ function codeText(code: string | undefined | null, params?: Params | null): stri
 
 function itemText(it: Item): { title: string; text: string } {
   const p = factsOf(it);
-  const title = tMaybe(`nodeCheck.id.${it.id}`, p) ?? it.id;
+  // An outbound the admin added by link is reported like a rejected listener when its
+  // link does not read: it says so under its own name.
+  const outbound = it.id === "listener" && p.name?.startsWith("OUT-") ? tMaybe("nodeCheck.id.outbound", p) : undefined;
+  const title = outbound ?? tMaybe(`nodeCheck.id.${it.id}`, p) ?? it.id;
   const text =
     (it.code && tMaybe(`nodeCheck.text.${it.id}.${it.code}`, p)) || tMaybe(`nodeCheck.text.${it.id}.${it.status}`, p) || (it.code && tMaybe(`nodeCheck.code.${it.code}`, p)) || "";
   return { title, text };
@@ -183,12 +196,14 @@ function CheckList({ items, actions, panelServer }: { items: Item[]; actions?: F
       <ul className="row-list">
         {sorted.map(({ it, i }) => {
           const { title, text } = itemText(it);
+          const geo = geoOf(it);
           return (
             <li key={i} className="flex gap-3 py-3">
               <StatusMark status={it.status} />
               <div className="min-w-0 flex-1">
                 <div className="text-[13px] font-semibold text-[var(--md-on-surface)]">{title}</div>
                 {text ? <p className="mt-1 text-[13px] text-[var(--md-on-surface-variant)]">{text}</p> : null}
+                {geo ? <p className="mt-1 text-xs text-[var(--md-on-surface-variant)]">{geo}</p> : null}
                 {it.status === "fail" || it.status === "warn" ? <Fix fix={it.fix} params={it.params} actions={actions} panelServer={panelServer} /> : null}
                 {it.status !== "ok" ? <Details text={it.detail} /> : null}
               </div>

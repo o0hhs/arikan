@@ -11,6 +11,7 @@ import (
 	"mikan/internal/panel/filters"
 	"mikan/internal/panel/settings"
 	"mikan/internal/panel/store/db"
+	"mikan/internal/panel/subs"
 	"mikan/internal/panel/torrent"
 )
 
@@ -32,6 +33,7 @@ type snapshot struct {
 	torrent  torrent.Config
 	bans     map[int64]int64 // user → when the torrent blocker's ban ends (unix)
 	filters  filters.Config
+	routes   subs.Routes
 }
 
 type counterPos struct {
@@ -90,6 +92,9 @@ func (m *Manager) readSnapshot(ctx context.Context) (s *snapshot, err error) {
 		return nil, err
 	}
 	if s.filters, err = filters.Load(ctx, settings.New(q)); err != nil {
+		return nil, err
+	}
+	if s.routes, _, err = settings.Get[subs.Routes](ctx, settings.New(q), settings.KeyRoutes); err != nil {
 		return nil, err
 	}
 	if s.torrent.Enabled {

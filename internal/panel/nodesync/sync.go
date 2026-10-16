@@ -147,6 +147,15 @@ func signal(ch chan struct{}) {
 
 func (s *Syncer) Health() HealthView { return *s.health.Load() }
 
+// sitePort is where the node's own page answers on loopback, 0 while it does not or has not
+// said: a REALITY dest of this node may name it (internal/node/site.go).
+func (s *Syncer) sitePort() int {
+	if site := s.health.Load().Health.Site; site != nil && site.OK {
+		return site.Port
+	}
+	return 0
+}
+
 // Online returns the node's live connection view keyed by slot name.
 func (s *Syncer) Online() map[string]nodeapi.Online { return *s.online.Load() }
 
@@ -250,7 +259,7 @@ func (s *Syncer) desiredPin(ctx context.Context) (st nodeapi.DesiredState, pin s
 		// others, the new users and the policies still reach the node.
 		t, err := proto.Parse(in.Config)
 		if err == nil {
-			err = proto.Validate(t, proto.Options{SelfStealPort: st.SelfStealPort})
+			err = proto.Validate(t, proto.Options{SelfStealPort: st.SelfStealPort, SitePort: s.sitePort()})
 		}
 		if err != nil {
 			bad = append(bad, in.Name+": "+err.Error())
@@ -271,6 +280,7 @@ func (s *Syncer) desiredPin(ctx context.Context) (st nodeapi.DesiredState, pin s
 	}
 	st.Torrent = snap.torrent.Block()
 	st.Filters = snap.filters.State()
+	st.DNS = dnsOf(snap.routes)
 	if n.FairShare != 0 && n.ChannelMbps.Valid {
 		st.Shaping = &nodeapi.Shaping{ChannelMbps: int(n.ChannelMbps.Int64)}
 	}
@@ -828,7 +838,8 @@ func stateKey(st nodeapi.DesiredState) string {
 		F *nodeapi.Filters
 		V *nodeapi.Turn
 		H *nodeapi.Shaping
-	}{st.Inbounds, st.Slots, st.TLS, st.SelfStealPort, st.Warp, st.Relay, st.Exits, st.Torrent, st.Filters, st.Turn, st.Shaping})
+		D *nodeapi.DNS
+	}{st.Inbounds, st.Slots, st.TLS, st.SelfStealPort, st.Warp, st.Relay, st.Exits, st.Torrent, st.Filters, st.Turn, st.Shaping, st.DNS})
 	sum := sha256.Sum256(raw)
 	return hex.EncodeToString(sum[:])
 }
@@ -923,35 +934,80 @@ func (s *Syncer) cascade(ctx context.Context, n db.Node, inbounds []db.Inbound) 
 			}
 		}
 	}
-	// Which listeners go to which exit, in the order exits first appear.
-	routes := map[int64][]string{}
-	var order []int64
-	add := func(exit int64, name string) {
-		if _, ok := routes[exit]; !ok {
-			order = append(order, exit)
+	// Which listeners leave through which outbound, in the order they first appear. Two
+	// kinds share the list: another node of the panel, reached by its relay, and a server
+	// the admin added by a share link.
+	var hops []hop
+	find := func(node, outbound int64) *hop {
+		for i := range hops {
+			if hops[i].node == node && hops[i].outbound == outbound {
+				return &hops[i]
+			}
 		}
-		routes[exit] = append(routes[exit], name)
+		hops = append(hops, hop{node: node, outbound: outbound})
+		return &hops[len(hops)-1]
 	}
 	for _, in := range inbounds {
-		if in.NodeID == n.ID && in.Enabled != 0 && in.ExitNodeID.Valid {
-			add(in.ExitNodeID.Int64, in.Name)
+		if in.NodeID != n.ID || in.Enabled == 0 {
+			continue
+		}
+		switch {
+		case in.ExitNodeID.Valid:
+			h := find(in.ExitNodeID.Int64, 0)
+			h.names = append(h.names, in.Name)
+		case in.OutboundID.Valid:
+			h := find(0, in.OutboundID.Int64)
+			h.names = append(h.names, in.Name)
 		}
 	}
 	if relay != nil && own.ExitNodeID.Valid {
-		add(own.ExitNodeID.Int64, nodeapi.RelayListener)
+		h := find(own.ExitNodeID.Int64, 0)
+		h.names = append(h.names, nodeapi.RelayListener)
 	}
 	var exits []nodeapi.Exit
-	for _, id := range order {
-		e, err := s.exitTo(ctx, n.ID, id)
-		if err != nil {
-			s.log.Warn("cascade exit", "exit", id, "err", err)
+	for _, h := range hops {
+		var e nodeapi.Exit
+		var err error
+		if h.outbound != 0 {
+			// An outbound that is off or gone leaves its inbounds out of the exits: they
+			// go the direct way, which is what the admin sees in the panel.
+			if e, err = s.outboundLink(ctx, h.outbound); err != nil {
+				s.log.Info("outbound not sent", "outbound", h.outbound, "err", err)
+				continue
+			}
+		} else if e, err = s.exitTo(ctx, n.ID, h.node); err != nil {
+			s.log.Warn("cascade exit", "exit", h.node, "err", err)
 			// Still name the exit, with no way to reach it: the inbounds fail, not leak.
-			e = nodeapi.Exit{Name: nodeapi.ExitName(id), Proxy: unreachableExit(id)}
+			e = nodeapi.Exit{Name: nodeapi.ExitName(h.node), Proxy: unreachableExit(h.node)}
 		}
-		e.Inbounds = routes[id]
+		e.Inbounds = h.names
 		exits = append(exits, e)
 	}
 	return relay, exits, nil
+}
+
+// hop is one outbound of a node with the listeners that leave through it: another node
+// (node, its id) or an outbound by link (outbound, its id), one of them set.
+type hop struct {
+	node     int64
+	outbound int64
+	names    []string
+}
+
+// outboundLink is an external server the admin added: the admin's own link travels, and
+// the node reads it (the parser is mihomo's, which only the node carries).
+func (s *Syncer) outboundLink(ctx context.Context, id int64) (nodeapi.Exit, error) {
+	o, err := s.m.st.Q.GetOutbound(ctx, id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nodeapi.Exit{}, errors.New("outbound is gone")
+	}
+	if err != nil {
+		return nodeapi.Exit{}, err
+	}
+	if o.Enabled == 0 {
+		return nodeapi.Exit{}, errors.New("outbound is off")
+	}
+	return nodeapi.Exit{Name: nodeapi.OutboundName(id), Link: o.Link}, nil
 }
 
 // exitTo is the outbound from node src to node id's relay.

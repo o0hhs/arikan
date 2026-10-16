@@ -56,6 +56,7 @@ Commands:
                                 add a node; prints its join key
   admin node key NODE           issue a new join key (the old one stops working)
   admin node set NODE [--name] [--host] [--domain] [--enabled]
+  admin node geo IP...          where the addresses are: country, network (ASN) and owner
   admin migrate --public-host IP [--port PORT] [--domain DOMAIN | --no-domain] [--no-check-nodes]
                                 finish moving the panel to this server after a restore:
                                 new address, same subscription links, check the nodes
@@ -120,6 +121,10 @@ func adminCmd(ctx context.Context, args []string) error {
 	cfg, err := config.FromEnv()
 	if err != nil {
 		return err
+	}
+	// Where addresses are needs nothing from the database: the panel may be stopped.
+	if len(args) >= 2 && args[0] == "node" && args[1] == "geo" {
+		return nodeGeoCmd(ctx, cfg.DataDir, args[2:], os.Stdout, os.Stderr)
 	}
 	st, err := store.Open(ctx, cfg.DataDir)
 	if err != nil {

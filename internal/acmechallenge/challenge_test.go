@@ -20,9 +20,13 @@ const (
 	keyAuth = token + ".9jg46WB3rR_AHD-EBXdN7cBkH1WOu0tA3M9fm21mqTI"
 )
 
+// noFollow reports a redirect instead of following it: a test can then read the 301 and
+// where it points, over http, without a TLS connection to the plain-HTTP server.
+var noFollow = &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+
 func get(t *testing.T, addr, path string) (int, string) {
 	t.Helper()
-	resp, err := http.Get("http://" + addr + path)
+	resp, err := noFollow.Get("http://" + addr + path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,6 +119,102 @@ func TestExpiryTimerRearmsForLaterTokens(t *testing.T) {
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
+}
+
+// With the redirect on, the port is held from the start and everything that is not a
+// challenge goes to HTTPS; the challenge itself is answered as always, and the port stays
+// after it. Off (a panel's default), the same requests are the bare 404.
+func TestRedirectHoldsThePortAndSendsTheRestToHTTPS(t *testing.T) {
+	s := New("127.0.0.1:0")
+	var addr string
+	s.listen = func(network, a string) (net.Listener, error) {
+		ln, err := net.Listen(network, a)
+		if err == nil {
+			addr = ln.Addr().String()
+		}
+		return ln, err
+	}
+	defer s.Close()
+	s.SetRedirect(true)
+	if err := s.Start(); err != nil {
+		t.Fatal(err)
+	}
+	if !s.Listening() || s.Bound() == "" {
+		t.Fatal("the port is not held before any challenge")
+	}
+	// The challenge comes before the redirect, whenever a token is pending.
+	if err := s.Present(token, keyAuth); err != nil {
+		t.Fatal(err)
+	}
+	if code, body := get(t, addr, Prefix+token); code != 200 || body != keyAuth {
+		t.Fatalf("the token: %d %q", code, body)
+	}
+	if code, _ := get(t, addr, Prefix+"AAAAAAAAAAAAAAAAAAAAAAAA"); code != 404 && code != 301 {
+		t.Fatalf("another token: %d", code)
+	}
+	// Everything else goes to the same host and path over https.
+	for _, c := range []struct{ path, host, want string }{
+		{"/", "vpn.example.com", "https://vpn.example.com/"},
+		{"/site/index.html?a=1", "vpn.example.com", "https://vpn.example.com/site/index.html?a=1"},
+		{"/x", "vpn.example.com:80", "https://vpn.example.com/x"},
+		{"/x", "[2001:db8::1]:80", "https://[2001:db8::1]/x"},
+	} {
+		code, loc := getAt(t, addr, c.path, c.host)
+		if code != http.StatusMovedPermanently || loc != c.want {
+			t.Fatalf("GET http://%s%s: %d %q, want 301 %q", c.host, c.path, code, loc, c.want)
+		}
+	}
+	// A token that ran out does not give the port back: the next challenge needs it.
+	s.CleanUp(token)
+	if !s.Listening() {
+		t.Fatal("the port was given back")
+	}
+	if code, loc := getAt(t, addr, "/", "vpn.example.com"); code != http.StatusMovedPermanently || loc != "https://vpn.example.com/" {
+		t.Fatalf("after the token: %d %q", code, loc)
+	}
+	s.Close()
+	if s.Listening() {
+		t.Fatal("Close did not give the port back")
+	}
+}
+
+// The redirect needs the port: another program on it is reported, and the server goes back
+// to answering only while a challenge is pending.
+func TestRedirectOnABusyPort(t *testing.T) {
+	held, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := New(held.Addr().String())
+	s.holder = func(int) string { return "nginx" }
+	defer s.Close()
+	s.SetRedirect(true)
+	var be *BusyError
+	if err := s.Start(); !errors.As(err, &be) || be.Holder != "nginx" {
+		t.Fatalf("busy port: %v", err)
+	}
+	// Port 80 held by a web server of the admin's is not the node's to take: the challenges
+	// come through that server (MIKAN_ACME_LISTEN), and this server stays quiet.
+	if s.Listening() {
+		t.Fatal("listens on a port it could not take")
+	}
+}
+
+// A request to addr with its own Host header; returns the status and Location.
+func getAt(t *testing.T, addr, path, host string) (int, string) {
+	t.Helper()
+	req, err := http.NewRequest(http.MethodGet, "http://"+addr+path, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Host = host
+	resp, err := noFollow.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	_, _ = io.Copy(io.Discard, resp.Body)
+	return resp.StatusCode, resp.Header.Get("Location")
 }
 
 func TestBusyPortNamesTheHolder(t *testing.T) {

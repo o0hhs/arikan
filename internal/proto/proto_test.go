@@ -284,6 +284,24 @@ func TestValidateRefusesDangerousTemplates(t *testing.T) {
 	}
 }
 
+func TestSiteDest(t *testing.T) {
+	priv, _ := realityKey(t)
+	src := fmt.Sprintf(`{"type":"vless","reality-config":{"dest":"127.0.0.1:18443","private-key":%q,"short-id":["a1b2c3d4"],"server-names":["vpn.example.com"]}}`, priv)
+	if code(Validate(mustParse(t, src), Options{})) != "reality_dest_private" {
+		t.Fatal("a loopback dest without the port")
+	}
+	if err := Validate(mustParse(t, src), Options{SitePort: 18443}); err != nil {
+		t.Fatalf("the node's own page as dest: %v", err)
+	}
+	// Self-steal on the same port is the same allowance; another port is not.
+	if err := Validate(mustParse(t, src), Options{SelfStealPort: 18443}); err != nil {
+		t.Fatalf("self-steal on the same port: %v", err)
+	}
+	if code(Validate(mustParse(t, src), Options{SitePort: 18444})) != "reality_dest_private" {
+		t.Fatal("another loopback port than the page's")
+	}
+}
+
 func TestSelfStealDest(t *testing.T) {
 	priv, _ := realityKey(t)
 	src := "type: vless\nreality-config:\n  dest: 127.0.0.1:21355\n  private-key: " + priv + "\n  short-id: [a1b2]\n  server-names: [vpn.example.com]\n"
