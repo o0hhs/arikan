@@ -280,6 +280,7 @@ func (s *Syncer) desiredPin(ctx context.Context) (st nodeapi.DesiredState, pin s
 	}
 	st.Torrent = snap.torrent.Block()
 	st.Filters = snap.filters.State()
+	st.DNS = dnsOf(snap.routes)
 	if n.FairShare != 0 && n.ChannelMbps.Valid {
 		st.Shaping = &nodeapi.Shaping{ChannelMbps: int(n.ChannelMbps.Int64)}
 	}
@@ -837,7 +838,8 @@ func stateKey(st nodeapi.DesiredState) string {
 		F *nodeapi.Filters
 		V *nodeapi.Turn
 		H *nodeapi.Shaping
-	}{st.Inbounds, st.Slots, st.TLS, st.SelfStealPort, st.Warp, st.Relay, st.Exits, st.Torrent, st.Filters, st.Turn, st.Shaping})
+		D *nodeapi.DNS
+	}{st.Inbounds, st.Slots, st.TLS, st.SelfStealPort, st.Warp, st.Relay, st.Exits, st.Torrent, st.Filters, st.Turn, st.Shaping, st.DNS})
 	sum := sha256.Sum256(raw)
 	return hex.EncodeToString(sum[:])
 }

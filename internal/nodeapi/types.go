@@ -42,6 +42,33 @@ type DesiredState struct {
 	// Shaping splits the node's channel evenly between the users moving traffic; nil: off.
 	// Nodes older than it ignore it.
 	Shaping *Shaping `json:"shaping,omitempty"`
+	// DNS is how the node resolves names for the traffic it carries (the panel's Settings →
+	// Routing); nil: the node's own defaults. Nodes older than it ignore the field.
+	DNS *DNS `json:"dns,omitempty"`
+}
+
+// DNS is the panel's Settings → Routing as far as a node follows it: the resolvers it
+// resolves its users' destinations with. The node also reads the site's name off the
+// connection, so domain rules hold for clients that connect by IP, and names resolve on
+// the node, where the client's own DNS cannot be poisoned.
+type DNS struct {
+	// Nameserver resolves what the profile sends through the tunnel; empty: the node's
+	// defaults (Cloudflare and Google over HTTPS).
+	Nameserver []string `json:"nameserver,omitempty"`
+	// Default resolves the nameservers themselves; empty: the node's defaults.
+	Default []string `json:"default_nameserver,omitempty"`
+	// ProxyServer resolves the addresses of the node's own outbounds (a WARP endpoint, the
+	// relay of another node).
+	ProxyServer []string `json:"proxy_server_nameserver,omitempty"`
+	// Policy resolves the names Match covers ("+.cn", "geosite:category-ru") with Servers.
+	Policy []DNSPolicy `json:"policy,omitempty"`
+}
+
+// DNSPolicy is one nameserver-policy entry, as the profiles get it. Entries that need the
+// geodata (geosite:, rule-set:) are left out by the panel: a node has none.
+type DNSPolicy struct {
+	Match   string   `json:"match"`
+	Servers []string `json:"servers"`
 }
 
 // Shaping is the fair share of a node: ChannelMbps (each way) is split evenly between the

@@ -11,7 +11,7 @@ import { subDicts } from "../i18n/sub";
 import { APPS } from "./apps";
 import { hashParams, initData, json, okData, openOutside, pageURL, postJSON, request, subRoot, tgEvent, tgMode, tokenOf } from "./net";
 import { applyLook, readPage, titleOf, type DocView } from "./page";
-import { FreePlan, loadShop, Shop, type ShopData } from "./shop";
+import { AccessCode, Builder, FreePlan, loadShop, Shop, type ShopData } from "./shop";
 import { PromoSection } from "./promo";
 import { ReissueSection } from "./reissue";
 import type { Info, TgSub } from "./types";
@@ -293,6 +293,35 @@ function SubPage() {
   // The free plan, for an account without a subscription and for one whose free
   // subscription has ended: the subscription it gives shows once the session reloads.
   const freePlan = shop?.free ? <FreePlan offer={shop.free} subRoot={subRoot} initData={initData} openLink={openOutside} onTaken={refresh} /> : null;
+  // The tariff constructor, when the admin set one up: the buyer builds the plan and pays for
+  // it. It stands after the plans on sale, and works for a new subscription and a renewal.
+  const builtPlan = shop?.built ? (
+    <Builder
+      built={shop.built}
+      data={shop}
+      subRoot={subRoot}
+      initData={initData}
+      token={token}
+      openInvoice={(slug) => tgEvent("web_app_open_invoice", { slug })}
+      openLink={openOutside}
+      onRefresh={refresh}
+    />
+  ) : null;
+  // An access code: it opens a plan others do not see. The page shows it beside the shop, so a
+  // code from the bot's button (#promocodes) has somewhere to be typed. The plans a code of
+  // this account opened are named above it.
+  const accessCode = (
+    <>
+      {shop?.access?.length
+        ? shop.access.map((a) => (
+            <p key={a.tariff_id} className="text-xs text-[var(--leaf-600)]">
+              {t("sub.accessOwn", { code: a.code, name: a.name })}
+            </p>
+          ))
+        : null}
+      <AccessCode subRoot={subRoot} initData={initData} onTaken={refresh} />
+    </>
+  );
   const plansForNew = !!shop?.allow_new && !!shop.offers.length;
   if (tg.state === "none" && (plansForNew || trialShop || freePlan)) {
     return (
@@ -307,6 +336,8 @@ function SubPage() {
           <>
             <PromoSection token="" activeCode={promoCode} onApplied={(c) => setPromoCode(c)} onBonusApplied={refresh} title={titleOf(config, "promo")} />
             {shopFor("", t("sub.shopNew"))}
+            {builtPlan}
+            {accessCode}
           </>
         ) : null}
       </Shell>
@@ -406,6 +437,8 @@ function SubPage() {
             <>
               {shopFor(token, titleOf(config, "shop") || t("sub.shop"))}
               {packagesShop}
+              {builtPlan}
+              {accessCode}
               {freePlan}
             </>
           ) : null

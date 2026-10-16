@@ -3,6 +3,16 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
+## 0.5.1.4
+### en
+**The panel ships with its own bot.** The marketplace's bot addon is built from upstream's source, so 0.5.1.3 published this fork's bot as an addon source the admin had to add by hand. Every panel now carries that source itself — **Addons → Sources** shows it as built-in, signed with the release key the panel trusts anyway — and the panel installs `arikan-telegram` and hands the bot to it by itself, taking it over from the marketplace's bot where the panel itself put that one. A holder the admin handed the bot to by hand stays, and turning the bot off and on again hands the choice back to the panel. Other sources and other bot addons work as before.
+- **The bot the fork wrote now answers.** The coloured buttons of 0.5.1.2 and the premium emoji of this release reach a live bot with this release alone: there is nothing left to install by hand, and a panel whose bot was answering with the marketplace's addon changes over on the next update.
+- The addon source is read every half hour like any other, and its file must be signed with the fork's release key: a file signed with anything else (or not signed) is refused, and the page says so.
+### ru
+**Панель выпускается со своим ботом.** Бот-аддон маркетплейса собран из апстримного исходника, поэтому 0.5.1.3 публиковала бота форка источником, который админ добавлял руками. Теперь этот источник есть у каждой панели — **«Аддоны → Источники»** показывает его как встроенный, подписанный тем же релизным ключом, которому панель и так доверяет, — а панель сама ставит `arikan-telegram` и сама отдаёт ему бота, забирая его у бота маркетплейса там, где его поставила сама панель. Выбор админа, отдавшего бота вручную, остаётся; выключение и включение бота возвращает выбор панели. Другие источники и другие бот-аддоны работают как работали.
+- **Бот, написанный форком, теперь отвечает.** Цветные кнопки из 0.5.1.2 и премиум-эмодзи этого релиза доезжают до живого бота этим релизом одним: руками ставить нечего, а панель, у которой отвечал аддон маркетплейса, переходит на своего бота следующим же обновлением.
+- Источник читается раз в полчаса, как любой другой, и его файл обязан быть подписан релизным ключом форка: файл, подписанный другим ключом или не подписанный вовсе, отклоняется, и страница об этом говорит.
+
 ## 0.5.1.3
 ### en
 **The panel wears Material 3 Expressive.** The admin panel and the subscription page (the Mini App) are rebuilt on the new design language — colour roles, the shape scale, type and motion. Every one of the picker's 21 themes came along: each carries the new roles, drawn from its own palette, and the contrast check runs over all of them. Buttons know filled, tonal, outlined and text; drawers, tabs, switches, fields, charts and toasts follow the roles. Glass and the background glow stay as the ordinary mode's decoration, and the performance mode keeps its flat, instant look.

@@ -145,8 +145,10 @@ function SourceCard({ s, index, onChanged }: { s: Source; index: number; onChang
           <h3 className="addon-card-title">{s.title}</h3>
           <div className="mono mt-1 break-all text-xs text-[var(--md-on-surface-variant)]">{s.url}</div>
         </div>
+        {s.builtin ? <Pill tone="ok">{t("sources.builtin")}</Pill> : null}
         {s.signed ? <Pill tone="ok">{t("sources.signed")}</Pill> : <Pill tone="warn">{t("sources.unsigned")}</Pill>}
       </div>
+      {s.builtin ? <div className="text-xs text-[var(--md-on-surface-variant)]">{t("sources.builtinText", { url: s.url })}</div> : null}
       {s.signed ? (
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <KeyRound size={14} className="shrink-0 text-[var(--md-on-surface-variant)]" aria-hidden />
@@ -194,9 +196,13 @@ function SourceCard({ s, index, onChanged }: { s: Source; index: number; onChang
         <Button size="sm" loading={refresh.isPending} onClick={() => refresh.mutate(undefined)} aria-label={t("sources.refreshLabel", { name: s.title })}>
           <RefreshCw size={16} aria-hidden /> {t("sources.refresh")}
         </Button>
-        <Button size="sm" variant="danger" disabled={inUse} onClick={() => setRemove(true)} aria-label={t("sources.removeLabel", { name: s.title })}>
-          <Trash2 size={16} aria-hidden /> {t("sources.remove")}
-        </Button>
+        {/* The source the panel ships with stays: it is readded at the next start, and this
+            panel's own bot comes from it. */}
+        {s.builtin ? null : (
+          <Button size="sm" variant="danger" disabled={inUse} onClick={() => setRemove(true)} aria-label={t("sources.removeLabel", { name: s.title })}>
+            <Trash2 size={16} aria-hidden /> {t("sources.remove")}
+          </Button>
+        )}
       </div>
       <Confirm
         open={remove}

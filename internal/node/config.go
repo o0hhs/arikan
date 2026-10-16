@@ -2,6 +2,7 @@ package node
 
 import (
 	"encoding/json"
+	"strings"
 
 	"github.com/metacubex/mihomo/listener"
 
@@ -103,13 +104,95 @@ func buildConfig(st nodeapi.DesiredState, cert proto.Cert, allowPrivate bool, si
 		"mixed-port":        0,
 		"find-process-mode": "off",
 		"profile":           map[string]any{"store-selected": false, "store-fake-ip": false},
-		"dns":               map[string]any{"enable": false},
+		"dns":               dnsSection(st.DNS),
+		"sniffer":           snifferSection(),
 		"proxies":           proxies,
 		"rules":             rules(st, allowPrivate),
 		"listeners":         listeners,
 	}
 	raw, err = json.Marshal(cfg)
 	return raw, rejected, err
+}
+
+// defaultNameservers are what the node resolves with until the panel's Settings → Routing
+// says otherwise: what the profiles themselves use. Over HTTPS, so an intercepting
+// resolver on the way cannot answer instead — the very reason the node resolves at all.
+var defaultNameservers = []string{"https://1.1.1.1/dns-query", "https://dns.google/dns-query"}
+
+// defaultBootstraps resolve those nameservers' own names. The host's resolver comes first:
+// it is what the node used before it had a DNS of its own, and it works where the plain
+// public ones are interfered with.
+var defaultBootstraps = []string{"system", "1.1.1.1", "8.8.8.8"}
+
+// dnsSection is the node's own resolver: it resolves the destinations of its users'
+// traffic, so a client that sent an address, or whose own resolver answers with rubbish,
+// still reaches the right site. No server listens: clients keep their resolvers, the node
+// only resolves for its own outbound traffic.
+func dnsSection(d *nodeapi.DNS) map[string]any {
+	ns, boot := defaultNameservers, defaultBootstraps
+	var policy []nodeapi.DNSPolicy
+	if d != nil {
+		if len(d.Nameserver) > 0 {
+			ns = d.Nameserver
+		}
+		if len(d.Default) > 0 {
+			boot = d.Default
+		}
+		policy = d.Policy
+	}
+	out := map[string]any{
+		"enable": true, "listen": "", "ipv6": false, "enhanced-mode": "redir-host",
+		"nameserver":         cleanServers(ns),
+		"default-nameserver": cleanServers(boot),
+	}
+	if p := policySection(policy); len(p) > 0 {
+		out["nameserver-policy"] = p
+	}
+	return out
+}
+
+// cleanServers drops what a node cannot use: the "#group" suffix names a proxy group of an
+// app's profile (a node has none; its DoH goes out as it is), and an entry that is nothing
+// but a suffix is no server.
+func cleanServers(in []string) []string {
+	out := make([]string, 0, len(in))
+	for _, s := range in {
+		if i := strings.IndexByte(s, '#'); i >= 0 {
+			s = s[:i]
+		}
+		if s = strings.TrimSpace(s); s != "" {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// policySection is the policies a node can apply: the ones that name domains ("+.cn").
+// A geosite: or rule-set: key needs the geodata, which only the apps have; sending it
+// would refuse the whole config here.
+func policySection(in []nodeapi.DNSPolicy) map[string]any {
+	out := map[string]any{}
+	for _, p := range in {
+		match := strings.ToLower(strings.TrimSpace(p.Match))
+		if match == "" || strings.HasPrefix(match, "geosite:") || strings.HasPrefix(match, "rule-set:") || strings.Contains(match, "geosite:") {
+			continue
+		}
+		if servers := cleanServers(p.Servers); len(servers) > 0 {
+			out[p.Match] = servers
+		}
+	}
+	return out
+}
+
+// snifferSection reads the site's name off each connection: rules by domain then hold for
+// a client that connected by address, and the outbound resolves the name the client never
+// sent. Every port is sniffed — a user's traffic goes wherever it wants, not only to 443.
+func snifferSection() map[string]any {
+	all := map[string]any{} // no ports: every port
+	return map[string]any{
+		"enable": true, "parse-pure-ip": true, "override-destination": true, "force-dns-mapping": true,
+		"sniff": map[string]any{"HTTP": all, "TLS": all, "QUIC": all},
+	}
 }
 
 func listenerFor(in nodeapi.Inbound, slots []nodeapi.Slot, cert proto.Cert, o proto.Options) (map[string]any, error) {

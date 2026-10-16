@@ -138,10 +138,50 @@ func (q *Queries) CountUserPaidPaymentsExcept(ctx context.Context, arg CountUser
 	return count, err
 }
 
+const createPromoAccess = `-- name: CreatePromoAccess :one
+INSERT INTO promo_access (promo_id,tariff_id,user_id,tg_id,granted_at,expires_at,note)
+VALUES ($1,$2,$3,$4,$5,NULLIF($6,0),$7) RETURNING id, promo_id, tariff_id, user_id, tg_id, granted_at, expires_at, note
+`
+
+type CreatePromoAccessParams struct {
+	PromoID   int64
+	TariffID  int64
+	UserID    sql.NullInt64
+	TgID      int64
+	GrantedAt int64
+	ExpiresAt interface{}
+	Note      string
+}
+
+// sqlc.arg(expires_at) is 0 for an access that never ends (it goes in as NULL).
+func (q *Queries) CreatePromoAccess(ctx context.Context, arg CreatePromoAccessParams) (PromoAccess, error) {
+	row := q.db.QueryRowContext(ctx, createPromoAccess,
+		arg.PromoID,
+		arg.TariffID,
+		arg.UserID,
+		arg.TgID,
+		arg.GrantedAt,
+		arg.ExpiresAt,
+		arg.Note,
+	)
+	var i PromoAccess
+	err := row.Scan(
+		&i.ID,
+		&i.PromoID,
+		&i.TariffID,
+		&i.UserID,
+		&i.TgID,
+		&i.GrantedAt,
+		&i.ExpiresAt,
+		&i.Note,
+	)
+	return i, err
+}
+
 const createPromoCode = `-- name: CreatePromoCode :one
 INSERT INTO promo_codes
-(code,name,description,type,value,currency,starts_at,ends_at,max_uses,per_user_limit,discount_ttl,min_order,max_discount,tariff_ids,pool_id,first_purchase_only,new_users_only,enabled,deleted,created_at,created_by)
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,0,$19,$20) RETURNING id, code, name, description, type, value, currency, starts_at, ends_at, max_uses, used_count, per_user_limit, discount_ttl, min_order, max_discount, tariff_ids, pool_id, first_purchase_only, new_users_only, enabled, deleted, created_at, created_by
+(code,name,description,type,value,currency,starts_at,ends_at,max_uses,per_user_limit,discount_ttl,min_order,max_discount,tariff_ids,pool_id,first_purchase_only,new_users_only,enabled,deleted,created_at,created_by,access_mode,access_ttl)
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,0,$19,$20,$21,$22) RETURNING id, code, name, description, type, value, currency, starts_at, ends_at, max_uses, used_count, per_user_limit, discount_ttl, min_order, max_discount, tariff_ids, pool_id, first_purchase_only, new_users_only, enabled, deleted, created_at, created_by, access_mode, access_ttl
 `
 
 type CreatePromoCodeParams struct {
@@ -165,6 +205,8 @@ type CreatePromoCodeParams struct {
 	Enabled           int64
 	CreatedAt         int64
 	CreatedBy         sql.NullInt64
+	AccessMode        string
+	AccessTtl         int64
 }
 
 func (q *Queries) CreatePromoCode(ctx context.Context, arg CreatePromoCodeParams) (PromoCode, error) {
@@ -189,6 +231,8 @@ func (q *Queries) CreatePromoCode(ctx context.Context, arg CreatePromoCodeParams
 		arg.Enabled,
 		arg.CreatedAt,
 		arg.CreatedBy,
+		arg.AccessMode,
+		arg.AccessTtl,
 	)
 	var i PromoCode
 	err := row.Scan(
@@ -215,6 +259,8 @@ func (q *Queries) CreatePromoCode(ctx context.Context, arg CreatePromoCodeParams
 		&i.Deleted,
 		&i.CreatedAt,
 		&i.CreatedBy,
+		&i.AccessMode,
+		&i.AccessTtl,
 	)
 	return i, err
 }
@@ -305,8 +351,45 @@ func (q *Queries) DeletePromoCode(ctx context.Context, id int64) (int64, error) 
 	return result.RowsAffected()
 }
 
+const getPromoAccess = `-- name: GetPromoAccess :one
+SELECT id, promo_id, tariff_id, user_id, tg_id, granted_at, expires_at, note FROM promo_access
+WHERE promo_id=$1 AND tg_id=$2 AND tariff_id=$3
+  AND (expires_at IS NULL OR expires_at>CAST($4 AS BIGINT))
+`
+
+type GetPromoAccessParams struct {
+	PromoID  int64
+	TgID     int64
+	TariffID int64
+	Now      int64
+}
+
+// The account's access to the tariff one code gave. An access that has run out or was taken
+// away (the admin removed the row) is not found: the shop hides the tariff and the checkout
+// refuses again.
+func (q *Queries) GetPromoAccess(ctx context.Context, arg GetPromoAccessParams) (PromoAccess, error) {
+	row := q.db.QueryRowContext(ctx, getPromoAccess,
+		arg.PromoID,
+		arg.TgID,
+		arg.TariffID,
+		arg.Now,
+	)
+	var i PromoAccess
+	err := row.Scan(
+		&i.ID,
+		&i.PromoID,
+		&i.TariffID,
+		&i.UserID,
+		&i.TgID,
+		&i.GrantedAt,
+		&i.ExpiresAt,
+		&i.Note,
+	)
+	return i, err
+}
+
 const getPromoCode = `-- name: GetPromoCode :one
-SELECT id, code, name, description, type, value, currency, starts_at, ends_at, max_uses, used_count, per_user_limit, discount_ttl, min_order, max_discount, tariff_ids, pool_id, first_purchase_only, new_users_only, enabled, deleted, created_at, created_by FROM promo_codes WHERE id = $1
+SELECT id, code, name, description, type, value, currency, starts_at, ends_at, max_uses, used_count, per_user_limit, discount_ttl, min_order, max_discount, tariff_ids, pool_id, first_purchase_only, new_users_only, enabled, deleted, created_at, created_by, access_mode, access_ttl FROM promo_codes WHERE id = $1
 `
 
 func (q *Queries) GetPromoCode(ctx context.Context, id int64) (PromoCode, error) {
@@ -336,12 +419,14 @@ func (q *Queries) GetPromoCode(ctx context.Context, id int64) (PromoCode, error)
 		&i.Deleted,
 		&i.CreatedAt,
 		&i.CreatedBy,
+		&i.AccessMode,
+		&i.AccessTtl,
 	)
 	return i, err
 }
 
 const getPromoCodeByCode = `-- name: GetPromoCodeByCode :one
-SELECT id, code, name, description, type, value, currency, starts_at, ends_at, max_uses, used_count, per_user_limit, discount_ttl, min_order, max_discount, tariff_ids, pool_id, first_purchase_only, new_users_only, enabled, deleted, created_at, created_by FROM promo_codes WHERE code = $1 AND deleted=0
+SELECT id, code, name, description, type, value, currency, starts_at, ends_at, max_uses, used_count, per_user_limit, discount_ttl, min_order, max_discount, tariff_ids, pool_id, first_purchase_only, new_users_only, enabled, deleted, created_at, created_by, access_mode, access_ttl FROM promo_codes WHERE code = $1 AND deleted=0
 `
 
 func (q *Queries) GetPromoCodeByCode(ctx context.Context, code string) (PromoCode, error) {
@@ -371,6 +456,8 @@ func (q *Queries) GetPromoCodeByCode(ctx context.Context, code string) (PromoCod
 		&i.Deleted,
 		&i.CreatedAt,
 		&i.CreatedBy,
+		&i.AccessMode,
+		&i.AccessTtl,
 	)
 	return i, err
 }
@@ -401,6 +488,29 @@ func (q *Queries) GetPromoRedemptionByPayment(ctx context.Context, paymentID sql
 		&i.Note,
 	)
 	return i, err
+}
+
+const hasPromoAccess = `-- name: HasPromoAccess :one
+SELECT count(*) > 0 AS ok FROM promo_access a JOIN promo_codes c ON c.id=a.promo_id
+WHERE a.tg_id=$1 AND a.tariff_id=$2
+  AND (a.expires_at IS NULL OR a.expires_at>CAST($3 AS BIGINT))
+  AND c.deleted=0 AND c.enabled=1
+  AND (c.starts_at IS NULL OR c.starts_at<=CAST($3 AS BIGINT)) AND (c.ends_at IS NULL OR c.ends_at>CAST($3 AS BIGINT))
+`
+
+type HasPromoAccessParams struct {
+	TgID     int64
+	TariffID int64
+	Now      int64
+}
+
+// Whether the account may use the tariff now: a grant of its own, from a code that stands
+// (enabled, not deleted, inside its window). The shop and the checkout ask this.
+func (q *Queries) HasPromoAccess(ctx context.Context, arg HasPromoAccessParams) (bool, error) {
+	row := q.db.QueryRowContext(ctx, hasPromoAccess, arg.TgID, arg.TariffID, arg.Now)
+	var ok bool
+	err := row.Scan(&ok)
+	return ok, err
 }
 
 const incrementPromoUse = `-- name: IncrementPromoUse :execrows
@@ -469,8 +579,106 @@ func (q *Queries) ListLatePromoRefunds(ctx context.Context) ([]int64, error) {
 	return items, nil
 }
 
+const listPromoAccess = `-- name: ListPromoAccess :many
+SELECT a.id, a.promo_id, a.tariff_id, a.user_id, a.tg_id, a.granted_at, a.expires_at, a.note, CAST(c.code AS TEXT) AS code, CAST(c.type AS TEXT) AS type FROM promo_access a JOIN promo_codes c ON c.id=a.promo_id
+WHERE a.tg_id=$1 AND (a.expires_at IS NULL OR a.expires_at>CAST($2 AS BIGINT))
+  AND c.deleted=0 AND c.enabled=1
+  AND (c.starts_at IS NULL OR c.starts_at<=$2) AND (c.ends_at IS NULL OR c.ends_at>$2)
+ORDER BY a.id DESC
+`
+
+type ListPromoAccessParams struct {
+	TgID int64
+	Now  int64
+}
+
+type ListPromoAccessRow struct {
+	ID        int64
+	PromoID   int64
+	TariffID  int64
+	UserID    sql.NullInt64
+	TgID      int64
+	GrantedAt int64
+	ExpiresAt sql.NullInt64
+	Note      string
+	Code      string
+	Type      string
+}
+
+// One Telegram account's live accesses with their codes, the latest first: what the Mini App
+// says about the tariff a code opened.
+func (q *Queries) ListPromoAccess(ctx context.Context, arg ListPromoAccessParams) ([]ListPromoAccessRow, error) {
+	rows, err := q.db.QueryContext(ctx, listPromoAccess, arg.TgID, arg.Now)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListPromoAccessRow{}
+	for rows.Next() {
+		var i ListPromoAccessRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.PromoID,
+			&i.TariffID,
+			&i.UserID,
+			&i.TgID,
+			&i.GrantedAt,
+			&i.ExpiresAt,
+			&i.Note,
+			&i.Code,
+			&i.Type,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPromoAccessTariffs = `-- name: ListPromoAccessTariffs :many
+SELECT DISTINCT a.tariff_id FROM promo_access a JOIN promo_codes c ON c.id=a.promo_id
+WHERE a.tg_id=$1 AND (a.expires_at IS NULL OR a.expires_at>CAST($2 AS BIGINT))
+  AND c.deleted=0 AND c.enabled=1
+  AND (c.starts_at IS NULL OR c.starts_at<=CAST($2 AS BIGINT)) AND (c.ends_at IS NULL OR c.ends_at>CAST($2 AS BIGINT))
+`
+
+type ListPromoAccessTariffsParams struct {
+	TgID int64
+	Now  int64
+}
+
+// The ids of the tariffs the account's access codes open right now, for the shop.
+func (q *Queries) ListPromoAccessTariffs(ctx context.Context, arg ListPromoAccessTariffsParams) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, listPromoAccessTariffs, arg.TgID, arg.Now)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []int64{}
+	for rows.Next() {
+		var tariff_id int64
+		if err := rows.Scan(&tariff_id); err != nil {
+			return nil, err
+		}
+		items = append(items, tariff_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPromoCodes = `-- name: ListPromoCodes :many
-SELECT id, code, name, description, type, value, currency, starts_at, ends_at, max_uses, used_count, per_user_limit, discount_ttl, min_order, max_discount, tariff_ids, pool_id, first_purchase_only, new_users_only, enabled, deleted, created_at, created_by FROM promo_codes WHERE deleted = 0 ORDER BY id DESC LIMIT CAST($2 AS BIGINT) OFFSET CAST($1 AS BIGINT)
+SELECT id, code, name, description, type, value, currency, starts_at, ends_at, max_uses, used_count, per_user_limit, discount_ttl, min_order, max_discount, tariff_ids, pool_id, first_purchase_only, new_users_only, enabled, deleted, created_at, created_by, access_mode, access_ttl FROM promo_codes WHERE deleted = 0 ORDER BY id DESC LIMIT CAST($2 AS BIGINT) OFFSET CAST($1 AS BIGINT)
 `
 
 type ListPromoCodesParams struct {
@@ -511,6 +719,8 @@ func (q *Queries) ListPromoCodes(ctx context.Context, arg ListPromoCodesParams) 
 			&i.Deleted,
 			&i.CreatedAt,
 			&i.CreatedBy,
+			&i.AccessMode,
+			&i.AccessTtl,
 		); err != nil {
 			return nil, err
 		}
@@ -771,6 +981,20 @@ func (q *Queries) RestorePromoUse(ctx context.Context, id int64) error {
 	return err
 }
 
+const setPromoAccessUser = `-- name: SetPromoAccessUser :exec
+UPDATE promo_access SET user_id=$1 WHERE id=$2
+`
+
+type SetPromoAccessUserParams struct {
+	UserID sql.NullInt64
+	ID     int64
+}
+
+func (q *Queries) SetPromoAccessUser(ctx context.Context, arg SetPromoAccessUserParams) error {
+	_, err := q.db.ExecContext(ctx, setPromoAccessUser, arg.UserID, arg.ID)
+	return err
+}
+
 const setPromoEnabled = `-- name: SetPromoEnabled :execrows
 UPDATE promo_codes SET enabled=$1 WHERE id=$2 AND deleted=0
 `
@@ -790,7 +1014,7 @@ func (q *Queries) SetPromoEnabled(ctx context.Context, arg SetPromoEnabledParams
 
 const updatePromoCode = `-- name: UpdatePromoCode :one
 UPDATE promo_codes SET
-code=$1,name=$2,description=$3,type=$4,value=$5,currency=$6,starts_at=$7,ends_at=$8,max_uses=$9,per_user_limit=$10,discount_ttl=$11,min_order=$12,max_discount=$13,tariff_ids=$14,pool_id=$15,first_purchase_only=$16,new_users_only=$17,enabled=$18 WHERE id=$19 AND deleted=0 RETURNING id, code, name, description, type, value, currency, starts_at, ends_at, max_uses, used_count, per_user_limit, discount_ttl, min_order, max_discount, tariff_ids, pool_id, first_purchase_only, new_users_only, enabled, deleted, created_at, created_by
+code=$1,name=$2,description=$3,type=$4,value=$5,currency=$6,starts_at=$7,ends_at=$8,max_uses=$9,per_user_limit=$10,discount_ttl=$11,min_order=$12,max_discount=$13,tariff_ids=$14,pool_id=$15,first_purchase_only=$16,new_users_only=$17,enabled=$18,access_mode=$19,access_ttl=$20 WHERE id=$21 AND deleted=0 RETURNING id, code, name, description, type, value, currency, starts_at, ends_at, max_uses, used_count, per_user_limit, discount_ttl, min_order, max_discount, tariff_ids, pool_id, first_purchase_only, new_users_only, enabled, deleted, created_at, created_by, access_mode, access_ttl
 `
 
 type UpdatePromoCodeParams struct {
@@ -812,6 +1036,8 @@ type UpdatePromoCodeParams struct {
 	FirstPurchaseOnly int64
 	NewUsersOnly      int64
 	Enabled           int64
+	AccessMode        string
+	AccessTtl         int64
 	ID                int64
 }
 
@@ -835,6 +1061,8 @@ func (q *Queries) UpdatePromoCode(ctx context.Context, arg UpdatePromoCodeParams
 		arg.FirstPurchaseOnly,
 		arg.NewUsersOnly,
 		arg.Enabled,
+		arg.AccessMode,
+		arg.AccessTtl,
 		arg.ID,
 	)
 	var i PromoCode
@@ -862,6 +1090,8 @@ func (q *Queries) UpdatePromoCode(ctx context.Context, arg UpdatePromoCodeParams
 		&i.Deleted,
 		&i.CreatedAt,
 		&i.CreatedBy,
+		&i.AccessMode,
+		&i.AccessTtl,
 	)
 	return i, err
 }

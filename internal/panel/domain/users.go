@@ -55,6 +55,10 @@ func State(u db.User, grants int64, now time.Time) string {
 
 func CanConnect(state string) bool { return state == StateActive || state == StateExpiring }
 
+// ResetStrategies are the values users.reset_strategy and tariffs.reset_strategy take: the
+// counter never resets, resets on the billing day (month_start) or every period (period).
+var ResetStrategies = []string{"none", "month_start", "period"}
+
 // CountStates counts the users in each State in the database, without loading them.
 func CountStates(ctx context.Context, q *db.Queries, now time.Time) (db.CountUserStatesRow, error) {
 	return q.CountUserStates(ctx, db.CountUserStatesParams{Now: now.Unix(), ExpiringWithin: int64(expiringWindow / time.Second)})
@@ -103,10 +107,11 @@ const (
 	UserFromTrial  = "trial"  // the bot's free trial
 	UserFromImport = "import" // brought over from another panel
 	UserFromFree   = "free"   // the free plan, taken in the bot or the Mini App
+	UserFromCode   = "code"   // given by an access code (a promo code that opens a tariff)
 )
 
 // UserOrigins lists them in the order the list shows them.
-var UserOrigins = []string{UserFromAdmin, UserFromBot, UserFromTrial, UserFromFree, UserFromImport}
+var UserOrigins = []string{UserFromAdmin, UserFromBot, UserFromTrial, UserFromFree, UserFromCode, UserFromImport}
 
 // ValidOrigin tells a source the database accepts.
 func ValidOrigin(s string) bool { return slices.Contains(UserOrigins, s) }
@@ -125,6 +130,41 @@ type CreateInput struct {
 	// TgID is the Telegram account that buys or takes the user, 0 for the admin's: it goes
 	// to the addons with events.UserCreated, nothing else reads it.
 	TgID int64
+	// Options replaces the tariff's own limits and strategy on the new user (a tariff the
+	// buyer put together, a tariff an access code opened); nil: the tariff's.
+	Options *Options
+}
+
+// Options are the limits a subscription runs with in place of its tariff's: a traffic limit
+// (invalid = endless), a device limit (invalid = endless), a speed limit in Mbit/s (invalid =
+// endless) and a reset strategy. Empty fields keep the tariff's own. Days are not here: a
+// term is what the buyer paid for (TermDays), and only the price depends on it.
+type Options struct {
+	TrafficLimit  sql.NullInt64
+	DeviceLimit   sql.NullInt64
+	SpeedLimit    sql.NullInt64
+	ResetStrategy string
+}
+
+// LimitsOf is the tariff's limits, with o's overriding what it sets.
+func (o *Options) LimitsOf(t db.Tariff) (traffic, devices, speed sql.NullInt64, strategy string) {
+	traffic, devices, speed, strategy = t.TrafficLimit, t.DeviceLimit, t.SpeedLimit, t.ResetStrategy
+	if o == nil {
+		return traffic, devices, speed, strategy
+	}
+	if o.TrafficLimit.Valid {
+		traffic = o.TrafficLimit
+	}
+	if o.DeviceLimit.Valid {
+		devices = o.DeviceLimit
+	}
+	if o.SpeedLimit.Valid {
+		speed = o.SpeedLimit
+	}
+	if o.ResetStrategy != "" {
+		strategy = o.ResetStrategy
+	}
+	return traffic, devices, speed, strategy
 }
 
 // Create makes a user the admin names (the panel, an API key): the name is checked as
@@ -187,10 +227,11 @@ func (s *Users) createTx(ctx context.Context, q *db.Queries, in CreateInput, any
 	if err != nil {
 		return db.User{}, err
 	}
+	traffic, devices, speed, strategy := in.Options.LimitsOf(t)
 	u, err := q.CreateUser(ctx, db.CreateUserParams{
 		Name: strings.TrimSpace(in.Name), Contact: strings.TrimSpace(in.Contact), Note: in.Note, Tags: tags,
-		TariffID: sql.NullInt64{Int64: t.ID, Valid: true}, TrafficLimit: t.TrafficLimit, DeviceLimit: t.DeviceLimit, SpeedLimit: t.SpeedLimit,
-		ResetStrategy: t.ResetStrategy, PeriodDays: 30, PeriodStart: now,
+		TariffID: sql.NullInt64{Int64: t.ID, Valid: true}, TrafficLimit: traffic, DeviceLimit: devices, SpeedLimit: speed,
+		ResetStrategy: strategy, PeriodDays: 30, PeriodStart: now,
 		ExpiresAt:  tariffExpiry(time.Unix(now, 0), durationTariff{termDays(t, in.TermDays), t.BillingDay}),
 		BillingDay: t.BillingDay, SubToken: secure.Token(24), SlotID: sql.NullInt64{Int64: slot.ID, Valid: true}, CreatedAt: now, UpdatedAt: now,
 		Source: source,
@@ -231,6 +272,9 @@ type PurchaseInput struct {
 	// ResetTraffic: a renewal also starts a new traffic period (the payment buys a full
 	// quota); off, the counter keeps running.
 	ResetTraffic bool
+	// Options replaces the tariff's own limits and strategy on the subscription (a tariff
+	// the buyer put together); nil: the tariff's.
+	Options *Options
 }
 
 // Purchase applies a paid tariff on q's transaction, so the payment and its effect commit
@@ -246,7 +290,7 @@ func (s *Users) Purchase(ctx context.Context, q *db.Queries, in PurchaseInput) (
 	}
 	if in.UserID == 0 || errors.Is(err, sql.ErrNoRows) {
 		u, err = s.createTx(ctx, q, CreateInput{Name: in.Name, Note: cmp.Or(in.Note, "Telegram"), TariffID: in.TariffID,
-			TermDays: in.Term, Source: cmp.Or(in.Source, UserFromBot), TgID: in.TgID}, true)
+			TermDays: in.Term, Source: cmp.Or(in.Source, UserFromBot), TgID: in.TgID, Options: in.Options}, true)
 		return u, err == nil, err
 	}
 	if err != nil {
@@ -265,9 +309,10 @@ func (s *Users) Purchase(ctx context.Context, q *db.Queries, in PurchaseInput) (
 	if !billingDay.Valid {
 		billingDay = u.BillingDay
 	}
+	traffic, devices, speed, strategy := in.Options.LimitsOf(t)
 	u, err = q.UpdateUser(ctx, db.UpdateUserParams{
 		Name: u.Name, Contact: u.Contact, Note: u.Note, Tags: u.Tags, Status: "active", TariffID: sql.NullInt64{Int64: t.ID, Valid: true},
-		TrafficLimit: t.TrafficLimit, DeviceLimit: t.DeviceLimit, SpeedLimit: t.SpeedLimit, ResetStrategy: t.ResetStrategy, PeriodDays: u.PeriodDays, PeriodStart: u.PeriodStart,
+		TrafficLimit: traffic, DeviceLimit: devices, SpeedLimit: speed, ResetStrategy: strategy, PeriodDays: u.PeriodDays, PeriodStart: u.PeriodStart,
 		ExpiresAt: tariffExpiry(base, durationTariff{termDays(t, in.Term), billingDay}), Inbounds: u.Inbounds, BillingDay: billingDay,
 		UpdatedAt: now.Unix(), ID: u.ID,
 	})

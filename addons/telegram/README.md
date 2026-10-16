@@ -25,16 +25,26 @@ claiming it is skipped (`id_taken`).
 
 ## Installing it on a panel
 
-1. **Addons → Sources → Add** `github.com/o0hhs/arikan` (the repository, not a file: the
-   latest release's `mikan-addon.json` is read). The source shows up as *Arikan*.
-2. **Addons → Catalog → Telegram-бот Arikan → Install.** The image is pulled by the root
-   host on the source's word, pinned by the digest the file names.
-3. **Addons → Installed → Telegram-бот Arikan → Hand the bot to it** (or
-   `PUT /api/v1/telegram/bot-addon` with `{"addon":"arikan-telegram"}`). The official
-   `telegram` addon, if it is installed, keeps running but answers nothing: the bot's
-   updates go to the holder alone.
-4. The bot picks the new code up by itself on the next update; its menu is the one the
-   admin set in **Telegram → Menu** (colours and premium emoji included).
+Since 0.5.1.4 a panel carries this repository as an **addon source of its own**
+(`addons.BuiltinSourceURL` in the panel's code): it is already in **Addons → Sources**,
+marked built-in and signed with the release key, and the panel puts the bot down by itself.
+
+- **Nothing to add by hand.** A panel whose bot is on installs `arikan-telegram` and hands
+  the bot to it on its own — including on a server that was answering with the marketplace's
+  `telegram` addon, where the panel put that one itself. A holder the admin chose by hand
+  stays, and turning the bot off and on again hands the choice back to the panel.
+- **By hand**, if one wants it another way: **Addons → Catalog → Telegram-бот Arikan →
+  Install**, then **Addons → Installed → Hand the bot to it** (or
+  `PUT /api/v1/telegram/bot-addon` with `{"addon":"arikan-telegram"}`). The marketplace's
+  `telegram` addon, if it is installed, keeps running but answers nothing.
+- The menu the bot sends is the one set in **Telegram → Menu** (colours and premium emoji
+  included), and the bot picks new code up on the next update.
+
+The source's file (`mikan-addon.json`) is read from this repository's latest release and must
+be signed with the release key (`mikan-addon.json.sig`, written by `mikan-release addon
+-sign` in the release workflow): a file signed with another key — or not signed — is refused,
+and the panel says so. If the key is ever rotated, the panel shows the new fingerprint to
+accept. The entry's image is pinned by the digest it names.
 
 The bot addon of a panel older than the release it was built from is skipped as
 `min_panel`; a bot addon refuses to be installed by a panel that runs no bot addons at all

@@ -67,8 +67,10 @@ export function entryOf(id: string, d: Market | undefined): MarketEntry | undefi
   return d?.catalog.find((e) => e.id === id && (e.origin?.id ?? 0) === (a?.origin?.id ?? 0));
 }
 
-/** The badge of an unofficial addon: whose it is, short enough for a phone. */
+/** The badge of an unofficial addon: whose it is, short enough for a phone. The source the
+ * panel itself ships with (its own releases) is this panel's own addon, not a third party's. */
 export function unofficialLabel(o: MarketOrigin): string {
+  if (o.builtin) return t("market.own");
   const title = o.title.length > 24 ? `${o.title.slice(0, 23)}…` : o.title;
   return t("market.unofficial", { title });
 }
