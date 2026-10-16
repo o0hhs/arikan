@@ -102,15 +102,15 @@ type InboundPatch struct {
 	Client      *ClientEndpoint    // replaces all three
 	DisplayName *string
 	// What only the node uses.
-	Listen     *string
-	AutoPort   *bool
-	AutoSNI    *bool
+	Listen   *string
+	AutoPort *bool
+	AutoSNI  *bool
 	Outbound *string // direct, warp, node or link
 	// ExitNodeID is for Outbound node, OutboundID for Outbound link: the external server
 	// the admin added by a share link.
 	ExitNodeID *int64
 	OutboundID *int64
-	PoolID     *int64  // 0: the main traffic
+	PoolID     *int64 // 0: the main traffic
 
 	// FromPort, when set, applies the patch only while the inbound is on this port: an
 	// automatic move decided on what a node reported never lands on a row moved since
