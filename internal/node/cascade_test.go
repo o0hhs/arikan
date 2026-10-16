@@ -145,7 +145,7 @@ func TestOutboundByLink(t *testing.T) {
 		{Name: nodeapi.OutboundName(8), Link: "ss://YWVzLTI1Ni1nY206c2VjcmV0@198.51.100.31:8388#SS node", Inbounds: []string{"in-missing"}},
 		{Name: nodeapi.OutboundName(9), Link: "trojan://secret@198.51.100.32:443?sni=example.com", Inbounds: []string{"in-gone"}},
 	}
-	raw, rejected, err := buildConfig(st, proto.Cert{}, false)
+	raw, rejected, err := buildConfig(st, proto.Cert{}, false, 0)
 	if err != nil {
 		t.Fatalf("a link outbound broke the config: %v", err)
 	}
@@ -203,7 +203,7 @@ func TestBrokenLinkIsRejectedAlone(t *testing.T) {
 		{Name: nodeapi.OutboundName(4), Link: "vless://broken", Inbounds: []string{"in-vless"}},
 		{Name: nodeapi.OutboundName(5), Link: "trojan://secret@198.51.100.32:443", Inbounds: []string{}},
 	}
-	raw, rejected, err := buildConfig(st, proto.Cert{}, false)
+	raw, rejected, err := buildConfig(st, proto.Cert{}, false, 0)
 	if err != nil {
 		t.Fatalf("the whole state was refused: %v", err)
 	}

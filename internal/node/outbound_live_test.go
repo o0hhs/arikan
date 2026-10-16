@@ -37,7 +37,7 @@ func TestOutboundLinkCarriesTraffic(t *testing.T) {
 	socks, asked := socks5Server(t)
 	st := warpState()
 	st.Exits = []nodeapi.Exit{{Name: nodeapi.OutboundName(1), Link: "socks5://" + socks, Inbounds: []string{}}}
-	raw, _, err := buildConfig(st, proto.Cert{}, false)
+	raw, _, err := buildConfig(st, proto.Cert{}, false, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
