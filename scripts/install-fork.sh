@@ -48,6 +48,26 @@
 #   * Отдельный установщик с нуля не переписывается: для чистой установки сначала пройди
 #     штатный install.sh (он ставит Docker, файрвол, compose и саму панель), потом запусти
 #     эту команду ещё раз — она переключит уже установленный mikan на форк.
+#
+#   * Сервер-Нода — это не панель, и это здесь отдельная ветка. У ноды нет ни панели, ни
+#     postgres, ни даже панельного compose.yaml: только служба node (скрипт смотрит роль в
+#     .env: MIKAN_MODE=node, как её пишут оба форка и сток; если строки нет, решает и то,
+#     какая служба в compose.yaml). Поэтому на ноде:
+#       — контейнеры читаются и поднимаются службой node, а не panel и не postgres;
+#       — резервная копия — это не pg_dump, а архив её собственных данных (data/node:
+#         ключи, настройки, соединения) в $MIKAN_DIR/data/node/backup/;
+#       — «схема базы» не читается и на ≥32 не проверяется: таблицы referral_* и
+#         campaign_* создаёт панель на своей стороне, на ноде их нет и быть не должно;
+#       — обновления ноды ведёт панель через её API (обновления нод — на странице Nodes);
+#         скрипт ставит только стоковую автоматику и не трогает панельную.
+#     Раньше скрипт про роль не знал: на ноде он поднимал postgres (его в её compose.yaml
+#     нет), не мог прочитать схему и падал на шаге 2/9 — перейти со стока на форк на ноде
+#     было нельзя вовсе.
+#
+#   * Панель и нода — это .env-решение панели: админ переводит ноду на форк.
+#
+# Ключи ноды: --node-panel-address IP (или NODE_PANEL_ADDRESS=...) пригодится там, где у
+# панели несколько адресов и нода сама не угадывает нужный.
 
 set -Eeuo pipefail
 
@@ -99,6 +119,15 @@ DRY_RUN=0
 DISABLE_AUTO_UPDATE=0
 ASSUME_YES=0
 WAIT_SECONDS=${WAIT_SECONDS:-180}
+NODE_PANEL_ADDRESS=${NODE_PANEL_ADDRESS:-}
+NODE_BACKUP=${NODE_BACKUP:-}
+# Где на хосте живут команда форка и файлы юнитов. На сервере это ровно эти два места; в
+# тестах подменяются, чтобы проверять скрипт, ничего не ставя в /usr/local/bin.
+BIN_DIR=${BIN_DIR:-/usr/local/bin}
+SYSTEMD_DIR=${SYSTEMD_DIR:-/etc/systemd/system}
+# Сколько ждать схему панели после её перезапуска: образ форка применяет четыре свои
+# миграции (0032–0035) на старте, и на большой базе это не мгновенно.
+SCHEMA_WAIT=${SCHEMA_WAIT:-120}
 
 step() { printf '\n\033[1;36m▸ %s\033[0m\n' "$*"; }
 ok() { printf '  \033[32m✓\033[0m %s\n' "$*"; }
@@ -120,7 +149,9 @@ usage() {
 Ключи:
   --image ОБРАЗ          образ Arikan вместо свежего релиза (или FORK_IMAGE=... в
                          окружении): для беты, своей сборки или зеркала
-  --rollback АРХИВ        вернуться на обычный mikan из копии базы
+  --rollback АРХИВ        вернуться на обычный mikan: на панели архив базы, на ноде —
+                         архив её данных (оба называются в конце перехода)
+  --node-panel-address IP адрес панели для файрвола ноды (или NODE_PANEL_ADDRESS=...)
   --dry-run              ничего не менять, только показать
   --trace                показать каждую команду (когда нужно понять, где оно встало)
   --disable-auto-update  выключить автообновление (нужно только для образа со старым
@@ -130,6 +161,7 @@ usage() {
   curl -fsSL <url> | sudo bash                      # свежий стабильный релиз форка
   curl -fsSL <url> | sudo bash -s -- --image ghcr.io/o0hhs/arikan:0.5.99.99
   curl -fsSL <url> | sudo bash -s -- --rollback /opt/mikan/data/panel/backup-*.dump
+  curl -fsSL <url> | sudo bash -s -- --rollback /opt/mikan/data/node/backup-*-before-fork.tar.gz
 EOF
 }
 
@@ -143,6 +175,10 @@ while [ $# -gt 0 ]; do
       [ $# -ge 2 ] || die "--rollback требует значение"
       BACKUP=$2; shift 2 ;;
     --rollback=*) BACKUP=${1#*=}; shift ;;
+    --node-panel-address)
+      [ $# -ge 2 ] || die "--node-panel-address требует значение"
+      NODE_PANEL_ADDRESS=$2; shift 2 ;;
+    --node-panel-address=*) NODE_PANEL_ADDRESS=${1#*=}; shift ;;
     --dry-run) DRY_RUN=1; shift ;;
     --trace) TRACE=1; shift ;;
     --disable-auto-update) DISABLE_AUTO_UPDATE=1; shift ;;
@@ -169,6 +205,51 @@ esac
 
 dc() { docker compose --project-directory "$MIKAN_DIR" -f "$MIKAN_DIR/compose.yaml" "$@"; }
 env_get() { sed -n "s/^$1=//p" "$MIKAN_DIR/.env" | head -n1; }
+# ───────────────────────────── кто этот сервер: панель или нода ─────────────────────────────
+# Нода — это не панель: у неё нет ни postgres, ни панели, ни панельного compose.yaml, и
+# половина шагов ниже (схема, pg_dump, таблицы форка) на ней не только бесполезна, но и
+# невозможна. Роль берётся из .env: MIKAN_MODE=node пишут и сток, и форк (архив .env — единственный
+# документ, который на ноде что-то говорит о её роли). Если строки нет, решает и
+# compose.yaml: служба node без службы panel — это нода, panel — панель; в спорном случае
+# решает тот же MIKAN_MODE, а без него — панель (там, где есть сомнение, безопаснее
+# панельный путь: он ничего не портит и просто честно скажет, что базы нет).
+services=$(dc config --services 2>/dev/null || true)
+if [ "$(env_get MIKAN_MODE)" = node ]; then
+  ROLE=node
+elif printf '%s\n' "$services" | grep -qx node && ! printf '%s\n' "$services" | grep -qx panel; then
+  ROLE=node
+  [ -n "$services" ] && warn "в .env нет MIKAN_MODE, но служба panel в compose.yaml не значится: считаю сервер нодой"
+else
+  ROLE=panel
+fi
+IS_NODE=0
+[ "$ROLE" = node ] && IS_NODE=1
+# Имена контейнеров: у панели и у ноды это одна и та же служба node, но у панели рядом есть
+# panel и postgres, которых на ноде нет и быть не должно.
+NODE_SERVICE=node
+# Службы панели и базы зовутся по-разному у разных сборок стока (postgres/database,
+# panel/mikan), поэтому они берутся из самого compose.yaml, а не зашиваются: на панели, где
+# базы нет вовсе, имя пустое и все обращения к базе отсекаются ещё до запуска.
+#
+# Функция, а не один расчёт: compose.yaml на шаге 6 заменяет команда форка, и имя службы
+# базы может смениться вместе с ним — тогда повторный вызов возвращает уже новые имена.
+resolve_services() {
+  services=$(dc config --services 2>/dev/null || true)
+  PANEL_SERVICE=""
+  DB_SERVICE=""
+  [ "$IS_NODE" = 1 ] && return 0
+  for cand in panel mikan web; do
+    if printf '%s\n' "$services" | grep -qx "$cand"; then PANEL_SERVICE=$cand; break; fi
+  done
+  for cand in postgres database db; do
+    if printf '%s\n' "$services" | grep -qx "$cand"; then DB_SERVICE=$cand; break; fi
+  done
+  if [ -z "$DB_SERVICE" ]; then
+    warn "в compose.yaml нет службы базы (postgres/database) — смотрю базу глазами панели"
+  fi
+  return 0
+}
+resolve_services
 # Кто и что в базе: compose инсталлера задаёт их константами, но читать их из .env надёжнее.
 DBPASS=$(env_get MIKAN_POSTGRES_PASSWORD)
 DBUSER=$(env_get MIKAN_POSTGRES_USER); DBUSER=${DBUSER:-mikan}
@@ -185,20 +266,45 @@ env_set() { # в пробном запуске не пишет ничего
 }
 # psql через контейнер базы, а не через панель: панель может быть остановлена (её как раз и
 # собираемся менять), а psql в образе postgres есть всегда. Если не вышло — пробуем панель.
+# На ноде базы нет: sql честно говорит об этом, а не стучится в отсутствующую службу.
 sql() { # sql ЗАПРОС → строка ответа; при ошибке — сама ошибка в stderr и код 1
   local out err
+  if [ "$IS_NODE" = 1 ]; then
+    echo "базы на этом сервере нет: он нода" >&2
+    return 1
+  fi
   err=$(mktemp) || return 1
   # stderr docker compose пишет и сам (+++ docker compose …, служебные строки) — в ответ он
   # попадать не должен, поэтому он уходит в отдельный файл, а не склеивается через 2>&1.
-  if out=$(dc exec -T -e PGPASSWORD="$DBPASS" postgres psql -U "$DBUSER" -d "$DBNAME" -tAX -v ON_ERROR_STOP=1 -c "$1" 2>"$err"); then
+  if [ -n "$DB_SERVICE" ] &&
+    out=$(dc exec -T -e PGPASSWORD="$DBPASS" "$DB_SERVICE" psql -U "$DBUSER" -d "$DBNAME" -tAX -v ON_ERROR_STOP=1 -c "$1" 2>"$err"); then
     rm -f "$err"; printf '%s' "$out" | tr -d '[:space:]'; return 0
   fi
-  if out=$(dc exec -T panel sh -c 'psql "$MIKAN_DATABASE_URL" -tAX -v ON_ERROR_STOP=1 -c "$1"' _ "$1" 2>>"$err"); then
+  if out=$(dc exec -T "$PANEL_SERVICE" sh -c 'psql "$MIKAN_DATABASE_URL" -tAX -v ON_ERROR_STOP=1 -c "$1"' _ "$1" 2>>"$err"); then
     rm -f "$err"; printf '%s' "$out" | tr -d '[:space:]'; return 0
   fi
   cat "$err" >&2
   rm -f "$err"
   return 1
+}
+# Схема панели: сколько версий применено. Пусто — не прочитали (или это нода).
+schema_now() { sql "SELECT COALESCE(max(version_id),0) FROM goose_db_version WHERE is_applied" 2>/dev/null; }
+# Ждём, пока панель сама накатит миграции форка: их применяет её бинарь на старте
+# (serve.go → store.OpenPostgres → prepareSchema → migrateUp), и только после этого схема
+# становится 32+. Без ожидания проверка ругалась бы на панель, которой нужно ещё время.
+wait_for_schema() { # wait_for_schema МИНИМУМ СЕКУНДЫ → «схема»; код 1, если не дождались
+  local want=$1 limit=$2 got start pause=2
+  start=$(date +%s)
+  while :; do
+    got=$(schema_now)
+    case $got in
+      '' | *[!0-9]*) ;;
+      *) [ "$got" -ge "$want" ] && { printf '%s' "$got"; return 0; } ;;
+    esac
+    [ "$(($(date +%s) - start))" -ge "$limit" ] && { printf '%s' "${got:-}"; return 1; }
+    sleep "$pause"
+    [ "$pause" -lt 10 ] && pause=$((pause + 2))
+  done
 }
 newer_than() { # newer_than A B → 0, если A строго новее B
   local a b
@@ -210,6 +316,8 @@ newer_than() { # newer_than A B → 0, если A строго новее B
 }
 switch_off() { # выключает переключатель, только если он был включён; 0 — был и выключен
   local was
+  # Нода: выключателя нет (им распоряжается панель), да и базы, где он лежит, тоже нет.
+  [ "$IS_NODE" = 1 ] && return 1
   was=$(sql "SELECT value FROM settings WHERE key='$1'" 2>/dev/null)
   if [ "$was" = "true" ]; then
     sql "UPDATE settings SET value='false' WHERE key='$1'" >/dev/null
@@ -328,36 +436,69 @@ release_resolve() {
 # из /usr/local/bin/mikan.stock на своё имя, стоковые юниты включаются обратно. Так откат
 # (ручной или автоматический) отдаёт панели её апдейтер: команда форка ходит за релизами
 # форка и вернула бы откаченную панель обратно.
+#
+# На ноде стоковые юниты — это её собственный апдейтер, и возвращать его некуда: сама она
+# за релизами не ходит, её обновляет панель через API (MIKAN_AUTO_UPDATE у неё не включён).
+# Поэтому на ноде откат только снимает команду и юниты форка.
 restore_stock_updater() {
   if [ -d /run/systemd/system ]; then
     systemctl disable --now arikan-update.timer arikan-update-request.path >/dev/null 2>&1 || true
-    # У сборок до переименования юниты форка — те же mikan-update.*: их текст остаётся, но
-    # запускает он уже стоковую команду, которая вернётся на своё имя ниже.
-    systemctl enable --now mikan-update.timer mikan-update-request.path >/dev/null 2>&1 ||
-      warn "юниты mikan-update.* не включились — включи их вручную: systemctl enable --now mikan-update.timer mikan-update-request.path"
+    if [ "$IS_NODE" = 1 ]; then
+      info "нода: апдейтер форка снят; стоковые mikan-update.* остаются выключенными — ноду обновляет её панель (Nodes)"
+    else
+      # У сборок до переименования юниты форка — те же mikan-update.*: их текст остаётся, но
+      # запускает он уже стоковую команду, которая вернётся на своё имя ниже.
+      systemctl enable --now mikan-update.timer mikan-update-request.path >/dev/null 2>&1 ||
+        warn "юниты mikan-update.* не включились — включи их вручную: systemctl enable --now mikan-update.timer mikan-update-request.path"
+    fi
   fi
-  # Второе имя, которое миграция делала ссылкой (arikan → mikan у сборок до переименования),
-  # снимается: под ним не должно остаться ничего, что ходит за релизами форка.
-  [ -L /usr/local/bin/arikan ] && rm -f /usr/local/bin/arikan
-  if [ -f /usr/local/bin/mikan.stock ]; then
-    rm -f /usr/local/bin/mikan && mv /usr/local/bin/mikan.stock /usr/local/bin/mikan
-    ok "команда mikan — стоковая (из /usr/local/bin/mikan.stock)"
+  # Оба имени сборки форка уходят: ссылка — как ссылка, сама команда — как файл. Иначе после
+  # отката в /usr/local/bin остаётся arikan, который ходит за релизами форка и вернул бы
+  # откаченную панель обратно. Стоковая копия (mikan.stock) при этом не трогается — она
+  # вернётся на имя mikan ниже.
+  rm -f "$BIN_DIR/arikan"
+  [ -f "$BIN_DIR/mikan.stock" ] && rm -f "$BIN_DIR/mikan"
+  if [ -f "$BIN_DIR/mikan.stock" ]; then
+    mv "$BIN_DIR/mikan.stock" "$BIN_DIR/mikan"
+    ok "команда mikan — стоковая (из $BIN_DIR/mikan.stock)"
   else
-    warn "нет /usr/local/bin/mikan.stock: стоковую команду вернёт установщик апстрима (install.sh)"
+    warn "нет $BIN_DIR/mikan.stock: стоковую команду вернёт установщик апстрима (install.sh)"
   fi
 }
 
 # ─────────────────────────────── откат на обычный mikan ───────────────────────────────
 if [ -n "$BACKUP" ]; then
   [ -f "$BACKUP" ] || die "нет файла $BACKUP"
-  head -c 5 "$BACKUP" | grep -q PGDMP || die "$BACKUP не архив PostgreSQL (нужен pg_dump --format=custom)"
   [ -f "$MIKAN_DIR/compose.yaml" ] || die "не найден $MIKAN_DIR/compose.yaml"
   BASE=$(basename "$BACKUP")
-  [ -f "$MIKAN_DIR/data/panel/$BASE" ] || die "архив вне $MIKAN_DIR/data/panel — положи его туда: cp '$BACKUP' '$MIKAN_DIR/data/panel/'"
+  case "$BACKUP" in
+    *.dump) BACKUP_KIND=panel ;;
+    *.tar.gz | *.tgz) BACKUP_KIND=node ;;
+    *)
+      printf '\n\033[31m✗ не понимаю, что за копия: %s\033[0m\n' "$BACKUP" >&2
+      printf '  панель: копия базы *.dump (pg_dump --format=custom)\n' >&2
+      printf '  нода:   копия её данных *.tar.gz (её делает шаг 4/9 перехода на ноде)\n\n' >&2
+      exit 1
+      ;;
+  esac
+  if [ "$BACKUP_KIND" = panel ]; then
+    head -c 5 "$BACKUP" | grep -q PGDMP || die "$BACKUP не архив PostgreSQL (нужен pg_dump --format=custom)"
+    [ -f "$MIKAN_DIR/data/panel/$BASE" ] || die "архив вне $MIKAN_DIR/data/panel — положи его туда: cp '$BACKUP' '$MIKAN_DIR/data/panel/'"
+  else
+    gzip -t "$BACKUP" 2>/dev/null || die "$BACKUP не читается как .tar.gz (нужна копия, сделанная этим скриптом)"
+    tar -tzf "$BACKUP" >/dev/null 2>&1 || die "$BACKUP не читается как .tar.gz"
+    [ "$IS_NODE" = 1 ] || die "это панель, а копия $BASE — от ноды: панель возвращают из копии базы (*.dump)"
+  fi
 
-  printf 'Сейчас образ: %s\nВозврат к:   %s\nБаза из:    %s\n' "$(env_get MIKAN_IMAGE)" "$STOCK_IMAGE" "$BASE"
-  printf 'Все платежи, клиенты и тарифы вернутся к состоянию на момент копии.\n'
-  printf 'Реферальная программа (referral_*) и метки кампаний (campaign_*) исчезнут: их создаёт форк.\n'
+  if [ "$BACKUP_KIND" = panel ]; then
+    printf 'Сейчас образ: %s\nВозврат к:   %s\nБаза из:    %s\n' "$(env_get MIKAN_IMAGE)" "$STOCK_IMAGE" "$BASE"
+    printf 'Все платежи, клиенты и тарифы вернутся к состоянию на момент копии.\n'
+    printf 'Реферальная программа (referral_*) и метки кампаний (campaign_*) исчезнут: их создаёт форк.\n'
+  else
+    printf 'Сейчас образ: %s\nВозврат к:   %s\nДанные из:   %s\n' "$(env_get MIKAN_IMAGE)" "$STOCK_IMAGE" "$BASE"
+    printf 'Ключи, соединения и настройки ноды вернутся к состоянию на момент копии.\n'
+    printf 'Клиенты ноды на это время отключатся: контейнер будет остановлен и поднят снова.\n'
+  fi
   if [ "$ASSUME_YES" = 0 ] && [ "$DRY_RUN" = 0 ]; then
     read -r -p 'Продолжить? (yes/no) ' answer </dev/tty || answer=no
     [ "$answer" = "yes" ] || die "отменено"
@@ -373,15 +514,43 @@ if [ -n "$BACKUP" ]; then
   [ "$DRY_RUN" = 1 ] || docker pull "$STOCK_IMAGE" >/dev/null 2>&1 || docker image inspect "$STOCK_IMAGE" >/dev/null 2>&1 || die "нет образа $STOCK_IMAGE"
   ok "MIKAN_IMAGE=$STOCK_IMAGE${STOCK_RUN_VERSION:+ · MIKAN_VERSION=$STOCK_RUN_VERSION}"
 
-  step "Откат 2/4. База из копии"
-  dc stop panel node >/dev/null 2>&1 || true
-  if [ "$DRY_RUN" = 1 ]; then
-    info "(пробный запуск) pg_restore обычным бинарём"
-  elif dc run --rm --no-deps -T panel database restore "/data/panel/$BASE" >/tmp/mikan-restore.log 2>&1; then
-    ok "база возвращена и поднята до схемы обычного mikan"
+  if [ "$BACKUP_KIND" = node ]; then
+    # Нода: базы нет ни у форка, ни у стока, и возвращать нечего, кроме её собственных
+    # данных. Распаковываются они ДО запуска: контейнер пишет в data/node и на ходу
+    # перезаписал бы половину. Поэтому сначала нода останавливается, потом кладутся данные.
+    step "Откат 2/4. Данные ноды из копии"
+    if [ "$DRY_RUN" = 1 ]; then
+      info "(пробный запуск) остановить ноду, распаковать data/node из $BASE, вернуть её .env"
+    else
+      dc stop "$NODE_SERVICE" >/dev/null 2>&1 || true
+      tar -xzf "$BACKUP" -C "$MIKAN_DIR/data/node" ||
+        die "распаковать копию не удалось: данные ноды не изменены. Разберись и повтори с --rollback"
+      ok "данные ноды возвращены ($BASE)"
+      # .env ноды хранит её роль, версию и образ (их читает нода при разборе .env): строки
+      # MIKAN_* возвращаются к состоянию копии, всё остальное (NODE_API_PORT, PANEL_IPS,
+      # MIKAN_UFW…) остаётся как есть.
+      if [ -f "$MIKAN_DIR/data/node/.env" ]; then
+        while IFS= read -r line; do
+          case "$line" in
+            MIKAN_*=*) env_set "${line%%=*}" "${line#*=}" ;;
+          esac
+        done <"$MIKAN_DIR/data/node/.env"
+        ok ".env ноды вернулся к копии (MIKAN_MODE=$(env_get MIKAN_MODE), MIKAN_IMAGE=$(env_get MIKAN_IMAGE))"
+      else
+        warn "в копии нет .env ноды: роль и образ остаются в $MIKAN_DIR/.env как есть"
+      fi
+    fi
   else
-    sed -n '1,20p' /tmp/mikan-restore.log >&2
-    die "возврат не удался — база не тронута, прежняя схема на месте"
+    step "Откат 2/4. База из копии"
+    dc stop panel node >/dev/null 2>&1 || true
+    if [ "$DRY_RUN" = 1 ]; then
+      info "(пробный запуск) pg_restore обычным бинарём"
+    elif dc run --rm --no-deps -T "$PANEL_SERVICE" database restore "/data/panel/$BASE" >/tmp/mikan-restore.log 2>&1; then
+      ok "база возвращена и поднята до схемы обычного mikan"
+    else
+      sed -n '1,20p' /tmp/mikan-restore.log >&2
+      die "возврат не удался — база не тронута, прежняя схема на месте"
+    fi
   fi
 
   step "Откат 3/4. Обновления — снова стоковые"
@@ -391,16 +560,30 @@ if [ -n "$BACKUP" ]; then
     info "(пробный запуск) вернуть /usr/local/bin/mikan из mikan.stock и юниты mikan-update.*"
   else
     restore_stock_updater
-    ok "апдейтер — снова стоковый: /usr/local/bin/mikan и юниты mikan-update.*"
+    ok "апдейтер — снова стоковый: /usr/local/bin/mikan"
   fi
 
   step "Откат 4/4. Запуск и проверка"
-  dc up -d --wait --wait-timeout "$WAIT_SECONDS" || warn "стек не стал здоровым — docker compose logs panel"
+  dc up -d --wait --wait-timeout "$WAIT_SECONDS" || warn "стек не стал здоровым — docker compose logs"
   [ "$DRY_RUN" = 1 ] && exit 0
+  if [ "$BACKUP_KIND" = node ]; then
+    # Проверяется то, что у ноды есть: контейнер запущен и она снова ждёт свою панель.
+    NODE_PORT_STATE=$(env_get NODE_API_PORT)
+    sleep 5
+    dc exec -T "$NODE_SERVICE" mikan-node key-port >/dev/null 2>&1 ||
+      dc exec -T "$NODE_SERVICE" /usr/local/bin/arikan-node --version >/dev/null 2>&1 || {
+        dc logs "$NODE_SERVICE" --tail 15 2>&1 | sed 's/^/    /' >&2
+        die "нода не поднялась — данные на месте, логи выше"
+      }
+    ok "нода отвечает${NODE_PORT_STATE:+ (ждёт панель на порту $NODE_PORT_STATE)}"
+    printf '\n\033[32mГотово.\033[0m Нода на обычном mikan, данные — на состояние копии %s.\n' "$BASE"
+    printf '  Панель обновит ноду сама (Nodes): версия у неё снова стоковая.\n'
+    exit 0
+  fi
   sleep 5
-  dc exec -T panel mikan health >/dev/null 2>&1 || { dc logs panel --tail 15 2>&1 | sed 's/^/    /' >&2; die "панель не поднялась — база на месте, логи выше"; }
+  dc exec -T "$PANEL_SERVICE" mikan health >/dev/null 2>&1 || { dc logs "$PANEL_SERVICE" --tail 15 2>&1 | sed 's/^/    /' >&2; die "панель не поднялась — база на месте, логи выше"; }
   ok "панель отвечает"
-  SCHEMA=$(sql "SELECT COALESCE(max(version_id),0) FROM goose_db_version WHERE is_applied" 2>/dev/null)
+  SCHEMA=$(schema_now)
   ok "схема: ${SCHEMA:-?}"
   printf '\n\033[32mГотово.\033[0m Панель на обычном mikan, база — на состояние копии %s.\n' "$BASE"
   exit 0
@@ -427,14 +610,30 @@ fi
 [ -f "$MIKAN_DIR/.env" ] || die "не найден $MIKAN_DIR/.env"
 
 STAMP=$(date +%Y%m%d-%H%M%S)
-# Копия для отката — ПЕРВАЯ, снятая до перехода. Копии, снятые позже, уже содержат
-# миграции форка, и обычный mikan на них не поднимется («schema 32 is newer than this
-# binary supports», 0032 — первая миграция форка), поэтому на повторных запусках новую не
-# делаем, а помним первую.
+# Копия для отката — ПЕРВАЯ, снятая до перехода.
+#
+# Панель: копии, снятые позже, уже содержат миграции форка, и обычный mikan на них не
+# поднимется («schema 32 is newer than this binary supports», 0032 — первая миграция форка),
+# поэтому на повторных запусках новую не делаем, а помним первую.
+#
+# Нода: базы нет вовсе, поэтому копия — это её собственные данные (data/node: ключи,
+# соединения, настройки), но по той же причине берётся первая: она ближе всего к состоянию
+# до перехода.
+if [ "$IS_NODE" = 1 ]; then
+  BACKUP_DIR="$MIKAN_DIR/data/node/backup"
+  BACKUP_SUFFIX=tar.gz
+  BACKUP_PATTERN="$BACKUP_DIR"/backup-*-before-fork.tar.gz
+  # Копия может ехать на другой носитель: место там, где данные, а не там, где /opt.
+  [ -n "$NODE_BACKUP" ] && BACKUP_DIR=$NODE_BACKUP
+else
+  BACKUP_DIR="$MIKAN_DIR/data/panel"
+  BACKUP_SUFFIX=dump
+  BACKUP_PATTERN="$BACKUP_DIR"/backup-*-before-fork.dump
+fi
 FIRST_BACKUP=""
 # `ls` без совпадений возвращает 1, а с pipefail и set -e это молча оборвало бы весь
 # скрипт, поэтому пустой результат — обычный случай, а не ошибка.
-for f in "$MIKAN_DIR"/data/panel/backup-*-before-fork.dump; do
+for f in $BACKUP_PATTERN; do
   [ -e "$f" ] || break
   FIRST_BACKUP="$f"; break
 done
@@ -442,8 +641,8 @@ if [ -n "$FIRST_BACKUP" ]; then
   BACKUP_NAME=$(basename "$FIRST_BACKUP"); BACKUP_HOST=$FIRST_BACKUP
   if [ "$DRY_RUN" = 0 ]; then ok "копия для отката уже есть: $BACKUP_NAME"; fi
 else
-  BACKUP_NAME="backup-${STAMP}-before-fork.dump"
-  BACKUP_HOST="$MIKAN_DIR/data/panel/$BACKUP_NAME"
+  BACKUP_NAME="backup-${STAMP}-before-fork.$BACKUP_SUFFIX"
+  BACKUP_HOST="$BACKUP_DIR/$BACKUP_NAME"
 fi
 ENV_BACKUP="$MIKAN_DIR/.env.before-fork-${STAMP}"
 
@@ -504,69 +703,114 @@ else
 fi
 
 step "2/9. Что стоит сейчас"
-info "каталог $MIKAN_DIR · образ $OLD_IMAGE · скрипт $REV"
+if [ "$IS_NODE" = 1 ]; then
+  info "каталог $MIKAN_DIR · образ $OLD_IMAGE · скрипт $REV · сервер: нода"
+  ok "панели и базы на ноде нет — ни схемы, ни pg_dump здесь не будет"
+  info "смотреть за ней — на стороне панели: Nodes"
+  BEFORE_SCHEMA=""
+else
+  info "каталог $MIKAN_DIR · образ $OLD_IMAGE · скрипт $REV · сервер: панель"
 
-# Стек может быть не поднят — тогда читать схему нечем. Поднимаем базу и пробуем ещё раз.
-# Время ограничено: сервер без доступа к реестру иначе висел бы тут минутами.
-if ! dc ps --status running --services 2>/dev/null | grep -qx postgres; then
-  warn "база не запущена — поднимаю (не дольше двух минут)"
-  if command -v timeout >/dev/null 2>&1; then
-    timeout 60 dc up -d postgres >/dev/null 2>&1 || true
-  else
-    dc up -d postgres >/dev/null 2>&1 || true
+  # Стек может быть не поднят — тогда читать схему нечем. Поднимаем базу и пробуем ещё раз.
+  # Время ограничено: сервер без доступа к реестру иначе висел бы тут минутами.
+  if [ -n "$DB_SERVICE" ] && ! dc ps --status running --services 2>/dev/null | grep -qx "$DB_SERVICE"; then
+    warn "база не запущена — поднимаю (не дольше двух минут)"
+    if command -v timeout >/dev/null 2>&1; then
+      timeout 60 dc up -d "$DB_SERVICE" >/dev/null 2>&1 || true
+    else
+      dc up -d "$DB_SERVICE" >/dev/null 2>&1 || true
+    fi
+    for _ in $(seq 1 20); do
+      dc exec -T "$DB_SERVICE" pg_isready -q >/dev/null 2>&1 && break
+      sleep 3
+    done
   fi
-  for _ in $(seq 1 20); do
-    dc exec -T postgres pg_isready -q >/dev/null 2>&1 && break
-    sleep 3
-  done
+  if ! BEFORE_SCHEMA=$(schema_now); then
+    printf '\n  \033[31mне читаю базу — postgres и панель не ответили на запрос схемы.\033[0m\n\n'
+    printf '  \033[2mсостояние стека:\033[0m\n'
+    dc ps 2>&1 | sed 's/^/    /'
+    printf '\n'
+    die "база недоступна. Если панель не запущена — cd $MIKAN_DIR && docker compose up -d, потом повтори."
+  fi
+  # Сколько чего было ДО: по этим числам шаг 8/9 убедится, что данные не потерялись.
+  USERS=$(sql "SELECT count(*) FROM users")
+  TARIFFS=$(sql "SELECT count(*) FROM tariffs")
+  PAYMENTS=$(sql "SELECT count(*) FROM payments")
+  ok "схема PostgreSQL $BEFORE_SCHEMA · $USERS клиентов · $TARIFFS тарифов · $PAYMENTS платежей"
 fi
-if ! BEFORE_SCHEMA=$(sql "SELECT COALESCE(max(version_id),0) FROM goose_db_version WHERE is_applied"); then
-  printf '\n  \033[31mне читаю базу — postgres и панель не ответили на запрос схемы.\033[0m\n\n'
-  printf '  \033[2mсостояние стека:\033[0m\n'
-  dc ps 2>&1 | sed 's/^/    /'
-  printf '\n'
-  die "база недоступна. Если панель не запущена — cd $MIKAN_DIR && docker compose up -d, потом повтори."
-fi
-USERS=$(sql "SELECT count(*) FROM users")
-TARIFFS=$(sql "SELECT count(*) FROM tariffs")
-PAYMENTS=$(sql "SELECT count(*) FROM payments")
-ok "схема PostgreSQL $BEFORE_SCHEMA · $USERS клиентов · $TARIFFS тарифов · $PAYMENTS платежей"
 
 step "3/9. Обновления"
-STOCK_VERSION=$(dc exec -T panel mikan version 2>/dev/null | tr -d '[:space:]' || true)
-FORK_VERSION=$(docker run --rm --entrypoint mikan "$FORK_IMAGE" version 2>/dev/null | tr -d '[:space:]' || true)
-ok "сейчас ${STOCK_VERSION:-?}, в форке ${FORK_VERSION:-?}"
-if [ -n "$STOCK_VERSION" ] && [ -n "$FORK_VERSION" ]; then
-  if [ "$FORK_VERSION" = "$STOCK_VERSION" ]; then
-    info "на сервере уже эта сборка: переключение будет вхолостую"
-  elif ! newer_than "$FORK_VERSION" "$STOCK_VERSION"; then
-    warn "версия Arikan не новее стоящей — такую сборку панель не предложит обновить себе"
-    warn "пересобери образ: docker buildx build --build-arg VERSION=0.5.99.99 -t <образ> . && docker push <образ>"
+if [ "$IS_NODE" = 1 ]; then
+  # У ноды нет панели и её кнопки «Обновить»: её ведёт панель через API. Поэтому здесь важно
+  # одно: не ставим ли мы сборку, которую нода потом не сможет получить (она не новее).
+  STOCK_VERSION=$(docker run --rm --entrypoint mikan "$OLD_IMAGE" version 2>/dev/null | tr -d '[:space:]' || true)
+  FORK_VERSION=$(docker run --rm --entrypoint mikan "$FORK_IMAGE" version 2>/dev/null | tr -d '[:space:]' || true)
+  ok "сейчас ${STOCK_VERSION:-?}, в форке ${FORK_VERSION:-?}"
+  if [ -n "$STOCK_VERSION" ] && [ -n "$FORK_VERSION" ] && [ "$FORK_VERSION" != "$STOCK_VERSION" ] &&
+    ! newer_than "$FORK_VERSION" "$STOCK_VERSION"; then
+    warn "версия Arikan не новее стоящей — панель такую сборку ноде не предложит: собирай с большей VERSION"
   fi
-fi
-if [ "$DISABLE_AUTO_UPDATE" = 1 ]; then
-  # Нужно только для образа старой сборки, где Repo ещё указывает на апстрим: там панель
-  # сравнивает себя с ЕГО релизами и может заменить себя обычным mikan.
-  switch_off auto_update || ok "автообновление выключено"
-  switch_off nodes_follow_panel || ok "автообновление нод выключено"
+  info "обновления ноды ведёт её панель (Nodes), а не апдейтер на этом хосте"
+  if [ "$DISABLE_AUTO_UPDATE" = 1 ]; then
+    info "сама нода обновляется только при MIKAN_AUTO_UPDATE=1 в её .env — так и оставлено"
+  fi
 else
-  info "автообновление оставлено включённым: у этой сборки адрес релизов и ключ свои (o0hhs/arikan)"
+  STOCK_VERSION=$(dc exec -T "$PANEL_SERVICE" mikan version 2>/dev/null | tr -d '[:space:]' || true)
+  FORK_VERSION=$(docker run --rm --entrypoint mikan "$FORK_IMAGE" version 2>/dev/null | tr -d '[:space:]' || true)
+  ok "сейчас ${STOCK_VERSION:-?}, в форке ${FORK_VERSION:-?}"
+  if [ -n "$STOCK_VERSION" ] && [ -n "$FORK_VERSION" ]; then
+    if [ "$FORK_VERSION" = "$STOCK_VERSION" ]; then
+      info "на сервере уже эта сборка: переключение будет вхолостую"
+    elif ! newer_than "$FORK_VERSION" "$STOCK_VERSION"; then
+      warn "версия Arikan не новее стоящей — такую сборку панель не предложит обновить себе"
+      warn "пересобери образ: docker buildx build --build-arg VERSION=0.5.99.99 -t <образ> . && docker push <образ>"
+    fi
+  fi
+  if [ "$DISABLE_AUTO_UPDATE" = 1 ]; then
+    # Нужно только для образа старой сборки, где Repo ещё указывает на апстрим: там панель
+    # сравнивает себя с ЕГО релизами и может заменить себя обычным mikan.
+    switch_off auto_update || ok "автообновление выключено"
+    switch_off nodes_follow_panel || ok "автообновление нод выключено"
+  else
+    info "автообновление оставлено включённым: у этой сборки адрес релизов и ключ свои (o0hhs/arikan)"
+  fi
 fi
 
 step "4/9. Резервная копия"
 if [ "$DRY_RUN" = 1 ]; then
-  info "(пробный запуск) копия .env и pg_dump всей схемы в $BACKUP_NAME"
+  if [ "$IS_NODE" = 1 ]; then
+    info "(пробный запуск) копия .env и данных ноды (data/node) в $BACKUP_NAME"
+  else
+    info "(пробный запуск) копия .env и pg_dump всей схемы в $BACKUP_NAME"
+  fi
 else
   cp -a "$MIKAN_DIR/.env" "$ENV_BACKUP"
   if [ ! -e "$BACKUP_HOST" ]; then
-    printf '  pg_dump … '
-    dc run --rm --no-deps -T panel database backup "/data/panel/$BACKUP_NAME" >/dev/null ||
-      { printf '\033[31mошибка\033[0m\n'; die "резервная копия не удалась — не продолжаю"; }
-    printf '\033[32mок\033[0m\n'
+    if [ "$IS_NODE" = 1 ]; then
+      # Базы у ноды нет: её состояние — это её собственные данные. Внутри архива и .env
+      # ноды (роль, версия, образ: их читает compose ноды), поэтому откат вернёт и его.
+      # Каталог копий исключён: архив лежит в data/node/backup, и tar, собирающий сам себя,
+      # ловит «file changed as we read it» и делает копию негодной.
+      printf '  данные ноды … '
+      mkdir -p "$BACKUP_DIR" || die "не создать $BACKUP_DIR"
+      tar -czf "$BACKUP_HOST" --exclude=data/node/backup -C "$MIKAN_DIR" data/node ||
+        { printf '\033[31mошибка\033[0m\n'; die "копия данных ноды не удалась — не продолжаю"; }
+      printf '\033[32mок\033[0m\n'
+    else
+      printf '  pg_dump … '
+      dc run --rm --no-deps -T "$PANEL_SERVICE" database backup "/data/panel/$BACKUP_NAME" >/dev/null ||
+        { printf '\033[31mошибка\033[0m\n'; die "резервная копия не удалась — не продолжаю"; }
+      printf '\033[32mок\033[0m\n'
+    fi
   fi
   [ -s "$BACKUP_HOST" ] || die "копия пуста"
-  head -c 5 "$BACKUP_HOST" | grep -q PGDMP || die "$BACKUP_HOST не архив PostgreSQL"
-  ok "база: $BACKUP_HOST ($(du -h "$BACKUP_HOST" | cut -f1))"
+  if [ "$IS_NODE" = 1 ]; then
+    tar -tzf "$BACKUP_HOST" >/dev/null 2>&1 || die "$BACKUP_HOST не читается как tar.gz"
+    ok "данные ноды: $BACKUP_HOST ($(du -h "$BACKUP_HOST" | cut -f1))"
+  else
+    head -c 5 "$BACKUP_HOST" | grep -q PGDMP || die "$BACKUP_HOST не архив PostgreSQL"
+    ok "база: $BACKUP_HOST ($(du -h "$BACKUP_HOST" | cut -f1))"
+  fi
   ok ".env:  $(basename "$ENV_BACKUP")"
 fi
 
@@ -583,7 +827,7 @@ step "5/9. Команда форка"
 # при этом уезжает в /usr/local/bin/mikan.stock: её хранит первая же миграция, её и вернёт
 # откат.
 if [ "$DRY_RUN" = 1 ]; then
-  info "(пробный запуск) поставить команду Arikan $RELEASE_VERSION в /usr/local/bin и её юниты (шаг 7)"
+  info "(пробный запуск) поставить команду Arikan $RELEASE_VERSION в $BIN_DIR и её юниты (шаг 7)"
 else
   printf '  скачать команду … '
   if ! curl_get "$INSTALLER_URL" "$TMP/arikan"; then
@@ -599,26 +843,27 @@ else
   chmod +x "$TMP/arikan"
   CMD_NAME=$("$TMP/arikan" --version 2>/dev/null | awk 'NR==1{print $1}')
   case "$CMD_NAME" in
-    mikan) CMD=/usr/local/bin/mikan; ALIAS=/usr/local/bin/arikan ;;
-    arikan) CMD=/usr/local/bin/arikan; ALIAS=/usr/local/bin/mikan ;;
+    mikan) CMD=$BIN_DIR/mikan; ALIAS=$BIN_DIR/arikan ;;
+    arikan) CMD=$BIN_DIR/arikan; ALIAS=$BIN_DIR/mikan ;;
     *) die "команда из релиза называет себя «${CMD_NAME:-никак}»: не понимаю, чья она — пришли это разработчику" ;;
   esac
   # Убираем то, что стоит на обоих именах: ссылки — как есть, а стоковую команду — в
   # mikan.stock. Стоковая хранится только первая: её вернёт откат, и подменять её сборкой
   # форка нельзя.
+  mkdir -p "$BIN_DIR" || die "не создать $BIN_DIR"
   for name in mikan arikan; do
-    target=/usr/local/bin/$name
+    target=$BIN_DIR/$name
     if [ -L "$target" ]; then
       rm -f "$target"
     elif [ -e "$target" ]; then
-      if [ "$name" = mikan ] && [ ! -e /usr/local/bin/mikan.stock ]; then
-        mv -f "$target" /usr/local/bin/mikan.stock
+      if [ "$name" = mikan ] && [ ! -e "$BIN_DIR/mikan.stock" ]; then
+        mv -f "$target" "$BIN_DIR/mikan.stock"
       else
         rm -f "$target"
       fi
     fi
   done
-  install -m 755 "$TMP/arikan" "/usr/local/bin/.${CMD_NAME}.new" && mv -f "/usr/local/bin/.${CMD_NAME}.new" "$CMD" ||
+  install -m 755 "$TMP/arikan" "$BIN_DIR/.${CMD_NAME}.new" && mv -f "$BIN_DIR/.${CMD_NAME}.new" "$CMD" ||
     die "не удалось положить $CMD: ничего не меняю"
   ln -sfn "$CMD" "$ALIAS"
   said=$("$CMD" --version 2>/dev/null | tr -d '[:space:]')
@@ -631,22 +876,53 @@ fi
 step "6/9. Переключение на образ форка"
 if [ "$DRY_RUN" = 1 ]; then
   info "(пробный запуск) MIKAN_IMAGE=$FORK_IMAGE${FORK_VERSION:+ · MIKAN_VERSION=$FORK_VERSION}"
-  info "(пробный запуск) post-update и docker compose up -d"
+  info "(пробный запуск) post-update и docker compose up -d $NODE_SERVICE"
 else
   env_set MIKAN_IMAGE "$FORK_IMAGE"
   # Версия в .env — то, чем панель и команда считают себя; с чужой версией апдейтер выбирает
   # релиз по неверной отметке (переезд со стока оставлял там версию стока, и обновление
   # вечно шло через несуществующий промежуточный релиз).
   [ -n "$FORK_VERSION" ] && env_set MIKAN_VERSION "$FORK_VERSION"
+  if [ "$IS_NODE" = 1 ] && [ -n "$NODE_PANEL_ADDRESS" ]; then
+    # Панель — единственный, кто ходит на ноду по API, и единственный, кто её обновляет.
+    # Адрес панели открывается здесь, а не после: не выйдет — сказано, но не смертельно.
+    NODE_PORT_NOW=$(env_get NODE_API_PORT)
+    if [ -n "$NODE_PORT_NOW" ] && command -v ufw >/dev/null 2>&1; then
+      ufw allow from "$NODE_PANEL_ADDRESS" to any port "$NODE_PORT_NOW" proto tcp >/dev/null 2>&1 &&
+        ok "порт ноды $NODE_PORT_NOW открыт только для панели $NODE_PANEL_ADDRESS" ||
+        warn "ufw не принял правило для панели $NODE_PANEL_ADDRESS:$NODE_PORT_NOW — открой его сам"
+    else
+      info "ключ --node-panel-address задан, но NODE_API_PORT в .env или ufw не нашлись: правило не тронуто"
+    fi
+  fi
   ok "MIKAN_IMAGE=$FORK_IMAGE${FORK_VERSION:+ · MIKAN_VERSION=$FORK_VERSION}"
   # Файлы этого релиза — юниты и compose.yaml: команда форка ставит их сама (`post-update`,
   # тем же кодом, что и при обновлении), и это же переносит compose на имена её сборки. Стек
   # поднимается уже новым образом и новым compose — один перезапуск, а не два.
   if "$CMD" post-update >/dev/null 2>&1; then
     ok "юниты и compose.yaml этого релиза на месте"
+    # Файл сменился — вместе с ним могли смениться и имена служб (у сборок форка база
+    # называется postgres, у некоторых сборок стока — database). Спрашиваем заново.
+    resolve_services
   else
     warn "post-update не прошёл: юниты и compose могли не встать (подробнее: $CMD post-update)"
   fi
+fi
+# Compose мог остаться стоковым: команда форка не отвечает на post-update, на ноде лежит
+# чужой файл. Тогда перезапускать нечего — в файле нет службы, которую просят поднять, и
+# docker скажет «no such service» (ровно это и случилось в прошлый раз, только на postgres).
+# Лучше сказать об этом здесь и до перезапуска.
+if [ "$IS_NODE" = 1 ]; then SERVICES_WANT=node; else SERVICES_WANT=panel; fi
+SERVICES_NOW=$(dc config --services 2>/dev/null || true)
+if ! printf '%s\n' "$SERVICES_NOW" | grep -qx "$SERVICES_WANT"; then
+  printf '\n\033[31m✗ в %s/compose.yaml нет службы %s (есть: %s)\033[0m\n' \
+    "$MIKAN_DIR" "$SERVICES_WANT" "$(printf '%s' "$SERVICES_NOW" | tr '\n' ' ')" >&2
+  if [ "$IS_NODE" = 1 ]; then
+    printf '  Нода — это служба node: такой compose.yaml пишет установщик mikan. Посмотри, что видит docker:\n' >&2
+    printf '    cd %s && docker compose config\n' "$MIKAN_DIR" >&2
+  fi
+  printf '  Ничего не перезапущено. Образ в .env уже переключён: вернуть прежний — %s\n\n' "$OLD_IMAGE" >&2
+  exit 1
 fi
 ok "образ уже на сервере (первый шаг)"
 run "перезапустить стек" dc up -d --wait --wait-timeout "$WAIT_SECONDS"
@@ -659,16 +935,36 @@ step "7/9. Автоматика на хосте — команды форка"
 # до переименования юниты у форка как раз mikan-update.*, и команда под этим именем уже его
 # (шаг 5), поэтому выключать нечего; начиная с 0.5.1.2 стоковые выключаются — их файлы
 # остаются на месте, как и команда в mikan.stock: откат включает и её, и их.
+# На ноде у юнита форка одно дело — принять запрос панели на обновление ноды; поэтому
+# «чужая автоматика» здесь только стоковая. Свежий форк для ноды ставит юнит с запросом
+# ноды (data/node/update/request), сборка до переименования — тот же mikan-update.*; в обоих
+# случаях проверяется то, что есть, и ничего не выключается вслепую.
 if [ "$DRY_RUN" = 1 ]; then
   info "(пробный запуск) команда и юниты релиза — на месте, стоковая автоматика выключена"
 elif [ ! -d /run/systemd/system ]; then
-  info "systemd нет: таймеров и юнитов на этом сервере нет, обновления — только вручную ($CMD update)"
+  info "systemd нет: таймеров и юнитов на этом сервере нет, обновления — только вручную"
+  [ "$IS_NODE" = 0 ] && info "обновить панель: $CMD update"
 elif [ "$CMD_NAME" = mikan ]; then
+  # Юниты форка до переименования — те же mikan-update.*, и команда под этим именем уже его.
   if systemctl is-enabled --quiet mikan-update.timer 2>/dev/null; then
     ok "юниты mikan-update.* — команды форка (так называются её же юниты до переименования)"
   else
     warn "юниты mikan-update.* не включились — включи вручную: systemctl enable --now mikan-update.timer mikan-update-request.path"
   fi
+elif [ "$IS_NODE" = 1 ]; then
+  if systemctl is-enabled --quiet arikan-update.timer 2>/dev/null; then
+    if grep -q 'data/node/update/request' /etc/systemd/system/arikan-update-request.path 2>/dev/null; then
+      ok "юнит форка слушает запросы панели на обновление ноды (data/node/update/request)"
+    else
+      info "юнит форка слушает запросы панели: что именно — видно в /etc/systemd/system/arikan-update-request.path"
+    fi
+    systemctl disable --now mikan-update.timer mikan-update-request.path >/dev/null 2>&1 || true
+    ok "стоковые юниты mikan-update.* выключены; стоковая команда сохранена в /usr/local/bin/mikan.stock"
+  else
+    warn "юнит arikan-update.timer не включён: панель не сможет обновить ноду по своему запросу"
+    warn "включи: systemctl enable --now arikan-update.timer arikan-update-request.path"
+  fi
+  info "ночной таймер ноде не нужен: обновления ноды запускает её панель (кнопкой на странице Nodes)"
 else
   if systemctl is-enabled --quiet arikan-update.timer 2>/dev/null || systemctl is-enabled --quiet arikan-update-request.path 2>/dev/null; then
     systemctl disable --now mikan-update.timer mikan-update-request.path >/dev/null 2>&1 || true
@@ -683,12 +979,47 @@ step "8/9. Проверка"
 FAILED=0
 if [ "$DRY_RUN" = 1 ]; then
   info "(пробный запуск) проверка пропущена"
+elif [ "$IS_NODE" = 1 ]; then
+  # У ноды проверяется то, что у неё есть: контейнер запущен и нода отвечает своей командой.
+  # Таблицы referral_*/campaign_* и схему создаёт панель на СВОЕЙ стороне — на ноде их нет и
+  # требовать их здесь нельзя (именно на этом прежний скрипт и спотыкался: он искал базу там,
+  # где её нет). Смотреть ноду — на странице Nodes её панели.
+  sleep 5
+  if dc exec -T "$NODE_SERVICE" mikan-node key-host >/dev/null 2>&1 ||
+    dc exec -T "$NODE_SERVICE" /usr/local/bin/arikan-node --version >/dev/null 2>&1; then
+    ok "нода отвечает (той же командой, что и в образе)"
+  else
+    warn "нода не отвечает своей командой — docker compose logs node"
+    FAILED=1
+  fi
+  if [ -d /run/systemd/system ]; then
+    if [ "$CMD_NAME" = mikan ]; then UNITS=mikan-update; OTHER=arikan-update; else UNITS=arikan-update; OTHER=mikan-update; fi
+    if systemctl is-enabled --quiet "$OTHER.timer" 2>/dev/null; then
+      warn "чужой юнит $OTHER.timer ещё включён"
+      FAILED=1
+    else
+      ok "чужого апдейтера нет ($OTHER.* выключен)"
+    fi
+    if systemctl is-enabled --quiet "$UNITS.timer" 2>/dev/null; then
+      ok "юнит форка включён ($UNITS.timer): панель обновит ноду по запросу"
+    else
+      warn "юнит $UNITS.timer не включён"
+      FAILED=1
+    fi
+  fi
+  info "нода готова: дальше её видит панель — Nodes (кнопка обновит её до $FORK_VERSION)"
 else
   sleep 5
-  dc exec -T panel mikan health >/dev/null 2>&1 ||
-    { warn "health не проходит, панель ещё поднимается"; sleep 20; dc exec -T panel mikan health >/dev/null 2>&1 || FAILED=1; }
-  AFTER=$(sql "SELECT COALESCE(max(version_id),0) FROM goose_db_version WHERE is_applied" 2>/dev/null)
-  if [ -n "$AFTER" ] && [ "$AFTER" -ge 32 ] 2>/dev/null; then ok "схема $BEFORE_SCHEMA → $AFTER"; else warn "схема ${AFTER:-?}, ожидалось ≥ 32 (0032 — первая миграция форка)"; FAILED=1; fi
+  dc exec -T "$PANEL_SERVICE" mikan health >/dev/null 2>&1 ||
+    { warn "health не проходит, панель ещё поднимается"; sleep 20; dc exec -T "$PANEL_SERVICE" mikan health >/dev/null 2>&1 || FAILED=1; }
+  # Миграции 0032–0035 накатывает сама панель на старте (serve.go → prepareSchema → migrateUp):
+  # ждём их, а не ругаемся сразу — на большой базе это не мгновенно.
+  if AFTER=$(wait_for_schema 32 "$SCHEMA_WAIT"); then
+    ok "схема PostgreSQL $BEFORE_SCHEMA → $AFTER (миграции форка применились)"
+  else
+    warn "схема ${AFTER:-?} через ${SCHEMA_WAIT} с ожидания, нужно ≥ 32 (0032 — первая миграция форка)"
+    FAILED=1
+  fi
   T=$(sql "SELECT count(*) FROM information_schema.tables WHERE table_schema=current_schema() AND table_name LIKE 'referral%'")
   [ "$T" = "5" ] && ok "пять таблиц referral_* созданы" || { warn "таблиц referral_*: ${T:-0}"; FAILED=1; }
   C=$(sql "SELECT count(*) FROM information_schema.tables WHERE table_schema=current_schema() AND table_name LIKE 'campaign%'")
@@ -728,8 +1059,14 @@ if [ "$FAILED" = 1 ] && [ "$DRY_RUN" != 1 ]; then
   # И апдейтер обратно на стоковый: команда форка на откаченной панели ходит за релизами
   # форка и вернула бы его обратно первой же ночной проверкой.
   restore_stock_updater
+  if [ "$IS_NODE" = 1 ]; then
+    # Данных ноды это не касается: их не трогали, а образ сейчас переключится обратно.
+    dc stop "$NODE_SERVICE" >/dev/null 2>&1 || true
+    dc up -d --wait --wait-timeout "$WAIT_SECONDS" || true
+    die "откат выполнен, нода на обычном mikan"
+  fi
   dc stop panel node >/dev/null 2>&1 || true
-  dc run --rm --no-deps -T panel database restore "/data/panel/$BACKUP_NAME" ||
+  dc run --rm --no-deps -T "$PANEL_SERVICE" database restore "/data/panel/$BACKUP_NAME" ||
     die "откат не удался: верни $ENV_BACKUP и $BACKUP_HOST вручную"
   dc up -d --wait --wait-timeout "$WAIT_SECONDS" || true
   die "откат выполнен, панель на обычном mikan"
@@ -737,7 +1074,23 @@ fi
 
 step "9/9. Готово"
 [ "$DRY_RUN" = 1 ] || info "$(dc ps --format '{{.Service}}: {{.Status}}' 2>/dev/null | tr '\n' ' ')"
-cat <<EOF
+if [ "$IS_NODE" = 1 ]; then
+  cat <<EOF
+
+  Это нода: панели и базы на ней нет, поэтому программа форка живёт на стороне панели.
+  Нода переведена на сборку форка ($FORK_VERSION) — её видно на странице Nodes панели.
+  Дальше: панель сама предложит ей обновления (Nodes → Обновления), а запрос панели нода
+  принимает через юнит форка — тот же API, что и у стока.
+  Что открыто снаружи, не менялось: единственный порт ноды — её API для панели.
+  Стоковая команда сохранена в /usr/local/bin/mikan.stock.
+  Откат: та же команда с --rollback $BACKUP_NAME (вернёт данные ноды и её .env)
+
+  Образ прежней версии  $OLD_IMAGE
+  копия данных ноды      $BACKUP_HOST
+  копия .env             $ENV_BACKUP
+EOF
+else
+  cat <<EOF
 
   Включить программу: Панель → Платежи → Рефералы (тумблер, правила, тарифы).
   Метки кампаний: ссылка вида t.me/<бот>?start=camp_<метка>; статистика на той же странице.
@@ -750,3 +1103,4 @@ cat <<EOF
   копия базы            $BACKUP_HOST
   копия .env             $ENV_BACKUP
 EOF
+fi

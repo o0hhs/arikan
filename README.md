@@ -61,14 +61,16 @@ curl -fsSL https://raw.githubusercontent.com/o0hhs/arikan/main/scripts/install-f
 
 A panel older than 0.5.0.0 (still on SQLite) is updated to 0.5.x by the stock installer first: this script works with a panel on PostgreSQL.
 
+A **node** (a server where `/opt/mikan/compose.yaml` runs only the `node` service) moves with the same command: there is no panel, no postgres and no pg_dump there, and the script knows it. It reads the role from `MIKAN_MODE=node` in `/opt/mikan/.env`, and from the compose file itself when that line is absent. On a node the backup is an archive of its own data (`/opt/mikan/data/node/backup/backup-<date>-before-fork.tar.gz`: keys, settings, connections) instead of a database dump, the schema and the `referral_*`/`campaign_*` tables are not checked (the panel creates them on its side), and updates are driven by the panel from its **Nodes** page. If the panel answers on several addresses and the node does not guess the right one, add `--node-panel-address IP`.
+
 What `scripts/install-fork.sh` does:
 
 - reads the fork's release index and manifest, checks both with the fork's signing key and takes the image from them, pinned to its digest (`--image ghcr.io/o0hhs/arikan:<tag>` names another image: a beta or your own build);
 - pulls the image first: if something is off (the package is not public yet, no registry access) nothing is changed, the stack keeps running;
 - puts the fork's command and its update units on the host **before** anything is switched, and only then turns the stock updater off: the stock command stays at `/usr/local/bin/mikan.stock`, the stock units' files stay on disk. Without this the panel's **Update** button and the nightly timer would still go upstream, and the day upstream publishes above the fork it would pull stock mikan over it;
-- backs the database up (pg_dump) and keeps a copy of `.env`;
-- switches the image and restarts the stack;
-- verifies the database schema, the counts of users, plans and payments, and that the host's updater is the fork's: a failed check rolls everything back by itself;
+- backs up — the database (pg_dump) on a panel, the node's data (tar) on a node — and keeps a copy of `.env`;
+- switches the image and restarts the stack, naming the service by role (`panel` or `node`) and checking first that such a service is in `compose.yaml` at all;
+- on a panel it verifies the database schema and the counts of users, plans and payments; on a node that it answers with its own command; in both cases that the host's updater is the fork's: a failed check rolls everything back by itself;
 - leaves auto-update on: the fork has its own release repo and its own signing key, so the panel will not "update itself" back to upstream. The `--disable-auto-update` flag is only for older fork builds whose release repo still pointed at upstream.
 
 Preview the script's plan without touching anything: the same request with `--dry-run`. If the image does not pull, make the package public: GitHub → Packages → arikan → Package settings → Change visibility → Public (the script prints this hint when it happens).
@@ -79,6 +81,12 @@ Preview the script's plan without touching anything: the same request with `--dr
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/o0hhs/arikan/main/scripts/install-fork.sh | sudo bash -s -- --rollback /opt/mikan/data/panel/backup-<date>-before-fork.dump
+```
+
+On a node the backup is an archive of its data, and the rollback is named the same way (the script goes by the extension: `.dump` is a panel, `.tar.gz` is a node):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/o0hhs/arikan/main/scripts/install-fork.sh | sudo bash -s -- --rollback /opt/mikan/data/node/backup-<date>-before-fork.tar.gz
 ```
 
 ## What this fork adds
