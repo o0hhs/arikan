@@ -73,7 +73,7 @@ func grantEnd(base, days int64) int64 { return base + days*daySeconds }
 // Safe at any moment and any number of times: every transition is guarded by the row's own
 // status in the statement's WHERE, so two passes racing cannot run one grant twice.
 func (s *Service) Advance(ctx context.Context, now time.Time) error {
-	due, err := s.Store.Q.ListDueReferralRewardGrants(ctx, now.Unix())
+	due, err := s.Store.Q.ListDueReferralRewardGrants(ctx, sql.NullInt64{Int64: now.Unix(), Valid: true})
 	if err != nil {
 		return err
 	}

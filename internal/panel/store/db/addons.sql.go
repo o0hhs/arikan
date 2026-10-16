@@ -777,6 +777,8 @@ type UpdateAddonSourceParams struct {
 	Title string
 }
 
+// Repair a row the panel manages itself: a source upgraded from a release where the admin
+// added the built-in address by hand, leaving no key and no title behind.
 func (q *Queries) UpdateAddonSource(ctx context.Context, arg UpdateAddonSourceParams) error {
 	_, err := q.db.ExecContext(ctx, updateAddonSource, arg.ID, arg.Key, arg.Title)
 	return err
