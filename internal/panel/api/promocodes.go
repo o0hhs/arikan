@@ -23,7 +23,7 @@ type PromoCodeView struct {
 	Code              string     `json:"code"`
 	Name              string     `json:"name"`
 	Description       string     `json:"description"`
-	Type              string     `json:"type" enum:"days,traffic,percent,fixed"`
+	Type              string     `json:"type" enum:"days,traffic,percent,fixed,access_paid,access_free" doc:"days и traffic — бонус, percent и fixed — скидка, access_paid и access_free — код доступа к тарифу (tariff_ids: ровно один)"`
 	Value             int64      `json:"value"`
 	Currency          string     `json:"currency"`
 	StartsAt          *time.Time `json:"starts_at,omitempty"`
@@ -32,6 +32,7 @@ type PromoCodeView struct {
 	UsedCount         int64      `json:"used_count"`
 	PerUserLimit      int64      `json:"per_user_limit"`
 	DiscountTtl       int64      `json:"discount_ttl"`
+	AccessTtl         int64      `json:"access_ttl" doc:"Срок доступа, который даёт код доступа, в секундах; 0 — бессрочно. Для остальных типов 0"`
 	MinOrder          int64      `json:"min_order"`
 	MaxDiscount       int64      `json:"max_discount"`
 	TariffIDs         []int64    `json:"tariff_ids"`
@@ -47,7 +48,7 @@ type PromoBody struct {
 	Code              string  `json:"code" minLength:"1" maxLength:"64"`
 	Name              string  `json:"name" maxLength:"120"`
 	Description       string  `json:"description" maxLength:"500"`
-	Type              string  `json:"type" enum:"days,traffic,percent,fixed"`
+	Type              string  `json:"type" enum:"days,traffic,percent,fixed,access_paid,access_free" doc:"access_paid: тариф виден и покупается по своему прайсу; access_free: подписка по тарифу выдаётся сразу. tariff_ids должен содержать ровно один тариф"`
 	Value             int64   `json:"value" minimum:"1" doc:"days: дни; traffic: байты (минимум 1 GiB); percent: проценты 1-100; fixed: сумма в минимальных единицах оплаты"`
 	Currency          string  `json:"currency" doc:"Для fixed: RUB или XTR; RUB — копейки, XTR — Stars. Для percent: пусто — любая валюта, тогда min_order и max_discount равны 0. Для остальных типов не используется."`
 	StartsAt          *int64  `json:"starts_at,omitempty" doc:"Unix time в секундах"`
@@ -55,6 +56,7 @@ type PromoBody struct {
 	MaxUses           *int64  `json:"max_uses,omitempty" minimum:"1"`
 	PerUserLimit      int64   `json:"per_user_limit" minimum:"1"`
 	DiscountTtl       int64   `json:"discount_ttl" minimum:"0" doc:"Срок действия резерва скидки в секундах; 0 = 30 минут"`
+	AccessTtl         int64   `json:"access_ttl" minimum:"0" doc:"Для access_paid и access_free: сколько секунд действует доступ, полученный по коду; 0 — бессрочно. Для остальных типов 0"`
 	MinOrder          int64   `json:"min_order" minimum:"0" doc:"Минимальная сумма заказа в минимальных единицах оплаты: RUB — копейки, XTR — Stars"`
 	MaxDiscount       int64   `json:"max_discount" minimum:"0" doc:"Максимальная скидка в минимальных единицах оплаты: RUB — копейки, XTR — Stars"`
 	TariffIDs         []int64 `json:"tariff_ids"`
@@ -156,7 +158,7 @@ func promoView(p db.PromoCode, now time.Time) PromoCodeView {
 			return &x
 		}
 		return nil
-	}(), UsedCount: p.UsedCount, PerUserLimit: p.PerUserLimit, DiscountTtl: p.DiscountTtl, MinOrder: p.MinOrder, MaxDiscount: p.MaxDiscount, TariffIDs: ids, FirstPurchaseOnly: p.FirstPurchaseOnly != 0, NewUsersOnly: p.NewUsersOnly != 0, Enabled: p.Enabled != 0, Status: st, CreatedAt: time.Unix(p.CreatedAt, 0), CreatedBy: func() *int64 {
+	}(), UsedCount: p.UsedCount, PerUserLimit: p.PerUserLimit, DiscountTtl: p.DiscountTtl, MinOrder: p.MinOrder, MaxDiscount: p.MaxDiscount, TariffIDs: ids, AccessTtl: p.AccessTtl, FirstPurchaseOnly: p.FirstPurchaseOnly != 0, NewUsersOnly: p.NewUsersOnly != 0, Enabled: p.Enabled != 0, Status: st, CreatedAt: time.Unix(p.CreatedAt, 0), CreatedBy: func() *int64 {
 		if p.CreatedBy.Valid {
 			x := p.CreatedBy.Int64
 			return &x
@@ -192,6 +194,23 @@ func validatePromoBody(in PromoBody, now time.Time, usedCount int64) error {
 		if in.Currency != "RUB" && in.Currency != "XTR" {
 			return errors.New("bad_currency")
 		}
+	case "access_paid", "access_free":
+		// An access code opens exactly one tariff, and access_ttl is the only thing it gives:
+		// no value, no currency, no order to apply it against.
+		if len(in.TariffIDs) != 1 {
+			return errors.New("bad_access_tariffs")
+		}
+		if in.Value != 1 {
+			return errors.New("bad_access_value")
+		}
+		if in.Currency != "" || in.MinOrder != 0 || in.MaxDiscount != 0 || in.DiscountTtl != 0 {
+			return errors.New("bad_access_fields")
+		}
+		// The bonuses and discounts are what a first purchase or a new account is worth;
+		// opening a tariff for someone is the admin's own business.
+		if in.NewUsersOnly {
+			return errors.New("new_users_only_not_supported_for_access")
+		}
 	default:
 		return errors.New("bad_type")
 	}
@@ -209,6 +228,12 @@ func validatePromoBody(in PromoBody, now time.Time, usedCount int64) error {
 	}
 	if in.PoolID != nil && (in.Type != "traffic" || *in.PoolID < 1) {
 		return errors.New("bad_pool")
+	}
+	if in.AccessTtl > 0 && in.Type != "access_paid" && in.Type != "access_free" {
+		return errors.New("bad_access_fields")
+	}
+	if in.AccessTtl > 365*24*60*60 {
+		return errors.New("bad_access_ttl")
 	}
 	if in.NewUsersOnly && (in.Type == "days" || in.Type == "traffic") {
 		return errors.New("new_users_only_not_supported_for_bonus")
@@ -232,11 +257,19 @@ func (h *handlers) promoInput(in PromoBody, createdBy sql.NullInt64, usedCount i
 	if in.Type != "fixed" && in.Type != "percent" {
 		in.Currency = ""
 	}
+	// The mode is the type's own half: the database keeps both and holds them together.
+	mode := ""
+	switch in.Type {
+	case "access_paid":
+		mode = "paid"
+	case "access_free":
+		mode = "free"
+	}
 	ids, _ := json.Marshal(in.TariffIDs)
 	if len(in.TariffIDs) == 0 {
 		ids = []byte("[]")
 	}
-	return db.CreatePromoCodeParams{Code: code, Name: strings.TrimSpace(in.Name), Description: strings.TrimSpace(in.Description), Type: in.Type, Value: in.Value, Currency: in.Currency, StartsAt: domain.NullInt(in.StartsAt), EndsAt: domain.NullInt(in.EndsAt), MaxUses: domain.NullInt(in.MaxUses), PerUserLimit: in.PerUserLimit, DiscountTtl: in.DiscountTtl, MinOrder: in.MinOrder, MaxDiscount: in.MaxDiscount, TariffIds: string(ids), PoolID: domain.NullInt(in.PoolID), FirstPurchaseOnly: domain.Flag(in.FirstPurchaseOnly), NewUsersOnly: domain.Flag(in.NewUsersOnly), Enabled: domain.Flag(in.Enabled), CreatedAt: h.d.Now().Unix(), CreatedBy: createdBy}, nil
+	return db.CreatePromoCodeParams{Code: code, Name: strings.TrimSpace(in.Name), Description: strings.TrimSpace(in.Description), Type: in.Type, Value: in.Value, Currency: in.Currency, StartsAt: domain.NullInt(in.StartsAt), EndsAt: domain.NullInt(in.EndsAt), MaxUses: domain.NullInt(in.MaxUses), PerUserLimit: in.PerUserLimit, DiscountTtl: in.DiscountTtl, MinOrder: in.MinOrder, MaxDiscount: in.MaxDiscount, TariffIds: string(ids), PoolID: domain.NullInt(in.PoolID), FirstPurchaseOnly: domain.Flag(in.FirstPurchaseOnly), NewUsersOnly: domain.Flag(in.NewUsersOnly), Enabled: domain.Flag(in.Enabled), CreatedAt: h.d.Now().Unix(), CreatedBy: createdBy, AccessMode: mode, AccessTtl: in.AccessTtl}, nil
 }
 
 func (h *handlers) validatePromoReferences(ctx context.Context, in PromoBody) error {
@@ -310,7 +343,8 @@ func (h *handlers) updatePromocode(ctx context.Context, in *struct {
 	if e != nil {
 		return nil, huma.Error400BadRequest(e.Error())
 	}
-	u, e := h.d.Store.Q.UpdatePromoCode(ctx, db.UpdatePromoCodeParams{Code: p.Code, Name: p.Name, Description: p.Description, Type: p.Type, Value: p.Value, Currency: p.Currency, StartsAt: p.StartsAt, EndsAt: p.EndsAt, MaxUses: p.MaxUses, PerUserLimit: p.PerUserLimit, DiscountTtl: p.DiscountTtl, MinOrder: p.MinOrder, MaxDiscount: p.MaxDiscount, TariffIds: p.TariffIds, PoolID: p.PoolID, FirstPurchaseOnly: p.FirstPurchaseOnly, NewUsersOnly: p.NewUsersOnly, Enabled: p.Enabled, ID: in.ID})
+	u, e := h.d.Store.Q.UpdatePromoCode(ctx, db.UpdatePromoCodeParams{Code: p.Code, Name: p.Name, Description: p.Description, Type: p.Type, Value: p.Value, Currency: p.Currency, StartsAt: p.StartsAt, EndsAt: p.EndsAt, MaxUses: p.MaxUses, PerUserLimit: p.PerUserLimit, DiscountTtl: p.DiscountTtl, MinOrder: p.MinOrder, MaxDiscount: p.MaxDiscount, TariffIds: p.TariffIds, PoolID: p.PoolID, FirstPurchaseOnly: p.FirstPurchaseOnly, NewUsersOnly: p.NewUsersOnly, Enabled: p.Enabled, ID: in.ID,
+		AccessMode: p.AccessMode, AccessTtl: p.AccessTtl})
 	if store.IsUnique(e) {
 		return nil, huma.Error409Conflict("duplicate_code")
 	}

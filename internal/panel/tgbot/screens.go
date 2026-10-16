@@ -42,13 +42,13 @@ func (b *Bot) screen(ctx context.Context, cfg Config, chat int64, data, notice s
 	if cmd == "f" || cmd == "fh" {
 		return b.referral(ctx, w, chat, cmd, notice)
 	}
-	if b.canBuyNew(ctx) {
+	if b.canBuyNew(ctx, chat) {
 		home := []tgate.Button{{Text: w.back, CallbackData: "m"}}
 		switch cmd {
 		case "b":
-			return b.shopList(ctx, w, w.buyTitle, "tn", notice, home)
+			return b.shopList(ctx, w, chat, w.buyTitle, "tn", notice, home)
 		case "tn":
-			return b.shopTariff(ctx, w, arg, "tn", "pn", shopBack(w, "tn", arg, "b"))
+			return b.shopTariff(ctx, w, chat, arg, "tn", "pn", shopBack(w, "tn", arg, "b"))
 		case "pn":
 			id, _, _ := strings.Cut(arg, ":")
 			return b.shopInvoice(ctx, w, chat, 0, arg, []tgate.Button{{Text: w.back, CallbackData: "tn:" + id}})
@@ -76,7 +76,7 @@ func (b *Bot) screen(ctx context.Context, cfg Config, chat int64, data, notice s
 	}
 	switch cmd {
 	case "t":
-		return b.shopTariff(ctx, w, arg, "t", "py", shopBack(w, "t", arg, "r"))
+		return b.shopTariff(ctx, w, chat, arg, "t", "py", shopBack(w, "t", arg, "r"))
 	case "py":
 		id, _, _ := strings.Cut(arg, ":")
 		return b.shopInvoice(ctx, w, chat, u.ID, arg, []tgate.Button{{Text: w.back, CallbackData: "t:" + id}})
@@ -128,8 +128,8 @@ func (b *Bot) screen(ctx context.Context, cfg Config, chat int64, data, notice s
 		}
 		return withNotice(text), &tgate.Keyboard{InlineKeyboard: append(rows, back)}
 	case "r":
-		if offers, _ := b.offers(ctx); len(offers) > 0 {
-			text, kb := b.shopList(ctx, w, fmt.Sprintf(w.renewTitle, u.Name), "t", notice, nil)
+		if offers, _ := b.offers(ctx, chat); len(offers) > 0 {
+			text, kb := b.shopList(ctx, w, chat, fmt.Sprintf(w.renewTitle, u.Name), "t", notice, nil)
 			if sup := b.supportURL(ctx); sup != "" {
 				kb.InlineKeyboard = append(kb.InlineKeyboard, []tgate.Button{dressed(cfg, "support", w.support, tgate.Button{URL: sup})})
 			}
@@ -177,7 +177,7 @@ func (b *Bot) welcome(ctx context.Context, cfg Config, w *words, chat int64, not
 	if btn, ok := b.freeButton(ctx, cfg, w, chat); ok {
 		rows = append(rows, []tgate.Button{btn})
 	}
-	if b.canBuyNew(ctx) {
+	if b.canBuyNew(ctx, chat) {
 		rows = append(rows, []tgate.Button{{Text: w.buy, CallbackData: "b", Style: tgate.StyleSuccess}})
 	}
 	if sup := b.supportURL(ctx); sup != "" {

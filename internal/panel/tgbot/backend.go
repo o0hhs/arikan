@@ -129,7 +129,7 @@ type PanelBackend interface {
 // Shop is the panel's billing as the bot's screens use it (*billing.Service).
 type Shop interface {
 	Config(ctx context.Context) billing.Config
-	Offers(ctx context.Context) ([]billing.Offer, billing.Available, error)
+	Offers(ctx context.Context, tgID int64) ([]billing.Offer, billing.Available, error)
 	AddonName(ctx context.Context, id, lang string) string
 	Invoice(ctx context.Context, req billing.InvoiceRequest) (db.Payment, error)
 	PackageOffers(ctx context.Context, userID int64) ([]billing.PackageOffer, billing.Available, error)

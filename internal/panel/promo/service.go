@@ -39,6 +39,27 @@ const (
 	RedemptionReleased = "released"
 )
 
+// The kinds of a code (promo_codes.type). The first four are the bonus and discount codes; the
+// access codes open a tariff the shop keeps hidden (tariffs.on_sale = 0), either to buy at its
+// price (AccessPaid) or to take for nothing (AccessFree). The values are the database's.
+const (
+	TypeDays       = "days"
+	TypeTraffic    = "traffic"
+	TypePercent    = "percent"
+	TypeFixed      = "fixed"
+	TypeAccessPaid = "access_paid"
+	TypeAccessFree = "access_free"
+)
+
+// IsAccess: the code opens a tariff instead of giving days, traffic or a discount.
+func IsAccess(t string) bool { return t == TypeAccessPaid || t == TypeAccessFree }
+
+// IsDiscount: the code takes an amount off an invoice.
+func IsDiscount(t string) bool { return t == TypePercent || t == TypeFixed }
+
+// IsBonus: the code gives days or traffic on the spot.
+func IsBonus(t string) bool { return t == TypeDays || t == TypeTraffic }
+
 // PaidLate says whether a payment made at paidAt came after its discount's reservation
 // ran out (or was released): the code no longer holds, and the money goes back instead of
 // buying anything at the discounted price.
@@ -69,6 +90,8 @@ var (
 	ErrReservationExpired = refuse("promo_reservation_expired")
 	ErrRefundUnsupported  = refuse("promo_refund_unsupported")
 	ErrNotBonus           = refuse("promo_not_bonus")
+	// ErrNotAccess: a code that does not open a tariff was used as one.
+	ErrNotAccess = refuse("promo_not_access")
 )
 
 const (
@@ -200,7 +223,7 @@ func (s *Service) Validate(ctx context.Context, tgID, userID, tariffID, amount i
 	if err := s.checkUser(ctx, s.Store.Q, p, tgID, userID, s.Now()); err != nil {
 		return p, err
 	}
-	if p.Type == "percent" || p.Type == "fixed" {
+	if IsDiscount(p.Type) {
 		if err := validateDiscount(p, tariffID, amount, currency); err != nil {
 			return p, err
 		}
@@ -209,7 +232,7 @@ func (s *Service) Validate(ctx context.Context, tgID, userID, tariffID, amount i
 }
 
 func validateDiscount(p db.PromoCode, tariffID, amount int64, currency string) error {
-	if (p.Type == "percent" && (p.Value < 1 || p.Value > 100)) || (p.Type == "fixed" && p.Value < 1) || p.DiscountTtl > maxDiscountTTLSeconds {
+	if (p.Type == TypePercent && (p.Value < 1 || p.Value > 100)) || (p.Type == TypeFixed && p.Value < 1) || p.DiscountTtl > maxDiscountTTLSeconds {
 		return ErrInvalidValue
 	}
 	ids, err := tariffs(p)
@@ -240,7 +263,7 @@ func discountAmount(p db.PromoCode, original int64) int64 {
 		return 0
 	}
 	var d int64
-	if p.Type == "percent" {
+	if p.Type == TypePercent {
 		if p.Value > 0 && p.Value <= 100 {
 			d = (original/100)*p.Value + (original%100)*p.Value/100
 		}
@@ -278,7 +301,7 @@ func (s *Service) ReserveDiscount(ctx context.Context, q *db.Queries, tgID, user
 	if err := s.checkUser(ctx, q, p, tgID, userID, s.Now()); err != nil {
 		return Discount{}, err
 	}
-	if p.Type != "percent" && p.Type != "fixed" {
+	if !IsDiscount(p.Type) {
 		return Discount{}, ErrNotDiscount
 	}
 	if err := validateDiscount(p, tariffID, amount, currency); err != nil {
@@ -326,10 +349,10 @@ func (s *Service) RedeemBonus(ctx context.Context, tgID, userID int64, code stri
 		if err := s.checkUser(ctx, q, p, tgID, userID, s.Now()); err != nil {
 			return err
 		}
-		if p.Type != "days" && p.Type != "traffic" {
+		if !IsBonus(p.Type) {
 			return ErrNotBonus
 		}
-		if p.Type == "days" && (p.Value < 1 || p.Value > maxPromoDays) {
+		if p.Type == TypeDays && (p.Value < 1 || p.Value > maxPromoDays) {
 			return ErrInvalidValue
 		}
 		u, err := q.GetUser(ctx, userID)
@@ -348,7 +371,7 @@ func (s *Service) RedeemBonus(ctx context.Context, tgID, userID int64, code stri
 		}
 		now := s.Now()
 		switch p.Type {
-		case "days":
+		case TypeDays:
 			if !u.ExpiresAt.Valid {
 				return ErrNoExpiry
 			}
@@ -365,7 +388,7 @@ func (s *Service) RedeemBonus(ctx context.Context, tgID, userID int64, code stri
 			if err != nil {
 				return err
 			}
-		case "traffic":
+		case TypeTraffic:
 			if p.Value < domain.MinGrantBytes || p.Value > domain.MaxGrantBytes {
 				return ErrInvalidValue
 			}
@@ -384,11 +407,11 @@ func (s *Service) RedeemBonus(ctx context.Context, tgID, userID int64, code stri
 			return ErrLimit
 		}
 		days := int64(0)
-		if p.Type == "days" {
+		if p.Type == TypeDays {
 			days = p.Value
 		}
 		bytes := p.Value
-		if p.Type == "days" {
+		if p.Type == TypeDays {
 			bytes = 0
 		}
 		r, err := q.CreatePromoRedemption(ctx, db.CreatePromoRedemptionParams{PromoID: p.ID, UserID: sql.NullInt64{Int64: userID, Valid: true}, TgID: tgID, Status: RedemptionApplied, RedeemedAt: now.Unix(), Days: days, Bytes: bytes, Note: p.Description})

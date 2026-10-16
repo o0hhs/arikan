@@ -47,23 +47,25 @@ func (q *Queries) CountRecentInvoices(ctx context.Context, arg CountRecentInvoic
 }
 
 const createPayment = `-- name: CreatePayment :one
-INSERT INTO payments (provider, payload, tg_id, kind, user_id, tariff_id, tariff_name, amount, currency, status, created_at, term_days)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending', $10, $11)
-RETURNING id, provider, payload, external_id, tg_id, kind, user_id, tariff_id, package_id, tariff_name, amount, currency, status, error, pay_url, created_at, paid_at, applied_at, refunded_at, term_days, revert
+INSERT INTO payments (provider, payload, tg_id, kind, user_id, tariff_id, tariff_name, amount, currency, status, created_at, term_days, custom, custom_base_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending', $10, $11, $12, $13)
+RETURNING id, provider, payload, external_id, tg_id, kind, user_id, tariff_id, package_id, tariff_name, amount, currency, status, error, pay_url, created_at, paid_at, applied_at, refunded_at, term_days, revert, custom, custom_base_id
 `
 
 type CreatePaymentParams struct {
-	Provider   string
-	Payload    string
-	TgID       int64
-	Kind       string
-	UserID     sql.NullInt64
-	TariffID   sql.NullInt64
-	TariffName string
-	Amount     int64
-	Currency   string
-	CreatedAt  int64
-	TermDays   sql.NullInt64
+	Provider     string
+	Payload      string
+	TgID         int64
+	Kind         string
+	UserID       sql.NullInt64
+	TariffID     sql.NullInt64
+	TariffName   string
+	Amount       int64
+	Currency     string
+	CreatedAt    int64
+	TermDays     sql.NullInt64
+	Custom       string
+	CustomBaseID sql.NullInt64
 }
 
 func (q *Queries) CreatePayment(ctx context.Context, arg CreatePaymentParams) (Payment, error) {
@@ -79,6 +81,8 @@ func (q *Queries) CreatePayment(ctx context.Context, arg CreatePaymentParams) (P
 		arg.Currency,
 		arg.CreatedAt,
 		arg.TermDays,
+		arg.Custom,
+		arg.CustomBaseID,
 	)
 	var i Payment
 	err := row.Scan(
@@ -103,6 +107,8 @@ func (q *Queries) CreatePayment(ctx context.Context, arg CreatePaymentParams) (P
 		&i.RefundedAt,
 		&i.TermDays,
 		&i.Revert,
+		&i.Custom,
+		&i.CustomBaseID,
 	)
 	return i, err
 }
@@ -120,7 +126,7 @@ func (q *Queries) ExpirePayments(ctx context.Context, createdAt int64) (int64, e
 }
 
 const findOpenPayment = `-- name: FindOpenPayment :one
-SELECT id, provider, payload, external_id, tg_id, kind, user_id, tariff_id, package_id, tariff_name, amount, currency, status, error, pay_url, created_at, paid_at, applied_at, refunded_at, term_days, revert FROM payments
+SELECT id, provider, payload, external_id, tg_id, kind, user_id, tariff_id, package_id, tariff_name, amount, currency, status, error, pay_url, created_at, paid_at, applied_at, refunded_at, term_days, revert, custom, custom_base_id FROM payments
 WHERE tg_id = $1 AND tariff_id = $2 AND provider = $3 AND kind = $4 AND user_id IS NOT DISTINCT FROM NULLIF(CAST($5 AS BIGINT), 0)
   AND status = 'pending' AND pay_url <> '' AND created_at > $6
 ORDER BY id DESC LIMIT 1
@@ -168,12 +174,14 @@ func (q *Queries) FindOpenPayment(ctx context.Context, arg FindOpenPaymentParams
 		&i.RefundedAt,
 		&i.TermDays,
 		&i.Revert,
+		&i.Custom,
+		&i.CustomBaseID,
 	)
 	return i, err
 }
 
 const findOpenPayments = `-- name: FindOpenPayments :many
-SELECT id, provider, payload, external_id, tg_id, kind, user_id, tariff_id, package_id, tariff_name, amount, currency, status, error, pay_url, created_at, paid_at, applied_at, refunded_at, term_days, revert FROM payments
+SELECT id, provider, payload, external_id, tg_id, kind, user_id, tariff_id, package_id, tariff_name, amount, currency, status, error, pay_url, created_at, paid_at, applied_at, refunded_at, term_days, revert, custom, custom_base_id FROM payments
 WHERE tg_id = $1 AND tariff_id = $2 AND provider = $3 AND kind = $4
   AND user_id IS NOT DISTINCT FROM NULLIF(CAST($5 AS BIGINT), 0)
   AND status = 'pending' AND pay_url <> '' AND created_at > $6
@@ -227,6 +235,8 @@ func (q *Queries) FindOpenPayments(ctx context.Context, arg FindOpenPaymentsPara
 			&i.RefundedAt,
 			&i.TermDays,
 			&i.Revert,
+			&i.Custom,
+			&i.CustomBaseID,
 		); err != nil {
 			return nil, err
 		}
@@ -242,7 +252,7 @@ func (q *Queries) FindOpenPayments(ctx context.Context, arg FindOpenPaymentsPara
 }
 
 const getPayment = `-- name: GetPayment :one
-SELECT id, provider, payload, external_id, tg_id, kind, user_id, tariff_id, package_id, tariff_name, amount, currency, status, error, pay_url, created_at, paid_at, applied_at, refunded_at, term_days, revert FROM payments WHERE id = $1
+SELECT id, provider, payload, external_id, tg_id, kind, user_id, tariff_id, package_id, tariff_name, amount, currency, status, error, pay_url, created_at, paid_at, applied_at, refunded_at, term_days, revert, custom, custom_base_id FROM payments WHERE id = $1
 `
 
 func (q *Queries) GetPayment(ctx context.Context, id int64) (Payment, error) {
@@ -270,12 +280,14 @@ func (q *Queries) GetPayment(ctx context.Context, id int64) (Payment, error) {
 		&i.RefundedAt,
 		&i.TermDays,
 		&i.Revert,
+		&i.Custom,
+		&i.CustomBaseID,
 	)
 	return i, err
 }
 
 const getPaymentByExternal = `-- name: GetPaymentByExternal :one
-SELECT id, provider, payload, external_id, tg_id, kind, user_id, tariff_id, package_id, tariff_name, amount, currency, status, error, pay_url, created_at, paid_at, applied_at, refunded_at, term_days, revert FROM payments WHERE provider = $1 AND external_id = $2
+SELECT id, provider, payload, external_id, tg_id, kind, user_id, tariff_id, package_id, tariff_name, amount, currency, status, error, pay_url, created_at, paid_at, applied_at, refunded_at, term_days, revert, custom, custom_base_id FROM payments WHERE provider = $1 AND external_id = $2
 `
 
 type GetPaymentByExternalParams struct {
@@ -308,12 +320,14 @@ func (q *Queries) GetPaymentByExternal(ctx context.Context, arg GetPaymentByExte
 		&i.RefundedAt,
 		&i.TermDays,
 		&i.Revert,
+		&i.Custom,
+		&i.CustomBaseID,
 	)
 	return i, err
 }
 
 const getPaymentByPayload = `-- name: GetPaymentByPayload :one
-SELECT id, provider, payload, external_id, tg_id, kind, user_id, tariff_id, package_id, tariff_name, amount, currency, status, error, pay_url, created_at, paid_at, applied_at, refunded_at, term_days, revert FROM payments WHERE payload = $1
+SELECT id, provider, payload, external_id, tg_id, kind, user_id, tariff_id, package_id, tariff_name, amount, currency, status, error, pay_url, created_at, paid_at, applied_at, refunded_at, term_days, revert, custom, custom_base_id FROM payments WHERE payload = $1
 `
 
 func (q *Queries) GetPaymentByPayload(ctx context.Context, payload string) (Payment, error) {
@@ -341,12 +355,14 @@ func (q *Queries) GetPaymentByPayload(ctx context.Context, payload string) (Paym
 		&i.RefundedAt,
 		&i.TermDays,
 		&i.Revert,
+		&i.Custom,
+		&i.CustomBaseID,
 	)
 	return i, err
 }
 
 const getPaymentForUpdate = `-- name: GetPaymentForUpdate :one
-SELECT id, provider, payload, external_id, tg_id, kind, user_id, tariff_id, package_id, tariff_name, amount, currency, status, error, pay_url, created_at, paid_at, applied_at, refunded_at, term_days, revert FROM payments WHERE id = $1 FOR UPDATE
+SELECT id, provider, payload, external_id, tg_id, kind, user_id, tariff_id, package_id, tariff_name, amount, currency, status, error, pay_url, created_at, paid_at, applied_at, refunded_at, term_days, revert, custom, custom_base_id FROM payments WHERE id = $1 FOR UPDATE
 `
 
 // The payment's row is held until the transaction ends: what the caller decides on it must
@@ -376,12 +392,14 @@ func (q *Queries) GetPaymentForUpdate(ctx context.Context, id int64) (Payment, e
 		&i.RefundedAt,
 		&i.TermDays,
 		&i.Revert,
+		&i.Custom,
+		&i.CustomBaseID,
 	)
 	return i, err
 }
 
 const listPaidPayments = `-- name: ListPaidPayments :many
-SELECT id, provider, payload, external_id, tg_id, kind, user_id, tariff_id, package_id, tariff_name, amount, currency, status, error, pay_url, created_at, paid_at, applied_at, refunded_at, term_days, revert FROM payments WHERE status = 'paid' ORDER BY id
+SELECT id, provider, payload, external_id, tg_id, kind, user_id, tariff_id, package_id, tariff_name, amount, currency, status, error, pay_url, created_at, paid_at, applied_at, refunded_at, term_days, revert, custom, custom_base_id FROM payments WHERE status = 'paid' ORDER BY id
 `
 
 func (q *Queries) ListPaidPayments(ctx context.Context) ([]Payment, error) {
@@ -415,6 +433,8 @@ func (q *Queries) ListPaidPayments(ctx context.Context) ([]Payment, error) {
 			&i.RefundedAt,
 			&i.TermDays,
 			&i.Revert,
+			&i.Custom,
+			&i.CustomBaseID,
 		); err != nil {
 			return nil, err
 		}
@@ -430,7 +450,7 @@ func (q *Queries) ListPaidPayments(ctx context.Context) ([]Payment, error) {
 }
 
 const listPayments = `-- name: ListPayments :many
-SELECT payments.id, payments.provider, payments.payload, payments.external_id, payments.tg_id, payments.kind, payments.user_id, payments.tariff_id, payments.package_id, payments.tariff_name, payments.amount, payments.currency, payments.status, payments.error, payments.pay_url, payments.created_at, payments.paid_at, payments.applied_at, payments.refunded_at, payments.term_days, payments.revert, CAST(COALESCE(users.name, '') AS TEXT) AS user_name, CAST(COALESCE(tg_chats.username, '') AS TEXT) AS tg_username
+SELECT payments.id, payments.provider, payments.payload, payments.external_id, payments.tg_id, payments.kind, payments.user_id, payments.tariff_id, payments.package_id, payments.tariff_name, payments.amount, payments.currency, payments.status, payments.error, payments.pay_url, payments.created_at, payments.paid_at, payments.applied_at, payments.refunded_at, payments.term_days, payments.revert, payments.custom, payments.custom_base_id, CAST(COALESCE(users.name, '') AS TEXT) AS user_name, CAST(COALESCE(tg_chats.username, '') AS TEXT) AS tg_username
 FROM payments
 LEFT JOIN users ON users.id = payments.user_id
 LEFT JOIN tg_chats ON tg_chats.tg_id = payments.tg_id
@@ -492,6 +512,8 @@ func (q *Queries) ListPayments(ctx context.Context, arg ListPaymentsParams) ([]L
 			&i.Payment.RefundedAt,
 			&i.Payment.TermDays,
 			&i.Payment.Revert,
+			&i.Payment.Custom,
+			&i.Payment.CustomBaseID,
 			&i.UserName,
 			&i.TgUsername,
 		); err != nil {
@@ -509,7 +531,7 @@ func (q *Queries) ListPayments(ctx context.Context, arg ListPaymentsParams) ([]L
 }
 
 const listPendingPayments = `-- name: ListPendingPayments :many
-SELECT id, provider, payload, external_id, tg_id, kind, user_id, tariff_id, package_id, tariff_name, amount, currency, status, error, pay_url, created_at, paid_at, applied_at, refunded_at, term_days, revert FROM payments WHERE status = 'pending' AND created_at > $1 ORDER BY id
+SELECT id, provider, payload, external_id, tg_id, kind, user_id, tariff_id, package_id, tariff_name, amount, currency, status, error, pay_url, created_at, paid_at, applied_at, refunded_at, term_days, revert, custom, custom_base_id FROM payments WHERE status = 'pending' AND created_at > $1 ORDER BY id
 `
 
 func (q *Queries) ListPendingPayments(ctx context.Context, createdAt int64) ([]Payment, error) {
@@ -543,6 +565,8 @@ func (q *Queries) ListPendingPayments(ctx context.Context, createdAt int64) ([]P
 			&i.RefundedAt,
 			&i.TermDays,
 			&i.Revert,
+			&i.Custom,
+			&i.CustomBaseID,
 		); err != nil {
 			return nil, err
 		}

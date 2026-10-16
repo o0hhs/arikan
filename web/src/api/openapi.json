@@ -1682,6 +1682,68 @@
         ],
         "type": "object"
       },
+      "CoefficientsBody": {
+        "additionalProperties": false,
+        "properties": {
+          "devices": {
+            "format": "double",
+            "maximum": 10,
+            "minimum": 0.1,
+            "type": "number"
+          },
+          "duration": {
+            "format": "double",
+            "maximum": 10,
+            "minimum": 0.1,
+            "type": "number"
+          },
+          "speed": {
+            "format": "double",
+            "maximum": 10,
+            "minimum": 0.1,
+            "type": "number"
+          },
+          "traffic": {
+            "format": "double",
+            "maximum": 10,
+            "minimum": 0.1,
+            "type": "number"
+          }
+        },
+        "type": "object"
+      },
+      "CoefficientsView": {
+        "additionalProperties": false,
+        "properties": {
+          "devices": {
+            "description": "Множитель устройств",
+            "format": "double",
+            "type": "number"
+          },
+          "duration": {
+            "description": "Множитель срока",
+            "format": "double",
+            "type": "number"
+          },
+          "speed": {
+            "description": "Множитель скорости",
+            "format": "double",
+            "type": "number"
+          },
+          "traffic": {
+            "description": "Множитель трафика: 1 — гигабайт сверх тарифа стоит как у самого тарифа",
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": [
+          "traffic",
+          "devices",
+          "speed",
+          "duration"
+        ],
+        "type": "object"
+      },
       "Config": {
         "additionalProperties": false,
         "properties": {
@@ -5226,6 +5288,15 @@
           "allow_new": {
             "type": "boolean"
           },
+          "coefficients": {
+            "$ref": "#/components/schemas/CoefficientsBody"
+          },
+          "custom_tariff_id": {
+            "description": "Тариф-основа конструктора, нужен срок; 0: выключить",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
           "enabled": {
             "type": "boolean"
           },
@@ -5632,6 +5703,18 @@
             "$ref": "#/components/schemas/PaymentSettingsViewAvailableStruct",
             "description": "Что принимает оплату прямо сейчас: включено, настроено, для Stars — бот запущен"
           },
+          "coefficients": {
+            "$ref": "#/components/schemas/CoefficientsView",
+            "description": "Коэффициенты конструктора: во сколько раз дороже единица роста по сравнению с ценой самого тарифа (1 — как у тарифа)"
+          },
+          "custom_tariff_id": {
+            "description": "Тариф-основа конструктора: покупатель сам собирает трафик, устройства, скорость и срок, цена считается от цены первого срока тарифа и коэффициентов; null — конструктора нет. Тариф может быть скрыт из витрины: в конструкторе он продаётся по частям, а сам тариф — по коду доступа",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
           "enabled": {
             "description": "Продажа подписок: выключено — бот и Mini App ничего не продают, новые счета не создаются, уже открытые засчитываются",
             "type": "boolean"
@@ -5706,6 +5789,8 @@
           "free_tariff_id",
           "free_condition",
           "free_plans",
+          "custom_tariff_id",
+          "coefficients",
           "available",
           "on_sale"
         ],
@@ -6114,6 +6199,12 @@
       "PromoBody": {
         "additionalProperties": false,
         "properties": {
+          "access_ttl": {
+            "description": "Для access_paid и access_free: сколько секунд действует доступ, полученный по коду; 0 — бессрочно. Для остальных типов 0",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
           "code": {
             "maxLength": 64,
             "minLength": 1,
@@ -6192,11 +6283,14 @@
             "type": "array"
           },
           "type": {
+            "description": "access_paid: тариф виден и покупается по своему прайсу; access_free: подписка по тарифу выдаётся сразу. tariff_ids должен содержать ровно один тариф",
             "enum": [
               "days",
               "traffic",
               "percent",
-              "fixed"
+              "fixed",
+              "access_paid",
+              "access_free"
             ],
             "type": "string"
           },
@@ -6216,6 +6310,7 @@
           "currency",
           "per_user_limit",
           "discount_ttl",
+          "access_ttl",
           "min_order",
           "max_discount",
           "tariff_ids",
@@ -6228,6 +6323,11 @@
       "PromoCodeView": {
         "additionalProperties": false,
         "properties": {
+          "access_ttl": {
+            "description": "Срок доступа, который даёт код доступа, в секундах; 0 — бессрочно. Для остальных типов 0",
+            "format": "int64",
+            "type": "integer"
+          },
           "code": {
             "type": "string"
           },
@@ -6304,11 +6404,14 @@
             "type": "array"
           },
           "type": {
+            "description": "days и traffic — бонус, percent и fixed — скидка, access_paid и access_free — код доступа к тарифу (tariff_ids: ровно один)",
             "enum": [
               "days",
               "traffic",
               "percent",
-              "fixed"
+              "fixed",
+              "access_paid",
+              "access_free"
             ],
             "type": "string"
           },
@@ -6332,6 +6435,7 @@
           "used_count",
           "per_user_limit",
           "discount_ttl",
+          "access_ttl",
           "min_order",
           "max_discount",
           "tariff_ids",
