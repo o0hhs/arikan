@@ -38,6 +38,11 @@ type Client struct {
 	// this much on top, any other call only this much, an answer to a pre-checkout query
 	// preCheckoutTimeout, which Telegram's ten seconds leave it.
 	callTimeout time.Duration
+	// OnEmojiRefused is told when Telegram refused a button's premium emoji and the message
+	// went out without it: ids are the ones taken off, err Telegram's refusal. The bot addon
+	// logs it and tells the panel, so the admin's page can say why the menu has no emoji.
+	// Set before the client is used.
+	OnEmojiRefused func(ids []string, err error)
 }
 
 // callTimeout is a call's time, getUpdates apart. Telegram answers in a fraction of it;
@@ -197,10 +202,22 @@ type Message struct {
 	From      *User  `json:"from"`
 	Chat      Chat   `json:"chat"`
 	Text      string `json:"text"`
+	// Entities are the message's formatting: a premium emoji is one of type "custom_emoji",
+	// its id in CustomEmojiID.
+	Entities []MessageEntity `json:"entities"`
 	// SuccessfulPayment: a Stars invoice was paid (a service message from Telegram).
 	SuccessfulPayment *SuccessfulPayment `json:"successful_payment"`
 	// RefundedPayment: a Stars payment was refunded (a service message from Telegram).
 	RefundedPayment *RefundedPayment `json:"refunded_payment"`
+}
+
+// MessageEntity is a piece of a message with something about it: bold, a link, a premium
+// emoji.
+type MessageEntity struct {
+	Type string `json:"type"`
+	// CustomEmojiID is the emoji of a "custom_emoji" entity: the id a menu button's EmojiID
+	// takes.
+	CustomEmojiID string `json:"custom_emoji_id"`
 }
 
 type CallbackQuery struct {
@@ -246,6 +263,25 @@ func ValidStyle(s string) bool {
 	return false
 }
 
+// maxEmojiID bounds a custom emoji's id: Telegram's are decimal int64s, twenty digits at
+// most.
+const maxEmojiID = 20
+
+// ValidEmojiID says whether s is a custom emoji's id. Telegram takes such an emoji from a
+// bot whose owner has Premium (or one that bought usernames on Fragment) and refuses it
+// from any other: a send that carries one falls back without it (see Send).
+func ValidEmojiID(s string) bool {
+	if len(s) > maxEmojiID {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		if s[i] < '0' || s[i] > '9' {
+			return false
+		}
+	}
+	return true
+}
+
 // Button is an inline keyboard button: one of callback data, a link or the Mini App.
 type Button struct {
 	Text         string  `json:"text"`
@@ -255,6 +291,10 @@ type Button struct {
 	// Style colors the button in clients new enough for Bot API 9.4; ValidStyle says
 	// what may go in.
 	Style string `json:"style,omitempty"`
+	// IconCustomEmojiID is the premium emoji shown before the text: a custom emoji's id
+	// (ValidEmojiID). Telegram refuses it from a bot whose owner has no Premium, and the
+	// send goes out without it rather than not at all.
+	IconCustomEmojiID string `json:"icon_custom_emoji_id,omitempty"`
 }
 
 type WebApp struct {
@@ -324,7 +364,80 @@ func (c *Client) Send(ctx context.Context, chat int64, text string, kb *Keyboard
 		asPlain(in, text)
 		err = c.call(ctx, "sendMessage", in, &m)
 	}
+	if refused(err) {
+		if plain, ids := withoutEmoji(kb); len(ids) > 0 {
+			refusal := err
+			in["reply_markup"] = plain
+			err = c.call(ctx, "sendMessage", in, &m)
+			// The menu goes out without them: whether Telegram's words named the emoji or
+			// the send without them is what went through, they were the refusal.
+			if err == nil || emojiRefused(refusal) {
+				c.refusedEmoji(ids, refusal)
+			}
+		}
+	}
 	return m, err
+}
+
+// refused: Telegram said no to a message — the one refusal a keyboard's premium emoji could
+// be the cause of. A message that already says what it says is no refusal (notModified takes
+// that one), and neither is a 429 or a 5xx, which the caller waits out.
+func refused(err error) bool {
+	var ae *APIError
+	return errors.As(err, &ae) && ae.Code == 400 && !notModifiedErr(err)
+}
+
+// emojiRefused: Telegram's own words name a button's premium emoji (a bot whose owner has no
+// Premium, an emoji the bot may not show). Its wording of that refusal is promised nowhere,
+// so this only makes the report surer: the keyboard goes again without the emoji whatever the
+// refusal says, and a send that goes through then is the emoji's doing too.
+func emojiRefused(err error) bool {
+	var ae *APIError
+	if !errors.As(err, &ae) {
+		return false
+	}
+	d := strings.ToLower(ae.Description)
+	return strings.Contains(d, "custom emoji") || strings.Contains(d, "custom_emoji") || strings.Contains(d, "icon_custom_emoji")
+}
+
+// refusedEmoji tells the hook, when one is set, of an emoji Telegram would not take.
+func (c *Client) refusedEmoji(ids []string, err error) {
+	if c.OnEmojiRefused != nil {
+		c.OnEmojiRefused(ids, err)
+	}
+}
+
+// withoutEmoji is the keyboard without the premium emoji of its buttons, with the ids taken
+// off; the keyboard itself and no ids when there was nothing to take.
+func withoutEmoji(kb *Keyboard) (*Keyboard, []string) {
+	if kb == nil {
+		return kb, nil
+	}
+	var ids []string
+	rows := make([][]Button, len(kb.InlineKeyboard))
+	for i, row := range kb.InlineKeyboard {
+		rows[i] = row
+		var plain []Button
+		for _, b := range row {
+			if b.IconCustomEmojiID == "" {
+				continue
+			}
+			if plain == nil {
+				plain = append([]Button(nil), row...)
+			}
+			ids = append(ids, b.IconCustomEmojiID)
+		}
+		if plain != nil {
+			for j := range plain {
+				plain[j].IconCustomEmojiID = ""
+			}
+			rows[i] = plain
+		}
+	}
+	if len(ids) == 0 {
+		return kb, nil
+	}
+	return &Keyboard{InlineKeyboard: rows}, ids
 }
 
 // unparsable: Telegram refused the message's HTML. The admin's texts are made to parse
@@ -396,13 +509,29 @@ func (c *Client) Edit(ctx context.Context, chat, msg int64, text string, kb *Key
 		asPlain(in, text)
 		err = c.call(ctx, "editMessageText", in, nil)
 	}
+	if refused(err) {
+		if plain, ids := withoutEmoji(kb); len(ids) > 0 {
+			refusal := err
+			in["reply_markup"] = plain
+			err = c.call(ctx, "editMessageText", in, nil)
+			if err == nil || emojiRefused(refusal) {
+				c.refusedEmoji(ids, refusal)
+			}
+		}
+	}
 	return notModified(err)
+}
+
+// notModifiedErr: the edit asked for what the message already says, which Telegram calls an
+// error.
+func notModifiedErr(err error) bool {
+	var ae *APIError
+	return errors.As(err, &ae) && strings.Contains(ae.Description, "message is not modified")
 }
 
 // notModified: an edit to the same content is no error.
 func notModified(err error) error {
-	var ae *APIError
-	if errors.As(err, &ae) && strings.Contains(ae.Description, "message is not modified") {
+	if notModifiedErr(err) {
 		return nil
 	}
 	return err

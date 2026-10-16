@@ -34,6 +34,10 @@ var botRPC = map[string]rpcRule{
 	"Config": rule("", nil, nil), "Brand": rule("", nil, nil), "SupportURL": rule("", nil, nil),
 	"MiniAppURL": rule("", nil, nil), "DeviceBinding": rule("", nil, nil), "Tariff": rule("", nil, nil),
 	"Member": rule("", []int{1}, nil),
+	// The bot's own setup as well: the one chat it answers about the panel itself, and the
+	// premium emoji Telegram refused. An addon holding the bot sees that chat's messages
+	// anyway, and what it writes here is a line the panel's own page may show.
+	"AdminChat": rule("", nil, nil), "NoteEmojiRefused": rule("", nil, nil),
 	// Accounts and their subscriptions.
 	"Context":       rule("users:read", []int{0}, nil),
 	"Chat":          rule("users:read", []int{0}, nil),

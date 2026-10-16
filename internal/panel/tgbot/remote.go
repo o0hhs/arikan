@@ -299,6 +299,18 @@ func (r *Remote) BotUsername(ctx context.Context) string {
 	return s
 }
 
+// AdminChat is 0 when the panel cannot be reached: the bot then answers no emoji id, rather
+// than one to whoever asked.
+func (r *Remote) AdminChat(ctx context.Context) int64 {
+	var id int64
+	_ = r.call(ctx, "AdminChat", nil, &id)
+	return id
+}
+
+func (r *Remote) NoteEmojiRefused(ctx context.Context, ids []string, errText string) error {
+	return r.call(ctx, "NoteEmojiRefused", []any{ids, errText})
+}
+
 func (r *Remote) Referral(ctx context.Context, tgID int64) (ReferralView, error) {
 	var v ReferralView
 	err := r.call(ctx, "Referral", []any{tgID}, &v)

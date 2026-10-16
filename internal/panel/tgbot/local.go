@@ -328,6 +328,18 @@ func (l *Local) BotUsername(ctx context.Context) string {
 	return st.Bot.Username
 }
 
+// AdminChat is the chat the panel's alerts go to; 0 when none is connected.
+func (l *Local) AdminChat(ctx context.Context) int64 {
+	if l.Gateway == nil {
+		return 0
+	}
+	id, ok, err := l.Gateway.InfrastructureAdminChat(ctx)
+	if err != nil || !ok {
+		return 0
+	}
+	return id
+}
+
 // Referral is the programme as this account sees it: off when the admin has not turned it
 // on, else its code, what it pays and what it has brought.
 func (l *Local) Referral(ctx context.Context, tgID int64) (ReferralView, error) {

@@ -87,11 +87,15 @@ var (
 const maxLinksRead = 3
 
 // onMessage: /start (with a code from a subscription page), a subscription link, or
-// anything else — every message brings the main menu back to the bottom of the chat.
+// anything else — every message brings the main menu back to the bottom of the chat. The
+// admin's premium emoji is the one exception: the bot answers its id instead (emojiHelp).
 func (b *Bot) onMessage(ctx context.Context, m *tgate.Message) {
 	chat := m.Chat.ID
 	cfg := b.config(ctx)
 	w := wordsFor(cfg.Lang)
+	if b.emojiHelp(ctx, m, w) {
+		return
+	}
 	if cfg.CleanChat {
 		id := m.MessageID
 		b.d.Outbox.Reply(chat, "", 1, func(ctx context.Context, c *tgate.Client) error { return c.Delete(ctx, chat, id) })
@@ -378,11 +382,16 @@ func miniAppURL(ctx context.Context, be Backend, cfg Config) string {
 	return be.MiniAppURL(ctx)
 }
 
-func labelOf(cfg Config, action, def string) string {
-	for _, btn := range cfg.Buttons {
-		if btn.Action == action {
-			return btn.Label
+// dressed is a button of the menu as the admin set it up, for the screens that show it
+// outside the menu (the welcome, a notice, the ways to pay): its label, its color and its
+// premium emoji are the menu button's; what opens it is the caller's.
+func dressed(cfg Config, action, def string, btn tgate.Button) tgate.Button {
+	for _, mb := range cfg.Buttons {
+		if mb.Action == action {
+			btn.Text, btn.Style, btn.IconCustomEmojiID = mb.Label, mb.Style, mb.EmojiID
+			return btn
 		}
 	}
-	return def
+	btn.Text = def
+	return btn
 }
