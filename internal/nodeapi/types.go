@@ -215,6 +215,19 @@ type Health struct {
 	// Time is the node's clock as it answered: the panel holds it against its own and warns
 	// of a skew. Older nodes send none.
 	Time time.Time `json:"time,omitzero"`
+	// Site is the node's own HTTPS page (data/node/www); nil on nodes before it. Its Port is
+	// the loopback port a REALITY dest of this node may name (0 when the page is not on
+	// loopback): the handshake of a client then mirrors a real page on the node's domain.
+	Site *SiteStatus `json:"site,omitempty"`
+}
+
+// SiteStatus is the node's own page as it runs: where it answers, and what went wrong when it
+// does not. Listen is "" while the page is off (MIKAN_SITE_LISTEN=off, or no www directory).
+type SiteStatus struct {
+	Listen string `json:"listen,omitempty"`
+	Port   int    `json:"port,omitempty"`
+	OK     bool   `json:"ok"`
+	Error  string `json:"error,omitempty"`
 }
 
 // HostPorts are the ports something listens on at the node's server: TCP sockets in the

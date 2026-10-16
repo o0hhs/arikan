@@ -84,6 +84,9 @@ services:
       MIKAN_NODE_SOCKET: /run/mikan/node.sock
       MIKAN_PANEL_LISTEN: 0.0.0.0:${PANEL_PORT}
       MIKAN_ACME_LISTEN: "${MIKAN_ACME_LISTEN:-:80}"
+      # The panel answers port 80 only while a challenge is pending; MIKAN_HTTP_REDIRECT=1
+      # in .env makes it hold the port and send the rest of the http traffic to HTTPS too.
+      MIKAN_HTTP_REDIRECT: "${MIKAN_HTTP_REDIRECT:-0}"
       MIKAN_DATABASE_URL: ${MIKAN_DATABASE_URL}
     volumes: ["./data/panel:/data/panel", "run:/run/mikan", "pg-run:/run/postgresql:ro"]
     mem_limit: 1g
@@ -158,6 +161,9 @@ services:
       MIKAN_NODE_SOCKET: /run/mikan/node.sock
       MIKAN_NODE_JOIN: ${MIKAN_NODE_JOIN}
       MIKAN_ACME_LISTEN: "${MIKAN_ACME_LISTEN:-:80}"
+      # A node of its own server holds port 80: the challenge, and a 301 to HTTPS for the
+      # rest. MIKAN_HTTP_REDIRECT=0 in .env gives the port back to something else.
+      MIKAN_HTTP_REDIRECT: "${MIKAN_HTTP_REDIRECT:-1}"
     volumes: ["./data/node:/data/node", "run:/run/mikan"]
     pids_limit: 1024
 
@@ -664,6 +670,10 @@ mod tests {
         assert!(NODE_COMPOSE.contains("./data/node:/data/node") && !NODE_COMPOSE.contains("data/panel"));
         // The node answers the CA for its own certificate, past a web server when told to.
         assert!(NODE_COMPOSE.contains("MIKAN_ACME_LISTEN: \"${MIKAN_ACME_LISTEN:-:80}\""));
+        // A node of its own server holds port 80 (the challenge and the 301 to HTTPS); the
+        // panel, which shares its server with other sites more often, only when told to.
+        assert!(NODE_COMPOSE.contains("MIKAN_HTTP_REDIRECT: \"${MIKAN_HTTP_REDIRECT:-1}\""));
+        assert!(PANEL_COMPOSE.contains("MIKAN_HTTP_REDIRECT: \"${MIKAN_HTTP_REDIRECT:-0}\""));
     }
 
     fn tmpdir(name: &str) -> std::path::PathBuf {

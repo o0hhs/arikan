@@ -56,6 +56,20 @@ impl Install {
         self.env.get("NODE_API_PORT").and_then(|p| p.parse().ok())
     }
 
+    /// The addresses the node's API port is kept open for: the panel's, as the last change
+    /// to the firewall left them. Empty while the port is open to everyone.
+    pub fn panel_ips(&self) -> Vec<IpAddr> {
+        self.env.get("PANEL_IPS").map(|v| v.split(',').filter_map(|s| s.trim().parse().ok()).collect()).unwrap_or_default()
+    }
+
+    /// Writes down which addresses the API port is open for. The node sees the panel's
+    /// address by itself (data/node/panel-addr); this is what `doctor` holds the rule against.
+    pub fn set_panel_ips(&mut self, ips: &[IpAddr]) -> Result<()> {
+        let text = ips.iter().map(ToString::to_string).collect::<Vec<_>>().join(",");
+        self.env.set("PANEL_IPS", &text)?;
+        self.env.save()
+    }
+
     pub fn panel_only(&self) -> Result<()> {
         if self.node {
             bail!("this server is a node: the panel it is joined to manages it (Nodes page)");
@@ -330,7 +344,7 @@ pub fn join_key(arg: Option<String>) -> Result<String> {
 }
 
 /// A node takes a new join key from its panel. The firewall opens the node's API port for
-/// everyone, or with the panel's address only for it.
+/// the panel alone: the address the node sees the panel at, or the one given as `panel_ip`.
 pub fn join(key: &str, panel_ip: Option<IpAddr>) -> Result<()> {
     let _lock = lock::acquire(lock::Wait::Block, &mut crate::out)?;
     let mut install = Install::load()?;
@@ -339,9 +353,21 @@ pub fn join(key: &str, panel_ip: Option<IpAddr>) -> Result<()> {
     }
     let image = install.env.get("MIKAN_IMAGE").context("no MIKAN_IMAGE in .env")?.to_owned();
     let port = setup::node_port(&image, key.trim())?;
+    let old = install.node_port().filter(|p| *p != port);
+    // The node is about to have another panel: the addresses of the one it leaves are of no
+    // use to the new one and have no business staying open in the firewall.
+    let forgotten = crate::paneladdr::forget(Path::new(DIR));
     install.env.set("MIKAN_NODE_JOIN", key.trim())?;
     install.env.set("NODE_API_PORT", &port.to_string())?;
+    install.env.remove("PANEL_IPS");
     install.env.save()?;
+    if let Some(old) = old {
+        // A re-key moves the API to the port of the new one: the old port goes.
+        crate::paneladdr::forget_port(old);
+    }
+    if forgotten {
+        crate::out("The panel's addresses the node had seen are forgotten: the new panel is learned afresh.");
+    }
     if install.ufw() && system::ufw_active() {
         match panel_ip {
             Some(ip) => host::allow_from(ip, port)?,
@@ -354,20 +380,28 @@ pub fn join(key: &str, panel_ip: Option<IpAddr>) -> Result<()> {
     crate::out(&format!("The node runs with the new key and waits for its panel on port {port}."));
     // What the panel found is told, never made an error: the key is in place either way.
     crate::out("Waiting for the panel to connect…");
+    let explicit: Vec<IpAddr> = panel_ip.into_iter().collect();
     if let Some(h) = hello::wait(since, hello::LIMIT) {
         for line in hello::render(&hello::lines(&h, Some(port))) {
             crate::out(&line);
         }
     }
+    // The panel has connected: its open port is put behind the address it came from.
+    crate::paneladdr::scope_saying(&mut install, &explicit, &mut crate::out);
     Ok(())
 }
 
 /// Stops Arikan and removes what it put on the host; the data stays, a panel's database in
 /// its volume too. True for a panel.
 pub fn uninstall() -> Result<bool> {
-    let panel = !Install::load()?.node;
+    let install = Install::load()?;
+    let panel = !install.node;
     let _lock = lock::acquire(lock::Wait::Block, &mut crate::out)?;
     docker::compose_run(&["down"])?;
+    // Nothing answers on a node's API port any more: the rule that kept it for the panel goes.
+    if let Some(port) = install.node_port() {
+        crate::paneladdr::forget_port(port);
+    }
     addon::down();
     addon::drop_network();
     host::remove_units();

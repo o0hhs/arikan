@@ -147,6 +147,15 @@ func signal(ch chan struct{}) {
 
 func (s *Syncer) Health() HealthView { return *s.health.Load() }
 
+// sitePort is where the node's own page answers on loopback, 0 while it does not or has not
+// said: a REALITY dest of this node may name it (internal/node/site.go).
+func (s *Syncer) sitePort() int {
+	if site := s.health.Load().Health.Site; site != nil && site.OK {
+		return site.Port
+	}
+	return 0
+}
+
 // Online returns the node's live connection view keyed by slot name.
 func (s *Syncer) Online() map[string]nodeapi.Online { return *s.online.Load() }
 
@@ -250,7 +259,7 @@ func (s *Syncer) desiredPin(ctx context.Context) (st nodeapi.DesiredState, pin s
 		// others, the new users and the policies still reach the node.
 		t, err := proto.Parse(in.Config)
 		if err == nil {
-			err = proto.Validate(t, proto.Options{SelfStealPort: st.SelfStealPort})
+			err = proto.Validate(t, proto.Options{SelfStealPort: st.SelfStealPort, SitePort: s.sitePort()})
 		}
 		if err != nil {
 			bad = append(bad, in.Name+": "+err.Error())

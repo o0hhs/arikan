@@ -37,7 +37,7 @@ func cascadeState(t *testing.T) nodeapi.DesiredState {
 // the REJECT ones and before WARP's, and only listeners that exist are named.
 func TestCascadeConfig(t *testing.T) {
 	st := cascadeState(t)
-	raw, _, err := buildConfig(st, proto.Cert{CertPath: "/tmp/c.pem", KeyPath: "/tmp/k.pem"}, false)
+	raw, _, err := buildConfig(st, proto.Cert{CertPath: "/tmp/c.pem", KeyPath: "/tmp/k.pem"}, false, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,6 +71,10 @@ func TestCascadeConfig(t *testing.T) {
 	if strings.Join(names, ",") != "WARP,NODE-3" {
 		t.Fatalf("proxies: %v", names)
 	}
+	// The cascade's WARP would start a WireGuard device whose goroutines log through
+	// mihomo's global logger and race with the log level a later test's Start writes;
+	// warpAsSocks5 keeps the proxy (and its name, the rules resolve) without a device.
+	raw = warpAsSocks5(t, raw)
 	parsed, err := executor.ParseWithBytes(raw)
 	if err != nil {
 		t.Fatalf("mihomo refuses the config: %v", err)
@@ -85,12 +89,12 @@ func TestCascadeConfig(t *testing.T) {
 	// Only VLESS relays and NODE-<id> names.
 	bad := cascadeState(t)
 	bad.Exits[0].Proxy = json.RawMessage(`{"type":"socks5","server":"1.2.3.4","port":1}`)
-	if _, _, err := buildConfig(bad, proto.Cert{}, false); err == nil {
+	if _, _, err := buildConfig(bad, proto.Cert{}, false, 0); err == nil {
 		t.Fatal("a non-VLESS exit was accepted")
 	}
 	bad = cascadeState(t)
 	bad.Exits[0].Name = "DIRECT"
-	if _, _, err := buildConfig(bad, proto.Cert{}, false); err == nil {
+	if _, _, err := buildConfig(bad, proto.Cert{}, false, 0); err == nil {
 		t.Fatal("an exit named like a built-in policy was accepted")
 	}
 	if routesKey(cascadeState(t), false) == routesKey(warpState(), false) {

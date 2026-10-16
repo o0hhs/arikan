@@ -992,7 +992,7 @@ fn seal_when_current(root: &Path, node: bool, say: &mut dyn FnMut(&str)) {
 /// and have limits since 0.4.4). A server stopped by its admin stays stopped.
 pub fn converge(say: &mut dyn FnMut(&str)) -> Result<()> {
     let _lock = lock::acquire(Wait::Block, say)?;
-    let install = Install::load()?;
+    let mut install = Install::load()?;
     let root = Path::new(DIR);
     // The pool of ports the panel moves a blocked inbound to may have grown since the
     // install opened it, and a node installed before public node certificates lacks port 80:
@@ -1002,6 +1002,12 @@ pub fn converge(say: &mut dyn FnMut(&str)) -> Result<()> {
         && let Err(e) = host::update_rules().iter().try_for_each(|r| host::allow(r))
     {
         say(&format!("ufw did not take port 80 and the ports of the pool ({e:#}): open them yourself"));
+    }
+    // A node's API port belongs to its panel alone. This is where a node installed before
+    // that, or whose panel moved to another address, gets the rule it should have; a port
+    // already scoped right is left untouched (nothing is planned, nothing is run).
+    if install.node {
+        crate::paneladdr::scope_saying(&mut install, &[], say);
     }
     if !install.node && install.env.get("MIKAN_DATABASE_URL").is_none() {
         // post-update must never activate the PostgreSQL compose over a live SQLite

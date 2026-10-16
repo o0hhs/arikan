@@ -71,7 +71,7 @@ func outbounds(st nodeapi.DesiredState) ([]any, error) {
 // with the reason): one broken inbound must not stop the node from taking every other
 // change of the state, new users and policies included. What the whole state needs, the
 // outbounds, is an error as before.
-func buildConfig(st nodeapi.DesiredState, cert proto.Cert, allowPrivate bool) (raw []byte, rejected []nodeapi.ListenerStatus, err error) {
+func buildConfig(st nodeapi.DesiredState, cert proto.Cert, allowPrivate bool, sitePort int) (raw []byte, rejected []nodeapi.ListenerStatus, err error) {
 	listeners := make([]map[string]any, 0, len(st.Inbounds)+1)
 	keep := func(name string, l map[string]any, err error) {
 		if err == nil {
@@ -85,7 +85,7 @@ func buildConfig(st nodeapi.DesiredState, cert proto.Cert, allowPrivate bool) (r
 		listeners = append(listeners, l)
 	}
 	for _, in := range st.Inbounds {
-		l, err := listenerFor(in, st.Slots, cert, proto.Options{SelfStealPort: st.SelfStealPort})
+		l, err := listenerFor(in, st.Slots, cert, proto.Options{SelfStealPort: st.SelfStealPort, SitePort: sitePort})
 		keep(in.Name, l, err)
 	}
 	if st.Relay != nil {

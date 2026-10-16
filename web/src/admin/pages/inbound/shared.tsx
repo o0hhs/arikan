@@ -22,6 +22,11 @@ export function presetTitle(p: Preset): string {
   return p.id === "custom" ? t("inbounds.customTitle") : p.title;
 }
 
+/** What the panel says beside a transport Russian DPI blocks quickly; the server's words are the fallback. */
+export function presetWarning(p: Preset): string {
+  return tMaybe(`presets.${p.id}Warn`) ?? p.warning ?? "";
+}
+
 export function Editor(props: { value: string; onChange: (v: string) => void; invalid?: boolean }) {
   return (
     <Suspense fallback={<Skeleton style={{ height: 280, borderRadius: 12 }} />}>
@@ -42,10 +47,18 @@ export function LimitBadges({ clashOnly, shared }: { clashOnly: boolean; shared:
 }
 
 /** What the admin gives up with the chosen preset, said before it is added. */
-export function LimitNotes({ clashOnly, shared, domainCert = false }: { clashOnly: boolean; shared: boolean; domainCert?: boolean }) {
-  if (!clashOnly && !shared && !domainCert) return null;
+export function LimitNotes({ clashOnly, shared, domainCert = false, warning = "" }: { clashOnly: boolean; shared: boolean; domainCert?: boolean; warning?: string }) {
+  if (!clashOnly && !shared && !domainCert && !warning) return null;
   return (
     <div className="mb-4 flex flex-col gap-2" role="note">
+      {warning ? (
+        <div className="rounded-2xl border border-[color-mix(in_srgb,var(--honey-500)_35%,transparent)] bg-[var(--honey-50)] p-3 text-[13px] text-[var(--md-on-surface-variant)]">
+          <div className="mb-1 flex items-center gap-2 font-semibold text-[var(--md-on-surface)]">
+            <TriangleAlert size={16} className="text-[var(--honey-600)]" aria-hidden /> {t("inbounds.dpiWarnTitle")}
+          </div>
+          {warning}
+        </div>
+      ) : null}
       {shared ? (
         <div className="rounded-2xl border border-[color-mix(in_srgb,var(--honey-500)_35%,transparent)] bg-[var(--honey-50)] p-3 text-[13px] text-[var(--md-on-surface-variant)]">
           <div className="mb-1 flex items-center gap-2 font-semibold text-[var(--md-on-surface)]">
