@@ -300,6 +300,7 @@ func New(d Deps) (http.Handler, huma.API, error) {
 	h.registerTurn()
 	h.registerCascade()
 	h.registerOutbounds()
+	h.registerDatabaseBackup()
 	h.registerPools()
 	h.registerPackages()
 	h.registerAudit()
