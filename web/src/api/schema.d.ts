@@ -3401,6 +3401,7 @@ export interface components {
             summary: string;
             title: string;
             type: string;
+            warning?: string;
         };
         InfrastructureConnectOutputBody: {
             url: string;

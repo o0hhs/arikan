@@ -7,7 +7,7 @@ import { Drawer, DrawerFooter } from "../../../components/overlay";
 import { useToast } from "../../../components/toast";
 import { Button, Field } from "../../../components/ui";
 import { t } from "../../../i18n";
-import { Editor, LimitBadges, LimitNotes, ValidateResult, preloadEditor, presetSummary, presetTitle, useValidate } from "./shared";
+import { Editor, LimitBadges, LimitNotes, ValidateResult, preloadEditor, presetSummary, presetTitle, presetWarning, useValidate } from "./shared";
 
 export function AddDrawer({ open, onOpenChange, nodeId, nodeName }: { open: boolean; onOpenChange: (v: boolean) => void; nodeId: number; nodeName?: string }) {
   const presets = usePresets();
@@ -89,7 +89,9 @@ export function AddDrawer({ open, onOpenChange, nodeId, nodeName }: { open: bool
         >
           <input id="in-port" className="input max-w-[200px]" inputMode="numeric" placeholder={chosen?.default_port} value={port} onChange={(e) => setPort(e.target.value)} aria-invalid={!!errors.port} />
         </Field>
-        {chosen && !custom ? <LimitNotes clashOnly={chosen.apps === "mihomo"} shared={!!chosen.shared} domainCert={!!chosen.domain_cert} /> : null}
+        {chosen && !custom ? (
+          <LimitNotes clashOnly={chosen.apps === "mihomo"} shared={!!chosen.shared} domainCert={!!chosen.domain_cert} warning={presetWarning(chosen)} />
+        ) : null}
         {custom ? (
           <Field label={t("inbounds.configLabel")} hint={t("inbounds.configHint")} error={errors.config}>
             <Editor value={config} onChange={editConfig} invalid={!!errors.config} />

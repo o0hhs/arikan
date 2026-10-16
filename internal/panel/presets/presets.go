@@ -34,6 +34,10 @@ type Info struct {
 	// DomainCert: the point is a real certificate, which only a node with a domain has (the
 	// panel's node) or one with its own; elsewhere it runs on a pinned self-signed one.
 	DomainCert bool `json:"domain_cert,omitempty"`
+	// Warning is what the picker says beside a preset that works but is blocked in Russia
+	// quickly (Russian fallback; the UI translates presets.<id>Warn). Advice, not a rule:
+	// the admin knows their users and their operators.
+	Warning string `json:"warning,omitempty"`
 }
 
 // Custom is the "own config" entry: the admin writes the template in the editor.
@@ -69,11 +73,14 @@ var All = []Info{
 	{ID: PresetGecko, Title: "Hysteria2 · Gecko", Summary: "Hysteria2, у которого рукопожатие режется на куски случайного размера: против DPI, который узнаёт QUIC по размерам пакетов. Только приложения на ядре mihomo 1.19.26+", Type: "hysteria2", Network: "udp", Port: "2443", Name: "hysteria2-gecko", SubName: "Hysteria2 Gecko", Apps: "mihomo"},
 	{ID: "tuic_v5", Title: "TUIC v5", Summary: "Альтернатива на QUIC, тоже по UDP", Type: "tuic", Network: "udp", Port: "8443", Name: "tuic", SubName: "TUIC", Default: true},
 	{ID: "vless_reality_vision", Title: "VLESS · REALITY · Vision", Summary: "Для старых клиентов без XHTTP. На 443 в РФ быстро замораживается", Type: "vless", Network: "tcp", Port: "8443", Name: "vless-vision", SubName: "VLESS Vision", Default: true},
-	{ID: "vless_reality_grpc", Title: "VLESS · REALITY · gRPC", Summary: "HTTP/2 с мультиплексом: мало соединений, другой рисунок трафика", Type: "vless", Network: "tcp", Port: "2053", Name: "vless-grpc", SubName: "VLESS gRPC"},
-	{ID: "trojan_reality", Title: "Trojan · REALITY", Summary: "Другой протокол под той же маскировкой — запасной вариант", Type: "trojan", Network: "tcp", Port: "2087", Name: "trojan", SubName: "Trojan"},
+	{ID: "vless_reality_grpc", Title: "VLESS · REALITY · gRPC", Summary: "HTTP/2 с мультиплексом: мало соединений, другой рисунок трафика", Type: "vless", Network: "tcp", Port: "2053", Name: "vless-grpc", SubName: "VLESS gRPC",
+		Warning: "VLESS без Vision: у рукопожатия и потока проще форма, и в РФ такие инбаунды блокируются раньше, чем XHTTP или Vision."},
+	{ID: "trojan_reality", Title: "Trojan · REALITY", Summary: "Другой протокол под той же маскировкой — запасной вариант", Type: "trojan", Network: "tcp", Port: "2087", Name: "trojan", SubName: "Trojan",
+		Warning: "В РФ Trojan узнаётся по форме трафика и блокируется быстро: он годится как запасной, основной выбор — VLESS REALITY."},
 	{ID: PresetTLSXHTTP, Title: "VLESS · TLS · XHTTP", Summary: "Обычный TLS на настоящем сертификате домена панели, как у сайта: на чужие запросы отвечает как веб-сервер, держит мало соединений", Type: "vless", Network: "tcp", Port: "2443", Name: "vless-tls-xhttp", SubName: "VLESS TLS XHTTP", DomainCert: true},
 	{ID: PresetTLSVision, Title: "VLESS · TLS · Vision", Summary: "Классический VLESS Vision на настоящем сертификате домена панели: работает почти во всех приложениях. На 443 в РФ быстро замораживается", Type: "vless", Network: "tcp", Port: "3443", Name: "vless-tls-vision", SubName: "VLESS TLS Vision", DomainCert: true},
-	{ID: PresetTLSWS, Title: "VLESS · TLS · WebSocket", Summary: "WebSocket на настоящем сертификате: проходит у операторов, где работает только WS, и через CDN (Cloudflare, Яндекс). Для CDN укажите его адрес в блоке «За прокси»", Type: "vless", Network: "tcp", Port: "2053", Name: "vless-tls-ws", SubName: "VLESS WS", DomainCert: true},
+	{ID: PresetTLSWS, Title: "VLESS · TLS · WebSocket", Summary: "WebSocket на настоящем сертификате: проходит у операторов, где работает только WS, и через CDN (Cloudflare, Яндекс). Для CDN укажите его адрес в блоке «За прокси»", Type: "vless", Network: "tcp", Port: "2053", Name: "vless-tls-ws", SubName: "VLESS WS", DomainCert: true,
+		Warning: "VLESS без Vision: у рукопожатия и потока проще форма, и в РФ такие инбаунды блокируются раньше, чем XHTTP или Vision. Оставьте его там, где без WebSocket или CDN не подключаются."},
 	{ID: "anytls", Title: "AnyTLS", Summary: "TLS с паддингом против анализа размеров пакетов; нужен клиент на mihomo или sing-box", Type: "anytls", Network: "tcp", Port: "2083", Name: "anytls", SubName: "AnyTLS"},
 	{ID: PresetPQ, Title: "VLESS · REALITY · XHTTP · PQ", Summary: "XHTTP с постквантовым шифрованием VLESS: записанный сейчас трафик не расшифровать и в будущем. Нужен свежий клиент на mihomo или Xray; приложения на sing-box не подключатся", Type: "vless", Network: "tcp", Port: "2096", Name: "vless-pq", SubName: "VLESS PQ"},
 	{ID: "trusttunnel", Title: "TrustTunnel", Summary: "Протокол AdGuard: HTTP/2 на настоящем сертификате ноды. На запрос без ключа отвечает 407, как прокси, и активный сканер его узнаёт: не ставьте его на ноду, IP которой важно сберечь", Type: "trusttunnel", Network: "tcp", Port: "4443", Name: "trusttunnel", SubName: "TrustTunnel", Apps: "mihomo"},
