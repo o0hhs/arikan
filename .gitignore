@@ -6,6 +6,10 @@ installer/target/
 node_modules/
 *.tsbuildinfo
 
+# local build caches: a toolchain keeping its store inside the checkout
+.gotmp/
+.pnpm-store/
+
 # runtime data and secrets (the release signing key never enters the repo)
 *.pem
 release-signing*
