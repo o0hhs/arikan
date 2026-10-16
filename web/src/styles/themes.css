@@ -697,7 +697,7 @@ html[data-perf="1"] {
  * check-contrast.mjs checks every on/container pair of this layer, in every theme.
  */
 
-:root, [data-tone="light"], [data-theme], .sub-look[data-scheme="light"] {
+:root, [data-tone="light"], [data-theme], [data-scheme="light"] {
   --md-primary: var(--mikan-700);
   --md-on-primary: var(--on-fill);
   --md-primary-container: var(--mikan-100);
@@ -753,7 +753,7 @@ html[data-perf="1"] {
   --wash: var(--md-surface-container-high);
 }
 
-[data-tone="dark"], .sub-look[data-scheme="dark"] {
+[data-tone="dark"], [data-scheme="dark"] {
   --md-primary: var(--mikan-500);
   --md-on-primary: var(--on-fill);
   --md-primary-container: var(--mikan-100);

@@ -1,7 +1,7 @@
 import { Check, ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { t } from "../i18n";
-import { DARK_THEMES, isDarkTheme, LIGHT_THEMES, THEMES, type Theme } from "../lib/themes";
+import { DARK_THEMES, isDarkTheme, LIGHT_THEMES, M3_THEMES, THEMES, type Theme } from "../lib/themes";
 
 /*
  * The panel's theme, kept in this browser. The palettes themselves are in styles/themes.css;
@@ -133,9 +133,13 @@ export function ThemeCard() {
   const refs = useRef(new Map<ThemeChoice, HTMLButtonElement>());
 
   const names = themeNames();
+  // The Material themes are both tones of one seed each: they read as their own group rather
+  // than split between Светлые and Тёмные, and the pages' themes stay in those two.
+  const generated = new Set<string>(M3_THEMES);
   const groups: { label: string; options: Option[] }[] = [
-    { label: t("settings.themeLight"), options: LIGHT.map((id) => ({ id, label: names[id] })) },
-    { label: t("settings.themeDark"), options: DARK.map((id) => ({ id, label: names[id] })) },
+    { label: t("settings.themeLight"), options: LIGHT.filter((id) => !generated.has(id)).map((id) => ({ id, label: names[id] })) },
+    { label: t("settings.themeDark"), options: DARK.filter((id) => !generated.has(id)).map((id) => ({ id, label: names[id] })) },
+    { label: t("settings.themeMaterialGroup"), options: M3_THEMES.map((id) => ({ id, label: names[id] })) },
     // Folded, "as the system" waits behind "All themes" unless it is the choice.
     ...(open || choice === "system" ? [{ label: t("settings.themeAuto"), options: [{ id: "system" as const, label: t("settings.themeSystem") }] }] : []),
   ];
@@ -256,6 +260,18 @@ export function themeNames(): Record<Theme, string> {
     dracula: t("settings.themeDracula"),
     aurora: t("settings.themeAurora"),
     cosmos: t("settings.themeCosmos"),
+    "material": t("settings.themeMaterial"),
+    "material-dark": t("settings.themeMaterialDark"),
+    "material-blue": t("settings.themeMaterialBlue"),
+    "material-blue-dark": t("settings.themeMaterialBlueDark"),
+    "material-teal": t("settings.themeMaterialTeal"),
+    "material-teal-dark": t("settings.themeMaterialTealDark"),
+    "material-green": t("settings.themeMaterialGreen"),
+    "material-green-dark": t("settings.themeMaterialGreenDark"),
+    "material-rose": t("settings.themeMaterialRose"),
+    "material-rose-dark": t("settings.themeMaterialRoseDark"),
+    "material-expressive": t("settings.themeMaterialExpressive"),
+    "material-expressive-dark": t("settings.themeMaterialExpressiveDark"),
   };
 }
 

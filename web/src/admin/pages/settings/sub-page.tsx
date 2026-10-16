@@ -17,7 +17,7 @@ import { Button, Field, Segmented, Skeleton } from "../../../components/ui";
 import { t, useLocale, type Key } from "../../../i18n";
 import { useDraft } from "../../../lib/draft";
 import { fieldErrors } from "../../../lib/fields";
-import { followsMode, MODE_PALETTES, THEMES } from "../../../lib/themes";
+import { followsMode, M3_THEMES, MODE_PALETTES, THEMES } from "../../../lib/themes";
 import { safeHref } from "../../../lib/url";
 import { APPS, type Platform } from "../../../sub/apps";
 import { CUSTOM_TYPES, MINI_APP_ONLY, orderApps, PLATFORMS, type BlockType } from "../../../sub/page";
@@ -225,7 +225,10 @@ function LookSection({ draft, setDraft, set, errors, accentMissing, background }
   const [themeRows, perRow] = useTilesPerRow();
   // The four that follow the page's light/dark mode, then every other panel theme as it is.
   const moded = MODE_PALETTES.map((id) => ({ id, label: names[id], theme: id === "mikan" && look.mode === "dark" ? ("midnight" as const) : id }));
-  const fixed = THEMES.filter((id) => !followsMode(id) && id !== "midnight").map((id) => ({ id, label: names[id], theme: id }));
+  // The generated Material themes are left out: the palette travels to the API, whose enum in
+  // internal/panel/subpage/config.go lists the themes it accepts, and that list is not ours
+  // to widen here. Add the new names there too and the filter can go.
+  const fixed = THEMES.filter((id) => !followsMode(id) && id !== "midnight" && !(M3_THEMES as readonly string[]).includes(id)).map((id) => ({ id, label: names[id], theme: id }));
   const fonts: { id: Look["font"]; family: string }[] = [
     { id: "default", family: '"Unbounded Variable", "Onest Variable", system-ui, sans-serif' },
     { id: "onest", family: '"Onest Variable", system-ui, sans-serif' },
