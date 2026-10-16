@@ -451,6 +451,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/database/backup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Скачать резервную копию базы */
+        get: operations["download-database-backup"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/filters": {
         parameters: {
             query?: never;
@@ -1147,6 +1164,59 @@ export interface paths {
         put?: never;
         /** Зарегистрировать WARP для ноды в Cloudflare */
         post: operations["register-node-warp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/outbounds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Исходящие, добавленные по ссылке */
+        get: operations["list-outbounds"];
+        put?: never;
+        /** Добавить исходящую по ссылке */
+        post: operations["create-outbound"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/outbounds/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Удалить исходящую */
+        delete: operations["delete-outbound"];
+        options?: never;
+        head?: never;
+        /** Переименовать, заменить ссылку или выключить исходящую */
+        patch: operations["update-outbound"];
+        trace?: never;
+    };
+    "/api/v1/outbounds/{id}/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Проверить исходящую: какой адрес видят сайты через неё */
+        post: operations["check-outbound"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3064,6 +3134,12 @@ export interface components {
             host: string;
             name: string;
         };
+        CreateOutboundInputBody: {
+            /** @description Ссылка vless://, vmess://, trojan://, ss://… */
+            link: string;
+            /** @description Название; пусто — имя из ссылки */
+            name?: string;
+        };
         CreateUserInputBody: {
             contact?: string;
             name: string;
@@ -3362,10 +3438,15 @@ export interface components {
             /** @description Hysteria2: salamander, gecko или пусто (без обфускации); у других типов поля нет */
             obfs?: string;
             /**
-             * @description Выход в интернет: напрямую с сервера, через WARP ноды или через другую ноду (каскад)
+             * @description Выход в интернет: напрямую с сервера, через WARP ноды, через другую ноду (каскад) или через исходящую, добавленную по ссылке
              * @enum {string}
              */
-            outbound: "direct" | "warp" | "node";
+            outbound: "direct" | "warp" | "node" | "link";
+            /**
+             * Format: int64
+             * @description Исходящая по ссылке, через которую выходит трафик, если outbound=link
+             */
+            outbound_id?: number;
             /**
              * Format: int64
              * @description Пул трафика, в который считается подключение; нет — основной трафик
@@ -3913,6 +3994,57 @@ export interface components {
             /** @description Все инструкции в новом порядке */
             ids: number[];
         };
+        OutboundCheck: {
+            /**
+             * Format: int64
+             * @description Номер автономной системы адреса
+             */
+            asn?: number;
+            /** Format: date-time */
+            checked_at: string;
+            /** @enum {string} */
+            code?: "not_applied" | "unused" | "off" | "timeout" | "refused" | "unreachable" | "error";
+            /** @description Страна этого адреса по геобазе */
+            country?: string;
+            error?: string;
+            flag?: string;
+            /** @description Адрес, который видят сайты */
+            ip?: string;
+            node?: string;
+            /** Format: int64 */
+            node_id?: number;
+            ok: boolean;
+            /** @description Чья это сеть */
+            org?: string;
+        };
+        OutboundUse: {
+            inbound: string;
+            /** Format: int64 */
+            inbound_id: number;
+            /** @description Нода, к которой подключён вход */
+            node: string;
+            /** Format: int64 */
+            node_id: number;
+        };
+        OutboundView: {
+            /** Format: date-time */
+            created_at: string;
+            enabled: boolean;
+            /** Format: int64 */
+            id: number;
+            /** @description Протокол ссылки: vless, vmess, trojan, ss и другие */
+            kind: string;
+            /** @description Ссылка, как она была вставлена */
+            link: string;
+            name: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** @description Входы, чей трафик выходит через эту исходящую */
+            uses: components["schemas"]["OutboundUse"][];
+        };
+        OutboundsOutputBody: {
+            outbounds: components["schemas"]["OutboundView"][];
+        };
         OverviewOutputBody: {
             /** Format: int64 */
             expiring_7d: number;
@@ -4185,10 +4317,15 @@ export interface components {
              */
             obfs?: "salamander" | "gecko";
             /**
-             * @description Выход в интернет: напрямую, через WARP ноды или через другую ноду
+             * @description Выход в интернет: напрямую, через WARP ноды, через другую ноду или через исходящую по ссылке
              * @enum {string}
              */
-            outbound?: "direct" | "warp" | "node";
+            outbound?: "direct" | "warp" | "node" | "link";
+            /**
+             * Format: int64
+             * @description Для outbound=link: через какую исходящую
+             */
+            outbound_id?: number;
             /**
              * Format: int64
              * @description Пул трафика; 0 — основной трафик
@@ -4221,6 +4358,11 @@ export interface components {
             name?: string;
             /** @description Публичное имя ноды; пустое — не публиковать её в канале */
             public_name?: string;
+        };
+        PatchOutboundInputBody: {
+            enabled?: boolean;
+            link?: string;
+            name?: string;
         };
         PatchPaymentSettingsInputBody: {
             allow_new?: boolean;
@@ -7025,6 +7167,35 @@ export interface operations {
             };
         };
     };
+    "download-database-backup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Архив pg_dump (custom) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": unknown;
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "get-filters": {
         parameters: {
             query?: never;
@@ -8729,6 +8900,163 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WarpView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-outbounds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OutboundsOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "create-outbound": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateOutboundInputBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OutboundView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "delete-outbound": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "update-outbound": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchOutboundInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OutboundView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "check-outbound": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OutboundCheck"];
                 };
             };
             /** @description Error */

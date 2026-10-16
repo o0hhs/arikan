@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { RotateCcw } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { api, unwrap, type Inbound, type Schemas } from "../../../api/client";
@@ -33,9 +33,15 @@ export function EditDrawer({ inbound, onClose }: { inbound: Inbound | null; onCl
   const [xhttp, setXhttp] = useState<XHTTP>(XHTTP_DEFAULT); // the masking tab, XHTTP only
   const [outbound, setOutbound] = useState<Inbound["outbound"]>("direct");
   const [exitNode, setExitNode] = useState<number>(0);
+  const [outboundID, setOutboundID] = useState<number>(0);
   const [poolId, setPoolId] = useState<number>(0);
   const pools = usePools();
   const allNodes = useNodes();
+  const outbounds = useQuery({
+    queryKey: qk.outbounds,
+    queryFn: ({ signal }) => unwrap(api.GET("/api/v1/outbounds", { signal })),
+    enabled: !!inbound,
+  });
   const [name, setName] = useState("");
   const [config, setConfig] = useState("");
   const [autoPort, setAutoPort] = useState(true);
@@ -59,6 +65,7 @@ export function EditDrawer({ inbound, onClose }: { inbound: Inbound | null; onCl
     setXhttp({ ...XHTTP_DEFAULT, ...inbound.xhttp });
     setOutbound(inbound.outbound);
     setExitNode(inbound.exit_node_id ?? 0);
+    setOutboundID(inbound.outbound_id ?? 0);
     setPoolId(inbound.pool_id ?? 0);
     setName(inbound.display_name);
     setConfig(inbound.config);
@@ -90,7 +97,7 @@ export function EditDrawer({ inbound, onClose }: { inbound: Inbound | null; onCl
     onSuccess: (_, body) => {
       void qc.invalidateQueries({ queryKey: qk.inbounds });
       // The automatic-fix switches and the listen address change nothing clients get.
-      const autoOnly = Object.keys(body).every((k) => k === "auto_port" || k === "auto_sni" || k === "outbound" || k === "exit_node_id" || k === "pool_id" || k === "listen");
+      const autoOnly = Object.keys(body).every((k) => k === "auto_port" || k === "auto_sni" || k === "outbound" || k === "exit_node_id" || k === "outbound_id" || k === "pool_id" || k === "listen");
       toast.ok(autoOnly ? t("inbounds.savedAuto") : t("inbounds.saved"));
       onClose();
     },
@@ -163,9 +170,14 @@ export function EditDrawer({ inbound, onClose }: { inbound: Inbound | null; onCl
       reject({ exit_node_id: t("inbounds.exitPick") });
       return;
     }
-    if (outbound !== inbound?.outbound || (outbound === "node" && exitNode !== inbound?.exit_node_id)) {
+    if (outbound === "link" && !outboundID) {
+      reject({ outbound_id: t("inbounds.outboundPick") });
+      return;
+    }
+    if (outbound !== inbound?.outbound || (outbound === "node" && exitNode !== inbound?.exit_node_id) || (outbound === "link" && outboundID !== inbound?.outbound_id)) {
       body.outbound = outbound;
       if (outbound === "node") body.exit_node_id = exitNode;
+      if (outbound === "link") body.outbound_id = outboundID;
     }
     if (Object.keys(body).length === 0) {
       onClose();
@@ -300,9 +312,11 @@ export function EditDrawer({ inbound, onClose }: { inbound: Inbound | null; onCl
               ) : null}
               <Field
                 label={t("inbounds.outbound")}
-                error={errors.exit_node_id}
+                error={errors.exit_node_id ?? errors.outbound_id}
                 hint={
-                  outbound === "node"
+                  outbound === "link"
+                    ? t("inbounds.outboundLinkHint")
+                    : outbound === "node"
                     ? t("inbounds.outboundNodeHint")
                     : outbound === "warp" && warp.data && (!warp.data.configured || !warp.data.enabled)
                       ? t("inbounds.outboundNoWarp")
@@ -316,12 +330,13 @@ export function EditDrawer({ inbound, onClose }: { inbound: Inbound | null; onCl
                   value={outbound}
                   onChange={(v) => {
                     setOutbound(v);
-                    setErrors(({ exit_node_id: _, ...rest }) => rest);
+                    setErrors(({ exit_node_id: _, outbound_id: _o, ...rest }) => rest);
                   }}
                   options={[
                     { value: "direct", label: t("inbounds.outboundDirect") },
                     { value: "warp", label: "WARP" },
                     { value: "node", label: t("inbounds.outboundNode") },
+                    { value: "link", label: t("inbounds.outboundLink") },
                   ]}
                 />
                 {outbound === "node" ? (
@@ -349,6 +364,28 @@ export function EditDrawer({ inbound, onClose }: { inbound: Inbound | null; onCl
                   </select>
                 ) : null}
               </Field>
+                {outbound === "link" ? (
+                  <select
+                    className="input mt-2 max-w-[320px]"
+                    value={outboundID}
+                    onChange={(e) => {
+                      setOutboundID(Number(e.target.value));
+                      setErrors(({ outbound_id: _, ...rest }) => rest);
+                    }}
+                    aria-label={t("inbounds.outboundLink")}
+                    aria-invalid={!!errors.outbound_id}
+                  >
+                    <option value={0} disabled>
+                      {t("inbounds.outboundPick")}
+                    </option>
+                    {(outbounds.data?.outbounds ?? []).map((o) => (
+                      <option key={o.id} value={o.id} disabled={!o.enabled}>
+                        {o.name}
+                        {o.enabled ? "" : ` — ${t("outbounds.isOff")}`}
+                      </option>
+                    ))}
+                  </select>
+                ) : null}
               {pools.data?.length ? (
                 <Field label={t("pools.inbound")} htmlFor="ed-pool" hint={t("pools.inboundHint")}>
                   <select id="ed-pool" className="input max-w-[320px]" value={poolId} onChange={(e) => setPoolId(Number(e.target.value))}>

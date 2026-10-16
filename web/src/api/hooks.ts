@@ -13,6 +13,7 @@ export const qk = {
   deviceBans: (id: number) => ["users", "bans", id] as const,
   tariffs: ["tariffs"] as const,
   inbounds: ["inbounds"] as const,
+  outbounds: ["outbounds"] as const,
   presets: ["presets"] as const,
   overview: ["overview"] as const,
   traffic: (range: string) => ["traffic", range] as const,
