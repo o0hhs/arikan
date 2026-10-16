@@ -71,6 +71,7 @@ type Inbounds struct {
 	now     func() time.Time
 	resolve func(ctx context.Context, host string) ([]netip.Addr, error) // nil: names are not looked up
 	host    HostLookup                                                   // nil: what listens on the servers is not known
+	site    SiteLookup                                                   // nil: where the nodes' own pages answer is not known
 }
 
 // NewInbounds: dry nil skips the nodes' own check, for callers that do not talk to the
@@ -560,7 +561,7 @@ func (s *Inbounds) CheckTemplate(ctx context.Context, node db.Node, config, port
 	if err != nil {
 		return nil, err
 	}
-	if err := proto.Validate(t, proto.Options{SelfStealPort: selfSteal}); err != nil {
+	if err := proto.Validate(t, proto.Options{SelfStealPort: selfSteal, SitePort: s.sitePort(node)}); err != nil {
 		return nil, err
 	}
 	// Checked here, not in proto.Validate: nodes keep applying templates saved before.
@@ -590,6 +591,20 @@ func SystemResolve(ctx context.Context, host string) ([]netip.Addr, error) {
 // one (tests) names are taken as they are.
 func (s *Inbounds) SetResolver(resolve func(ctx context.Context, host string) ([]netip.Addr, error)) {
 	s.resolve = resolve
+}
+
+// SetSiteLookup lets a REALITY dest name the node's own page on loopback, as it may name
+// the panel's own HTTPS on the panel's node.
+func (s *Inbounds) SetSiteLookup(site SiteLookup) {
+	s.site = site
+}
+
+// sitePort is where the node's own page answers, 0 while the panel has not heard from it.
+func (s *Inbounds) sitePort(node db.Node) int {
+	if s.site == nil {
+		return 0
+	}
+	return s.site(node.ID)
 }
 
 // SetHostLookup lets the relay an inbound's new exit gets keep off ports other programs

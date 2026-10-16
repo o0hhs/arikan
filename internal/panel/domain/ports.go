@@ -31,6 +31,10 @@ const (
 // node that has not (a node before 0.5.0.2, one that does not answer).
 type HostLookup func(node int64) *nodeapi.HostPorts
 
+// SiteLookup says where a node's own page answers on loopback (internal/node/site.go): the
+// other address a REALITY dest of that node may name, beside the panel's own port.
+type SiteLookup func(node int64) int
+
 // of is l's answer for node; a nil l knows nothing.
 func (l HostLookup) of(node int64) *nodeapi.HostPorts {
 	if l == nil {

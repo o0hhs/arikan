@@ -116,6 +116,11 @@ pub fn run() -> Result<()> {
         report.add(containers(docker::services().map_err(|e| format!("{e:#}"))));
     }
     report.add(ports(&install, engine.is_some()));
+    if install.node
+        && let Some(item) = site_item()
+    {
+        report.add([item]);
+    }
     report.add([port80_item(system::port_owner(80, Proto::Tcp).as_deref(), install.env.get("MIKAN_ACME_LISTEN"))]);
     report.add(firewall(&install));
 
@@ -143,6 +148,43 @@ pub fn run() -> Result<()> {
         (e, _) => bail!("{e} problem{} found", if e == 1 { "" } else { "s" }),
     }
     Ok(())
+}
+
+/// What the node wrote about its own page into data/node/site.json (internal/node/site.go).
+#[derive(Deserialize, Default, Debug)]
+struct SiteState {
+    #[serde(default)]
+    listen: String,
+    #[serde(default)]
+    port: u16,
+    #[serde(default)]
+    ok: bool,
+    #[serde(default)]
+    error: String,
+}
+
+/// The node's own page (data/node/www over https): the node writes where it answers — or why
+/// it does not — into data/node/site.json, as the first contact with the panel goes into
+/// hello.json. A node that has not started one says nothing.
+fn site_item() -> Option<Item> {
+    let dir = crate::panelfs::Dir::open(Path::new(DIR), "data/node", false).ok()??;
+    let raw = dir.read("site.json", 4 << 10).ok()??;
+    let site: SiteState = serde_json::from_slice(&raw).ok()?;
+    Some(site_lines(&site))
+}
+
+/// What the admin reads about the page.
+fn site_lines(site: &SiteState) -> Item {
+    if site.ok {
+        let dest = if site.port > 0 { format!(", a REALITY dest may name 127.0.0.1:{}", site.port) } else { String::new() };
+        Item::ok("Page", format!("https://{}{}", site.listen, dest))
+    } else {
+        Item::warn(
+            "Page",
+            format!("the node's own page does not run: {}", site.error),
+            "free the port, or set MIKAN_SITE_LISTEN in .env (off serves none)",
+        )
+    }
 }
 
 fn docker_item(version: Option<&str>) -> Item {
@@ -796,6 +838,29 @@ Anywhere                   ALLOW       10.0.0.0/8
 
     // The node's API port: a rule for everyone, or one for an address the panel left, is
     // reported with the command that puts it right.
+    // The node's page: where it answers (and the loopback port a REALITY dest may name), or
+    // why it does not.
+    #[test]
+    fn the_nodes_page_is_reported() {
+        let raw = r#"{"listen":"0.0.0.0:443","port":0,"ok":true}"#;
+        let site: SiteState = serde_json::from_str(raw).unwrap();
+        let item = site_lines(&site);
+        assert_eq!((item.level, item.detail.as_str()), (Level::Ok, "https://0.0.0.0:443"));
+
+        let raw = r#"{"listen":"127.0.0.1:18443","port":18443,"ok":true}"#;
+        let item = site_lines(&serde_json::from_str(raw).unwrap());
+        assert!(item.detail.contains("a REALITY dest may name 127.0.0.1:18443"), "{}", item.detail);
+
+        let raw = r#"{"listen":":443","ok":false,"error":"listen tcp :443: bind: address already in use"}"#;
+        let item = site_lines(&serde_json::from_str(raw).unwrap());
+        assert_eq!(item.level, Level::Warn);
+        assert!(item.detail.contains("address already in use"), "{}", item.detail);
+        assert!(item.fix.as_deref().unwrap_or("").contains("MIKAN_SITE_LISTEN"));
+        // Every field but the error has a default: an older or a damaged file still reads.
+        let item = site_lines(&serde_json::from_str("{}").unwrap());
+        assert_eq!(item.level, Level::Warn);
+    }
+
     #[test]
     fn the_node_api_port_is_reported_when_it_is_not_the_panels_alone() {
         let ip = |s: &str| s.parse().unwrap();

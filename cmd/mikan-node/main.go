@@ -75,7 +75,8 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("MIKAN_HTTP_REDIRECT: %w", err)
 	}
-	eng, err := node.Start(node.Options{DataDir: dataDir, Version: version, Log: log, DeviceRelease: release, AllowPrivate: allowPrivate, ACMEListen: acmeListen})
+	eng, err := node.Start(node.Options{DataDir: dataDir, Version: version, Log: log, DeviceRelease: release,
+		AllowPrivate: allowPrivate, ACMEListen: acmeListen, SiteListen: os.Getenv("MIKAN_SITE_LISTEN")})
 	if err != nil {
 		return err
 	}

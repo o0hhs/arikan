@@ -17,6 +17,7 @@ import (
 	"math/big"
 	"net"
 	"net/http"
+	"os"
 	"strconv"
 	"sync/atomic"
 	"testing"
@@ -122,6 +123,90 @@ func TestSelfStealRealityClient(t *testing.T) {
 	}
 }
 
+// The node's own page is the other target a REALITY dest may name on loopback: the
+// handshake of every client then mirrors a real page on the node's own domain, without the
+// panel and without a third party's site. It works with MIKAN_ALLOW_PRIVATE=false too.
+func TestSiteAsRealityDest(t *testing.T) {
+	certPath, keyPath := writeSiteCert(t, t.TempDir(), false)
+	certPEM, err := os.ReadFile(certPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	keyPEM, err := os.ReadFile(keyPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	eng, err := Start(Options{
+		DataDir: t.TempDir(), Version: "test", Log: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		DeviceRelease: time.Second, AllowPrivate: false, ACMEListen: freeAddr(t), SiteListen: "127.0.0.1:0",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(eng.Challenge.Close)
+
+	// The panel's first state carries the node's certificate; the page starts with it.
+	base := nodeapi.DesiredState{
+		Revision: 1,
+		Slots:    []nodeapi.Slot{{Name: "s1", UUID: "00000000-0000-4000-8000-000000000002", Secret: "x"}},
+		Policies: []nodeapi.Policy{{Slot: "s1", Allowed: true, QuotaRemaining: -1}},
+		TLS:      &nodeapi.TLSFiles{CertPEM: string(certPEM), KeyPEM: string(keyPEM)},
+	}
+	if _, err := eng.Apply(base); err != nil {
+		t.Fatal(err)
+	}
+	site := eng.Site.Status()
+	if site == nil || !site.OK || site.Port == 0 {
+		t.Fatalf("the node's page did not start: %+v", site)
+	}
+
+	priv, err := randomRealityKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	pub, err := proto.RealityPublicKey(priv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	uuid := base.Slots[0].UUID
+	listenPort := freePort(t)
+	tpl := proto.Template{
+		"type": "vless",
+		"reality-config": map[string]any{
+			"dest": "127.0.0.1:" + strconv.Itoa(site.Port), "private-key": priv,
+			"short-id": []any{"0123456789abcdef"}, "server-names": []any{"example.com"},
+		},
+		"mikan": map[string]any{"flow": "xtls-rprx-vision"},
+	}
+	st := base
+	st.Revision = 2
+	st.Inbounds = []nodeapi.Inbound{{Name: "reality", Port: strconv.Itoa(listenPort), Config: tpl.JSON()}}
+	res, err := eng.Apply(st)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, l := range res.Listeners {
+		if !l.OK {
+			t.Fatalf("listener %s did not start: %s", l.Name, l.Error)
+		}
+	}
+	client, err := adapter.ParseProxy(map[string]any{
+		"name": "own-page", "type": "vless", "server": "127.0.0.1", "port": listenPort, "uuid": uuid,
+		"network": "tcp", "tls": true, "flow": "xtls-rprx-vision", "servername": "example.com", "client-fingerprint": "chrome",
+		"reality-opts": map[string]any{"public-key": pub, "short-id": "0123456789abcdef"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	conn, err := client.DialContext(ctx, &C.Metadata{NetWork: C.TCP, Type: C.VLESS, DstPort: 80, Host: "example.com"})
+	if err != nil {
+		t.Fatalf("a client cannot connect with the node's own page as the REALITY dest: %v", err)
+	}
+	_ = conn.Close()
+}
+
 // startTLSTarget is the panel's own HTTPS in the test: a TLS server for example.com that
 // counts the connections it served (the REALITY server dials it to mirror every handshake).
 func startTLSTarget(t *testing.T) *connCounter {
@@ -221,7 +306,7 @@ func mustAtoi(t *testing.T, s string) int {
 // to its REALITY dest is not a user connection and never goes through these rules).
 func TestSelfStealKeepsPrivateRules(t *testing.T) {
 	st := nodeapi.DesiredState{SelfStealPort: 21355}
-	raw, _, err := buildConfig(st, proto.Cert{}, false)
+	raw, _, err := buildConfig(st, proto.Cert{}, false, 0)
 	if err != nil {
 		t.Fatal(err)
 	}

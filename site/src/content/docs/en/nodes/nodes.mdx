@@ -87,6 +87,15 @@ If the panel moved and cannot reach the node (the rule shut it out), run `ufw al
 
 The panel's own node has no such port: the panel talks to it over a unix socket (`/run/mikan/node.sock`, mode 0600). There is nothing to close.
 
+## The node's page
+
+A node has an HTTPS page of its own: an ordinary site serving the files of `/opt/mikan/data/node/www` with the node's certificate — the public one the panel orders. No panel headers, TLS 1.2 and above, and HSTS (`max-age=31536000`) only with a public certificate: with a self-signed one a browser would remember https-only for a year and offer no way past the warning.
+
+- Put your own files into `/opt/mikan/data/node/www` (`scp`): `index.html`, `404.html` and anything else. The node never overwrites what is there; until you do, a neutral page is served.
+- It listens on port 443. If an inbound holds 443 — the usual case — the page moves to the loopback port `127.0.0.1:18443`: it does not answer on the internet then, but it still works as a REALITY target. Where it really is, `arikan doctor` on the node's server says, line "Page".
+- `MIKAN_SITE_LISTEN` in `/opt/mikan/.env` sets the address by hand: `0.0.0.0:443` for the internet, `127.0.0.1:18443` for loopback only, `off` to serve no page. After a change: `cd /opt/mikan && docker compose up -d`.
+- A REALITY target may name the node's page: dest `127.0.0.1:<the page's port>`. Every client handshake then mirrors a real page on the node's own domain instead of somebody else's site, depending on neither the panel nor a third party. The panel accepts such a dest once the node has reported its page; the "Check" button by the dest field checks from the panel and cannot see a remote node's loopback — check on the node's server instead (`arikan doctor`, the node's log).
+
 ## Server order
 
 When there is more than one node, up and down arrows appear on the cards. The order of nodes in the panel becomes the order of servers in the subscription, in all apps.
