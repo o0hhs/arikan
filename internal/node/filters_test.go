@@ -26,7 +26,7 @@ func TestEgressRules(t *testing.T) {
 		}},
 		Warp: &nodeapi.Warp{Domains: []string{"openai.com"}},
 	}
-	got := strings.Join(rules(st, true), "\n")
+	got := strings.Join(rules(st, true, nil), "\n")
 	want := strings.Join([]string{
 		"DST-PORT,25,REJECT",
 		"DST-PORT,465,REJECT",
@@ -48,7 +48,7 @@ func TestEgressRules(t *testing.T) {
 	if routesKey(st, true) == routesKey(nodeapi.DesiredState{Warp: st.Warp}, true) {
 		t.Fatal("the egress filter does not change the routes key")
 	}
-	if strings.Join(rules(nodeapi.DesiredState{}, true), "\n") != "DST-PORT,25,REJECT\nMATCH,DIRECT" {
+	if strings.Join(rules(nodeapi.DesiredState{}, true, nil), "\n") != "DST-PORT,25,REJECT\nMATCH,DIRECT" {
 		t.Fatal("no filters, yet rules changed")
 	}
 }

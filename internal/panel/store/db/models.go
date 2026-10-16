@@ -206,6 +206,7 @@ type Inbound struct {
 	ExitNodeID  sql.NullInt64
 	PoolID      sql.NullInt64
 	Listen      string
+	OutboundID  sql.NullInt64
 }
 
 type InboundEvent struct {
@@ -350,6 +351,15 @@ type NodeWarp struct {
 	Routes        string
 	CreatedAt     int64
 	UpdatedAt     int64
+}
+
+type Outbound struct {
+	ID        int64
+	Name      string
+	Link      string
+	Enabled   int64
+	CreatedAt int64
+	UpdatedAt int64
 }
 
 type Payment struct {

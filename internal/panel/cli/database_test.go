@@ -16,6 +16,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"mikan/internal/panel/pgdump"
 	"mikan/internal/panel/store"
 	"mikan/internal/panel/store/db"
 	"mikan/internal/panel/store/storetest"
@@ -171,16 +172,16 @@ func schemaDSN(t *testing.T, st *store.Store) string {
 }
 
 func TestToolOutputMasksThePassword(t *testing.T) {
-	got := toolOutput("postgresql://mikan:test-secret@localhost/mikan", "pg_restore: error: test-secret rejected\n")
+	got := pgdump.Output("postgresql://mikan:test-secret@localhost/mikan", "pg_restore: error: test-secret rejected\n")
 	if strings.Contains(got, "test-secret") || !strings.Contains(got, "pg_restore: error: *** rejected") {
 		t.Fatal(got)
 	}
-	if toolOutput("postgresql://mikan:x@localhost/mikan", " \n") != "" {
+	if pgdump.Output("postgresql://mikan:x@localhost/mikan", " \n") != "" {
 		t.Fatal("empty diagnostics produce text")
 	}
 	// The tail starts on a whole character, not in the middle of one.
-	long := strings.Repeat("я", toolOutputLimit/2+1) + "!" // the limit falls inside a "я"
-	if got := toolOutput("postgresql://mikan:x@localhost/mikan", long); !utf8.ValidString(got) || !strings.HasSuffix(got, "я!") {
+	long := strings.Repeat("я", pgdump.ToolOutputLimit/2+1) + "!" // the limit falls inside a "я"
+	if got := pgdump.Output("postgresql://mikan:x@localhost/mikan", long); !utf8.ValidString(got) || !strings.HasSuffix(got, "я!") {
 		t.Fatalf("cut diagnostics: %q", got[:16])
 	}
 }
@@ -214,7 +215,7 @@ func TestRestoreRefusesATooShortFile(t *testing.T) {
 }
 
 func TestPostgresToolCredentialsStayOutOfArguments(t *testing.T) {
-	env, err := postgresEnv("postgresql://mikan:test-secret@localhost/mikan?host=/run/postgresql&sslmode=disable")
+	env, err := pgdump.Env("postgresql://mikan:test-secret@localhost/mikan?host=/run/postgresql&sslmode=disable")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -233,7 +234,7 @@ func TestPostgresToolsGetNoPanelSecrets(t *testing.T) {
 	t.Setenv("MIKAN_JOIN_KEY", "join-secret")
 	t.Setenv("PGPASSFILE", "/somewhere/else")
 	t.Setenv("PATH", "/usr/bin")
-	env, err := postgresEnv("postgresql://mikan:db-secret@localhost/mikan")
+	env, err := pgdump.Env("postgresql://mikan:db-secret@localhost/mikan")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -259,7 +260,7 @@ func TestCheckDumpList(t *testing.T) {
 		"3201; 2606 16420 CONSTRAINT public users users_pkey mikan\n" +
 		"3301; 1259 16430 INDEX public users_status mikan\n" +
 		"3350; 2606 16440 FK CONSTRAINT public slots slots_user_fkey mikan\n"
-	if err := checkDumpList([]byte(good)); err != nil {
+	if err := pgdump.CheckList([]byte(good)); err != nil {
 		t.Fatal(err)
 	}
 	for _, bad := range []string{
@@ -269,7 +270,7 @@ func TestCheckDumpList(t *testing.T) {
 		"233; 0 0 ACL - SCHEMA public postgres\n",
 		"not a toc line\n",
 	} {
-		if err := checkDumpList([]byte(good + bad)); err == nil {
+		if err := pgdump.CheckList([]byte(good + bad)); err == nil {
 			t.Errorf("accepted %q", bad)
 		}
 	}

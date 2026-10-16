@@ -47,8 +47,9 @@ type InboundView struct {
 	AutoPort    bool           `json:"auto_port" doc:"Панель сама переносит подключение на другой порт, если его блокируют (и включено в настройках)"`
 	AutoSNI     bool           `json:"auto_sni" doc:"Панель сама меняет сайт маскировки REALITY, если он перестал подходить (и включено в настройках)"`
 	Auto        AutoView       `json:"auto"`
-	Outbound    string         `json:"outbound" enum:"direct,warp,node" doc:"Выход в интернет: напрямую с сервера, через WARP ноды или через другую ноду (каскад)"`
+	Outbound    string         `json:"outbound" enum:"direct,warp,node,link" doc:"Выход в интернет: напрямую с сервера, через WARP ноды, через другую ноду (каскад) или через исходящую, добавленную по ссылке"`
 	ExitNodeID  *int64         `json:"exit_node_id,omitempty" doc:"Нода, через которую выходит трафик, если outbound=node"`
+	OutboundID  *int64         `json:"outbound_id,omitempty" doc:"Исходящая по ссылке, через которую выходит трафик, если outbound=link"`
 	PoolID      *int64         `json:"pool_id,omitempty" doc:"Пул трафика, в который считается подключение; нет — основной трафик"`
 	Client      ClientEndpoint `json:"client" doc:"Куда подключаются клиенты, если не к ноде напрямую (mikan.client в шаблоне)"`
 	ClientSNI   bool           `json:"client_sni" doc:"Можно ли задать клиентам свой SNI: у REALITY имя задаёт сайт маскировки"`
@@ -114,8 +115,9 @@ type patchInboundInput struct {
 		Client      *ClientEndpoint `json:"client,omitempty" doc:"Куда подключаются клиенты: адрес, порт и SNI прокси перед нодой; заменяет все три"`
 		AutoPort    *bool           `json:"auto_port,omitempty" doc:"Нельзя включить, пока у подключения свой адрес (listen)"`
 		AutoSNI     *bool           `json:"auto_sni,omitempty" doc:"Нельзя включить, пока у подключения свой адрес (listen)"`
-		Outbound    *string         `json:"outbound,omitempty" enum:"direct,warp,node" doc:"Выход в интернет: напрямую, через WARP ноды или через другую ноду"`
+		Outbound    *string         `json:"outbound,omitempty" enum:"direct,warp,node,link" doc:"Выход в интернет: напрямую, через WARP ноды, через другую ноду или через исходящую по ссылке"`
 		ExitNodeID  *int64          `json:"exit_node_id,omitempty" minimum:"1" doc:"Для outbound=node: через какую ноду"`
+		OutboundID  *int64          `json:"outbound_id,omitempty" minimum:"1" doc:"Для outbound=link: через какую исходящую"`
 		PoolID      *int64          `json:"pool_id,omitempty" minimum:"0" doc:"Пул трафика; 0 — основной трафик"`
 
 		XHTTP *proto.XHTTPTuning `json:"xhttp,omitempty" doc:"Тонкая настройка XHTTP целиком: пустое поле — значение ядра по умолчанию"`
@@ -194,6 +196,10 @@ func (h *handlers) viewInbound(ctx context.Context, in db.Inbound, last map[int6
 	if in.ExitNodeID.Valid {
 		id := in.ExitNodeID.Int64
 		v.Outbound, v.ExitNodeID = "node", &id
+	}
+	if in.OutboundID.Valid {
+		id := in.OutboundID.Int64
+		v.Outbound, v.OutboundID = "link", &id
 	}
 	if e, ok := last[in.ID]; ok {
 		v.Auto.Last = &AutoEvent{Kind: e.Kind, Old: e.OldValue, New: e.NewValue, Reason: e.Reason, At: time.Unix(e.CreatedAt, 0).UTC()}
@@ -327,7 +333,7 @@ func (h *handlers) updateInbound(ctx context.Context, in *patchInboundInput) (*i
 		}
 	}
 	p := domain.InboundPatch{Port: b.Port, Enabled: b.Enabled, Config: b.Config, Dest: b.Dest, ServerName: b.ServerName, Fingerprint: b.Fingerprint, Obfs: b.Obfs, XHTTP: b.XHTTP,
-		DisplayName: b.DisplayName, Listen: b.Listen, AutoPort: b.AutoPort, AutoSNI: b.AutoSNI, Outbound: b.Outbound, ExitNodeID: b.ExitNodeID, PoolID: b.PoolID}
+		DisplayName: b.DisplayName, Listen: b.Listen, AutoPort: b.AutoPort, AutoSNI: b.AutoSNI, Outbound: b.Outbound, ExitNodeID: b.ExitNodeID, OutboundID: b.OutboundID, PoolID: b.PoolID}
 	if c := b.Client; c != nil {
 		// The address clients connect to: like the panel's public host, not for a key.
 		if err := requireSession(ctx, "client"); err != nil {
@@ -347,6 +353,7 @@ func (h *handlers) updateInbound(ctx context.Context, in *patchInboundInput) (*i
 		{"server_name", b.ServerName != nil},
 		{"outbound", b.Outbound != nil},
 		{"exit_node_id", b.ExitNodeID != nil},
+		{"outbound_id", b.OutboundID != nil},
 		{"pool_id", b.PoolID != nil},
 	} {
 		if f.set {
@@ -365,7 +372,8 @@ func (h *handlers) updateInbound(ctx context.Context, in *patchInboundInput) (*i
 		h.audit(ctx, admin, "inbound.pool", "inbound", row.Name, map[string]any{"pool_id": row.PoolID.Int64})
 	}
 	if b.Outbound != nil {
-		h.audit(ctx, admin, "inbound.outbound", "inbound", row.Name, map[string]any{"outbound": *b.Outbound, "exit_node_id": row.ExitNodeID.Int64})
+		h.audit(ctx, admin, "inbound.outbound", "inbound", row.Name, map[string]any{"outbound": *b.Outbound,
+			"exit_node_id": row.ExitNodeID.Int64, "outbound_id": row.OutboundID.Int64})
 	}
 	moved := row.Listen != prev.Listen
 	switch {

@@ -113,7 +113,7 @@ func routesKey(st nodeapi.DesiredState, allowPrivate bool) string {
 		W *nodeapi.Warp
 		E []nodeapi.Exit
 		R []string
-	}{st.Warp, st.Exits, rules(st, allowPrivate)})
+	}{st.Warp, st.Exits, rules(st, allowPrivate, nil)})
 	return string(raw)
 }
 

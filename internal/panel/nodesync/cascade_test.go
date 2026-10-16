@@ -61,7 +61,7 @@ func TestCascadeChain(t *testing.T) {
 		}
 	}
 	use(a.id, nb.ID)
-	if err := q.SetInboundExit(ctx, db.SetInboundExitParams{ExitNodeID: nullID(nb.ID), Outbound: "direct", ID: mine.ID}); err != nil {
+	if err := q.SetInboundRoute(ctx, db.SetInboundRouteParams{ExitNodeID: nullID(nb.ID), Outbound: "direct", ID: mine.ID}); err != nil {
 		t.Fatal(err)
 	}
 	use(nb.ID, nc.ID)
@@ -156,5 +156,61 @@ func TestHealthCarriesTheRelayPortAndHostPorts(t *testing.T) {
 	}
 	if got := (HealthView{Health: nodeapi.Health{Host: host}}).HostPorts(); got != nil {
 		t.Fatalf("host ports of a node that did not answer: %+v", got)
+	}
+}
+
+// An outbound the admin added by link reaches exactly the nodes whose inbounds leave
+// through it, as the link itself: the node reads it. An outbound that is off is left out,
+// and its inbounds go the direct way.
+func TestOutboundLinkInState(t *testing.T) {
+	to := func(v bool) *bool { return &v }
+	a, _, st, _, _ := setup(t)
+	ctx := context.Background()
+	q := st.Q
+	now := time.Unix(1_800_000_000, 0)
+	link := "vless://11111111-2222-3333-4444-555555555555@198.51.100.30:443?security=tls#VPS"
+	o, err := domain.AddOutbound(ctx, q, link, "VPS", nil, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ins, _ := q.ListInbounds(ctx)
+	var mine db.Inbound
+	for _, in := range ins {
+		if in.NodeID == a.id {
+			mine = in
+			break
+		}
+	}
+	if err := q.SetInboundRoute(ctx, db.SetInboundRouteParams{Outbound: "direct", OutboundID: nullID(o.ID), ID: mine.ID}); err != nil {
+		t.Fatal(err)
+	}
+	da, _ := a.desired(ctx)
+	if len(da.Exits) != 1 || da.Exits[0].Name != nodeapi.OutboundName(o.ID) || da.Exits[0].Link != link {
+		t.Fatalf("exits = %+v", da.Exits)
+	}
+	if len(da.Exits[0].Inbounds) != 1 || da.Exits[0].Inbounds[0] != mine.Name || len(da.Exits[0].Proxy) != 0 {
+		t.Fatalf("exit = %+v", da.Exits[0])
+	}
+	// Off: no exit at all, so no rule names it and the inbound goes out directly.
+	if _, err := domain.UpdateOutbound(ctx, q, o.ID, domain.OutboundPatch{Enabled: to(false)}, nil, now); err != nil {
+		t.Fatal(err)
+	}
+	da, _ = a.desired(ctx)
+	if len(da.Exits) != 0 {
+		t.Fatalf("an outbound that is off is in the state: %+v", da.Exits)
+	}
+	// Back on, and gone: a deleted outbound is no exit either.
+	if _, err := domain.UpdateOutbound(ctx, q, o.ID, domain.OutboundPatch{Enabled: to(true)}, nil, now); err != nil {
+		t.Fatal(err)
+	}
+	if err := q.SetInboundRoute(ctx, db.SetInboundRouteParams{Outbound: "direct", ID: mine.ID}); err != nil {
+		t.Fatal(err)
+	}
+	if err := domain.DeleteOutbound(ctx, q, o.ID); err != nil {
+		t.Fatal(err)
+	}
+	da, _ = a.desired(ctx)
+	if len(da.Exits) != 0 {
+		t.Fatalf("a deleted outbound is in the state: %+v", da.Exits)
 	}
 }

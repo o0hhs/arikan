@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"log/slog"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -16,11 +17,38 @@ import (
 	"mikan/internal/panel/audit"
 	"mikan/internal/panel/dnscheck"
 	"mikan/internal/panel/domain"
+	"mikan/internal/panel/geoip"
 	"mikan/internal/panel/settings"
 	"mikan/internal/panel/store"
 	"mikan/internal/panel/subs"
 	"mikan/internal/release"
 )
+
+// nodeGeoCmd says where addresses are: the country and the network they belong to, from
+// the same databases the panel's checks use. It needs no database of its own — it is the
+// command to reach for when something about an address is being sorted out.
+func nodeGeoCmd(ctx context.Context, dataDir string, args []string, stdout, stderr io.Writer) error {
+	if len(args) == 0 {
+		return errors.New("node geo needs an address\n\n" + usage)
+	}
+	l := geoip.New(filepath.Join(dataDir, "geoip"), slog.New(slog.NewTextHandler(stderr, nil)))
+	// Run by hand: a database that is missing or old is waited for, not fetched behind
+	// the answer.
+	if err := l.Refresh(ctx); err != nil {
+		fmt.Fprintf(stderr, "geo databases: %v (answering with what is on disk)\n", err)
+	}
+	tw := tabwriter.NewWriter(stdout, 0, 4, 2, ' ', 0)
+	fmt.Fprintln(tw, "ADDRESS\tCOUNTRY\tASN\tWHO")
+	for _, ip := range args {
+		info := l.Addr(ip)
+		asn := ""
+		if info.ASN != 0 {
+			asn = "AS" + strconv.Itoa(info.ASN)
+		}
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", ip, strings.TrimSpace(info.Flag+" "+info.Country), asn, info.Org)
+	}
+	return tw.Flush()
+}
 
 // nodeCmd manages the panel's nodes from the server shell. Join keys go to stdout alone,
 // so a script can pass them to the node's installer; they are shown once.
