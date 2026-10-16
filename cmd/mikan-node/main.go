@@ -106,7 +106,9 @@ func run() error {
 		if err != nil {
 			return err
 		}
-		go serve(tls.NewListener(tcp, cfg))
+		// The installer reads the addresses the panel connects from (data/node/panel-addr)
+		// and keeps the API port in the firewall for them alone.
+		go serve(node.WatchPanelAddr(tls.NewListener(tcp, cfg), filepath.Join(dataDir, node.PanelAddrFile), log))
 		log.Info("node api for the panel", "port", key.Port)
 		go helloLoop(ctx, key, dataDir, log)
 	}

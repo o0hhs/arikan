@@ -36,7 +36,7 @@ The panel stores only the key's fingerprint. If you lose it, the "Change key" bu
 
 The key carries the panel's address: when the node starts, it reports itself to the panel with a signed request, and the panel dials the node back at once. Keys from older panels have no panel address, so there is no such check for them and the node works as before. If the node's server goes out to the internet from a different IP than the one set in the panel, both the terminal and the panel say so: "the node reported from IP Y, the panel has X". Fix the address in **Configure**.
 
-The key contains the node's private key. To keep it out of the process list, you can pass it through the `MIKAN_JOIN_KEY` variable. The `--panel-ip IP` flag opens the node's API port only to the panel's address.
+The key contains the node's private key. To keep it out of the process list, you can pass it through the `MIKAN_JOIN_KEY` variable. The node's API port is open to the panel's address alone: the node works out the address itself, and `--panel-ip IP` sets it by hand, see [The node's API port](#the-nodes-api-port).
 
 You can also add a node from the panel's server: `arikan node add --name NAME --host IP` prints the key.
 
@@ -73,6 +73,20 @@ The panel itself orders a public certificate for each remote node: for its domai
 
 The order in which a certificate is chosen, the errors and the "Check the certificate" button are described in [Domain and certificates](/arikan/en/start/domain/#node-certificate).
 
+## The node's API port
+
+The panel manages the node over this port. It answers the panel alone: TLS with its certificate pinned, the node's key in `.env`. The installer opens it **to the panel's address only**:
+
+- the node works the address out itself: it writes down the addresses its panel connects from (`data/node/panel-addr` on the node's server, IPv4 and IPv6), and the installer takes them from there;
+- `--panel-ip IP` at install and at `arikan join` sets the address by hand;
+- changing the rule, the installer waits for the panel to connect again and puts the rule "for everyone" back when it does not: the panel is never left locked out;
+- `arikan update` rewrites the rule on nodes installed earlier and when the panel moved: addresses the panel no longer uses go, new ones come;
+- `arikan doctor` on the node says when the port is open to everyone or the rule is still for the panel's old address, and prints the command that fixes it.
+
+If the panel moved and cannot reach the node (the rule shut it out), run `ufw allow PORT/tcp` on the node's server; the node scopes the port again by itself on the next update (`arikan update`). The port does not become open to strangers in the meantime: the node answers its panel alone.
+
+The panel's own node has no such port: the panel talks to it over a unix socket (`/run/mikan/node.sock`, mode 0600). There is nothing to close.
+
 ## Server order
 
 When there is more than one node, up and down arrows appear on the cards. The order of nodes in the panel becomes the order of servers in the subscription, in all apps.
@@ -83,7 +97,7 @@ When the panel cannot reach a node, the card shows the concrete reason and what 
 
 | Reason | What happened | What to do |
 |---|---|---|
-| Timed out | the API port does not answer: the hoster's firewall or ufw closed it, or the server is off | open the port in the hoster's control panel; on the server `ufw allow PORT/tcp` |
+| Timed out | the API port does not answer: the hoster's firewall or ufw closed it, or the server is off. After the panel moved, the rule may still be for its old address | open the port in the hoster's control panel; on the node's server `ufw allow PORT/tcp` — the node scopes the port to the panel's new address itself |
 | Connection refused | the server answers, but nothing listens on the port: the node is not installed, stopped or crashed | `arikan status`, `arikan logs node`, or run the install command |
 | No route | the IP cannot be reached: the address is wrong or the server is off | the "Change address" button |
 | Name not found | DNS does not know the node's name | check the domain's record or use the IP |
