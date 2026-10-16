@@ -28,7 +28,7 @@ func days(n int64) *int64 { return &n }
 func TestOffersListTheTerms(t *testing.T) {
 	e := newEnv(t)
 	e.sellTerms()
-	offers, _, err := e.s.Offers(context.Background())
+	offers, _, err := e.s.Offers(context.Background(), 0)
 	must(t, err)
 	if len(offers) != 1 || len(offers[0].Terms) != 3 {
 		t.Fatalf("offers %+v", offers)
@@ -194,7 +194,7 @@ func TestOfferOfOnlyALaterTerm(t *testing.T) {
 		{Days: 30, PriceRub: sql.NullInt64{Int64: 19900, Valid: true}},
 		{Days: 90, PriceStars: sql.NullInt64{Int64: 400, Valid: true}},
 	}))
-	offers, _, err := e.s.Offers(ctx)
+	offers, _, err := e.s.Offers(ctx, 0)
 	must(t, err)
 	if len(offers) != 1 || len(offers[0].Terms) != 1 || offers[0].Terms[0].Days != 90 {
 		t.Fatalf("offers %+v", offers)

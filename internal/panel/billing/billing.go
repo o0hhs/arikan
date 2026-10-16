@@ -11,6 +11,7 @@
 package billing
 
 import (
+	"cmp"
 	"context"
 	"database/sql"
 	"errors"
@@ -73,6 +74,10 @@ type Config struct {
 	// FreeCondition is what the free plan asks of an account: FreeNoCondition, or
 	// FreeChannel, a subscription to the bot's channel.
 	FreeCondition string `json:"free_condition,omitempty"`
+	// CustomTariffID is the tariff the constructor (custom.go) builds on; 0: no constructor.
+	// It may be a tariff hidden from the shop (on_sale = 0): the constructor is how its
+	// numbers are sold, and the tariff itself is reached with an access code.
+	CustomTariffID int64 `json:"custom_tariff_id,omitempty"`
 }
 
 // TrialPaid: the trial has a price and is bought, not taken.
@@ -283,8 +288,9 @@ type OfferTerm struct {
 }
 
 // Offers lists the tariffs a buyer can pay for now, each with the terms that have a price
-// an available provider takes.
-func (s *Service) Offers(ctx context.Context) ([]Offer, Available, error) {
+// an available provider takes. tgID (0: nobody) is the account a hidden tariff is offered to
+// when an access code it redeemed opens it (promo); nil Promo means no access codes at all.
+func (s *Service) Offers(ctx context.Context, tgID int64) ([]Offer, Available, error) {
 	av := s.Available(ctx)
 	if !av.Any() {
 		return nil, av, nil
@@ -292,6 +298,33 @@ func (s *Service) Offers(ctx context.Context) ([]Offer, Available, error) {
 	ts, err := s.d.Store.Q.ListTariffsOnSale(ctx)
 	if err != nil {
 		return nil, av, err
+	}
+	if s.d.Promo != nil && tgID != 0 {
+		ids, err := s.d.Promo.AccessTariffs(ctx, tgID)
+		if err != nil {
+			return nil, av, err
+		}
+		for _, id := range ids {
+			if slices.ContainsFunc(ts, func(t db.Tariff) bool { return t.ID == id }) {
+				continue // already on sale
+			}
+			t, err := s.d.Store.Q.GetTariff(ctx, id)
+			if errors.Is(err, sql.ErrNoRows) {
+				continue // the tariff is gone; the access has nothing to open
+			}
+			if err != nil {
+				return nil, av, err
+			}
+			if t.Archived == 0 {
+				ts = append(ts, t)
+			}
+		}
+		slices.SortFunc(ts, func(a, b db.Tariff) int {
+			if a.Sort != b.Sort {
+				return cmp.Compare(a.Sort, b.Sort)
+			}
+			return cmp.Compare(a.ID, b.ID)
+		})
 	}
 	rows, err := s.d.Store.Q.ListAllTariffTerms(ctx)
 	if err != nil {
@@ -333,7 +366,8 @@ func (o Offer) Term(days *int64) (OfferTerm, bool) {
 }
 
 // InvoiceRequest: who buys which tariff for which term with what. UserID 0 buys a new
-// subscription.
+// subscription. Custom, when it is set, is a tariff the buyer put together themselves
+// (custom.go) on the constructor's base tariff.
 type InvoiceRequest struct {
 	TgID      int64
 	UserID    int64
@@ -341,6 +375,22 @@ type InvoiceRequest struct {
 	TermDays  *int64 // the term's days; nil: the tariff's first term
 	Provider  string
 	PromoCode string
+	Custom    *CustomPlan
+}
+
+// mayBuy: the buyer may take this tariff — it is on sale, or an access code of theirs opens
+// it. An archived tariff is nobody's, a code or not.
+func (s *Service) mayBuy(ctx context.Context, tgID int64, t db.Tariff) (bool, error) {
+	if t.Archived != 0 {
+		return false, nil
+	}
+	if t.OnSale != 0 {
+		return true, nil
+	}
+	if s.d.Promo == nil || tgID == 0 {
+		return false, nil
+	}
+	return s.d.Promo.HasAccess(ctx, tgID, t.ID)
 }
 
 // Invoice opens a payment and returns it with the URL to pay at. An open invoice for the
@@ -351,15 +401,33 @@ func (s *Service) Invoice(ctx context.Context, req InvoiceRequest) (db.Payment, 
 	}
 	q := s.d.Store.Q
 	t, err := q.GetTariff(ctx, req.TariffID)
-	if errors.Is(err, sql.ErrNoRows) || err == nil && (t.Archived != 0 || t.OnSale == 0) {
+	if errors.Is(err, sql.ErrNoRows) {
 		return db.Payment{}, ErrNotForSale
 	}
 	if err != nil {
 		return db.Payment{}, err
 	}
+	ok, err := s.mayBuy(ctx, req.TgID, t)
+	if err != nil {
+		return db.Payment{}, err
+	}
+	if !ok {
+		return db.Payment{}, ErrNotForSale
+	}
 	terms, err := domain.TermsOf(ctx, q, t)
 	if err != nil {
 		return db.Payment{}, err
+	}
+	custom := CustomPlan{}
+	hasCustom := req.Custom != nil
+	if hasCustom {
+		// A tariff put together by the buyer is priced from the base tariff and the plan, not
+		// from the term's own price. A plan on the constructor's base tariff only.
+		custom = *req.Custom
+		base, ok := s.CustomTariff(ctx)
+		if !ok || base.ID != t.ID || !IsCustom(t, custom) {
+			return db.Payment{}, ErrBadOptions
+		}
 	}
 	term := terms[0]
 	if req.TermDays != nil {
@@ -367,10 +435,19 @@ func (s *Service) Invoice(ctx context.Context, req InvoiceRequest) (db.Payment, 
 		if term, found = domain.FindTerm(terms, *req.TermDays); !found {
 			return db.Payment{}, ErrNotForSale
 		}
+	} else if hasCustom && custom.TermDays > 0 {
+		// A built term is its own: the price starts from the tariff's first term and the plan
+		// itself carries the days.
+		term.Days = custom.TermDays
 	}
 	amount, currency, ok := s.Available(ctx).price(req.Provider, term.PriceStars, term.PriceRub)
 	if !ok {
 		return db.Payment{}, ErrProviderOff
+	}
+	if hasCustom {
+		if amount, currency, err = s.CustomPrice(ctx, t, custom, term, req.Provider); err != nil {
+			return db.Payment{}, err
+		}
 	}
 	termDays := sql.NullInt64{Int64: term.Days, Valid: true}
 	kind := "renew"
@@ -414,11 +491,23 @@ func (s *Service) Invoice(ctx context.Context, req InvoiceRequest) (db.Payment, 
 			if existing.TermDays != termDays {
 				return false, nil
 			}
+			// A tariff put together by the buyer is only the same purchase as another with
+			// the very same plan: two plans may cost the same and give different things.
+			if planJSON(custom) != strings.TrimSpace(existing.Custom) {
+				return false, nil
+			}
 			return s.matchesOpenPayment(ctx, q, existing, base, req.PromoCode)
 		},
 		func(q *db.Queries) (db.Payment, error) {
+			baseID := sql.NullInt64{}
+			plan := ""
+			if hasCustom {
+				baseID = sql.NullInt64{Int64: t.ID, Valid: true}
+				plan = planJSON(custom)
+			}
 			p, err := q.CreatePayment(ctx, db.CreatePaymentParams{Provider: req.Provider, Payload: secure.Token(32), TgID: req.TgID, Kind: kind, UserID: userID,
-				TariffID: tariffID, TariffName: t.Name, Amount: amount, Currency: currency, CreatedAt: now.Unix(), TermDays: termDays})
+				TariffID: tariffID, TariffName: t.Name, Amount: amount, Currency: currency, CreatedAt: now.Unix(), TermDays: termDays,
+				Custom: plan, CustomBaseID: baseID})
 			if err != nil {
 				return db.Payment{}, err
 			}
@@ -632,6 +721,13 @@ func (av Available) prices(stars, rub sql.NullInt64) (inStars, inRub int64) {
 	return inStars, inRub
 }
 
+// Prices is prices for the callers outside this package (the Mini App builds one offer after a
+// code is taken, without asking for the whole shop): the term's prices in the currencies the
+// available providers take, 0 where none does.
+func (av Available) Prices(stars, rub sql.NullInt64) (inStars, inRub int64) {
+	return av.prices(stars, rub)
+}
+
 // price is what a buyer pays with provider for an item with these prices: Stars for
 // Stars, rubles for the others; ok false when the provider cannot take it now.
 func (av Available) price(provider string, stars, rub sql.NullInt64) (amount int64, currency string, ok bool) {
@@ -798,7 +894,25 @@ func (s *Service) PreCheckout(ctx context.Context, tgID int64, payload, currency
 		return nil
 	}
 	t, err := s.d.Store.Q.GetTariff(ctx, p.TariffID.Int64)
-	if err != nil || t.Archived != 0 || t.OnSale == 0 {
+	if err != nil {
+		return ErrBadPayment
+	}
+	// A plan may have been bought on a tariff with an access code: what it was bought with
+	// is what decides, as at the invoice.
+	if plan, custom := PlanOf(p); custom {
+		if !IsCustom(t, plan) {
+			return ErrBadPayment
+		}
+		if err := CheckCustom(t, plan); err != nil {
+			return ErrBadPayment
+		}
+		return nil
+	}
+	ok, err := s.mayBuy(ctx, tgID, t)
+	if err != nil {
+		return err
+	}
+	if !ok {
 		return ErrNotForSale
 	}
 	// The invoice keeps the term and the price it was made for, as with every other
@@ -986,8 +1100,14 @@ func (s *Service) Apply(ctx context.Context, id int64) error {
 				return err
 			}
 		}
+		// A tariff put together by the buyer runs with the numbers of the plan they paid
+		// for, not the tariff's own.
+		var plan *domain.Options
+		if c, custom := PlanOf(pay); custom {
+			plan = c.Options()
+		}
 		if u, created, err = s.d.Users.Purchase(ctx, q, domain.PurchaseInput{UserID: userID, TariffID: pay.TariffID.Int64,
-			Term: pay.TermDays, Name: buyerName(ctx, q, pay.TgID), TgID: pay.TgID, ResetTraffic: reset}); err != nil {
+			Term: pay.TermDays, Name: buyerName(ctx, q, pay.TgID), TgID: pay.TgID, ResetTraffic: reset, Options: plan}); err != nil {
 			return err
 		}
 		if created {

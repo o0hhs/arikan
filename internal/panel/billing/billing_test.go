@@ -604,7 +604,7 @@ func TestSalesOff(t *testing.T) {
 	c.Enabled = false
 	must(t, settings.Set(ctx, e.s.d.Settings, KeyConfig, c))
 
-	if o, av, err := e.s.Offers(ctx); err != nil || len(o) != 0 || av.Any() {
+	if o, av, err := e.s.Offers(ctx, 0); err != nil || len(o) != 0 || av.Any() {
 		t.Fatalf("offers with selling off: %v %+v %v", o, av, err)
 	}
 	for _, prov := range []string{Stars, "addon:yookassa"} {
