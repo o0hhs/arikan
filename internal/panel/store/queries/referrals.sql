@@ -141,3 +141,85 @@ SELECT id FROM payments WHERE error='ref_late_refund_failed' AND status IN ('pen
 -- name: ReferralSpendTotals :one
 SELECT COUNT(*) AS n, CAST(COALESCE(SUM(amount), 0) AS BIGINT) AS total
 FROM referral_spends WHERE reverted_at IS NULL;
+
+-- name: CreateReferralRewardGrant :one
+-- What a days rule owes a referrer: a temporary subscription on the tariff the referee
+-- bought. The row is written on the payment's own transaction, so the reward exists the
+-- moment the payment does.
+INSERT INTO referral_reward_grants
+(referrer_tg_id, referral_id, payment_id, rule_id, tariff_id, days, price, status, created_at, updated_at)
+VALUES (sqlc.arg(referrer_tg_id), sqlc.arg(referral_id), sqlc.narg(payment_id), sqlc.arg(rule_id), sqlc.narg(tariff_id),
+        sqlc.arg(days), sqlc.arg(price), 'queued', sqlc.arg(created_at), sqlc.arg(created_at))
+RETURNING *;
+
+-- name: GetReferralRewardGrant :one
+SELECT * FROM referral_reward_grants WHERE id = $1;
+
+-- name: ListReferralRewardGrantsByPayment :many
+-- Every grant a payment is owed, reverted ones included: a refund must see what it has
+-- already taken back as well as what it still has to.
+SELECT * FROM referral_reward_grants WHERE payment_id = $1 ORDER BY id;
+
+-- name: ListReferralRewardGrantsOf :many
+-- One referrer's grants, newest first: what a screen shows.
+SELECT * FROM referral_reward_grants WHERE referrer_tg_id = $1 ORDER BY id DESC LIMIT CAST(sqlc.arg(lim) AS BIGINT);
+
+-- name: ListPendingReferralRewardGrants :many
+-- The queue as it runs: every referrer with something owed, dearest reward first and
+-- arrival between equals. The advance pass walks it.
+SELECT * FROM referral_reward_grants
+WHERE status IN ('queued','running') AND reverted_at IS NULL
+ORDER BY referrer_tg_id, price DESC, id;
+
+-- name: ListDueReferralRewardGrants :many
+-- The rewards whose days have run out: what the advance pass ends first.
+SELECT * FROM referral_reward_grants WHERE status = 'running' AND reverted_at IS NULL AND ends_at <= sqlc.arg(now)
+ORDER BY ends_at;
+
+-- name: NextQueuedReferralRewardGrant :one
+-- The next reward a referrer has waiting: the dearest, then the one that arrived first.
+SELECT * FROM referral_reward_grants
+WHERE referrer_tg_id = $1 AND status = 'queued' AND reverted_at IS NULL
+ORDER BY price DESC, id LIMIT 1;
+
+-- name: StartReferralRewardGrant :execrows
+-- Puts a grant's days on the calendar and marks it the running one, with the referrer's
+-- own subscription saved in the same statement: the suspension and the grant are one write.
+-- A grant that is not queued (already running, done or reverted) changes nothing.
+UPDATE referral_reward_grants SET
+  status = 'running', run_at = sqlc.arg(run_at), ends_at = sqlc.arg(ends_at), reward_id = sqlc.narg(reward_id),
+  before_user_id = sqlc.narg(before_user_id), before_status = sqlc.arg(before_status), before_tariff_id = sqlc.narg(before_tariff_id),
+  before_traffic_limit = sqlc.narg(before_traffic_limit), before_device_limit = sqlc.narg(before_device_limit),
+  before_speed_limit = sqlc.narg(before_speed_limit), before_reset_strategy = sqlc.arg(before_reset_strategy),
+  before_device_mode = sqlc.arg(before_device_mode), before_period_days = sqlc.arg(before_period_days),
+  before_period_start = sqlc.arg(before_period_start), before_expires_at = sqlc.narg(before_expires_at),
+  before_billing_day = sqlc.narg(before_billing_day), updated_at = sqlc.arg(updated_at)
+WHERE id = sqlc.arg(id) AND status = 'queued' AND reverted_at IS NULL;
+
+-- name: SetReferralRewardGrantBeforeUser :execrows
+-- The subscription a grant made for a referrer who had none: the grant's own row is where
+-- the reward's end learns it must not take the days back. before_status stays '' for it
+-- (users.status is never empty), which is what marks the case; this is written by the pass
+-- that made the subscription, right after StartReferralRewardGrant.
+UPDATE referral_reward_grants SET before_user_id = $1, updated_at = $2 WHERE id = $3;
+
+-- name: FinishReferralRewardGrant :execrows
+-- The reward's days are over: it is done, and the subscription it suspended is the
+-- caller's to put back (restore, below).
+UPDATE referral_reward_grants SET status = 'done', updated_at = sqlc.arg(updated_at)
+WHERE id = $1 AND status = 'running' AND reverted_at IS NULL;
+
+-- name: RevertReferralRewardGrant :execrows
+-- A refunded payment takes its reward out of the queue or off the streak. Reverted once:
+-- the pass and the refund may both ask.
+UPDATE referral_reward_grants SET status = 'done', reverted_at = sqlc.arg(reverted_at), updated_at = sqlc.arg(reverted_at)
+WHERE id = $1 AND reverted_at IS NULL AND status IN ('queued','running');
+
+-- name: ClearReferralRewardGrantQueue :execrows
+-- A referrer's whole queue dropped at once, with any running reward stopped: the refund of
+-- one payment may leave later ones waiting on a streak that no longer starts.
+UPDATE referral_reward_grants SET status = 'done', reverted_at = sqlc.arg(reverted_at), updated_at = sqlc.arg(reverted_at)
+WHERE referrer_tg_id = $1 AND status IN ('queued','running') AND reverted_at IS NULL;
+
+-- name: CountPendingReferralRewardGrants :one
+SELECT COUNT(*) AS n FROM referral_reward_grants WHERE status IN ('queued','running') AND reverted_at IS NULL;

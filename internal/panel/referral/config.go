@@ -1,6 +1,7 @@
 // Package referral is the referral programme of the Telegram bot: an account invites
 // others by its own link, a Telegram account belongs to one referrer for good, and what a
-// referrer earns is an internal balance in kopecks and days onto their subscription.
+// referrer earns is an internal balance in kopecks, or a temporary subscription on the
+// tariff the invitee bought, for the days the rule gives (queue.go).
 //
 // The rules are the admin's, one per line, each naming the tariffs it counts — that is how
 // two tiers of subscriptions (say 70 ₽ and 150 ₽) pay differently without anything here
@@ -21,8 +22,8 @@ const KeyConfig = "ref_config"
 // admin's rate. One currency means one balance and no exchange between them.
 const Currency = "RUB"
 
-// The kinds of rule. A percent rule credits the balance; a days rule extends the
-// referrer's own subscription.
+// The kinds of rule. A percent rule credits the balance; a days rule gives a temporary
+// subscription on the tariff the invitee bought (queue.go), for as many days as its value.
 const (
 	KindPercent = "percent"
 	KindDays    = "days"
@@ -59,7 +60,8 @@ type Program struct {
 type Rule struct {
 	ID   string `json:"id" doc:"Постоянный id правила"`
 	Name string `json:"name" maxLength:"80" doc:"Название для панели"`
-	// Kind: percent (a share into the balance) or days (a term onto the subscription).
+	// Kind: percent (a share into the balance) or days (a temporary subscription on the
+	// tariff the invitee bought, for the rule's days).
 	Kind string `json:"kind" enum:"percent,days"`
 	// Value: percent — the share of the ruble price, 1 to 100; days — the term in days.
 	Value int64 `json:"value" minimum:"1"`

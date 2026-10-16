@@ -484,6 +484,36 @@ type ReferralReward struct {
 	RevertedAt   sql.NullInt64
 }
 
+type ReferralRewardGrant struct {
+	ID                  int64
+	ReferrerTgID        int64
+	ReferralID          int64
+	PaymentID           sql.NullInt64
+	RuleID              string
+	TariffID            sql.NullInt64
+	Days                int64
+	Price               int64
+	Status              string
+	RunAt               int64
+	EndsAt              sql.NullInt64
+	RewardID            sql.NullInt64
+	RevertedAt          sql.NullInt64
+	CreatedAt           int64
+	UpdatedAt           int64
+	BeforeUserID        sql.NullInt64
+	BeforeStatus        string
+	BeforeTariffID      sql.NullInt64
+	BeforeTrafficLimit  sql.NullInt64
+	BeforeDeviceLimit   sql.NullInt64
+	BeforeSpeedLimit    sql.NullInt64
+	BeforeResetStrategy string
+	BeforeDeviceMode    string
+	BeforePeriodDays    int64
+	BeforePeriodStart   int64
+	BeforeExpiresAt     sql.NullInt64
+	BeforeBillingDay    sql.NullInt64
+}
+
 type ReferralSpend struct {
 	ID         int64
 	PaymentID  sql.NullInt64
