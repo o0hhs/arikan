@@ -353,27 +353,40 @@ type NodeWarp struct {
 }
 
 type Payment struct {
-	ID         int64
-	Provider   string
-	Payload    string
-	ExternalID sql.NullString
-	TgID       int64
-	Kind       string
-	UserID     sql.NullInt64
-	TariffID   sql.NullInt64
-	PackageID  sql.NullInt64
-	TariffName string
-	Amount     int64
-	Currency   string
-	Status     string
-	Error      string
-	PayUrl     string
-	CreatedAt  int64
-	PaidAt     sql.NullInt64
-	AppliedAt  sql.NullInt64
-	RefundedAt sql.NullInt64
-	TermDays   sql.NullInt64
-	Revert     string
+	ID           int64
+	Provider     string
+	Payload      string
+	ExternalID   sql.NullString
+	TgID         int64
+	Kind         string
+	UserID       sql.NullInt64
+	TariffID     sql.NullInt64
+	PackageID    sql.NullInt64
+	TariffName   string
+	Amount       int64
+	Currency     string
+	Status       string
+	Error        string
+	PayUrl       string
+	CreatedAt    int64
+	PaidAt       sql.NullInt64
+	AppliedAt    sql.NullInt64
+	RefundedAt   sql.NullInt64
+	TermDays     sql.NullInt64
+	Revert       string
+	Custom       string
+	CustomBaseID sql.NullInt64
+}
+
+type PromoAccess struct {
+	ID        int64
+	PromoID   int64
+	TariffID  int64
+	UserID    sql.NullInt64
+	TgID      int64
+	GrantedAt int64
+	ExpiresAt sql.NullInt64
+	Note      string
 }
 
 type PromoCode struct {
@@ -400,6 +413,8 @@ type PromoCode struct {
 	Deleted           int64
 	CreatedAt         int64
 	CreatedBy         sql.NullInt64
+	AccessMode        string
+	AccessTtl         int64
 }
 
 type PromoRedemption struct {
