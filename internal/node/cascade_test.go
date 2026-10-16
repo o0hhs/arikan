@@ -71,6 +71,7 @@ func TestCascadeConfig(t *testing.T) {
 	if strings.Join(names, ",") != "WARP,NODE-3" {
 		t.Fatalf("proxies: %v", names)
 	}
+	raw = warpAsSocks5(t, raw)
 	parsed, err := executor.ParseWithBytes(raw)
 	if err != nil {
 		t.Fatalf("mihomo refuses the config: %v", err)
@@ -183,6 +184,7 @@ func TestOutboundByLink(t *testing.T) {
 			t.Fatalf("a listener that does not exist is named: %s", name)
 		}
 	}
+	raw = warpAsSocks5(t, raw)
 	parsed, err := executor.ParseWithBytes(raw)
 	if err != nil {
 		t.Fatalf("mihomo refuses the config: %v", err)
@@ -216,6 +218,7 @@ func TestBrokenLinkIsRejectedAlone(t *testing.T) {
 	if len(bad) != 1 || bad[0].Name != nodeapi.OutboundName(4) || bad[0].Error == "" {
 		t.Fatalf("rejected = %+v", bad)
 	}
+	raw = warpAsSocks5(t, raw)
 	if _, err := executor.ParseWithBytes(raw); err != nil {
 		t.Fatalf("the rest of the config does not parse: %v", err)
 	}

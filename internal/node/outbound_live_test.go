@@ -41,6 +41,7 @@ func TestOutboundLinkCarriesTraffic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	raw = warpAsSocks5(t, raw)
 	cfg, err := executor.ParseWithBytes(raw)
 	if err != nil {
 		t.Fatalf("mihomo refuses the link outbound: %v", err)
