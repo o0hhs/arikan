@@ -247,7 +247,7 @@ func TestBackupIsPrivateAndConsistent(t *testing.T) {
 		t.Fatal(err)
 	}
 	path := filepath.Join(t.TempDir(), "backup.db")
-	dsn := schemaDSN(t, st)
+	dsn := fixtureDSN(t, st)
 	if err := pgdump.DatabaseBackup(ctx, dsn, path); err != nil {
 		t.Fatal(err)
 	}

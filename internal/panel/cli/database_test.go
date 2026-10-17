@@ -30,7 +30,7 @@ func TestPostgresArchiveActuallyRestores(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer st.Close()
-	dsn := schemaDSN(t, st)
+	dsn := fixtureDSN(t, st)
 	t.Setenv("MIKAN_DATABASE_URL", dsn)
 	t.Setenv("MIKAN_DATA_DIR", dir)
 	if err := st.Q.SetSetting(ctx, db.SetSettingParams{Key: "preserved", Value: "42"}); err != nil {
@@ -153,21 +153,19 @@ func TestPublicSchemaBackupAndRestore(t *testing.T) {
 	live.Close()
 }
 
-// schemaDSN reaches st's schema the way an installation's MIKAN_DATABASE_URL reaches its
-// own: pg_dump and pg_restore get the search path too.
-func schemaDSN(t *testing.T, st *store.Store) string {
+// fixtureDSN reaches the fixture's data the way an installation's MIKAN_DATABASE_URL
+// reaches its own: pg_dump and pg_restore get the database the store was opened on.
+func fixtureDSN(t *testing.T, st *store.Store) string {
 	t.Helper()
-	var schema string
-	if err := st.DB.QueryRowContext(context.Background(), "SELECT current_schema()").Scan(&schema); err != nil {
+	var database string
+	if err := st.DB.QueryRowContext(context.Background(), "SELECT current_database()").Scan(&database); err != nil {
 		t.Fatal(err)
 	}
 	u, err := url.Parse(os.Getenv("MIKAN_TEST_DATABASE_URL"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	query := u.Query()
-	query.Set("options", "-csearch_path="+schema)
-	u.RawQuery = query.Encode()
+	u.Path = "/" + database
 	return u.String()
 }
 

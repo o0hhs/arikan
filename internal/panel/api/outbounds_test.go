@@ -233,17 +233,17 @@ func TestOutbounds(t *testing.T) {
 func TestDatabaseDownload(t *testing.T) {
 	f := newOutboundFixture(t)
 	ctx := context.Background()
-	var schema string
-	if err := f.st.DB.QueryRowContext(ctx, "SELECT current_schema()").Scan(&schema); err != nil {
+	// The fixture's database is the installation's: the panel dumps the one its
+	// MIKAN_DATABASE_URL names.
+	var database string
+	if err := f.st.DB.QueryRowContext(ctx, "SELECT current_database()").Scan(&database); err != nil {
 		t.Fatal(err)
 	}
 	u, err := url.Parse(os.Getenv("MIKAN_TEST_DATABASE_URL"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	query := u.Query()
-	query.Set("options", "-csearch_path="+schema)
-	u.RawQuery = query.Encode()
+	u.Path = "/" + database
 	t.Setenv("MIKAN_DATABASE_URL", u.String())
 
 	code, body := f.call(http.MethodGet, "/api/v1/database/backup", "")

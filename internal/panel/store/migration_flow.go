@@ -2,10 +2,37 @@ package store
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"fmt"
 	"io/fs"
+	"strings"
 )
+
+// MigrationSet is a digest of the embedded PostgreSQL migrations — their names and their
+// contents. Fixtures that prepare a database once and clone it put it in the template
+// database's name, so a migration added or edited anywhere means a new template instead of
+// a clone of a stale one.
+func MigrationSet() (string, error) {
+	entries, err := fs.ReadDir(postgresFS, ".")
+	if err != nil {
+		return "", err
+	}
+	h := sha256.New()
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".sql") {
+			continue
+		}
+		data, err := fs.ReadFile(postgresFS, e.Name())
+		if err != nil {
+			return "", err
+		}
+		fmt.Fprintf(h, "%s\x00%d\x00", e.Name(), len(data))
+		h.Write(data)
+	}
+	return hex.EncodeToString(h.Sum(nil))[:12], nil
+}
 
 // MigrateResult is what Migrate did: the schema versions before and after it.
 type MigrateResult struct {

@@ -64,11 +64,8 @@ func TestConcurrentFreshPostgresMigrations(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer s.Close()
-	var schema string
-	if err := s.DB.QueryRowContext(ctx, "SELECT current_schema()").Scan(&schema); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := s.DB.ExecContext(ctx, "DROP SCHEMA \""+schema+"\" CASCADE; CREATE SCHEMA \""+schema+"\""); err != nil {
+	// A fixture's database is its own, as an installation's is: its tables live in public.
+	if _, err := s.DB.ExecContext(ctx, "DROP SCHEMA public CASCADE; CREATE SCHEMA public"); err != nil {
 		t.Fatal(err)
 	}
 	var wg sync.WaitGroup
@@ -89,19 +86,19 @@ func TestConcurrentFreshPostgresMigrations(t *testing.T) {
 	}
 }
 
+// fixtureDSN reaches the fixture's data the way an installation's MIKAN_DATABASE_URL
+// reaches its own: the same server, the database the store is opened on.
 func fixtureDSN(t *testing.T, s *Store) string {
 	t.Helper()
-	var schema string
-	if err := s.DB.QueryRowContext(context.Background(), "SELECT current_schema()").Scan(&schema); err != nil {
+	var database string
+	if err := s.DB.QueryRowContext(context.Background(), "SELECT current_database()").Scan(&database); err != nil {
 		t.Fatal(err)
 	}
 	u, err := url.Parse(os.Getenv("MIKAN_TEST_DATABASE_URL"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	query := u.Query()
-	query.Set("search_path", schema)
-	u.RawQuery = query.Encode()
+	u.Path = "/" + database
 	return u.String()
 }
 
