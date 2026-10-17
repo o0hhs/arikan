@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/metacubex/mihomo/config"
 	C "github.com/metacubex/mihomo/constant"
 	"github.com/metacubex/mihomo/hub/executor"
 
@@ -86,10 +87,7 @@ func TestFiltersConfigParses(t *testing.T) {
 		// through mihomo's global logger and race with the log level the next test's Start
 		// writes — the -race run of this package caught exactly that.
 		raw = warpAsSocks5(t, raw)
-		parsed, err := executor.ParseWithBytes(raw)
-		if err != nil {
-			t.Fatalf("mihomo refuses the config with %+v: %v", f, err)
-		}
+		parsed := parseConfig(t, raw)
 		if len(parsed.Rules) != len(cfg.Rules) {
 			t.Fatalf("parsed %d rules of %d", len(parsed.Rules), len(cfg.Rules))
 		}
@@ -233,4 +231,27 @@ func warpAsSocks5(t *testing.T, raw []byte) []byte {
 		t.Fatal(err)
 	}
 	return out
+}
+
+// parsed holds every mihomo config the tests of this package build, for the life of the
+// test binary.
+//
+// mihomo wraps each proxy of a config in an adapter that closes itself from a runtime
+// finalizer once nothing references it, and that Close logs through mihomo's global log
+// level — a plain variable every ApplyConfig writes (node.Start). A config dropped by its
+// test lets the GC close its proxies whenever it likes, so the finalizer's log can land
+// inside the next test's Start, and -race reports a data race in a test that has nothing
+// to do with the previous one. Keeping the configs referenced means those closes never
+// happen; the devices some configs would start are still avoided by warpAsSocks5.
+var parsed []*config.Config
+
+// parseConfig is executor.ParseWithBytes with the config kept alive (see `parsed`).
+func parseConfig(t *testing.T, raw []byte) *config.Config {
+	t.Helper()
+	cfg, err := executor.ParseWithBytes(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsed = append(parsed, cfg)
+	return cfg
 }

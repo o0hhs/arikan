@@ -10,7 +10,6 @@ import (
 	"time"
 
 	C "github.com/metacubex/mihomo/constant"
-	"github.com/metacubex/mihomo/hub/executor"
 
 	"mikan/internal/nodeapi"
 	"mikan/internal/proto"
@@ -75,10 +74,7 @@ func TestCascadeConfig(t *testing.T) {
 	// mihomo's global logger and race with the log level a later test's Start writes;
 	// warpAsSocks5 keeps the proxy (and its name, the rules resolve) without a device.
 	raw = warpAsSocks5(t, raw)
-	parsed, err := executor.ParseWithBytes(raw)
-	if err != nil {
-		t.Fatalf("mihomo refuses the config: %v", err)
-	}
+	parsed := parseConfig(t, raw)
 	if _, ok := parsed.Proxies["NODE-3"]; !ok {
 		t.Fatal("NODE-3 not parsed")
 	}
@@ -188,10 +184,7 @@ func TestOutboundByLink(t *testing.T) {
 		}
 	}
 	raw = warpAsSocks5(t, raw)
-	parsed, err := executor.ParseWithBytes(raw)
-	if err != nil {
-		t.Fatalf("mihomo refuses the config: %v", err)
-	}
+	parsed := parseConfig(t, raw)
 	for _, id := range []int64{7, 8, 9} {
 		if _, ok := parsed.Proxies[nodeapi.OutboundName(id)]; !ok {
 			t.Fatalf("%s not parsed by mihomo", nodeapi.OutboundName(id))
@@ -222,9 +215,7 @@ func TestBrokenLinkIsRejectedAlone(t *testing.T) {
 		t.Fatalf("rejected = %+v", bad)
 	}
 	raw = warpAsSocks5(t, raw)
-	if _, err := executor.ParseWithBytes(raw); err != nil {
-		t.Fatalf("the rest of the config does not parse: %v", err)
-	}
+	parseConfig(t, raw)
 	// The broken one is not in the config: its inbound falls through the rules, it is not
 	// sent to a proxy that is not there.
 	if strings.Contains(string(raw), nodeapi.OutboundName(4)) {

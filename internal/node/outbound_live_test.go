@@ -15,7 +15,6 @@ import (
 	"time"
 
 	C "github.com/metacubex/mihomo/constant"
-	"github.com/metacubex/mihomo/hub/executor"
 	"github.com/metacubex/mihomo/tunnel"
 
 	"mikan/internal/nodeapi"
@@ -42,10 +41,7 @@ func TestOutboundLinkCarriesTraffic(t *testing.T) {
 		t.Fatal(err)
 	}
 	raw = warpAsSocks5(t, raw)
-	cfg, err := executor.ParseWithBytes(raw)
-	if err != nil {
-		t.Fatalf("mihomo refuses the link outbound: %v", err)
-	}
+	cfg := parseConfig(t, raw)
 	tunnel.UpdateProxies(cfg.Proxies, cfg.Providers)
 	proxy, ok := tunnel.Proxies()[nodeapi.OutboundName(1)]
 	if !ok {

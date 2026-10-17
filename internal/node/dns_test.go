@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/metacubex/mihomo/component/resolver"
-	"github.com/metacubex/mihomo/hub/executor"
 	"github.com/metacubex/mihomo/tunnel"
 	"github.com/miekg/dns"
 
@@ -129,10 +128,7 @@ func TestResolverFollowsTheState(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		cfg, err := executor.ParseWithBytes(raw)
-		if err != nil {
-			t.Fatal(err)
-		}
+		cfg := parseConfig(t, raw)
 		e := &Engine{log: quiet()}
 		e.applyDNS(cfg)
 	}
