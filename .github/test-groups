@@ -2,7 +2,7 @@
 # measured time so that every job is about as long as the others. Every package these
 # lines do not name runs in the `test-rest` job of both workflows — a package added later
 # is tested even when nobody remembers this file.
-./internal/panel/app ./internal/panel/tgate ./internal/panel/tgbackup ./internal/panel/checkhost ./internal/panel/hostname ./internal/panel/addons/pages ./internal/panel/events ./internal/fsutil ./internal/diag ./internal/nodetls ./internal/acmechallenge
+./internal/panel/app ./internal/panel/tgate ./internal/panel/tgbackup ./internal/panel/checkhost ./internal/hostname ./internal/panel/addons/pages ./internal/panel/events ./internal/fsutil ./internal/diag ./internal/nodetls ./internal/acmechallenge
 ./internal/panel/billing ./internal/panel/domain ./internal/panel/auth ./internal/panel/filters ./internal/panel/subs ./internal/panel/settings ./internal/panel/geoip
 ./internal/panel/nodesync ./internal/panel/addons/panelapi ./internal/panel/tgbot ./cmd/mikan-telegram ./internal/panel/updates ./internal/nodehello ./internal/nodeapi
 ./internal/panel/cli ./internal/panel/api ./internal/panel/store ./internal/panel/autotune ./internal/panel/referral ./internal/panel/promo
