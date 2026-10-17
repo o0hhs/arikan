@@ -45,6 +45,7 @@ func TestAddonFile(t *testing.T) {
 		Digest   string `json:"digest"`
 		MinPanel string `json:"min_panel"`
 		Homepage string `json:"homepage"`
+		Key      string `json:"key"`
 	}
 	if err := json.Unmarshal(data, &e); err != nil {
 		t.Fatal(err)
@@ -66,6 +67,14 @@ func TestAddonFile(t *testing.T) {
 		t.Errorf("memory: %d", e.Resources.MemMB)
 	case e.Homepage != "https://github.com/o0hhs/arikan":
 		t.Errorf("homepage: %q", e.Homepage)
+	case e.Key != release.PublicKey:
+		t.Errorf("key: %q, want the release key %q", e.Key, release.PublicKey)
+	}
+	// The key the file declares is one the panel reads: a document signed by the release key
+	// verifies against the key inside it, with no pin from the admin (a panel whose row for
+	// the source holds no key would otherwise answer source_key_needed on a signed file).
+	if _, ok := addons.ParseSourceKey(e.Key); !ok {
+		t.Errorf("the panel cannot parse the key the file declares: %q", e.Key)
 	}
 	// The permissions are the bot's, and each is one the panel knows.
 	seen := map[string]bool{}

@@ -104,6 +104,11 @@ UPDATE addon_sources SET fetched_at = $2, error = $3 WHERE id = $1;
 -- name: SetAddonSourceKey :exec
 UPDATE addon_sources SET key = $2 WHERE id = $1;
 
+-- name: UpdateAddonSource :exec
+-- Repair a row the panel manages itself: a source upgraded from a release where the admin
+-- added the built-in address by hand, leaving no key and no title behind.
+UPDATE addon_sources SET key = $2, title = $3 WHERE id = $1;
+
 -- name: DeleteAddonSource :exec
 DELETE FROM addon_sources WHERE id = $1;
 

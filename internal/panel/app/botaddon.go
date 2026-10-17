@@ -78,16 +78,23 @@ func (b *botAddon) check(ctx context.Context) {
 		return // another addon holds the bot: the admin's own choice
 	}
 	if a, ok := st.Adapters[e.ID]; ok && a.KindOf() != addons.KindPayment {
-		if a.Status != "running" || !b.granted(ctx, e.ID) {
-			return
+		// The copy that is installed runs the bot it was granted: a digest that differs from
+		// the entry offered now is an older release, and the host installs the new one over
+		// it (asked for below). Either way a running copy takes the bot over, so the panel
+		// does not answer while a newer release is on its way in.
+		if a.Status == "running" && b.granted(ctx, e.ID) {
+			if err := settings.Set(ctx, p.Settings, panelapi.SlotKey, e.ID); err != nil {
+				p.log.Error("bot addon: hand over the bot", "err", err)
+				return
+			}
+			p.log.Info("bot addon: the bot answers in the addon now", "addon", e.ID, "version", a.Version)
+			p.Gateway.Reload()
 		}
-		if err := settings.Set(ctx, p.Settings, panelapi.SlotKey, e.ID); err != nil {
-			p.log.Error("bot addon: hand over the bot", "err", err)
-			return
+		if a.Digest == e.Digest {
+			return // the entry offered now is the copy that is installed
 		}
-		p.log.Info("bot addon: the bot answers in the addon now", "addon", e.ID, "version", a.Version)
-		p.Gateway.Reload()
-		return
+		p.log.Info("bot addon: a newer release of the bot is offered", "addon", e.ID,
+			"installed", a.Version, "offered", e.Version)
 	}
 	if slices.ContainsFunc(p.Addons.Pending(), func(r addons.Request) bool { return r.ID == e.ID }) {
 		return

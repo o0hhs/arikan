@@ -1421,6 +1421,12 @@ func (s *Service) Reconcile(ctx context.Context) {
 	}
 	if s.d.Referral != nil {
 		_ = s.d.Referral.ReleaseClosed(ctx)
+		// The days queue: rewards whose days have run out hand the referrer's own
+		// subscription back, and what is next starts where the last ended. This pass is
+		// the ticker the queue runs on — there is no daemon of its own.
+		if err := s.d.Referral.Advance(ctx, now); err != nil {
+			s.d.Log.Error("billing: referral reward queue", "err", err)
+		}
 	}
 	if s.d.Promo != nil {
 		_ = s.d.Promo.ReleaseExpired(ctx, now.Unix())

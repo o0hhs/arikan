@@ -352,8 +352,14 @@ func mihomoConfigOf(p Profile, g Groups, r Routing, ps []proxy) map[string]any {
 		selector = append(selector, c["name"].(string))
 	}
 	auto := urlTest(g.Auto, names)
-	if p.Routes.Servers.Auto == "fallback" {
+	switch p.Routes.Servers.Auto {
+	case AutoFallback:
 		auto["type"] = "fallback" // the first that works, in the order of the nodes
+		delete(auto, "tolerance")
+	case AutoLoadBalance:
+		// mihomo spreads the working servers; the strategy is left out on purpose, so the
+		// core's own default (consistent-hashing: a destination keeps one server) applies.
+		auto["type"] = "load-balance"
 		delete(auto, "tolerance")
 	}
 	groups := []map[string]any{

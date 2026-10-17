@@ -16,14 +16,27 @@ import (
 
 const term = 30 * 24 * time.Hour
 
-// subscriber is buyer 555's subscription on the first tariff (not the one on sale) that
-// ends in left.
+// subscriber is buyer 555's subscription on the tariff on sale (so the payment these tests
+// apply is a RENEWAL of it) that ends in left. A refund gives a renewal's term back by
+// dropping it from the end of the running one, which needs the payment to extend the same
+// tariff: a payment that switches tariff starts its own term now instead (domain.Purchase).
 func (e *env) subscriber(left time.Duration) db.User {
 	e.t.Helper()
 	ctx := context.Background()
-	ts, err := e.st.Q.ListTariffs(ctx)
+	u, err := e.s.d.Users.Create(ctx, domain.CreateInput{Name: "mine", TariffID: e.sale.ID})
 	must(e.t, err)
-	u, err := e.s.d.Users.Create(ctx, domain.CreateInput{Name: "mine", TariffID: ts[0].ID})
+	must(e.t, e.st.Q.LinkTg(ctx, db.LinkTgParams{UserID: u.ID, TgID: 555, CreatedAt: 1}))
+	_, err = e.st.DB.ExecContext(ctx, "UPDATE users SET expires_at = $1 WHERE id = $2", e.now.Add(left).Unix(), u.ID)
+	must(e.t, err)
+	return e.user(u.ID)
+}
+
+// subscriberTariff is subscriber on a named tariff, for the tests that need the prior tariff
+// to be one the payment does not renew.
+func (e *env) subscriberTariff(tariffID int64, left time.Duration) db.User {
+	e.t.Helper()
+	ctx := context.Background()
+	u, err := e.s.d.Users.Create(ctx, domain.CreateInput{Name: "mine", TariffID: tariffID})
 	must(e.t, err)
 	must(e.t, e.st.Q.LinkTg(ctx, db.LinkTgParams{UserID: u.ID, TgID: 555, CreatedAt: 1}))
 	_, err = e.st.DB.ExecContext(ctx, "UPDATE users SET expires_at = $1 WHERE id = $2", e.now.Add(left).Unix(), u.ID)
@@ -78,7 +91,6 @@ func TestRefundNewSubscriptionDisablesIt(t *testing.T) {
 func TestRefundRenewalTakesBackTheTermAndRestoresTheTariff(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
-	ts, _ := e.st.Q.ListTariffs(ctx)
 	prior := e.subscriber(10 * 24 * time.Hour)
 	p := e.buy(prior.ID, "ch-r")
 	if got := e.user(prior.ID); got.ExpiresAt.Int64 != prior.ExpiresAt.Int64+int64(term/time.Second) || got.TariffID.Int64 != e.sale.ID {
@@ -88,8 +100,8 @@ func TestRefundRenewalTakesBackTheTermAndRestoresTheTariff(t *testing.T) {
 	rv, err := e.s.Refund(ctx, p.ID)
 	must(t, err)
 	got := e.user(prior.ID)
-	if rv.Action != "term" || !rv.TariffRestored || !rv.Exact || got.ExpiresAt != prior.ExpiresAt || got.TariffID.Int64 != ts[0].ID ||
-		got.TrafficLimit != ts[0].TrafficLimit || got.DeviceLimit != ts[0].DeviceLimit || got.ResetStrategy != ts[0].ResetStrategy || got.Status != prior.Status {
+	if rv.Action != "term" || !rv.TariffRestored || !rv.Exact || got.ExpiresAt != prior.ExpiresAt || got.TariffID.Int64 != e.sale.ID ||
+		got.TrafficLimit != prior.TrafficLimit || got.DeviceLimit != prior.DeviceLimit || got.ResetStrategy != prior.ResetStrategy || got.Status != prior.Status {
 		t.Fatalf("reverted %+v\nuser %+v\nwas  %+v", rv, got, prior)
 	}
 	if notes := e.tg.refundNotes(); len(notes) != 1 || notes[0].disabled || notes[0].u.ExpiresAt != prior.ExpiresAt {
@@ -367,7 +379,9 @@ func TestRefundChainNewThenRenewal(t *testing.T) {
 	}
 }
 
-// With a tariff restored the pools of the prior tariff come back with it.
+// With a tariff restored the pools of the prior tariff come back with it. The prior tariff
+// is deliberately NOT the one on sale: switching tariff is what drops the pool, and the
+// refund puts the prior tariff back.
 func TestRefundRestoresThePoolsOfThePriorTariff(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
@@ -375,7 +389,7 @@ func TestRefundRestoresThePoolsOfThePriorTariff(t *testing.T) {
 	pool, err := e.st.Q.CreateTrafficPool(ctx, db.CreateTrafficPoolParams{Name: "WL", CreatedAt: 1})
 	must(t, err)
 	must(t, e.st.Q.AddTariffPool(ctx, db.AddTariffPoolParams{TariffID: ts[0].ID, PoolID: pool.ID, TrafficLimit: 7 << 30}))
-	prior := e.subscriber(10 * 24 * time.Hour)
+	prior := e.subscriberTariff(ts[0].ID, 10*24*time.Hour)
 	limit := func() sql.NullInt64 {
 		up, err := e.st.Q.GetUserPool(ctx, db.GetUserPoolParams{UserID: prior.ID, PoolID: pool.ID})
 		must(t, err)

@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"time"
 
+	"mikan/internal/panel/domain"
 	"mikan/internal/panel/secure"
 	"mikan/internal/panel/settings"
 	"mikan/internal/panel/store"
@@ -82,9 +83,13 @@ type Reward struct {
 	Referee  int64 // the account that brought it
 	Payment  int64
 	Kind     string // percent or days
-	// Rub is the kopecks that went into the balance; Days the term onto a subscription.
+	// Rub is the kopecks that went into the balance; Days the days of the temporary
+	// subscription on the tariff the referee bought (queue.go).
 	Rub  int64
 	Days int64
+	// TariffID is the tariff a days reward runs on: the one the referee bought. 0 for a
+	// percent reward, and for a days one whose tariff is gone.
+	TariffID int64
 	// EveryN is the rule's step: on the N-th qualifying payment, not on this one alone.
 	EveryN int64
 }
@@ -328,25 +333,24 @@ func (s *Service) reward(ctx context.Context, q *db.Queries, cfg Program, p db.P
 			if paid%rule.Every != 0 {
 				continue
 			}
-			// The term goes onto a subscription the referrer has; with none there is
-			// nothing to extend, and the payment is still counted towards the rule. A
-			// subscription that never ends has no end to add days to either: what was
-			// promised is days, and there is nothing to give them onto.
-			target, ok, err := s.currentSub(ctx, q, ref.ReferrerTgID)
+			// A days rule gives a temporary subscription on the tariff the REFEREE bought,
+			// for the rule's days — not days on whatever subscription the referrer happens
+			// to have. The reward is a queue entry from here on: it may run now, or wait
+			// behind a dearer reward already running (grantDays).
+			//
+			// The bought tariff's price orders the queue: dearest first, so a later cheaper
+			// purchase waits rather than downgrading the referrer. A tariff scoped rule
+			// counts the payment even when the tariff cannot be read (deleted since): the
+			// grant is then recorded and closed rather than silently dropped.
+			grant, err := s.grantDays(ctx, q, cfg, ref, p, rule, now)
 			if err != nil {
 				return nil, err
 			}
-			if !ok || !target.ExpiresAt.Valid {
+			if grant.ID == 0 {
 				continue
 			}
-			if err := extend(ctx, q, target, rule.Value, now); err != nil {
-				return nil, err
-			}
-			if _, err := q.CreateReferralReward(ctx, db.CreateReferralRewardParams{ReferrerTgID: ref.ReferrerTgID, ReferralID: ref.ID,
-				PaymentID: payID, RuleID: rule.ID, Kind: KindDays, Amount: 0, Days: rule.Value, EveryN: rule.Every, Currency: Currency, CreatedAt: now}); err != nil {
-				return nil, err
-			}
-			out = append(out, Reward{Referrer: ref.ReferrerTgID, Referee: p.TgID, Payment: p.ID, Kind: KindDays, Days: rule.Value, EveryN: rule.Every})
+			out = append(out, Reward{Referrer: ref.ReferrerTgID, Referee: p.TgID, Payment: p.ID, Kind: KindDays,
+				Days: rule.Value, TariffID: p.TariffID.Int64, EveryN: rule.Every})
 		}
 	}
 	return out, nil
@@ -378,6 +382,75 @@ func (s *Service) credit(ctx context.Context, q *db.Queries, tgID, amount int64,
 	return amount, nil
 }
 
+// grantDays gives a days rule what it promised: a reward recorded on the payment's own
+// transaction (referral_rewards, the accounting half the admin's totals read) and a queue
+// entry (referral_reward_grants) that says on which tariff and for how many days the
+// referrer is to be switched. When nothing of the referrer's is running and his reward is
+// the dearest waiting, it starts at once, on this same transaction; otherwise it waits its
+// turn and the reconcile pass starts it (Advance).
+//
+// A reward on a tariff that is not there any more (deleted since the invoice) is recorded
+// and closed, never dropped: what was promised happened, and the admin sees it.
+func (s *Service) grantDays(ctx context.Context, q *db.Queries, cfg Program, ref db.Referral, p db.Payment, rule Rule, now int64) (db.ReferralRewardGrant, error) {
+	payID := sql.NullInt64{Int64: p.ID, Valid: true}
+	// The accounting half first: what the rule promised is on the record the admin's totals
+	// read, whatever becomes of the queue entry below.
+	if _, err := q.CreateReferralReward(ctx, db.CreateReferralRewardParams{ReferrerTgID: ref.ReferrerTgID, ReferralID: ref.ID,
+		PaymentID: payID, RuleID: rule.ID, Kind: KindDays, Amount: 0, Days: rule.Value, EveryN: rule.Every, Currency: Currency, CreatedAt: now}); err != nil {
+		return db.ReferralRewardGrant{}, err
+	}
+	// The price of the bought tariff orders the queue. A tariff that cannot be read has no
+	// price to sort by: it sorts last, and its grant is closed below.
+	var price int64
+	t, terr := q.GetTariff(ctx, p.TariffID.Int64)
+	if terr == nil {
+		price = tariffPrice(t)
+	} else if !errors.Is(terr, sql.ErrNoRows) {
+		return db.ReferralRewardGrant{}, terr
+	}
+	grant, err := q.CreateReferralRewardGrant(ctx, db.CreateReferralRewardGrantParams{
+		ReferrerTgID: ref.ReferrerTgID, ReferralID: ref.ID, PaymentID: payID, RuleID: rule.ID,
+		TariffID: p.TariffID, Days: rule.Value, Price: price, CreatedAt: now,
+	})
+	if err != nil {
+		return db.ReferralRewardGrant{}, err
+	}
+	if terr != nil {
+		// What the referee bought is gone: there is no tariff to run the reward on. The
+		// reward stays on the record, closed, and the referrer is told nothing of it.
+		if _, err := q.FinishReferralRewardGrant(ctx, db.FinishReferralRewardGrantParams{UpdatedAt: now, ID: grant.ID}); err != nil {
+			return db.ReferralRewardGrant{}, err
+		}
+		return db.ReferralRewardGrant{}, nil
+	}
+	// The reward may start this minute: the same call the reconcile pass makes, so the
+	// rule is one code path whether the queue is moved by a payment or by the pass. The
+	// moments line up: a queued reward waits for what is ahead of it, a ready one starts now.
+	if err := s.startHead(ctx, q, ref.ReferrerTgID, now, time.Unix(now, 0)); err != nil {
+		if errors.Is(err, domain.ErrNoSlots) {
+			// A referrer with no subscription needs a slot for the one the reward makes;
+			// the pool is refilled by the caller's retry. The grant is already recorded
+			// and waits, so nothing is lost if the retry does not come.
+			return grant, nil
+		}
+		return db.ReferralRewardGrant{}, err
+	}
+	return grant, nil
+}
+
+// tariffPrice is what a tariff costs in kopecks, for the queue's order: the ruble price,
+// else the Stars price at the programme's rate, else nothing (it sorts last). A tariff no
+// one pays for still gives its days, at the end of the queue.
+func tariffPrice(t db.Tariff) int64 {
+	if t.PriceRub.Valid && t.PriceRub.Int64 > 0 {
+		return t.PriceRub.Int64
+	}
+	if t.PriceStars.Valid && t.PriceStars.Int64 > 0 {
+		return t.PriceStars.Int64
+	}
+	return 0
+}
+
 // currentSub is the subscription the referrer is shown in their chat: the current one,
 // else the first they linked.
 func (s *Service) currentSub(ctx context.Context, q *db.Queries, tgID int64) (db.User, bool, error) {
@@ -396,23 +469,6 @@ func (s *Service) currentSub(ctx context.Context, q *db.Queries, tgID int64) (db
 		}
 	}
 	return list[0], true, nil
-}
-
-// extend adds days to a subscription from its own end, or from now when that has passed,
-// and turns it on: what a rule promised is what the account gets to use. u must have an
-// end: a subscription that never expires has nothing to add days to, and a days rule does
-// not call this for one (reward).
-func extend(ctx context.Context, q *db.Queries, u db.User, days, now int64) error {
-	base := now
-	if u.ExpiresAt.Valid && u.ExpiresAt.Int64 > now {
-		base = u.ExpiresAt.Int64
-	}
-	_, err := q.UpdateUser(ctx, db.UpdateUserParams{Name: u.Name, Contact: u.Contact, Note: u.Note, Tags: u.Tags, Status: "active",
-		TariffID: u.TariffID, TrafficLimit: u.TrafficLimit, DeviceLimit: u.DeviceLimit, ResetStrategy: u.ResetStrategy,
-		PeriodDays: u.PeriodDays, PeriodStart: u.PeriodStart,
-		ExpiresAt: sql.NullInt64{Int64: base + days*int64(24*time.Hour/time.Second), Valid: true},
-		Inbounds:  u.Inbounds, BillingDay: u.BillingDay, UpdatedAt: now, ID: u.ID})
-	return err
 }
 
 // Reserve holds what the balance pays of an invoice and says how much of the price that is,
@@ -500,8 +556,13 @@ func (s *Service) Released(ctx context.Context, paymentID int64) (bool, error) {
 
 // TakeBack gives back what a payment held or earned for a referrer, on q's transaction. A
 // hold on an invoice nobody paid is money of its owner again; what a percent rule already
-// put into a balance comes out of that balance, so a spent one simply stays spent. Days
-// already added to a subscription are left: the subscription may well have been used.
+// put into a balance comes out of that balance, so a spent one simply stays spent.
+//
+// A days rule's reward goes whole: a queued one is dropped from the queue, and a running
+// one is stopped — the referrer's own subscription (a trial's leftover days included) comes
+// back at once — after which the rewards behind it close up and run back to back as if it
+// had never been there. A reward that has already ended is left: the subscription it gave
+// has been used, as days added to a subscription always were.
 func (s *Service) TakeBack(ctx context.Context, q *db.Queries, paymentID int64) (int64, error) {
 	now := s.Now().Unix()
 	var back int64
@@ -516,12 +577,25 @@ func (s *Service) TakeBack(ctx context.Context, q *db.Queries, paymentID int64) 
 			back += sp.Amount
 		}
 	}
+	// The days rewards of the payment come out of the queue first, so the referral_rewards
+	// rows below are marked reverted with the queue already closed up.
+	if err := s.revertGrants(ctx, q, paymentID, now); err != nil {
+		return back, err
+	}
 	rows, err := q.ListReferralRewardsByPayment(ctx, sql.NullInt64{Int64: paymentID, Valid: paymentID != 0})
 	if err != nil {
 		return back, err
 	}
 	for _, r := range rows {
-		if r.Kind != KindPercent || r.RevertedAt.Valid {
+		if r.RevertedAt.Valid {
+			continue
+		}
+		// A days reward gives no balance back: the days it gave are taken out of the queue
+		// above, and the row is marked reverted here so the totals do not count it.
+		if r.Kind != KindPercent {
+			if _, err := q.RevertReferralReward(ctx, db.RevertReferralRewardParams{ID: r.ID, RevertedAt: sql.NullInt64{Int64: now, Valid: true}}); err != nil {
+				return back, err
+			}
 			continue
 		}
 		n, err := q.RevertReferralReward(ctx, db.RevertReferralRewardParams{ID: r.ID, RevertedAt: sql.NullInt64{Int64: now, Valid: true}})

@@ -42,10 +42,31 @@ const MaxLists = 30
 // Servers is how the apps pick a server. The zero value is the profile as it was: a group
 // per country, the fastest picked every five minutes.
 type Servers struct {
-	NoCountries bool   `json:"no_countries,omitempty"` // no group per node
-	Auto        string `json:"auto,omitempty"`         // "" the fastest (url-test), "fallback" the first that works
-	Interval    int    `json:"interval,omitempty"`     // seconds between checks; 0: 300
+	NoCountries bool `json:"no_countries,omitempty"` // no group per node
+	// Auto is how the auto group picks: "" the fastest (url-test), "fallback" the first
+	// that works, "load-balance" spreading the load (AutoLoadBalance).
+	Auto     string `json:"auto,omitempty"`
+	Interval int    `json:"interval,omitempty"` // seconds between checks; 0: 300
 }
+
+// The modes of the auto group (Servers.Auto).
+const (
+	// AutoFastest is the default: every server is tested and the fastest one carries all
+	// the traffic.
+	AutoFastest = ""
+	// AutoFallback takes the first working server in the order of the nodes and moves on
+	// only when it fails.
+	AutoFallback = "fallback"
+	// AutoLoadBalance spreads the traffic over the working servers instead of sending all
+	// of it through one. The strategy is the one mihomo defaults to when the key is left
+	// out: consistent-hashing, which pins a destination to one server, so a session keeps
+	// its exit address — round-robin would spread evenly but move a site's traffic between
+	// servers, and sites that watch an address (banks, captchas) would break.
+	AutoLoadBalance = "load-balance"
+)
+
+// autoKinds are the accepted values of Servers.Auto: what Check lets through.
+var autoKinds = []string{AutoFastest, AutoFallback, AutoLoadBalance}
 
 // Tune holds the finer settings of the profile.
 type Tune struct {
@@ -269,7 +290,7 @@ func (r Routes) Check(nodeExists func(int64) bool) error {
 	if err := checkLists(r.Lists, target); err != nil {
 		return err
 	}
-	if s := r.Servers; s.Auto != "" && s.Auto != "fallback" || s.Interval != 0 && (s.Interval < 30 || s.Interval > 86400) {
+	if s := r.Servers; !slices.Contains(autoKinds, s.Auto) || s.Interval != 0 && (s.Interval < 30 || s.Interval > 86400) {
 		return errors.New("routes_servers")
 	}
 	for _, id := range r.Direct {

@@ -65,6 +65,37 @@ func (q *Queries) ClaimReferralCode(ctx context.Context, arg ClaimReferralCodePa
 	return result.RowsAffected()
 }
 
+const clearReferralRewardGrantQueue = `-- name: ClearReferralRewardGrantQueue :execrows
+UPDATE referral_reward_grants SET status = 'done', reverted_at = $2, updated_at = $2
+WHERE referrer_tg_id = $1 AND status IN ('queued','running') AND reverted_at IS NULL
+`
+
+type ClearReferralRewardGrantQueueParams struct {
+	ReferrerTgID int64
+	RevertedAt   sql.NullInt64
+}
+
+// A referrer's whole queue dropped at once, with any running reward stopped: the refund of
+// one payment may leave later ones waiting on a streak that no longer starts.
+func (q *Queries) ClearReferralRewardGrantQueue(ctx context.Context, arg ClearReferralRewardGrantQueueParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, clearReferralRewardGrantQueue, arg.ReferrerTgID, arg.RevertedAt)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const countPendingReferralRewardGrants = `-- name: CountPendingReferralRewardGrants :one
+SELECT COUNT(*) AS n FROM referral_reward_grants WHERE status IN ('queued','running') AND reverted_at IS NULL
+`
+
+func (q *Queries) CountPendingReferralRewardGrants(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countPendingReferralRewardGrants)
+	var n int64
+	err := row.Scan(&n)
+	return n, err
+}
+
 const countReferralAccounts = `-- name: CountReferralAccounts :one
 SELECT COUNT(*) AS accounts,
   CAST(COALESCE(SUM(CASE WHEN balance > 0 THEN balance ELSE 0 END), 0) AS BIGINT) AS owed
@@ -190,6 +221,72 @@ func (q *Queries) CreateReferralReward(ctx context.Context, arg CreateReferralRe
 	return i, err
 }
 
+const createReferralRewardGrant = `-- name: CreateReferralRewardGrant :one
+INSERT INTO referral_reward_grants
+(referrer_tg_id, referral_id, payment_id, rule_id, tariff_id, days, price, status, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5,
+        $6, $7, 'queued', $8, $8)
+RETURNING id, referrer_tg_id, referral_id, payment_id, rule_id, tariff_id, days, price, status, run_at, ends_at, reward_id, reverted_at, created_at, updated_at, before_user_id, before_status, before_tariff_id, before_traffic_limit, before_device_limit, before_speed_limit, before_reset_strategy, before_device_mode, before_period_days, before_period_start, before_expires_at, before_billing_day
+`
+
+type CreateReferralRewardGrantParams struct {
+	ReferrerTgID int64
+	ReferralID   int64
+	PaymentID    sql.NullInt64
+	RuleID       string
+	TariffID     sql.NullInt64
+	Days         int64
+	Price        int64
+	CreatedAt    int64
+}
+
+// What a days rule owes a referrer: a temporary subscription on the tariff the referee
+// bought. The row is written on the payment's own transaction, so the reward exists the
+// moment the payment does.
+func (q *Queries) CreateReferralRewardGrant(ctx context.Context, arg CreateReferralRewardGrantParams) (ReferralRewardGrant, error) {
+	row := q.db.QueryRowContext(ctx, createReferralRewardGrant,
+		arg.ReferrerTgID,
+		arg.ReferralID,
+		arg.PaymentID,
+		arg.RuleID,
+		arg.TariffID,
+		arg.Days,
+		arg.Price,
+		arg.CreatedAt,
+	)
+	var i ReferralRewardGrant
+	err := row.Scan(
+		&i.ID,
+		&i.ReferrerTgID,
+		&i.ReferralID,
+		&i.PaymentID,
+		&i.RuleID,
+		&i.TariffID,
+		&i.Days,
+		&i.Price,
+		&i.Status,
+		&i.RunAt,
+		&i.EndsAt,
+		&i.RewardID,
+		&i.RevertedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.BeforeUserID,
+		&i.BeforeStatus,
+		&i.BeforeTariffID,
+		&i.BeforeTrafficLimit,
+		&i.BeforeDeviceLimit,
+		&i.BeforeSpeedLimit,
+		&i.BeforeResetStrategy,
+		&i.BeforeDeviceMode,
+		&i.BeforePeriodDays,
+		&i.BeforePeriodStart,
+		&i.BeforeExpiresAt,
+		&i.BeforeBillingDay,
+	)
+	return i, err
+}
+
 const createReferralSpend = `-- name: CreateReferralSpend :one
 INSERT INTO referral_spends (payment_id, tg_id, amount, created_at)
 VALUES ($1, $2, $3, $4) RETURNING id, payment_id, tg_id, amount, created_at, reverted_at
@@ -236,6 +333,26 @@ func (q *Queries) FindReferralAccountByCode(ctx context.Context, code string) (R
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const finishReferralRewardGrant = `-- name: FinishReferralRewardGrant :execrows
+UPDATE referral_reward_grants SET status = 'done', updated_at = $2
+WHERE id = $1 AND status = 'running' AND reverted_at IS NULL
+`
+
+type FinishReferralRewardGrantParams struct {
+	ID        int64
+	UpdatedAt int64
+}
+
+// The reward's days are over: it is done, and the subscription it suspended is the
+// caller's to put back (restore, below).
+func (q *Queries) FinishReferralRewardGrant(ctx context.Context, arg FinishReferralRewardGrantParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, finishReferralRewardGrant, arg.ID, arg.UpdatedAt)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const getReferral = `-- name: GetReferral :one
@@ -315,6 +432,45 @@ func (q *Queries) GetReferralReward(ctx context.Context, id int64) (ReferralRewa
 	return i, err
 }
 
+const getReferralRewardGrant = `-- name: GetReferralRewardGrant :one
+SELECT id, referrer_tg_id, referral_id, payment_id, rule_id, tariff_id, days, price, status, run_at, ends_at, reward_id, reverted_at, created_at, updated_at, before_user_id, before_status, before_tariff_id, before_traffic_limit, before_device_limit, before_speed_limit, before_reset_strategy, before_device_mode, before_period_days, before_period_start, before_expires_at, before_billing_day FROM referral_reward_grants WHERE id = $1
+`
+
+func (q *Queries) GetReferralRewardGrant(ctx context.Context, id int64) (ReferralRewardGrant, error) {
+	row := q.db.QueryRowContext(ctx, getReferralRewardGrant, id)
+	var i ReferralRewardGrant
+	err := row.Scan(
+		&i.ID,
+		&i.ReferrerTgID,
+		&i.ReferralID,
+		&i.PaymentID,
+		&i.RuleID,
+		&i.TariffID,
+		&i.Days,
+		&i.Price,
+		&i.Status,
+		&i.RunAt,
+		&i.EndsAt,
+		&i.RewardID,
+		&i.RevertedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.BeforeUserID,
+		&i.BeforeStatus,
+		&i.BeforeTariffID,
+		&i.BeforeTrafficLimit,
+		&i.BeforeDeviceLimit,
+		&i.BeforeSpeedLimit,
+		&i.BeforeResetStrategy,
+		&i.BeforeDeviceMode,
+		&i.BeforePeriodDays,
+		&i.BeforePeriodStart,
+		&i.BeforeExpiresAt,
+		&i.BeforeBillingDay,
+	)
+	return i, err
+}
+
 const getReferralSpendByPayment = `-- name: GetReferralSpendByPayment :one
 SELECT id, payment_id, tg_id, amount, created_at, reverted_at FROM referral_spends WHERE payment_id = $1
 `
@@ -358,6 +514,63 @@ func (q *Queries) LinkReferral(ctx context.Context, arg LinkReferralParams) (int
 	return result.RowsAffected()
 }
 
+const listDueReferralRewardGrants = `-- name: ListDueReferralRewardGrants :many
+SELECT id, referrer_tg_id, referral_id, payment_id, rule_id, tariff_id, days, price, status, run_at, ends_at, reward_id, reverted_at, created_at, updated_at, before_user_id, before_status, before_tariff_id, before_traffic_limit, before_device_limit, before_speed_limit, before_reset_strategy, before_device_mode, before_period_days, before_period_start, before_expires_at, before_billing_day FROM referral_reward_grants WHERE status = 'running' AND reverted_at IS NULL AND ends_at <= $1
+ORDER BY ends_at
+`
+
+// The rewards whose days have run out: what the advance pass ends first.
+func (q *Queries) ListDueReferralRewardGrants(ctx context.Context, now sql.NullInt64) ([]ReferralRewardGrant, error) {
+	rows, err := q.db.QueryContext(ctx, listDueReferralRewardGrants, now)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ReferralRewardGrant{}
+	for rows.Next() {
+		var i ReferralRewardGrant
+		if err := rows.Scan(
+			&i.ID,
+			&i.ReferrerTgID,
+			&i.ReferralID,
+			&i.PaymentID,
+			&i.RuleID,
+			&i.TariffID,
+			&i.Days,
+			&i.Price,
+			&i.Status,
+			&i.RunAt,
+			&i.EndsAt,
+			&i.RewardID,
+			&i.RevertedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.BeforeUserID,
+			&i.BeforeStatus,
+			&i.BeforeTariffID,
+			&i.BeforeTrafficLimit,
+			&i.BeforeDeviceLimit,
+			&i.BeforeSpeedLimit,
+			&i.BeforeResetStrategy,
+			&i.BeforeDeviceMode,
+			&i.BeforePeriodDays,
+			&i.BeforePeriodStart,
+			&i.BeforeExpiresAt,
+			&i.BeforeBillingDay,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listLateReferralRefunds = `-- name: ListLateReferralRefunds :many
 SELECT id FROM payments WHERE error='ref_late_refund_failed' AND status IN ('pending','expired','paid','failed') ORDER BY id
 `
@@ -378,6 +591,65 @@ func (q *Queries) ListLateReferralRefunds(ctx context.Context) ([]int64, error) 
 			return nil, err
 		}
 		items = append(items, id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPendingReferralRewardGrants = `-- name: ListPendingReferralRewardGrants :many
+SELECT id, referrer_tg_id, referral_id, payment_id, rule_id, tariff_id, days, price, status, run_at, ends_at, reward_id, reverted_at, created_at, updated_at, before_user_id, before_status, before_tariff_id, before_traffic_limit, before_device_limit, before_speed_limit, before_reset_strategy, before_device_mode, before_period_days, before_period_start, before_expires_at, before_billing_day FROM referral_reward_grants
+WHERE status IN ('queued','running') AND reverted_at IS NULL
+ORDER BY referrer_tg_id, price DESC, id
+`
+
+// The queue as it runs: every referrer with something owed, dearest reward first and
+// arrival between equals. The advance pass walks it.
+func (q *Queries) ListPendingReferralRewardGrants(ctx context.Context) ([]ReferralRewardGrant, error) {
+	rows, err := q.db.QueryContext(ctx, listPendingReferralRewardGrants)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ReferralRewardGrant{}
+	for rows.Next() {
+		var i ReferralRewardGrant
+		if err := rows.Scan(
+			&i.ID,
+			&i.ReferrerTgID,
+			&i.ReferralID,
+			&i.PaymentID,
+			&i.RuleID,
+			&i.TariffID,
+			&i.Days,
+			&i.Price,
+			&i.Status,
+			&i.RunAt,
+			&i.EndsAt,
+			&i.RewardID,
+			&i.RevertedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.BeforeUserID,
+			&i.BeforeStatus,
+			&i.BeforeTariffID,
+			&i.BeforeTrafficLimit,
+			&i.BeforeDeviceLimit,
+			&i.BeforeSpeedLimit,
+			&i.BeforeResetStrategy,
+			&i.BeforeDeviceMode,
+			&i.BeforePeriodDays,
+			&i.BeforePeriodStart,
+			&i.BeforeExpiresAt,
+			&i.BeforeBillingDay,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
@@ -463,6 +735,124 @@ func (q *Queries) ListReferralCounts(ctx context.Context, tgID int64) ([]Referra
 	for rows.Next() {
 		var i ReferralCounter
 		if err := rows.Scan(&i.TgID, &i.RuleID, &i.Paid); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listReferralRewardGrantsByPayment = `-- name: ListReferralRewardGrantsByPayment :many
+SELECT id, referrer_tg_id, referral_id, payment_id, rule_id, tariff_id, days, price, status, run_at, ends_at, reward_id, reverted_at, created_at, updated_at, before_user_id, before_status, before_tariff_id, before_traffic_limit, before_device_limit, before_speed_limit, before_reset_strategy, before_device_mode, before_period_days, before_period_start, before_expires_at, before_billing_day FROM referral_reward_grants WHERE payment_id = $1 ORDER BY id
+`
+
+// Every grant a payment is owed, reverted ones included: a refund must see what it has
+// already taken back as well as what it still has to.
+func (q *Queries) ListReferralRewardGrantsByPayment(ctx context.Context, paymentID sql.NullInt64) ([]ReferralRewardGrant, error) {
+	rows, err := q.db.QueryContext(ctx, listReferralRewardGrantsByPayment, paymentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ReferralRewardGrant{}
+	for rows.Next() {
+		var i ReferralRewardGrant
+		if err := rows.Scan(
+			&i.ID,
+			&i.ReferrerTgID,
+			&i.ReferralID,
+			&i.PaymentID,
+			&i.RuleID,
+			&i.TariffID,
+			&i.Days,
+			&i.Price,
+			&i.Status,
+			&i.RunAt,
+			&i.EndsAt,
+			&i.RewardID,
+			&i.RevertedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.BeforeUserID,
+			&i.BeforeStatus,
+			&i.BeforeTariffID,
+			&i.BeforeTrafficLimit,
+			&i.BeforeDeviceLimit,
+			&i.BeforeSpeedLimit,
+			&i.BeforeResetStrategy,
+			&i.BeforeDeviceMode,
+			&i.BeforePeriodDays,
+			&i.BeforePeriodStart,
+			&i.BeforeExpiresAt,
+			&i.BeforeBillingDay,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listReferralRewardGrantsOf = `-- name: ListReferralRewardGrantsOf :many
+SELECT id, referrer_tg_id, referral_id, payment_id, rule_id, tariff_id, days, price, status, run_at, ends_at, reward_id, reverted_at, created_at, updated_at, before_user_id, before_status, before_tariff_id, before_traffic_limit, before_device_limit, before_speed_limit, before_reset_strategy, before_device_mode, before_period_days, before_period_start, before_expires_at, before_billing_day FROM referral_reward_grants WHERE referrer_tg_id = $1 ORDER BY id DESC LIMIT CAST($2 AS BIGINT)
+`
+
+type ListReferralRewardGrantsOfParams struct {
+	ReferrerTgID int64
+	Lim          int64
+}
+
+// One referrer's grants, newest first: what a screen shows.
+func (q *Queries) ListReferralRewardGrantsOf(ctx context.Context, arg ListReferralRewardGrantsOfParams) ([]ReferralRewardGrant, error) {
+	rows, err := q.db.QueryContext(ctx, listReferralRewardGrantsOf, arg.ReferrerTgID, arg.Lim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ReferralRewardGrant{}
+	for rows.Next() {
+		var i ReferralRewardGrant
+		if err := rows.Scan(
+			&i.ID,
+			&i.ReferrerTgID,
+			&i.ReferralID,
+			&i.PaymentID,
+			&i.RuleID,
+			&i.TariffID,
+			&i.Days,
+			&i.Price,
+			&i.Status,
+			&i.RunAt,
+			&i.EndsAt,
+			&i.RewardID,
+			&i.RevertedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.BeforeUserID,
+			&i.BeforeStatus,
+			&i.BeforeTariffID,
+			&i.BeforeTrafficLimit,
+			&i.BeforeDeviceLimit,
+			&i.BeforeSpeedLimit,
+			&i.BeforeResetStrategy,
+			&i.BeforeDeviceMode,
+			&i.BeforePeriodDays,
+			&i.BeforePeriodStart,
+			&i.BeforeExpiresAt,
+			&i.BeforeBillingDay,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -845,6 +1235,48 @@ func (q *Queries) MarkReferralPaid(ctx context.Context, arg MarkReferralPaidPara
 	return result.RowsAffected()
 }
 
+const nextQueuedReferralRewardGrant = `-- name: NextQueuedReferralRewardGrant :one
+SELECT id, referrer_tg_id, referral_id, payment_id, rule_id, tariff_id, days, price, status, run_at, ends_at, reward_id, reverted_at, created_at, updated_at, before_user_id, before_status, before_tariff_id, before_traffic_limit, before_device_limit, before_speed_limit, before_reset_strategy, before_device_mode, before_period_days, before_period_start, before_expires_at, before_billing_day FROM referral_reward_grants
+WHERE referrer_tg_id = $1 AND status = 'queued' AND reverted_at IS NULL
+ORDER BY price DESC, id LIMIT 1
+`
+
+// The next reward a referrer has waiting: the dearest, then the one that arrived first.
+func (q *Queries) NextQueuedReferralRewardGrant(ctx context.Context, referrerTgID int64) (ReferralRewardGrant, error) {
+	row := q.db.QueryRowContext(ctx, nextQueuedReferralRewardGrant, referrerTgID)
+	var i ReferralRewardGrant
+	err := row.Scan(
+		&i.ID,
+		&i.ReferrerTgID,
+		&i.ReferralID,
+		&i.PaymentID,
+		&i.RuleID,
+		&i.TariffID,
+		&i.Days,
+		&i.Price,
+		&i.Status,
+		&i.RunAt,
+		&i.EndsAt,
+		&i.RewardID,
+		&i.RevertedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.BeforeUserID,
+		&i.BeforeStatus,
+		&i.BeforeTariffID,
+		&i.BeforeTrafficLimit,
+		&i.BeforeDeviceLimit,
+		&i.BeforeSpeedLimit,
+		&i.BeforeResetStrategy,
+		&i.BeforeDeviceMode,
+		&i.BeforePeriodDays,
+		&i.BeforePeriodStart,
+		&i.BeforeExpiresAt,
+		&i.BeforeBillingDay,
+	)
+	return i, err
+}
+
 const referralBalance = `-- name: ReferralBalance :one
 SELECT balance FROM referral_accounts WHERE tg_id = $1
 `
@@ -907,6 +1339,26 @@ func (q *Queries) RevertReferralReward(ctx context.Context, arg RevertReferralRe
 	return result.RowsAffected()
 }
 
+const revertReferralRewardGrant = `-- name: RevertReferralRewardGrant :execrows
+UPDATE referral_reward_grants SET status = 'done', reverted_at = $2, updated_at = $2
+WHERE id = $1 AND reverted_at IS NULL AND status IN ('queued','running')
+`
+
+type RevertReferralRewardGrantParams struct {
+	ID         int64
+	RevertedAt sql.NullInt64
+}
+
+// A refunded payment takes its reward out of the queue or off the streak. Reverted once:
+// the pass and the refund may both ask.
+func (q *Queries) RevertReferralRewardGrant(ctx context.Context, arg RevertReferralRewardGrantParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, revertReferralRewardGrant, arg.ID, arg.RevertedAt)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const revertReferralRewardsByPayment = `-- name: RevertReferralRewardsByPayment :execrows
 UPDATE referral_rewards SET reverted_at = $1 WHERE payment_id = $2 AND reverted_at IS NULL
 `
@@ -935,6 +1387,89 @@ type RevertReferralSpendParams struct {
 
 func (q *Queries) RevertReferralSpend(ctx context.Context, arg RevertReferralSpendParams) (int64, error) {
 	result, err := q.db.ExecContext(ctx, revertReferralSpend, arg.PaymentID, arg.RevertedAt)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const setReferralRewardGrantBeforeUser = `-- name: SetReferralRewardGrantBeforeUser :execrows
+UPDATE referral_reward_grants SET before_user_id = $1, updated_at = $2 WHERE id = $3
+`
+
+type SetReferralRewardGrantBeforeUserParams struct {
+	BeforeUserID sql.NullInt64
+	UpdatedAt    int64
+	ID           int64
+}
+
+// The subscription a grant made for a referrer who had none: the grant's own row is where
+// the reward's end learns it must not take the days back. before_status stays ” for it
+// (users.status is never empty), which is what marks the case; this is written by the pass
+// that made the subscription, right after StartReferralRewardGrant.
+func (q *Queries) SetReferralRewardGrantBeforeUser(ctx context.Context, arg SetReferralRewardGrantBeforeUserParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, setReferralRewardGrantBeforeUser, arg.BeforeUserID, arg.UpdatedAt, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const startReferralRewardGrant = `-- name: StartReferralRewardGrant :execrows
+UPDATE referral_reward_grants SET
+  status = 'running', run_at = $1, ends_at = $2, reward_id = $3,
+  before_user_id = $4, before_status = $5, before_tariff_id = $6,
+  before_traffic_limit = $7, before_device_limit = $8,
+  before_speed_limit = $9, before_reset_strategy = $10,
+  before_device_mode = $11, before_period_days = $12,
+  before_period_start = $13, before_expires_at = $14,
+  before_billing_day = $15, updated_at = $16
+WHERE id = $17 AND status = 'queued' AND reverted_at IS NULL
+`
+
+type StartReferralRewardGrantParams struct {
+	RunAt               int64
+	EndsAt              sql.NullInt64
+	RewardID            sql.NullInt64
+	BeforeUserID        sql.NullInt64
+	BeforeStatus        string
+	BeforeTariffID      sql.NullInt64
+	BeforeTrafficLimit  sql.NullInt64
+	BeforeDeviceLimit   sql.NullInt64
+	BeforeSpeedLimit    sql.NullInt64
+	BeforeResetStrategy string
+	BeforeDeviceMode    string
+	BeforePeriodDays    int64
+	BeforePeriodStart   int64
+	BeforeExpiresAt     sql.NullInt64
+	BeforeBillingDay    sql.NullInt64
+	UpdatedAt           int64
+	ID                  int64
+}
+
+// Puts a grant's days on the calendar and marks it the running one, with the referrer's
+// own subscription saved in the same statement: the suspension and the grant are one write.
+// A grant that is not queued (already running, done or reverted) changes nothing.
+func (q *Queries) StartReferralRewardGrant(ctx context.Context, arg StartReferralRewardGrantParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, startReferralRewardGrant,
+		arg.RunAt,
+		arg.EndsAt,
+		arg.RewardID,
+		arg.BeforeUserID,
+		arg.BeforeStatus,
+		arg.BeforeTariffID,
+		arg.BeforeTrafficLimit,
+		arg.BeforeDeviceLimit,
+		arg.BeforeSpeedLimit,
+		arg.BeforeResetStrategy,
+		arg.BeforeDeviceMode,
+		arg.BeforePeriodDays,
+		arg.BeforePeriodStart,
+		arg.BeforeExpiresAt,
+		arg.BeforeBillingDay,
+		arg.UpdatedAt,
+		arg.ID,
+	)
 	if err != nil {
 		return 0, err
 	}

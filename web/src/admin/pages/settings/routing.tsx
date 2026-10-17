@@ -275,14 +275,24 @@ export function RoutingSection({ s, view, onView }: { s: Schemas["SettingsView"]
             </Field>
 
             <Disclosure title={t("settings.routesServers")} sub={t("settings.routesServersSub")} open={!!errors.sub_routes && apiErr?.fields.sub_routes === t("errors.api.routes_servers")}>
-              <Field label={t("settings.routesAutoKind")} hint={t(servers.auto === "fallback" ? "settings.routesAutoFallbackHint" : "settings.routesAutoFastestHint")}>
+              <Field
+                label={t("settings.routesAutoKind")}
+                hint={t(
+                  servers.auto === "fallback"
+                    ? "settings.routesAutoFallbackHint"
+                    : servers.auto === "load-balance"
+                      ? "settings.routesAutoBalanceHint"
+                      : "settings.routesAutoFastestHint",
+                )}
+              >
                 <Segmented
                   label={t("settings.routesAutoKind")}
-                  value={servers.auto === "fallback" ? "fallback" : "fastest"}
-                  onChange={(v) => setServers({ auto: v === "fallback" ? "fallback" : undefined })}
+                  value={servers.auto === "fallback" ? "fallback" : servers.auto === "load-balance" ? "load-balance" : "fastest"}
+                  onChange={(v) => setServers({ auto: v === "fastest" ? undefined : (v as Routes["servers"] extends { auto?: infer A } ? A : string) })}
                   options={[
                     { value: "fastest", label: t("settings.routesAutoFastest") },
                     { value: "fallback", label: t("settings.routesAutoFallback") },
+                    { value: "load-balance", label: t("settings.routesAutoBalance") },
                   ]}
                 />
               </Field>
