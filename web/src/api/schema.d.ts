@@ -3152,7 +3152,7 @@ export interface components {
             node_id?: number;
             port?: string;
             /** @enum {string} */
-            preset: "vless_reality_xhttp" | "hysteria2" | "hysteria2_gecko" | "tuic_v5" | "vless_reality_vision" | "vless_reality_grpc" | "trojan_reality" | "vless_tls_xhttp" | "vless_tls_vision" | "vless_tls_ws" | "vless_tls_xhttp_cdn" | "anytls" | "vless_reality_xhttp_pq" | "trusttunnel" | "shadowquic" | "mieru" | "shadowsocks_2022" | "sudoku" | "snell" | "custom";
+            preset: "vless_reality_xhttp" | "hysteria2" | "hysteria2_gecko" | "tuic_v5" | "vless_reality_vision" | "vless_reality_grpc" | "trojan_reality" | "vless_tls_xhttp" | "vless_tls_vision" | "vless_tls_ws" | "vless_tls_xhttp_cdn" | "vless_tls_xhttp_cdn_get" | "anytls" | "vless_reality_xhttp_pq" | "trusttunnel" | "shadowquic" | "mieru" | "shadowsocks_2022" | "sudoku" | "snell" | "custom";
         };
         CreateNodeInputBody: {
             /**
@@ -6221,8 +6221,11 @@ export interface components {
              * @enum {string}
              */
             uplink_data_placement?: "" | "body" | "header" | "cookie" | "auto";
-            /** @enum {string} */
-            uplink_http_method?: "" | "POST" | "PUT" | "PATCH";
+            /**
+             * @description Метод аплоада (packet-up); GET везёт данные в заголовке или cookie — под CDN, пропускающие только GET
+             * @enum {string}
+             */
+            uplink_http_method?: "" | "GET" | "POST" | "PUT" | "PATCH";
             /** @description Размер паддинга, байт: число или диапазон «100-1000» */
             x_padding_bytes?: string;
             x_padding_header?: string;

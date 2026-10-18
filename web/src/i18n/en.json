@@ -204,6 +204,8 @@
       "xhttp_count": "A whole number from 1 to 10000: {value}",
       "xhttp_packet_up": "Upload data in a header or cookie works only in packet-up mode: {value}",
       "xhttp_key_needed": "Give a name for the header or cookie: {value}",
+      "xhttp_get_mode": "A GET uplink works only in the packet-up mode: {value}",
+      "xhttp_get_placement": "A GET uplink carries its payload in a header or cookie: {value}",
       "xhttp_same_key": "The session id and the request number cannot share one place and name: {value}",
       "xhttp_table_needed": "The id length needs a character set. Set it or clear the length: {value}",
       "xhttp_table_small": "Too few possible ids (at least two billion are needed): add characters or lengthen the id: {value}",
@@ -1073,7 +1075,7 @@
     "vless_tls_xhttp": "Plain TLS on the real certificate of the panel's domain, like a website: answers strangers as a web server, keeps few connections",
     "vless_tls_vision": "Classic VLESS Vision on the real certificate of the panel's domain: works in almost every app. Gets frozen quickly on 443 in Russia",
     "vless_tls_ws": "WebSocket on a real certificate: gets through on operators where only WS works, and through a CDN (Cloudflare, Yandex). For a CDN, put its address in the \"behind a proxy\" block",
-    "vless_tls_xhttp_cdn": "XHTTP on a real certificate, made for a CDN: the client dials the distribution domain, the CDN reaches the node over TLS, and the node answers strangers as an ordinary website. The stream-one mode (one POST up, one streaming GET down) is carried by every CDN",
+    "vless_tls_xhttp_cdn": "XHTTP on a real certificate, made for a CDN: the client dials the distribution domain, the CDN reaches the node over TLS, and the node answers strangers as an ordinary website. The stream-one mode (one POST up, one streaming GET down) is for the CDNs that still pass POST; if yours refuses it, take the \"CDN · GET uplink\" preset below",
     "anytls": "TLS with padding against packet-size analysis. Needs a mihomo or sing-box app",
     "vless_reality_xhttp_pq": "XHTTP with post-quantum encryption: traffic recorded today stays sealed in the future too. Needs a recent mihomo or Xray, sing-box will not connect",
     "trusttunnel": "AdGuard's protocol: HTTP/2 on the node's real certificate. It answers a request without a key with 407, like a proxy, so an active scanner can tell it: keep it off a node whose IP you need to keep clean",
@@ -1086,7 +1088,9 @@
     "trojan_realityWarn": "Russian DPI recognises Trojan by the shape of its traffic and blocks it quickly: keep it as a spare, VLESS REALITY is the main choice.",
     "vless_reality_grpcWarn": "VLESS without Vision: both the handshake and the stream have a simpler shape, and in Russia such inbounds get blocked sooner than XHTTP or Vision.",
     "vless_tls_wsWarn": "VLESS without Vision: both the handshake and the stream have a simpler shape, and in Russia such inbounds get blocked sooner than XHTTP or Vision. Keep it where WebSocket or a CDN is the only way through.",
-    "vless_tls_xhttp_cdnWarn": "Works only where the CDN is reachable on the operator's network. Put the distribution domain in the \"behind a proxy\" block and point an origin domain at the node: without a domain of your own the CDN cannot verify its certificate."
+    "vless_tls_xhttp_cdnWarn": "Works only where the CDN is reachable on the operator's network. Put the distribution domain in the \"behind a proxy\" block and point an origin domain at the node: without a domain of your own the CDN cannot verify its certificate.",
+    "vless_tls_xhttp_cdn_get": "XHTTP on a real certificate for CDNs that refuse POST (Yandex blocks it in their backend and answers a GET body with 413): the uplink rides GET requests with the payload in headers, the downlink is the same streaming GET. Strangers see an ordinary website on the distribution domain",
+    "vless_tls_xhttp_cdn_getWarn": "Fresh clients only: Xray 26.3.27+ (Happ, v2RayTun) or mihomo 1.19.32+; sing-box apps never get it. Works only where the CDN is reachable on the operator's network. Put the distribution domain in the \"behind a proxy\" block and point an origin domain at the node."
   },
   "inbounds": {
     "subtitle": "Protocols clients use to reach the server. Keys and passwords are generated automatically.",
@@ -1232,6 +1236,7 @@
       "header": "Header",
       "upload": "Upload",
       "uplinkMethod": "Method",
+      "uplinkGetHint": "The payload rides GET request headers: the form turns on packet-up and the header placement. For CDNs refusing POST (Yandex)",
       "chunk": "Upload chunk, bytes",
       "maxPost": "Largest request, bytes",
       "reuse": "App connections",

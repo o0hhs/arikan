@@ -62,9 +62,11 @@ func TestXHTTPTuningOverHTTP(t *testing.T) {
 	if resp.StatusCode != http.StatusUnprocessableEntity || !strings.Contains(string(raw), "body.xhttp") || !strings.Contains(string(raw), "xhttp_range") || !strings.Contains(string(raw), "x-padding-bytes") {
 		t.Fatalf("a bad range: %d %s", resp.StatusCode, raw)
 	}
-	// The new settings name themselves: GET is not an upload method of the node.
+	// GET is an upload method now, but it insists on packet-up with the payload outside
+	// the body — the shape the CDN GET preset bakes in.
 	for key, bad := range map[string]map[string]any{
-		"uplink_http_method":    {"uplink_http_method": "GET"},
+		"xhttp_get_mode":        {"uplink_http_method": "GET"},
+		"xhttp_get_placement":   {"mode": "packet-up", "uplink_http_method": "GET"},
 		"session_placement":     {"session_placement": "body"},
 		"uplink-data-key":       {"mode": "packet-up", "uplink_data_placement": "header"},
 		"sc-max-buffered-posts": {"sc_max_buffered_posts": "0"},
@@ -74,6 +76,11 @@ func TestXHTTPTuningOverHTTP(t *testing.T) {
 		if resp.StatusCode != http.StatusUnprocessableEntity || !strings.Contains(string(raw), key) {
 			t.Fatalf("%s: %d %s", key, resp.StatusCode, raw)
 		}
+	}
+	// The GET uplink itself is accepted and lands in the template as the cores read it.
+	resp, raw = k.do(http.MethodPatch, k.api+"/inbounds/"+idOf(ids["vless-xhttp"]), map[string]any{"xhttp": map[string]any{"mode": "packet-up", "uplink_http_method": "GET", "uplink_data_placement": "header", "uplink_data_key": "X-Data"}}, k.csrf)
+	if v := get("vless-xhttp"); resp.StatusCode != http.StatusOK || v.XHTTP["uplink_http_method"] != "GET" || !strings.Contains(v.Config, "uplink-http-method: GET") {
+		t.Fatalf("GET uplink: %d %s\n%s", resp.StatusCode, raw, v.Config)
 	}
 	resp, raw = k.do(http.MethodPatch, k.api+"/inbounds/"+idOf(ids["vless-xhttp"]), map[string]any{"xhttp": map[string]any{"mode": "packet-up", "session_placement": "cookie",
 		"uplink_data_placement": "header", "uplink_data_key": "X-D", "sc_max_buffered_posts": "40", "no_sse_header": true, "session_table": "hex", "session_length": "20"}}, k.csrf)

@@ -43,9 +43,10 @@ A node without a domain gets a certificate for its IP address. A CDN normally do
 
 ## Step 2. An inbound made for a CDN
 
-In the panel add the **VLESS · TLS · XHTTP · CDN** inbound.
+The panel has two CDN presets — the choice depends on whether the provider passes POST.
 
-- The `stream-one` mode: the uplink goes as a single POST, the downlink as a streaming GET. This is what every CDN carries.
+- **VLESS · TLS · XHTTP · CDN**: the `stream-one` mode — the uplink in a single POST, the downlink in a streaming GET. For CDNs with a living POST; the big ones cut it ever more often — Yandex blocks POST outright on its backend.
+- **VLESS · TLS · XHTTP · CDN · GET uplink**: the `packet-up` mode with the uplink in GET requests whose payload rides `X-Data` headers, the body empty. This passes where POST does not live. Clients need a fresh Xray (26.3.27+ inside Happ, v2RayTun) or mihomo (1.19.32+); sing-box apps never get this protocol.
 - Keep the offered port or change it: it is the CDN that faces the outside, not this port.
 - The certificate is the origin domain from step 1.
 
@@ -101,7 +102,7 @@ One command can check the layers, using the script in the repository:
 bash scripts/cdn-check.sh --cdn cdn.example.com --origin origin.example.com --path /your-path/
 ```
 
-It changes nothing: it looks at the DNS of both names, the origin's certificate (validity, names, issuer), the origin's answer directly, the CDN's answer and the response time at both ends, then sends a POST and a GET to the transport path. A failure names the layer, and that already shows what to fix. It also catches a `405` on POST: that is the answer to the scheme's main question — whether the CDN you picked passes an XHTTP uplink.
+It changes nothing: it looks at the DNS of both names, the origin's certificate (validity, names, issuer), the origin's answer directly, the CDN's answer and the response time at both ends, then sends a POST and a GET to the transport path. A failure names the layer, and that already shows what to fix. It also catches a `405` on POST: that is the answer to whether the CDN you picked passes a POST uplink — for the GET uplink it is no verdict, see the row above.
 
 ## When it does not work
 
@@ -111,7 +112,7 @@ It changes nothing: it looks at the DNS of both names, the origin's certificate 
 | `504` | the origin's response time directly and through the CDN; some CDNs have a fixed window (Yandex wants an answer within five seconds) that raising a timeout in nginx will not change |
 | `403` | access rules and the WAF on the CDN's side |
 | `404` | the `Host` header and the path: the request landed in the wrong handler |
-| `405` | the request method. CDNs often pass only `GET`, `HEAD` and `OPTIONS`, while an XHTTP uplink is a POST — change the CDN or the mode |
+| `405` | the method: CDNs often pass only `GET`, `HEAD` and `OPTIONS`. For the POST preset (`stream-one`) — change the CDN; for the GET uplink it is no verdict: its upload goes GET, see the row below |
 | `413` | a body size limit: check it on every layer |
 | `429` | rate and connection limits |
 | Works, then freezes | the CDN's maximum connection duration and idle time, read timeouts; `proxy_read_timeout` sets the gap between read operations, not the length of the whole response |

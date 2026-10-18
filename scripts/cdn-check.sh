@@ -227,13 +227,14 @@ else
   tp="$PATH_"
 fi
 
-# Аплоад XHTTP — POST. Если CDN пропускает только GET/HEAD/OPTIONS, здесь будет 405,
-# и это ответ на главный вопрос схемы.
+# Аплоад XHTTP: POST у пресета «CDN», GET с данными в заголовках у пресета
+# «CDN · GET-аплоад». 405 на POST про первый скажет всё, а для второго не драма —
+# смотрите GET ниже.
 post_code="$($CURL -o /dev/null -w '%{http_code}' -X POST "https://$CDN:$PORT${tp}" 2>/dev/null)"
 case "$post_code" in
-  405) bad "CDN ответил 405 на POST: он пропускает только GET/HEAD/OPTIONS"
-       info "лечится выбором другого CDN. Режим packet-up на mihomo требует POST и GET-аплинк"
-       info "ядро не принимает, так что смена режима тут не поможет" ;;
+  405) warn "CDN ответил 405 на POST: он пропускает только GET/HEAD/OPTIONS"
+       info "для пресета «CDN» (stream-one) это конец — смените CDN"
+       info "для пресета «CDN · GET-аплоад» это не приговор: его аплоад — GET с данными в заголовках, смотрите GET ниже" ;;
   000|"") bad "запрос через CDN не прошёл" ;;
   2*|4*) ok "POST через CDN: HTTP $post_code" ;;
   5*)    bad "POST через CDN: HTTP $post_code" ;;

@@ -172,8 +172,6 @@ github.com/metacubex/kcp-go v0.0.0-20260105040817-550693377604 h1:hJwCVlE3ojViC3
 github.com/metacubex/kcp-go v0.0.0-20260105040817-550693377604/go.mod h1:lpmN3m269b3V5jFCWtffqBLS4U3QQoIid9ugtO+OhVc=
 github.com/metacubex/mhurl v0.1.0 h1:ZdW4Zxe3j3uJ89gNytOazHu6kbHn5owutN/VfXOI8GE=
 github.com/metacubex/mhurl v0.1.0/go.mod h1:2qpQImCbXoUs6GwJrjuEXKelPyoimsIXr07eNKZdS00=
-github.com/metacubex/mihomo v1.19.32 h1:uD7ZC3P77isWD554NNvtee65L+99+/C5hyc+Lk8rVEk=
-github.com/metacubex/mihomo v1.19.32/go.mod h1:d7xWi5iEktkC9PqXkD/Vo4AEcb0Q92XikfLoySUDWls=
 github.com/metacubex/mipstack v0.0.0-20260930071539-961d4b1c1983 h1:BGb9PDJrrZSsDnJyeFWFY9v6uTr6/LxokQgwuHVAsDI=
 github.com/metacubex/mipstack v0.0.0-20260930071539-961d4b1c1983/go.mod h1:+bbwALZI0pbi2auSG5A3ptdpV2DZ2eLObziXo+P7oj0=
 github.com/metacubex/mlkem v0.1.0 h1:wFClitonSFcmipzzQvax75beLQU+D7JuC+VK1RzSL8I=
@@ -240,6 +238,8 @@ github.com/mroth/weightedrand/v2 v2.1.0 h1:o1ascnB1CIVzsqlfArQQjeMy1U0NcIbBO5rfd
 github.com/mroth/weightedrand/v2 v2.1.0/go.mod h1:f2faGsfOGOwc1p94wzHKKZyTpcJUW7OJ/9U4yfiNAOU=
 github.com/ncruces/go-strftime v1.0.0 h1:HMFp8mLCTPp341M/ZnA4qaf7ZlsbTc+miZjCLOFAw7w=
 github.com/ncruces/go-strftime v1.0.0/go.mod h1:Fwc5htZGVVkseilnfgOVb9mKy6w1naJmn9CehxcKcls=
+github.com/o0hhs/mihomo v1.19.33-get.1 h1:0899AvGM3dU3QaLsTeyIEbFABWs3aEeu1SE8z5rS2L8=
+github.com/o0hhs/mihomo v1.19.33-get.1/go.mod h1:d7xWi5iEktkC9PqXkD/Vo4AEcb0Q92XikfLoySUDWls=
 github.com/oasisprotocol/deoxysii v0.0.0-20220228165953-2091330c22b7 h1:1102pQc2SEPp5+xrS26wEaeb26sZy6k9/ZXlZN+eXE4=
 github.com/oasisprotocol/deoxysii v0.0.0-20220228165953-2091330c22b7/go.mod h1:UqoUn6cHESlliMhOnKLWr+CBH+e3bazUPvFj1XZwAjs=
 github.com/openacid/errors v0.8.1/go.mod h1:GUQEJJOJE3W9skHm8E8Y4phdl2LLEN8iD7c5gcGgdx0=

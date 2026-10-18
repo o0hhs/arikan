@@ -20,7 +20,7 @@ type XHTTPTuning struct {
 	PaddingKey       string `json:"x_padding_key" required:"false"`
 	PaddingHeader    string `json:"x_padding_header" required:"false"`
 	PaddingMethod    string `json:"x_padding_method" required:"false" enum:",repeat-x,tokenish"`
-	UplinkMethod     string `json:"uplink_http_method" required:"false" enum:",POST,PUT,PATCH"`
+	UplinkMethod     string `json:"uplink_http_method" required:"false" enum:",GET,POST,PUT,PATCH" doc:"Метод аплоада (packet-up); GET везёт данные в заголовке или cookie — под CDN, пропускающие только GET"`
 	UplinkChunkSize  string `json:"uplink_chunk_size" required:"false" doc:"Размер куска отправки, байт: число или диапазон"`
 	MaxEachPostBytes string `json:"sc_max_each_post_bytes" required:"false" doc:"Наибольший запрос отправки (packet-up), байт: число или диапазон"`
 	// Where the session id, the request number and the upload data travel: both ends must
@@ -243,9 +243,10 @@ func (x XHTTPTuning) check() error {
 	}{
 		{x.PaddingPlacement, "xhttp-config.x-padding-placement", []string{"queryInHeader", "header", "cookie", "query"}},
 		{x.PaddingMethod, "xhttp-config.x-padding-method", []string{"repeat-x", "tokenish"}},
-		// GET is not here: mihomo's server answers an upload only to a method other than
-		// GET (Xray's takes GET in packet-up with the data outside the body).
-		{x.UplinkMethod, "xhttp-config.uplink-http-method", []string{"POST", "PUT", "PATCH"}},
+		// GET is the uplink a GET-only CDN carries: the node's patched server decodes
+		// it (see checkSession for the mode and the placement it insists on), and the
+		// Xray clients behind Happ and friends speak it since Xray 26.3.27.
+		{x.UplinkMethod, "xhttp-config.uplink-http-method", []string{"GET", "POST", "PUT", "PATCH"}},
 		{x.SessionPlacement, "xhttp-config.session-placement", []string{"path", "query", "header", "cookie"}},
 		{x.SeqPlacement, "xhttp-config.seq-placement", []string{"path", "query", "header", "cookie"}},
 		// No "query" for the data: mihomo sends nothing in that case.
@@ -344,6 +345,21 @@ var sessionTableChars = regexp.MustCompile(`^[A-Za-z0-9._~-]+$`)
 // checkSession is what depends on several of the new settings at once, and the client's
 // id table.
 func (x XHTTPTuning) checkSession() error {
+	// A GET uplink needs its mode said out loud (a core left at "auto" passes it, Xray's
+	// own config refuses it, and the share links then disagree on which one applies) and
+	// the payload outside the body: a GET body is what only-GET CDNs reject, and a node
+	// without the server change answers it 200-empty.
+	if strings.TrimSpace(x.UplinkMethod) == "GET" {
+		if strings.TrimSpace(x.Mode) != "packet-up" {
+			return fail("xhttp_get_mode", "xhttp-config.mode")
+		}
+		if place := strings.TrimSpace(x.UplinkDataPlacement); place != "header" && place != "cookie" {
+			return fail("xhttp_get_placement", "xhttp-config.uplink-data-placement")
+		}
+		if strings.TrimSpace(x.UplinkDataKey) == "" {
+			return fail("xhttp_key_needed", "xhttp-config.uplink-data-key")
+		}
+	}
 	switch strings.TrimSpace(x.UplinkDataPlacement) {
 	case "header", "cookie":
 		// Xray refuses these in other modes; without a key mihomo uses an empty name where

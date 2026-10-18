@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/url"
 	"strconv"
+	"strings"
 )
 
 // Protocols of mihomo's newer cores; only Clash apps (mihomo) and a few others speak them.
@@ -211,6 +212,7 @@ type Needs struct {
 	Transport  string // vless, vmess, trojan: tcp, xhttp, grpc or ws
 	Encryption bool   // VLESS Encryption (post-quantum)
 	Gecko      bool   // Hysteria2 with Gecko obfuscation
+	GetUplink  bool   // XHTTP uplink by GET: the payload rides in a header or cookie
 }
 
 // NeedsOf describes a template for choosing which apps get it.
@@ -222,5 +224,10 @@ func NeedsOf(t Template) Needs {
 	}
 	n.Encryption = n.Type == "vless" && t.hasEncryption()
 	n.Gecko = n.Type == "hysteria2" && t.str("obfs") == ObfsGecko
+	if n.Transport == "xhttp" {
+		if x, ok := XHTTPOf(t); ok {
+			n.GetUplink = strings.TrimSpace(x.UplinkMethod) == "GET"
+		}
+	}
 	return n
 }

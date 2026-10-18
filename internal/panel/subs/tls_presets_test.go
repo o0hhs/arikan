@@ -1,6 +1,7 @@
 package subs
 
 import (
+	"encoding/json"
 	"net/url"
 	"testing"
 
@@ -14,7 +15,7 @@ import (
 func TestVLESSTLSPresets(t *testing.T) {
 	cert := proto.Cert{CertPath: "/data/tls/node.crt", KeyPath: "/data/tls/node.key"}
 	slot := proto.Slot{Name: "s000001", UUID: "0b4ddc4c-7c4f-4a36-9d62-6f1a44b8c4e1", Secret: "x"}
-	for _, id := range []string{presets.PresetTLSXHTTP, presets.PresetTLSVision, presets.PresetCDN} {
+	for _, id := range []string{presets.PresetTLSXHTTP, presets.PresetTLSVision, presets.PresetCDN, presets.PresetCDNGET} {
 		src, err := presets.NewConfig(id, "")
 		if err != nil {
 			t.Fatal(err)
@@ -80,6 +81,24 @@ func TestVLESSTLSPresets(t *testing.T) {
 				if h, set := opts["host"]; set && h != "" {
 					t.Fatalf("cdn opts carry a host: %v", opts)
 				}
+			}
+		case presets.PresetCDNGET:
+			// The GET-shaped CDN preset: packet-up with the uplink by GET and the payload
+			// in X-Data headers baked into the template, both ends read them through
+			// xhttpShared (mihomo's options and Xray's extra carry the same keys).
+			if q.Get("type") != "xhttp" || q.Get("mode") != "packet-up" || q.Get("path") == "" || !xray || singbox {
+				t.Fatalf("cdn get: %s xray=%v sing-box=%v", c.URI, xray, singbox)
+			}
+			var extra map[string]any
+			if e := q.Get("extra"); e == "" || json.Unmarshal([]byte(e), &extra) != nil {
+				t.Fatalf("cdn get extra: %q", q.Get("extra"))
+			}
+			if extra["uplinkHTTPMethod"] != "GET" || extra["uplinkDataPlacement"] != "header" || extra["uplinkDataKey"] != "X-Data" {
+				t.Fatalf("cdn get extra keys: %v", extra)
+			}
+			opts, _ := c.Mihomo["xhttp-opts"].(map[string]any)
+			if opts["uplink-http-method"] != "GET" || opts["uplink-data-placement"] != "header" || opts["uplink-data-key"] != "X-Data" {
+				t.Fatalf("cdn get mihomo opts: %v", opts)
 			}
 		case presets.PresetTLSVision:
 			if q.Get("type") != "tcp" || q.Get("flow") != "xtls-rprx-vision" || !xray || !singbox {

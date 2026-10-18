@@ -2015,6 +2015,7 @@
               "vless_tls_vision",
               "vless_tls_ws",
               "vless_tls_xhttp_cdn",
+              "vless_tls_xhttp_cdn_get",
               "anytls",
               "vless_reality_xhttp_pq",
               "trusttunnel",
@@ -10179,8 +10180,10 @@
             "type": "string"
           },
           "uplink_http_method": {
+            "description": "Метод аплоада (packet-up); GET везёт данные в заголовке или cookie — под CDN, пропускающие только GET",
             "enum": [
               "",
+              "GET",
               "POST",
               "PUT",
               "PATCH"

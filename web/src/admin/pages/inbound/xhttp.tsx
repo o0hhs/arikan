@@ -120,6 +120,24 @@ export function XhttpTuning({ value, onChange, error }: { value: XHTTP; onChange
       uplink_data_key: named && !value.uplink_data_key ? (v === "header" ? "X-Data" : "x_data") : value.uplink_data_key,
     });
   };
+  // GET carries the payload in a header or cookie (a GET body is what only-GET CDNs
+  // reject), so picking it moves the mode and the placement along — the same wiring
+  // the CDN GET preset bakes into its template.
+  const setUplink = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const method = e.target.value as XHTTP["uplink_http_method"];
+    if (method !== "GET") {
+      onChange({ ...value, uplink_http_method: method });
+      return;
+    }
+    const placement = value.uplink_data_placement === "header" || value.uplink_data_placement === "cookie" ? value.uplink_data_placement : "header";
+    onChange({
+      ...value,
+      uplink_http_method: method,
+      mode: "packet-up",
+      uplink_data_placement: placement,
+      uplink_data_key: value.uplink_data_key || "X-Data",
+    });
+  };
   return (
     <div className="flex flex-col gap-1">
       <p className="mb-2 text-[13px] text-[var(--md-on-surface-variant)]">{t("inbounds.xhttp.intro")}</p>
@@ -197,9 +215,10 @@ export function XhttpTuning({ value, onChange, error }: { value: XHTTP; onChange
 
       <h3 className="mt-3 mb-1 text-[13px] font-semibold">{t("inbounds.xhttp.upload")}</h3>
       <div className="grid gap-x-3 sm:grid-cols-3">
-        <Field label={t("inbounds.xhttp.uplinkMethod")} htmlFor="x-uplink">
-          <select id="x-uplink" className="input" value={value.uplink_http_method} onChange={set("uplink_http_method")}>
+        <Field label={t("inbounds.xhttp.uplinkMethod")} htmlFor="x-uplink" hint={value.uplink_http_method === "GET" ? t("inbounds.xhttp.uplinkGetHint") : undefined}>
+          <select id="x-uplink" className="input" value={value.uplink_http_method} onChange={setUplink}>
             <option value="">POST</option>
+            <option value="GET">GET</option>
             <option value="PUT">PUT</option>
             <option value="PATCH">PATCH</option>
           </select>

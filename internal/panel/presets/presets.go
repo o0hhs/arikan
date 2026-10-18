@@ -66,10 +66,18 @@ const (
 	// (Yandex, VK, Selectel, Timeweb): the client dials the distribution domain, the CDN
 	// reaches the node over TLS, and the inbound answers everyone else as an ordinary site.
 	// stream-one is the mode a CDN carries to the end: its downlink is one streaming GET,
-	// which every provider passes, while packet-up sends the uplink as many POSTs and some
-	// CDNs answer those with 405. Unlike PresetTLSXHTTP the client address here is the
-	// distribution domain, so it is meant to be filled in "behind a proxy".
+	// while packet-up sends the uplink as many POSTs and some CDNs answer those with 405.
+	// Unlike PresetTLSXHTTP the client address here is the distribution domain, so it is
+	// meant to be filled in "behind a proxy".
 	PresetCDN = "vless_tls_xhttp_cdn"
+	// PresetCDNGET is the same VLESS over XHTTP behind a CDN, but the uplink rides GET
+	// requests with the payload in a header: Yandex blocks POST uploads on its backend
+	// (verified from its own API) and rejects a GET body with 413, so of the big Russian
+	// CDNs only this shape passes. It takes the clients of the fresh cores — Xray of
+	// 26.3.27+ inside Happ and friends, mihomo of 1.19.32+ — and needs the fork's patched
+	// node server (github.com/o0hhs/mihomo, the panel's default since it replaced the
+	// dependency).
+	PresetCDNGET = "vless_tls_xhttp_cdn_get"
 )
 
 // Order is display and fallback order. Since 2026 the RU DPI freezes a server's 443/tcp
@@ -89,8 +97,10 @@ var All = []Info{
 	{ID: PresetTLSVision, Title: "VLESS · TLS · Vision", Summary: "Классический VLESS Vision на настоящем сертификате домена панели: работает почти во всех приложениях. На 443 в РФ быстро замораживается", Type: "vless", Network: "tcp", Port: "3443", Name: "vless-tls-vision", SubName: "VLESS TLS Vision", DomainCert: true},
 	{ID: PresetTLSWS, Title: "VLESS · TLS · WebSocket", Summary: "WebSocket на настоящем сертификате: проходит у операторов, где работает только WS, и через CDN (Cloudflare, Яндекс). Для CDN укажите его адрес в блоке «За прокси»", Type: "vless", Network: "tcp", Port: "2053", Name: "vless-tls-ws", SubName: "VLESS WS", DomainCert: true,
 		Warning: "VLESS без Vision: у рукопожатия и потока проще форма, и в РФ такие инбаунды блокируются раньше, чем XHTTP или Vision. Оставьте его там, где без WebSocket или CDN не подключаются."},
-	{ID: PresetCDN, Title: "VLESS · TLS · XHTTP · CDN", Summary: "XHTTP на сертификате ноды специально для CDN: раздача идёт на домен CDN, тот ходит к источнику по TLS, чужим запросам нода отвечает как сайт. Режим stream-one: аплоад одним POST и потоковый GET, такое пропускают все CDN", Type: "vless", Network: "tcp", Port: "11443", Name: "vless-cdn", SubName: "VLESS CDN", DomainCert: true,
+	{ID: PresetCDN, Title: "VLESS · TLS · XHTTP · CDN", Summary: "XHTTP на сертификате ноды специально для CDN: раздача идёт на домен CDN, тот ходит к источнику по TLS, чужим запросам нода отвечает как сайт. Режим stream-one: аплоад одним POST и потоковый GET — для CDN, которые пропускают POST", Type: "vless", Network: "tcp", Port: "11443", Name: "vless-cdn", SubName: "VLESS CDN", DomainCert: true,
 		Warning: "Работает только там, где CDN доступен в сети оператора. Домен раздачи укажите в блоке «За прокси», а к ноде привяжите домен источника: без своего домена CDN не сможет проверить её сертификат."},
+	{ID: PresetCDNGET, Title: "VLESS · TLS · XHTTP · CDN · GET-аплоад", Summary: "То же, что CDN выше, но аплоад волнами GET-запросов с данными в заголовке: для CDN, которые POST не пропускают, — Яндекс закрыл его на бэкенде, а GET с телом отвечает 413. Скачивание — тот же потоковый GET", Type: "vless", Network: "tcp", Port: "11444", Name: "vless-cdn-get", SubName: "VLESS CDN GET", DomainCert: true,
+		Warning: "Только свежие приложения: Xray от 26.3.27 (Happ, v2RayTun) или mihomo от 1.19.32; на sing-box его не будет. Работает только там, где CDN доступен в сети оператора. Домен раздачи укажите в блоке «За прокси», а к ноде привяжите домен источника."},
 	{ID: "anytls", Title: "AnyTLS", Summary: "TLS с паддингом против анализа размеров пакетов; нужен клиент на mihomo или sing-box", Type: "anytls", Network: "tcp", Port: "2083", Name: "anytls", SubName: "AnyTLS"},
 	{ID: PresetPQ, Title: "VLESS · REALITY · XHTTP · PQ", Summary: "XHTTP с постквантовым шифрованием VLESS: записанный сейчас трафик не расшифровать и в будущем. Нужен свежий клиент на mihomo или Xray; приложения на sing-box не подключатся", Type: "vless", Network: "tcp", Port: "2096", Name: "vless-pq", SubName: "VLESS PQ"},
 	{ID: "trusttunnel", Title: "TrustTunnel", Summary: "Протокол AdGuard: HTTP/2 на настоящем сертификате ноды. На запрос без ключа отвечает 407, как прокси, и активный сканер его узнаёт: не ставьте его на ноду, IP которой важно сберечь", Type: "trusttunnel", Network: "tcp", Port: "4443", Name: "trusttunnel", SubName: "TrustTunnel", Apps: "mihomo"},
@@ -158,6 +168,14 @@ func NewConfig(id, dest string) (string, error) {
 		// CDN, and xhttp-config.host is exactly where it belongs (the Host header the
 		// node answers to). The template stays valid without it.
 		return proto.Marshal(proto.Template{"type": "vless", "xhttp-config": map[string]any{"path": randomPath(), "mode": "stream-one"},
+			"mikan": map[string]any{"tls": "node"}}), nil
+	case PresetCDNGET:
+		// The shape only-GET CDNs carry: the uplink in packet-up with GET and the payload
+		// in the X-Data headers, exactly what an Xray client of 26.3.27+ sends and what
+		// the patched node server decodes. All three uplink keys are baked in, so the
+		// admin never fills the form in, and the two ends cannot drift apart.
+		return proto.Marshal(proto.Template{"type": "vless", "xhttp-config": map[string]any{"path": randomPath(), "mode": "packet-up",
+			"uplink-http-method": "GET", "uplink-data-placement": "header", "uplink-data-key": "X-Data"},
 			"mikan": map[string]any{"tls": "node"}}), nil
 	case "hysteria2":
 		return proto.Marshal(proto.Template{"type": "hysteria2", "alpn": []any{"h3"}, "obfs": proto.ObfsSalamander, "obfs-password": secure.Token(24)}), nil

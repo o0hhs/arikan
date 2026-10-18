@@ -138,6 +138,12 @@ var mihomoNewTypes = map[string]bool{"mieru": true, "sudoku": true, "trusttunnel
 // their core get a Gecko inbound.
 var geckoSince = Version{1, 19, 26}
 
+// xhttpGetSince is the first mihomo whose client sends a packet-up uplink by GET, with
+// the payload in the header or named cookie — the scheme a GET-only CDN carries, which
+// the fork's patched server accepts. Xray apps speak it since Xray 26.3.27 on the core
+// inside them, and none of their user agents name a core, so Xray is a family decision.
+var xhttpGetSince = Version{1, 19, 32}
+
 // Supports says whether the app can use an inbound.
 func (a App) Supports(n proto.Needs) bool {
 	switch a.Family {
@@ -154,6 +160,9 @@ func (a App) Supports(n proto.Needs) bool {
 		}
 		// An older core fails the whole profile on an obfs it does not know.
 		if n.Gecko && !(known && a.Core.AtLeast(geckoSince)) {
+			return false
+		}
+		if n.GetUplink && !(known && a.Core.AtLeast(xhttpGetSince)) {
 			return false
 		}
 		return true
@@ -175,8 +184,8 @@ func (a App) Supports(n proto.Needs) bool {
 		case "anytls":
 			return !a.Legacy
 		}
-	case FamilyStash:
-		if n.Gecko {
+	case FamilyStash: // no word on its mihomo core, and a GET uplink needs a fresh one
+		if n.Gecko || n.GetUplink {
 			return false
 		}
 		switch n.Type {
@@ -184,7 +193,7 @@ func (a App) Supports(n proto.Needs) bool {
 			return true
 		}
 	default: // what a share link can carry
-		if n.Gecko {
+		if n.Gecko || n.GetUplink {
 			return false
 		}
 		switch n.Type {

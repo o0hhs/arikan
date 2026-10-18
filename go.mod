@@ -9,6 +9,7 @@ require (
 	github.com/lib/pq v1.12.3
 	github.com/metacubex/age v0.0.0-20260603010618-28d156b4ea78
 	github.com/metacubex/mihomo v1.19.32
+	github.com/miekg/dns v1.1.72
 	github.com/oschwald/maxminddb-golang v1.12.0
 	github.com/pquerna/otp v1.5.0
 	github.com/pressly/goose/v3 v3.28.0
@@ -113,7 +114,6 @@ require (
 	github.com/metacubex/yamux v0.0.0-20250918083631-dd5f17c0be49 // indirect
 	github.com/metacubex/zerotier-go v0.0.0-20260813124750-13fa6f45da5f // indirect
 	github.com/mfridman/interpolate v0.0.2 // indirect
-	github.com/miekg/dns v1.1.72 // indirect
 	github.com/mitchellh/go-ps v1.0.0 // indirect
 	github.com/mroth/weightedrand/v2 v2.1.0 // indirect
 	github.com/oasisprotocol/deoxysii v0.0.0-20220228165953-2091330c22b7 // indirect
@@ -159,3 +159,7 @@ require (
 
 // mihomo pins a protobuf fork; replace directives of dependencies are not inherited.
 replace google.golang.org/protobuf => github.com/metacubex/protobuf-go v0.0.0-20260306035419-7ceee0674686
+
+// mihomo's server refuses a GET uplink upstream, and a CDN that passes only GET
+// carries no other way; the fork (github.com/o0hhs/mihomo) accepts it in packet-up.
+replace github.com/metacubex/mihomo => github.com/o0hhs/mihomo v1.19.33-get.1
