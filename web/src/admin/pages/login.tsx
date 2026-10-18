@@ -4,8 +4,8 @@ import { ShieldCheck } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api, ApiError, errorText, setCsrf, unwrap } from "../../api/client";
+import logoFull from "../../assets/logo-full.png";
 import { qk } from "../../api/hooks";
-import { Logo } from "../../components/atmosphere";
 import { LangSwitch } from "../../components/lang";
 import { Button, Field } from "../../components/ui";
 import { t } from "../../i18n";
@@ -79,12 +79,9 @@ export function LoginPage() {
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
         noValidate
       >
-        <div className="mb-8 flex items-center gap-3">
-          <Logo size={40} />
-          <div>
-            <div className="font-display text-[22px] leading-7 font-semibold tracking-tight">Arikan</div>
-            <div className="text-[13px] text-[var(--md-on-surface-variant)]">{t("login.subtitle")}</div>
-          </div>
+        <div className="mb-8">
+          <img src={logoFull} alt="Arikan" width={116} height={48} className="h-12 w-auto" decoding="async" draggable={false} />
+          <div className="mt-3 text-[13px] text-[var(--md-on-surface-variant)]">{t("login.subtitle")}</div>
         </div>
 
         {step === "password" ? (

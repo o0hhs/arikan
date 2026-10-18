@@ -1,9 +1,6 @@
 <div align="center">
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/banner-ru-dark.svg">
-  <img alt="Arikan — VPN-панель на ядре mihomo" src=".github/assets/banner-ru-light.svg" width="100%">
-</picture>
+<img alt="Arikan — VPN-панель на ядре mihomo" src=".github/assets/banner.png" width="100%">
 
 <br>
 

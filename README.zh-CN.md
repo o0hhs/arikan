@@ -1,9 +1,6 @@
 <div align="center">
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/banner-en-dark.svg">
-  <img alt="Arikan — a VPN panel on the mihomo core (an unofficial fork of mikan)" src=".github/assets/banner-en-light.svg" width="100%">
-</picture>
+<img alt="Arikan — a VPN panel on the mihomo core (an unofficial fork of mikan)" src=".github/assets/banner.png" width="100%">
 
 <br>
 

@@ -1,6 +1,6 @@
 import clsx from "clsx";
 import { useEffect, useState } from "react";
-import logo from "../assets/logo.webp";
+import logo from "../assets/logo-icon.png";
 import { usePerf } from "../lib/perf";
 
 /**
@@ -63,7 +63,7 @@ function useIdle(): boolean {
   return idle;
 }
 
-/** The painted mandarin on a transparent ground: it reads the same in every theme. */
+/** The Arikan brand icon on a transparent ground: it reads the same in every theme. */
 export function Logo({ size = 32 }: { size?: number }) {
   return <img src={logo} width={size} height={size} alt="" aria-hidden decoding="async" draggable={false} className="shrink-0" />;
 }
