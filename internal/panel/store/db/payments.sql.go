@@ -582,7 +582,7 @@ func (q *Queries) ListPendingPayments(ctx context.Context, createdAt int64) ([]P
 }
 
 const listTariffsOnSale = `-- name: ListTariffsOnSale :many
-SELECT id, name, traffic_limit, duration_days, device_limit, reset_strategy, price_label, sort, archived, created_at, billing_day, price_stars, price_rub, on_sale, speed_limit, description, device_mode FROM tariffs WHERE archived = 0 AND on_sale = 1 ORDER BY sort, id
+SELECT id, name, traffic_limit, duration_days, device_limit, reset_strategy, price_label, sort, archived, created_at, billing_day, price_stars, price_rub, on_sale, speed_limit, description, device_mode, closed FROM tariffs WHERE archived = 0 AND on_sale = 1 ORDER BY sort, id
 `
 
 func (q *Queries) ListTariffsOnSale(ctx context.Context) ([]Tariff, error) {
@@ -612,6 +612,7 @@ func (q *Queries) ListTariffsOnSale(ctx context.Context) ([]Tariff, error) {
 			&i.SpeedLimit,
 			&i.Description,
 			&i.DeviceMode,
+			&i.Closed,
 		); err != nil {
 			return nil, err
 		}

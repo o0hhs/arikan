@@ -33,6 +33,7 @@ type TariffView struct {
 	OnSale        bool        `json:"on_sale" doc:"Продаётся в боте и Mini App"`
 	Terms         []TermView  `json:"terms" doc:"Сроки, на которые продаётся тариф, по порядку; первый — тот же, что duration_days, price_stars и price_rub"`
 	Pools         []PoolLimit `json:"pools" doc:"Лимиты пулов трафика и закрытые пулы; пул не в списке — без лимита. Лимиты действуют на новых пользователей и при продлении или смене тарифа; закрытие и открытие пула действуют сразу на всех пользователей тарифа: при открытии на них ставится лимит тарифа, ручной лимит пользователя затирается"`
+	Closed        []int64     `json:"closed,omitempty" doc:"Отключённые для тарифа протоколы (id подключений): их нет в подписке клиентов тарифа и ноды их не пускают; личное разрешение пользователя закрытое протоколом тарифа не открывает"`
 	Sort          int64       `json:"sort"`
 }
 
@@ -47,7 +48,7 @@ func viewTariff(t db.Tariff, terms []db.TariffTerm) TariffView {
 	v := TariffView{ID: t.ID, Name: t.Name, TrafficLimit: store.Int64Ptr(t.TrafficLimit),
 		DurationDays: t.DurationDays, DeviceLimit: store.Int64Ptr(t.DeviceLimit), DeviceMode: t.DeviceMode,
 		SpeedLimit: store.Int64Ptr(t.SpeedLimit), ResetStrategy: t.ResetStrategy, BillingDay: store.Int64Ptr(t.BillingDay), PriceLabel: t.PriceLabel, Description: t.Description, Sort: t.Sort,
-		PriceStars: store.Int64Ptr(t.PriceStars), PriceRub: store.Int64Ptr(t.PriceRub), OnSale: t.OnSale != 0}
+		PriceStars: store.Int64Ptr(t.PriceStars), PriceRub: store.Int64Ptr(t.PriceRub), OnSale: t.OnSale != 0, Closed: domain.DecodeClosed(t.Closed)}
 	for _, term := range domain.TariffTerms(t, terms) {
 		v.Terms = append(v.Terms, TermView{Days: term.Days, PriceStars: store.Int64Ptr(term.PriceStars), PriceRub: store.Int64Ptr(term.PriceRub)})
 	}
@@ -81,6 +82,7 @@ type tariffBody struct {
 	OnSale        bool        `json:"on_sale,omitempty" doc:"Продавать в боте и Mini App; нужна хотя бы одна цена"`
 	Terms         []termBody  `json:"terms,omitempty" maxItems:"12" doc:"Все сроки по порядку, когда тариф продаётся на несколько; тогда duration_days, price_stars и price_rub берутся из первого. Не передан — первый срок из duration_days, price_stars и price_rub, остальные без изменений"`
 	Pools         []PoolLimit `json:"pools,omitempty" maxItems:"100" doc:"Лимиты пулов трафика; не передан — без изменений"`
+	Closed        []int64     `json:"closed,omitempty" doc:"Отключённые протоколы тарифа (id подключений); не передан — без изменений"`
 	Sort          int64       `json:"sort,omitempty"`
 }
 
@@ -143,7 +145,7 @@ func (h *handlers) createTariff(ctx context.Context, in *tariffInput) (*tariffOu
 		t, err = q.CreateTariff(ctx, db.CreateTariffParams{Name: strings.TrimSpace(b.Name), TrafficLimit: domain.NullInt(b.TrafficLimit),
 			DurationDays: first.Days, DeviceLimit: domain.NullInt(b.DeviceLimit), ResetStrategy: b.ResetStrategy, PriceLabel: b.PriceLabel,
 			Sort: b.Sort, CreatedAt: h.d.Now().Unix(), BillingDay: domain.NullInt(b.BillingDay), PriceStars: first.PriceStars, PriceRub: first.PriceRub, OnSale: domain.Flag(b.OnSale),
-			SpeedLimit: domain.NullInt(b.SpeedLimit), Description: description})
+			SpeedLimit: domain.NullInt(b.SpeedLimit), Description: description, Closed: domain.EncodeClosed(b.Closed)})
 		if err != nil {
 			return err
 		}
@@ -170,6 +172,17 @@ func (h *handlers) updateTariff(ctx context.Context, in *tariffUpdateInput) (*ta
 	}
 	var t db.Tariff
 	err = h.d.Store.TxRC(ctx, func(q *db.Queries) error {
+		// Without closed in the body the tariff keeps the protocols it had closed.
+		closed := domain.EncodeClosed(b.Closed)
+		if b.Closed == nil {
+			if cur, cerr := q.GetTariff(ctx, in.ID); cerr != nil {
+				if !errors.Is(cerr, sql.ErrNoRows) {
+					return cerr
+				}
+			} else {
+				closed = cur.Closed
+			}
+		}
 		// Without terms in the body the tariff keeps the ones after the first.
 		var kept []domain.Term
 		if b.Terms == nil {
@@ -189,7 +202,7 @@ func (h *handlers) updateTariff(ctx context.Context, in *tariffUpdateInput) (*ta
 		t, err = q.UpdateTariff(ctx, db.UpdateTariffParams{Name: strings.TrimSpace(b.Name), TrafficLimit: domain.NullInt(b.TrafficLimit),
 			DurationDays: first.Days, DeviceLimit: domain.NullInt(b.DeviceLimit), ResetStrategy: b.ResetStrategy, PriceLabel: b.PriceLabel,
 			Sort: b.Sort, BillingDay: domain.NullInt(b.BillingDay), PriceStars: first.PriceStars, PriceRub: first.PriceRub, OnSale: domain.Flag(b.OnSale), ID: in.ID,
-			SpeedLimit: domain.NullInt(b.SpeedLimit), Description: description})
+			SpeedLimit: domain.NullInt(b.SpeedLimit), Description: description, Closed: closed})
 		if err != nil {
 			return err
 		}
@@ -207,8 +220,8 @@ func (h *handlers) updateTariff(ctx context.Context, in *tariffUpdateInput) (*ta
 	if err != nil {
 		return nil, err
 	}
-	if in.Body.Pools != nil {
-		h.d.Changes.PoliciesChanged() // a pool closed or opened for the tariff's users
+	if in.Body.Pools != nil || in.Body.Closed != nil {
+		h.d.Changes.PoliciesChanged() // a pool or a protocol closed or opened for the tariff's users
 	}
 	h.audit(ctx, sessionOf(ctx).AdminID, "tariff.update", "tariff", strconv.FormatInt(t.ID, 10), nil)
 	return h.tariffOut(ctx, t)

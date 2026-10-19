@@ -63,6 +63,7 @@ export function createAppRouter(queryClient: QueryClient) {
       folder: s.folder === "none" ? "none" : (typeof s.folder === "number" || typeof s.folder === "string") && Number.isSafeInteger(Number(s.folder)) && Number(s.folder) >= 1 ? Number(s.folder) : undefined,
       source: USER_SOURCES.includes(s.source as (typeof USER_SOURCES)[number]) && s.source !== "all" ? (s.source as UsersSearch["source"]) : undefined,
       hidden: s.hidden === "show" || s.hidden === "only" ? s.hidden : undefined,
+      sort: USER_SORTS.includes(s.sort as (typeof USER_SORTS)[number]) && s.sort !== "new" ? (s.sort as UsersSearch["sort"]) : undefined,
     }),
   });
   const tariffs = createRoute({

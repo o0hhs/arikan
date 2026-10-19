@@ -66,7 +66,7 @@ export const meQuery = {
 
 /** What the list is asked for: left out, a part of the filter is "any" (hidden: everyone, as
  * the API has it; the Users page asks for "hide"). */
-type UsersFilter = Pick<UsersSearch, "q" | "folder" | "source"> & {
+type UsersFilter = Pick<UsersSearch, "q" | "folder" | "source" | "sort"> & {
   /** "attention": out of traffic, expiring and expired in that order, for the overview. */
   state: UsersSearch["state"] | "attention";
   hidden?: "hide" | "show" | "only";
@@ -82,7 +82,7 @@ export function useUsers(f: UsersFilter, o: { limit?: number; refetchInterval?: 
     queryFn: ({ signal }) =>
       unwrap(
         api.GET("/api/v1/users", {
-          params: { query: { state: f.state, q: f.q || undefined, folder: f.folder === undefined ? undefined : String(f.folder), source: f.source, hidden: f.hidden, limit } },
+          params: { query: { state: f.state, q: f.q || undefined, folder: f.folder === undefined ? undefined : String(f.folder), source: f.source, hidden: f.hidden, sort: f.sort, limit } },
           signal,
         }),
       ),

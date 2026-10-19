@@ -901,3 +901,30 @@ func DecodeInbounds(raw sql.NullString) []int64 {
 	_ = json.Unmarshal([]byte(raw.String), &ids)
 	return ids
 }
+
+// DecodeClosed reads a tariff's closed inbounds (the "closed" column, a JSON array):
+// unreadable, or nothing written, means nothing is closed.
+func DecodeClosed(raw string) []int64 {
+	if raw == "" {
+		return nil
+	}
+	var ids []int64
+	_ = json.Unmarshal([]byte(raw), &ids)
+	return ids
+}
+
+// EncodeClosed keeps a closed list the way DecodeClosed reads it: sorted, without
+// repeats, and an empty string when nothing is closed.
+func EncodeClosed(ids []int64) string {
+	out := slices.Clone(ids)
+	slices.Sort(out)
+	out = slices.Compact(out)
+	if len(out) == 0 {
+		return ""
+	}
+	raw, err := json.Marshal(out)
+	if err != nil {
+		return ""
+	}
+	return string(raw)
+}
