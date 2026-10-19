@@ -4,7 +4,7 @@ import { Archive, Layers, Package, Pencil, Plus, Tag, X } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { api, errorText, unwrap, type Schemas, type Tariff } from "../../api/client";
 import { onFormError } from "../../lib/fields";
-import { qk, usePaymentSettings, usePools, useTariffs } from "../../api/hooks";
+import { qk, useInbounds, usePaymentSettings, usePools, useTariffs } from "../../api/hooks";
 import { Confirm, Drawer, DrawerFooter } from "../../components/overlay";
 import { QueryBoundary } from "../../components/query";
 import { Tabs } from "../../components/tabs";
@@ -55,11 +55,18 @@ function poolLimitsText(tr: Tariff, names: Map<number, string>): string {
     .join(" · ");
 }
 
+/** A tariff's closed protocols by the inbound's own name: "VLESS", "Trojan". */
+function closedText(closed: number[], names: Map<number, string>): string {
+  return closed.map((id) => names.get(id) ?? `#${id}`).join(", ");
+}
+
 export function TariffsPage() {
   const { tab } = useSearch({ from: "/_app/tariffs" });
   const navigate = useNavigate({ from: "/tariffs" });
   const pools = usePools();
   const poolNames = new Map((pools.data ?? []).map((p) => [p.id, p.name]));
+  const inbounds = useInbounds();
+  const inboundNames = new Map((inbounds.data ?? []).map((i) => [i.id, i.sub_name]));
   const tariffs = useTariffs();
   const selling = usePaymentSettings().data?.enabled === true;
   const [edit, setEdit] = useState<Tariff | "new" | null>(null);
@@ -177,6 +184,11 @@ export function TariffsPage() {
                             <Item label={t("pools.tariffLimits")} value={poolLimitsText(tr, poolNames)} />
                           </div>
                         ) : null}
+                        {tr.closed?.length ? (
+                          <div className="col-span-2">
+                            <Item label={t("tariffs.protocolsClosed")} value={closedText(tr.closed, inboundNames)} />
+                          </div>
+                        ) : null}
                       </dl>
                     </section>
                   ))}
@@ -240,6 +252,8 @@ function TariffDrawer({ tariff, onClose }: { tariff: Tariff | "new" | null; onCl
   const allPools = usePools();
   // With selling off the sale block is hidden; its values stay as they were.
   const selling = usePaymentSettings().data?.enabled === true;
+  const inboundList = (useInbounds().data ?? []).filter((i) => i.enabled);
+  const [closedIds, setClosedIds] = useState<number[]>([]);
   const [poolGB, setPoolGB] = useState<Record<number, string>>({});
   const [poolClosed, setPoolClosed] = useState<Record<number, boolean>>({});
   const [stars, setStars] = useState("");
@@ -269,6 +283,7 @@ function TariffDrawer({ tariff, onClose }: { tariff: Tariff | "new" | null; onCl
     setOnSale(tr?.on_sale ?? false);
     setPoolGB(Object.fromEntries((tr?.pools ?? []).map((p) => [p.pool_id, p.traffic_limit != null ? String(+(p.traffic_limit / GiB).toFixed(2)) : ""])));
     setPoolClosed(Object.fromEntries((tr?.pools ?? []).map((p) => [p.pool_id, !!p.excluded])));
+    setClosedIds(tr?.closed ?? []);
     setStars(tr?.price_stars != null ? String(tr.price_stars) : "");
     setRub(tr?.price_rub != null ? String(tr.price_rub / 100) : "");
     setMore(
@@ -363,6 +378,7 @@ function TariffDrawer({ tariff, onClose }: { tariff: Tariff | "new" | null; onCl
       terms,
       on_sale: onSale,
       pools: poolLimits,
+      closed: closedIds,
       // PUT replaces the tariff: keep its place in the list.
       sort: tariff && tariff !== "new" ? tariff.sort : undefined,
     });
@@ -484,6 +500,27 @@ function TariffDrawer({ tariff, onClose }: { tariff: Tariff | "new" | null; onCl
         {allPools.data?.length ? (
           <Field label={t("pools.tariffLimits")} hint={`${t("pools.tariffLimitsHint")} ${t("pools.closeHint")}`} error={errors.pools}>
             <PoolLimitsField pools={allPools.data} value={poolGB} onChange={setPoolGB} closed={poolClosed} onClosed={setPoolClosed} />
+          </Field>
+        ) : null}
+        {inboundList.length ? (
+          <Field label={t("tariffs.protocolsClosed")} hint={t("tariffs.protocolsClosedHint")}>
+            <div className="flex flex-col" role="group" aria-label={t("tariffs.protocolsClosed")}>
+              {inboundList.map((i) => (
+                <div key={i.id} className="flex items-center justify-between gap-3 py-2">
+                  <div>
+                    <div className="text-[13px] font-medium">{i.sub_name}</div>
+                    <div className="text-xs text-[var(--md-on-surface-variant)]">
+                      {i.title} · {i.port}/{i.network}
+                    </div>
+                  </div>
+                  <Switch
+                    checked={closedIds.includes(i.id)}
+                    onChange={(on) => setClosedIds((pre) => (on ? [...pre, i.id] : pre.filter((x) => x !== i.id)))}
+                    label={i.sub_name}
+                  />
+                </div>
+              ))}
+            </div>
           </Field>
         ) : null}
         <div className="border-t border-[var(--hairline)] pt-4" role="group" aria-label={t("tariffs.sale")}>

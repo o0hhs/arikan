@@ -1,6 +1,7 @@
 package api
 
 import (
+	"cmp"
 	"context"
 	"database/sql"
 	"errors"
@@ -27,39 +28,40 @@ type TelegramLink struct {
 }
 
 type UserView struct {
-	Telegram      *TelegramLink `json:"telegram,omitempty" doc:"Только в карточке пользователя"`
-	Legacy        *LegacyLinks  `json:"legacy,omitempty" doc:"Старые ссылки подписки из панели, откуда импортирован пользователь. Только в карточке и не для ключа только на чтение: это тоже ссылка"`
-	ID            int64         `json:"id"`
-	Name          string        `json:"name"`
-	Contact       string        `json:"contact"`
-	Note          string        `json:"note"`
-	Tags          []string      `json:"tags"`
-	State         string        `json:"state" enum:"active,expiring,limited,expired,disabled"`
-	TariffID      *int64        `json:"tariff_id"`
-	TrafficLimit  *int64        `json:"traffic_limit" doc:"Байты за период; null — без лимита"`
-	TrafficExtra  int64         `json:"traffic_extra" doc:"Байты, оставшиеся в пакетах трафика основного лимита: тратятся после лимита тарифа"`
-	UsedUp        int64         `json:"used_up"`
-	UsedDown      int64         `json:"used_down"`
-	TotalUp       int64         `json:"total_up"`
-	TotalDown     int64         `json:"total_down"`
-	DeviceLimit   *int64        `json:"device_limit"`
-	DeviceMode    string        `json:"device_mode" enum:"bound,online" doc:"Как считается лимит устройств: bound: привязанные устройства, online: любое число устройств, считаются только одновременно онлайн"`
-	SpeedLimit    *int64        `json:"speed_limit" doc:"Мбит/с в каждую сторону; null — без ограничения"`
-	ResetStrategy string        `json:"reset_strategy" enum:"none,month_start,period" doc:"month_start — раз в месяц: в день оплаты, без него 1-го числа"`
-	ResetsAt      *time.Time    `json:"resets_at"`
-	ExpiresAt     *time.Time    `json:"expires_at"`
-	BillingDay    *int64        `json:"billing_day" doc:"День месяца, в который заканчивается срок (1–31); null — продление днями"`
-	Inbounds      []int64       `json:"inbounds" doc:"Разрешённые подключения; пусто — все"`
-	SubURL        string        `json:"sub_url"`
-	Online        bool          `json:"online"`
-	OnlineIPs     []string      `json:"online_ips"`
-	BoundDevices  int64         `json:"bound_devices" doc:"Привязанные устройства: с привязкой это занятые места"`
-	OnlineAt      *time.Time    `json:"online_at"`
-	TorrentBan    *time.Time    `json:"torrent_ban" doc:"До какого времени действует бан блокировщика торрентов; null — бана нет"`
-	Source        string        `json:"source" enum:"admin,bot,trial,free,import" doc:"Откуда пользователь: admin — создан в панели или по ключу API, bot — куплен в боте, trial — пробный период бота, free — бесплатный тариф из бота или Mini App, import — перенесён из другой панели. Заполняется при создании, не меняется"`
-	FolderID      *int64        `json:"folder_id" doc:"Папка пользователя; null — вне папок"`
-	Hidden        bool          `json:"hidden" doc:"Скрыт из списка пользователей. Только прячет строку: подписка, оплата и ноды работают как у всех, счётчики обзора не меняются"`
-	CreatedAt     time.Time     `json:"created_at"`
+	Telegram       *TelegramLink `json:"telegram,omitempty" doc:"Только в карточке пользователя"`
+	Legacy         *LegacyLinks  `json:"legacy,omitempty" doc:"Старые ссылки подписки из панели, откуда импортирован пользователь. Только в карточке и не для ключа только на чтение: это тоже ссылка"`
+	ID             int64         `json:"id"`
+	Name           string        `json:"name"`
+	Contact        string        `json:"contact"`
+	Note           string        `json:"note"`
+	Tags           []string      `json:"tags"`
+	State          string        `json:"state" enum:"active,expiring,limited,expired,disabled"`
+	TariffID       *int64        `json:"tariff_id"`
+	TrafficLimit   *int64        `json:"traffic_limit" doc:"Байты за период; null — без лимита"`
+	TrafficExtra   int64         `json:"traffic_extra" doc:"Байты, оставшиеся в пакетах трафика основного лимита: тратятся после лимита тарифа"`
+	UsedUp         int64         `json:"used_up"`
+	UsedDown       int64         `json:"used_down"`
+	TotalUp        int64         `json:"total_up"`
+	TotalDown      int64         `json:"total_down"`
+	DeviceLimit    *int64        `json:"device_limit"`
+	DeviceMode     string        `json:"device_mode" enum:"bound,online" doc:"Как считается лимит устройств: bound: привязанные устройства, online: любое число устройств, считаются только одновременно онлайн"`
+	SpeedLimit     *int64        `json:"speed_limit" doc:"Мбит/с в каждую сторону; null — без ограничения"`
+	ResetStrategy  string        `json:"reset_strategy" enum:"none,month_start,period" doc:"month_start — раз в месяц: в день оплаты, без него 1-го числа"`
+	ResetsAt       *time.Time    `json:"resets_at"`
+	ExpiresAt      *time.Time    `json:"expires_at"`
+	BillingDay     *int64        `json:"billing_day" doc:"День месяца, в который заканчивается срок (1–31); null — продление днями"`
+	Inbounds       []int64       `json:"inbounds" doc:"Разрешённые подключения; пусто — все"`
+	ClosedInbounds []int64       `json:"closed_inbounds,omitempty" doc:"Отключённые тарифом протоколы (id подключений); только в карточке"`
+	SubURL         string        `json:"sub_url"`
+	Online         bool          `json:"online"`
+	OnlineIPs      []string      `json:"online_ips"`
+	BoundDevices   int64         `json:"bound_devices" doc:"Привязанные устройства: с привязкой это занятые места"`
+	OnlineAt       *time.Time    `json:"online_at"`
+	TorrentBan     *time.Time    `json:"torrent_ban" doc:"До какого времени действует бан блокировщика торрентов; null — бана нет"`
+	Source         string        `json:"source" enum:"admin,bot,trial,free,import" doc:"Откуда пользователь: admin — создан в панели или по ключу API, bot — куплен в боте, trial — пробный период бота, free — бесплатный тариф из бота или Mini App, import — перенесён из другой панели. Заполняется при создании, не меняется"`
+	FolderID       *int64        `json:"folder_id" doc:"Папка пользователя; null — вне папок"`
+	Hidden         bool          `json:"hidden" doc:"Скрыт из списка пользователей. Только прячет строку: подписка, оплата и ноды работают как у всех, счётчики обзора не меняются"`
+	CreatedAt      time.Time     `json:"created_at"`
 }
 
 // userEnv is what every user of one response shares, read once for the whole response: a
@@ -164,6 +166,7 @@ type listUsersInput struct {
 	Folder string `query:"folder" maxLength:"20" default:"all" doc:"all — любая; none — вне папок; число — id папки"`
 	Source string `query:"source" enum:"all,admin,bot,trial,free,import" default:"all" doc:"Откуда пользователь, см. source у пользователя"`
 	Hidden string `query:"hidden" enum:"hide,show,only" default:"show" doc:"show — вместе со скрытыми (по умолчанию: скрытие касается только списка в панели); hide — без скрытых; only — только скрытые"`
+	Sort   string `query:"sort" enum:"new,traffic,traffic_least,expires,name" default:"new" doc:"Порядок списка: new — новые сверху; traffic — по израсходованному трафику, большие сверху; traffic_least — наоборот; expires — по сроку, истекающие сверху, бессрочные внизу; name — по имени, безымянные внизу"`
 	Limit  int    `query:"limit" minimum:"1" maximum:"500" default:"100"`
 	Offset int    `query:"offset" minimum:"0" default:"0"`
 }
@@ -463,6 +466,9 @@ func (h *handlers) listUsers(ctx context.Context, in *listUsersInput) (*listUser
 			return attentionRank(domain.State(a, grants.Main(a.ID), now)) - attentionRank(domain.State(b, grants.Main(b.ID), now))
 		})
 	}
+	if in.Sort != "" && in.Sort != "new" {
+		sortMatched(matched, in.Sort)
+	}
 	out.Body.Total = len(matched)
 	end := min(in.Offset+in.Limit, len(matched))
 	out.Body.Items = []UserView{}
@@ -528,6 +534,12 @@ func (h *handlers) getUser(ctx context.Context, in *userIDInput) (*userOutput, e
 	if err == nil {
 		if l, lerr := h.d.Store.Q.TgLinkOfUser(ctx, u.ID); lerr == nil {
 			out.Body.Telegram = &TelegramLink{ID: l.TgID, Username: l.Username, Name: l.FirstName}
+		}
+		// The protocols the user's tariff closes: the card greys them out.
+		if u.TariffID.Valid {
+			if t, terr := h.d.Store.Q.GetTariff(ctx, u.TariffID.Int64); terr == nil {
+				out.Body.ClosedInbounds = domain.DecodeClosed(t.Closed)
+			}
 		}
 		// An old link is a credential like the own one: not for a key that may only read.
 		if !hidesSecrets(ctx) {
@@ -858,4 +870,50 @@ func requireUser(ctx context.Context, q *db.Queries, id int64) error {
 		return err
 	}
 	return nil
+}
+
+// sortMatched orders the filtered list in place, for the sort the panel asks for. The
+// whole matched list stands here already (the page is cut after), so the chosen order
+// speaks over the default of newest first.
+func sortMatched(rows []db.User, by string) {
+	switch by {
+	case "traffic":
+		slices.SortStableFunc(rows, func(a, b db.User) int { return cmp.Compare(b.UsedUp+b.UsedDown, a.UsedUp+a.UsedDown) })
+	case "traffic_least":
+		slices.SortStableFunc(rows, func(a, b db.User) int { return cmp.Compare(a.UsedUp+a.UsedDown, b.UsedUp+b.UsedDown) })
+	case "expires":
+		slices.SortStableFunc(rows, func(a, b db.User) int {
+			x, y := expiresRank(a), expiresRank(b)
+			if x == 0 && y == 0 {
+				return cmp.Compare(a.ID, b.ID)
+			}
+			// The never-ending ones keep to themselves, at the bottom.
+			if x == 0 {
+				return 1
+			}
+			if y == 0 {
+				return -1
+			}
+			return cmp.Compare(x, y)
+		})
+	case "name":
+		slices.SortStableFunc(rows, func(a, b db.User) int {
+			x, y := strings.ToLower(a.Name), strings.ToLower(b.Name)
+			if x == "" && y != "" {
+				return 1
+			}
+			if y == "" && x != "" {
+				return -1
+			}
+			return strings.Compare(x, y)
+		})
+	}
+}
+
+// expiresRank is when a subscription ends; 0 — it never does.
+func expiresRank(u db.User) int64 {
+	if u.ExpiresAt.Valid {
+		return u.ExpiresAt.Int64
+	}
+	return 0
 }

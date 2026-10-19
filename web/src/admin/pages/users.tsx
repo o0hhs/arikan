@@ -13,7 +13,7 @@ import { Avatar, Bar, Button, EmptyState, PageHeader, Skeleton, StatePill } from
 import { t, useLocale } from "../../i18n";
 import { bytes, dateShort, expiryText, num } from "../../lib/format";
 import { useMediaQuery } from "../../lib/media";
-import { USER_HIDDEN, USER_SOURCES, USER_STATES, type UsersSearch } from "../search";
+import { USER_HIDDEN, USER_SORTS, USER_SOURCES, USER_STATES, type UsersSearch } from "../search";
 import { CreateUserDrawer } from "./user-create";
 import { UserDrawer } from "./user-drawer";
 import { FolderBadge, FolderMark, FolderMenuItems, FoldersDrawer, type Folder } from "./user-folders";
@@ -200,6 +200,18 @@ export function UsersPage() {
               <Search size={16} aria-hidden />
               <input type="search" placeholder={t("users.searchPlaceholder")} value={q} onChange={(e) => setQ(e.target.value)} aria-label={t("users.searchLabel")} />
             </label>
+            <select
+              className="input h-10 max-w-[190px]"
+              value={search.sort ?? "new"}
+              onChange={(e) => setFilter({ sort: e.target.value === "new" ? undefined : (e.target.value as UsersSearch["sort"]) })}
+              aria-label={t("users.sort")}
+            >
+              {USER_SORTS.map((srt) => (
+                <option key={srt} value={srt}>
+                  {t(`users.sorts.${srt}`)}
+                </option>
+              ))}
+            </select>
             {showFolders || showSources || showHidden ? (
               <Menu.Root>
                 <Menu.Trigger asChild>

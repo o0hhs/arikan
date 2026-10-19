@@ -655,6 +655,7 @@ type Tariff struct {
 	SpeedLimit    sql.NullInt64
 	Description   string
 	DeviceMode    string
+	Closed        string
 }
 
 type TariffPool struct {

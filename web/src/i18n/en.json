@@ -647,6 +647,8 @@
     "topEmpty": "Statistics will appear once clients start connecting."
   },
   "users": {
+    "sort": "Sort",
+    "sorts": {"new": "Newest first", "traffic": "Traffic: biggest first", "traffic_least": "Traffic: least first", "expires": "By expiry: ending first", "name": "By name"},
     "loadFailed": "Could not load the list",
     "emptyTitle": "No clients yet",
     "emptyText": "Create the first one: the subscription link and QR code appear right away.",
@@ -826,6 +828,8 @@
     "created": "{name} created"
   },
   "userDrawer": {
+    "openTelegram": "Open in Telegram",
+    "protocolClosedByTariff": "Off for the tariff",
     "organise": "Folder and visibility",
     "folder": "Folder",
     "noFolder": "No folder",
@@ -986,6 +990,8 @@
     "pausedForever": "Unbound by the client · stays out until you let it"
   },
   "tariffs": {
+    "protocolsClosed": "Protocols off",
+    "protocolsClosedHint": "What is off stays out of the tariff's users' subscriptions, and the nodes turn them away; a user's own switch does not open a closed protocol",
     "subtitle": "Templates for granting access in one click. Changing a plan does not touch subscriptions already issued.",
     "new": "New plan",
     "archived": "Plan archived",

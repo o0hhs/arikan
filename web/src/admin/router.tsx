@@ -4,7 +4,7 @@ import { ApiError, basePath, setCsrf } from "../api/client";
 import { meQuery } from "../api/hooks";
 import { useLocale } from "../i18n";
 import { NotFoundPage, PageLoading, RouteError } from "./route-states";
-import { ADDON_KINDS, ADDON_TABS, PAYMENT_TABS, PROMO_TABS, SETTINGS_PARTS, SETTINGS_TABS, TARIFF_TABS, TELEGRAM_TABS, USER_SOURCES, USER_STATES, type AddonsSearch, type PaymentsSearch, type SettingsSearch, type TariffsSearch, type TelegramSearch, type UsersSearch } from "./search";
+import { ADDON_KINDS, ADDON_TABS, PAYMENT_TABS, PROMO_TABS, SETTINGS_PARTS, SETTINGS_TABS, TARIFF_TABS, TELEGRAM_TABS, USER_SORTS, USER_SOURCES, USER_STATES, type AddonsSearch, type PaymentsSearch, type SettingsSearch, type TariffsSearch, type TelegramSearch, type UsersSearch } from "./search";
 import { Shell } from "./shell";
 
 /**
@@ -63,6 +63,7 @@ export function createAppRouter(queryClient: QueryClient) {
       folder: s.folder === "none" ? "none" : (typeof s.folder === "number" || typeof s.folder === "string") && Number.isSafeInteger(Number(s.folder)) && Number(s.folder) >= 1 ? Number(s.folder) : undefined,
       source: USER_SOURCES.includes(s.source as (typeof USER_SOURCES)[number]) && s.source !== "all" ? (s.source as UsersSearch["source"]) : undefined,
       hidden: s.hidden === "show" || s.hidden === "only" ? s.hidden : undefined,
+      sort: USER_SORTS.includes(s.sort as (typeof USER_SORTS)[number]) && s.sort !== "new" ? (s.sort as UsersSearch["sort"]) : undefined,
     }),
   });
   const tariffs = createRoute({

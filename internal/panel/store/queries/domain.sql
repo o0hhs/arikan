@@ -7,15 +7,20 @@ SELECT * FROM tariffs WHERE id = $1;
 -- name: CountTariffs :one
 SELECT count(*) FROM tariffs;
 
+-- name: ListTariffClosed :many
+-- The tariffs that close protocols, for the node sync's snapshot: the closed inbounds of
+-- every tariff, no matter whether the tariff is still sold.
+SELECT id, closed FROM tariffs WHERE closed <> '';
+
 -- name: CreateTariff :one
-INSERT INTO tariffs (name, traffic_limit, duration_days, device_limit, reset_strategy, price_label, sort, created_at, billing_day, price_stars, price_rub, on_sale, speed_limit, description)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+INSERT INTO tariffs (name, traffic_limit, duration_days, device_limit, reset_strategy, price_label, sort, created_at, billing_day, price_stars, price_rub, on_sale, speed_limit, description, closed)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 RETURNING *;
 
 -- name: UpdateTariff :one
 UPDATE tariffs
 SET name = $1, traffic_limit = $2, duration_days = $3, device_limit = $4, reset_strategy = $5, price_label = $6, sort = $7, billing_day = $8,
-    price_stars = $9, price_rub = $10, on_sale = $11, speed_limit = $13, description = $14
+    price_stars = $9, price_rub = $10, on_sale = $11, speed_limit = $13, description = $14, closed = $15
 WHERE id = $12
 RETURNING *;
 
