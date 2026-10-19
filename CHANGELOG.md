@@ -3,7 +3,8 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
-## Unreleased
+## 0.5.1.9
+### en
 **Advertising agents: your partners get a panel of their own, and every sale they bring is worth a percent you set.**
 - **Agents live in Payments → Agents.** An agent is a login and a password of their own; create one, hand over the credentials and pin campaigns to them on the Campaigns tab, each with a percent of its sales (1–100, snapshotted per payment — changing a percent later does not rewrite what was already earned). The admin's own campaigns simply carry no agent.
 - **The agents' panel is a page of its own** under a secret path of its own (Payments → Agents sets it; empty is off). An agent signs in with their login and password and sees, and only sees: how much they earned and how much is left to pay out, how many people the links brought, who they are and what they bought, every link's conversion — plus the payout history. Commissions are earned where the payments are applied, on the billing transaction, and a refund takes a commission back.
