@@ -151,7 +151,9 @@ func TestCommissionOfStars(t *testing.T) {
 func TestCommissionNeedsTheCampaign(t *testing.T) {
 	e := newEnv(t)
 	_, _ = e.agent("uzh", 10)
-	must(t, e.camps.Visit(e.ctx, e.second, "own"))
+	if _, _, err := e.camps.Visit(e.ctx, e.second, "own"); err != nil {
+		t.Fatal(err)
+	}
 	own := e.payment(e.second, 15000, "new", "RUB")
 	must(t, e.camps.Attribute(e.ctx, e.st.Q, own))
 	if sum, err := e.s.Summary(e.ctx); err != nil {
@@ -208,7 +210,9 @@ func TestLoginAndSessions(t *testing.T) {
 		t.Fatal("a stranger's token opened the panel")
 	}
 
-	must(t, e.s.Update(e.ctx, a.ID, "pravilny", "", true))
+	if _, err := e.s.Update(e.ctx, a.ID, "pravilny", "", true); err != nil {
+		t.Fatal(err)
+	}
 	if _, _, err := e.s.Login(e.ctx, "pravilny", "long-enough-pass-phrase", "127.0.0.1:1", "test"); !errors.Is(err, ErrCredentials) {
 		t.Fatalf("a disabled agent logged in: %v", err)
 	}
