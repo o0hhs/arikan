@@ -115,7 +115,7 @@ func (q *Queries) CreateCampaignEvent(ctx context.Context, arg CreateCampaignEve
 
 const createCampaignTag = `-- name: CreateCampaignTag :one
 INSERT INTO campaign_tags (tag, name, note, created_at, updated_at)
-VALUES ($1, $2, $3, $4, $4) RETURNING id, tag, name, note, enabled, deleted, created_at, updated_at
+VALUES ($1, $2, $3, $4, $4) RETURNING id, tag, name, note, enabled, deleted, created_at, updated_at, agent_id, agent_percent
 `
 
 type CreateCampaignTagParams struct {
@@ -142,6 +142,8 @@ func (q *Queries) CreateCampaignTag(ctx context.Context, arg CreateCampaignTagPa
 		&i.Deleted,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AgentID,
+		&i.AgentPercent,
 	)
 	return i, err
 }
@@ -164,7 +166,7 @@ func (q *Queries) DeleteCampaignTag(ctx context.Context, arg DeleteCampaignTagPa
 }
 
 const getCampaignTag = `-- name: GetCampaignTag :one
-SELECT id, tag, name, note, enabled, deleted, created_at, updated_at FROM campaign_tags WHERE id = $1
+SELECT id, tag, name, note, enabled, deleted, created_at, updated_at, agent_id, agent_percent FROM campaign_tags WHERE id = $1
 `
 
 func (q *Queries) GetCampaignTag(ctx context.Context, id int64) (CampaignTag, error) {
@@ -179,12 +181,14 @@ func (q *Queries) GetCampaignTag(ctx context.Context, id int64) (CampaignTag, er
 		&i.Deleted,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AgentID,
+		&i.AgentPercent,
 	)
 	return i, err
 }
 
 const getCampaignTagByTag = `-- name: GetCampaignTagByTag :one
-SELECT id, tag, name, note, enabled, deleted, created_at, updated_at FROM campaign_tags WHERE tag = $1
+SELECT id, tag, name, note, enabled, deleted, created_at, updated_at, agent_id, agent_percent FROM campaign_tags WHERE tag = $1
 `
 
 func (q *Queries) GetCampaignTagByTag(ctx context.Context, tag string) (CampaignTag, error) {
@@ -199,6 +203,8 @@ func (q *Queries) GetCampaignTagByTag(ctx context.Context, tag string) (Campaign
 		&i.Deleted,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AgentID,
+		&i.AgentPercent,
 	)
 	return i, err
 }
@@ -258,7 +264,7 @@ func (q *Queries) ListCampaignEventsByPayment(ctx context.Context, paymentID sql
 }
 
 const listCampaignTags = `-- name: ListCampaignTags :many
-SELECT id, tag, name, note, enabled, deleted, created_at, updated_at FROM campaign_tags WHERE deleted = 0 ORDER BY id DESC LIMIT CAST($2 AS BIGINT) OFFSET CAST($1 AS BIGINT)
+SELECT id, tag, name, note, enabled, deleted, created_at, updated_at, agent_id, agent_percent FROM campaign_tags WHERE deleted = 0 ORDER BY id DESC LIMIT CAST($2 AS BIGINT) OFFSET CAST($1 AS BIGINT)
 `
 
 type ListCampaignTagsParams struct {
@@ -284,6 +290,8 @@ func (q *Queries) ListCampaignTags(ctx context.Context, arg ListCampaignTagsPara
 			&i.Deleted,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.AgentID,
+			&i.AgentPercent,
 		); err != nil {
 			return nil, err
 		}
@@ -299,7 +307,7 @@ func (q *Queries) ListCampaignTags(ctx context.Context, arg ListCampaignTagsPara
 }
 
 const listCampaignTagsWithStats = `-- name: ListCampaignTagsWithStats :many
-SELECT c.id, c.tag, c.name, c.note, c.enabled, c.deleted, c.created_at, c.updated_at,
+SELECT c.id, c.tag, c.name, c.note, c.enabled, c.deleted, c.created_at, c.updated_at, c.agent_id, c.agent_percent,
   CAST(COALESCE((SELECT COUNT(*) FROM campaign_visits v WHERE v.campaign_id = c.id), 0) AS BIGINT) AS visits,
   CAST(COALESCE((SELECT COUNT(*) FROM campaign_events e WHERE e.campaign_id = c.id AND e.kind = 'bought' AND e.reverted_at IS NULL), 0) AS BIGINT) AS bought,
   CAST(COALESCE((SELECT COUNT(*) FROM campaign_events e WHERE e.campaign_id = c.id AND e.kind = 'renewed' AND e.reverted_at IS NULL), 0) AS BIGINT) AS renewed,
@@ -315,18 +323,20 @@ type ListCampaignTagsWithStatsParams struct {
 }
 
 type ListCampaignTagsWithStatsRow struct {
-	ID        int64
-	Tag       string
-	Name      string
-	Note      string
-	Enabled   int32
-	Deleted   int32
-	CreatedAt int64
-	UpdatedAt int64
-	Visits    int64
-	Bought    int64
-	Renewed   int64
-	Rub       int64
+	ID           int64
+	Tag          string
+	Name         string
+	Note         string
+	Enabled      int32
+	Deleted      int32
+	CreatedAt    int64
+	UpdatedAt    int64
+	AgentID      sql.NullInt64
+	AgentPercent sql.NullInt64
+	Visits       int64
+	Bought       int64
+	Renewed      int64
+	Rub          int64
 }
 
 // Every campaign with its arrivals and its sales, for the admin's page: arrival comes from
@@ -349,6 +359,8 @@ func (q *Queries) ListCampaignTagsWithStats(ctx context.Context, arg ListCampaig
 			&i.Deleted,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.AgentID,
+			&i.AgentPercent,
 			&i.Visits,
 			&i.Bought,
 			&i.Renewed,

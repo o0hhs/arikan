@@ -77,6 +77,18 @@ func (s *Service) Setup(ctx context.Context) Program {
 // On says whether the programme runs: on, and with a rule to earn with.
 func (p Program) On() bool { return p.Enabled && len(p.Rules) > 0 }
 
+// StarsRate is how many kopecks one Telegram Star counts as, by the programme's setting
+// — the rate the campaigns' agent commissions share with the balance. 0 when the
+// setting is unreadable or unset: a Stars payment is worth nothing then, to nobody.
+func (s *Service) StarsRate(ctx context.Context) int64 {
+	c, err := Load(ctx, s.Settings)
+	if err != nil {
+		s.Log.Warn("referral: settings unreadable, Stars worth nothing", "err", err)
+		return 0
+	}
+	return c.StarsRate
+}
+
 // Reward is what one applied payment gave a referrer, to tell them about.
 type Reward struct {
 	Referrer int64 // the Telegram account that earned it
