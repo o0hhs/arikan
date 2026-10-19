@@ -30,6 +30,7 @@ require (
 	github.com/boombuler/barcode v1.0.1 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/coder/websocket v1.8.15 // indirect
+	github.com/coreos/go-iptables v0.8.0 // indirect
 	github.com/dlclark/regexp2 v1.12.0 // indirect
 	github.com/dunglas/httpsfv v1.0.2 // indirect
 	github.com/easytier/easytier/easytier-go v0.0.0-20260910071355-3d0c9c3ca5e2 // indirect
@@ -75,6 +76,7 @@ require (
 	github.com/metacubex/cpu v0.1.2 // indirect
 	github.com/metacubex/edwards25519 v1.2.0 // indirect
 	github.com/metacubex/fswatch v0.1.1 // indirect
+	github.com/metacubex/gopacket v1.1.20-0.20230608035415-7e2f98a3e759 // indirect
 	github.com/metacubex/gvisor v0.0.0-20260922041103-e2cbcd6e7400 // indirect
 	github.com/metacubex/hkdf v0.1.0 // indirect
 	github.com/metacubex/hpke v0.1.0 // indirect
@@ -85,7 +87,6 @@ require (
 	github.com/metacubex/kcp-go v0.0.0-20260105040817-550693377604 // indirect
 	github.com/metacubex/mhurl v0.1.0 // indirect
 	github.com/metacubex/mipstack v0.0.0-20260930071539-961d4b1c1983 // indirect
-	github.com/metacubex/mldsa v0.1.1 // indirect
 	github.com/metacubex/mlkem v0.1.0 // indirect
 	github.com/metacubex/nftables v0.0.0-20260426003805-208c2c1ba2cb // indirect
 	github.com/metacubex/qpack v0.6.0 // indirect
@@ -159,17 +160,11 @@ require (
 // mihomo pins a protobuf fork; replace directives of dependencies are not inherited.
 replace google.golang.org/protobuf => github.com/metacubex/protobuf-go v0.0.0-20260306035419-7ceee0674686
 
-// mihomo upstream refuses a GET uplink; the panel's own family (mikan) keeps Citrus,
-// a fork built around carrying it (packet-up uploads by any method), plus UI — TLS
-// batching, smux and QUIC work. Our one-patch snapshot stays at github.com/o0hhs/mihomo.
-// A dependency's replaces are not inherited: Citrus rides its own forks of utls, http,
-// tls and smux, so the same replaces stand here.
-replace github.com/metacubex/mihomo => github.com/getmikan/Citrus v1.0.0-beta.2
-
-replace github.com/metacubex/utls => github.com/getmikan/utls v1.8.9-0.20261017232116-b76689d5c62f
-
-replace github.com/metacubex/http => github.com/getmikan/http v0.1.8-citrus.2
-
-replace github.com/metacubex/tls => github.com/getmikan/tls v0.1.9-0.20261018054601-0a54a49f00e8
-
-replace github.com/metacubex/smux => github.com/getmikan/smux v0.0.0-20261017193300-1d830d820876
+// mihomo upstream refuses a GET uplink. Two builds of it exist here: the mikan family's
+// Citrus (getmikan/Citrus, packet-up uploads by any method, TLS/QUIC work) and this
+// checkout's one-patch snapshot, github.com/o0hhs/mihomo v1.19.33-get.1, which carried
+// GET uplink first and is what 0.5.1.8 shipped. Citrus beta.2 has an unsynchronized log
+// level race against its own utls fork's post-handshake logging (TestSiteAsRealityDest
+// fails under -race twice in CI, reported upstream); the pin returns there once that
+// lands. The Citrus swap sat on 86cdee4, revert-shaped for an easy return.
+replace github.com/metacubex/mihomo => github.com/o0hhs/mihomo v1.19.33-get.1
