@@ -7,6 +7,8 @@ export const USER_STATES = ["all", "active", "expiring", "limited", "expired", "
 export const USER_SOURCES = ["all", "admin", "bot", "trial", "free", "import"] as const;
 /** Hidden users: left off the list, listed with the rest, or the only ones listed. */
 export const USER_HIDDEN = ["hide", "show", "only"] as const;
+/** Порядок списка клиентов: новые (как без сортировки), трафик (больше или меньше сверху), срок, имя. */
+export const USER_SORTS = ["new", "traffic", "traffic_least", "expires", "name"] as const;
 /**
  * The filters of the users list live in the URL, so a reload or a shared link keeps them.
  * What is the default (any folder, any source, hidden left off) is left out of it.
@@ -20,6 +22,7 @@ export type UsersSearch = {
   folder?: number | "none";
   source?: Exclude<(typeof USER_SOURCES)[number], "all">;
   hidden?: Exclude<(typeof USER_HIDDEN)[number], "hide">;
+  sort?: Exclude<(typeof USER_SORTS)[number], "new">;
 };
 
 export const SETTINGS_TABS = ["general", "subscription", "page", "routing", "security", "system", "import"] as const;
@@ -33,7 +36,7 @@ export const TARIFF_TABS = ["tariffs", "pools", "packages"] as const;
 export type TariffsSearch = { tab: (typeof TARIFF_TABS)[number] };
 
 /** Payments open on their history; without a way to take payments yet, on setting one up. */
-export const PAYMENT_TABS = ["history", "methods", "rules", "referrals", "campaigns", "promocodes"] as const;
+export const PAYMENT_TABS = ["history", "methods", "rules", "referrals", "campaigns", "agents", "promocodes"] as const;
 export type PaymentsSearch = { tab?: (typeof PAYMENT_TABS)[number]; promo?: (typeof PROMO_TABS)[number] };
 
 export const PROMO_TABS = ["codes", "history"] as const;

@@ -17,8 +17,12 @@ import (
 )
 
 const (
-	KeyAdminPath  = "admin_path"
-	KeySubPath    = "sub_path"
+	KeyAdminPath = "admin_path"
+	KeySubPath   = "sub_path"
+	// KeyAgentPath is the secret path the advertising agents' panel lives under; "" (the
+	// default): the panel is not served at all. Like KeyAdminPath, it is edited in the
+	// panel (Payments → Agents) and routes by the first path segment.
+	KeyAgentPath  = "agent_path"
 	KeyPublicHost = "public_host"
 	KeyPanelPort  = "panel_port"
 	// KeySubPort is a port of its own for subscriptions; 0 or unset: the panel's port.
@@ -317,6 +321,8 @@ func (s *Settings) UpdateChannel(ctx context.Context) (string, error) {
 type Paths struct {
 	Admin string
 	Sub   string
+	// Agent is the advertising agents' panel's path; "" when the panel is off.
+	Agent string
 	// Legacy is the old panel's subscription path, one to three segments; "" when unset.
 	Legacy string
 }
@@ -330,11 +336,15 @@ func (s *Settings) Paths(ctx context.Context) (Paths, error) {
 	if err != nil {
 		return Paths{}, err
 	}
+	agent, err := s.String(ctx, KeyAgentPath)
+	if err != nil {
+		return Paths{}, err
+	}
 	legacy, err := s.String(ctx, KeyLegacySubPath)
 	if err != nil {
 		return Paths{}, err
 	}
-	return Paths{Admin: a, Sub: sub, Legacy: legacy}, nil
+	return Paths{Admin: a, Sub: sub, Agent: agent, Legacy: legacy}, nil
 }
 
 // Endpoint is how clients reach the panel: host is an IP or a domain.

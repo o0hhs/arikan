@@ -5655,6 +5655,8 @@ export interface components {
              * @description Срок до этого числа месяца: месяц = от дня оплаты до дня оплаты
              */
             billing_day?: number;
+            /** @description Отключённые протоколы тарифа (id подключений); не передан — без изменений */
+            closed?: number[];
             /** @description Текст для покупателей, виден в боте и Mini App рядом со строкой из лимитов: чем тариф отличается, когда лимиты этого не показывают («с белыми списками»). Простой текст до 300 символов и до 5 строк; не передан или пустой — только строка из лимитов */
             description?: string;
             /** Format: int64 */
@@ -5705,6 +5707,8 @@ export interface components {
              * @description День месяца, в который заканчивается срок; null — срок в днях
              */
             billing_day: number | null;
+            /** @description Отключённые для тарифа протоколы (id подключений): их нет в подписке клиентов тарифа и ноды их не пускают; личное разрешение пользователя закрытое протоколом тарифа не открывает */
+            closed?: number[];
             /** @description Текст для покупателей: чем тариф отличается, когда лимиты этого не показывают; до 300 символов, до 5 строк, пустой — только строка из лимитов */
             description: string;
             /** Format: int64 */
@@ -6245,6 +6249,8 @@ export interface components {
              * @description День месяца, в который заканчивается срок (1–31); null — продление днями
              */
             billing_day: number | null;
+            /** @description Отключённые тарифом протоколы (id подключений); только в карточке */
+            closed_inbounds?: number[];
             /**
              * Format: int64
              * @description Привязанные устройства: с привязкой это занятые места
@@ -11886,6 +11892,8 @@ export interface operations {
                 source?: "all" | "admin" | "bot" | "trial" | "free" | "import";
                 /** @description show — вместе со скрытыми (по умолчанию: скрытие касается только списка в панели); hide — без скрытых; only — только скрытые */
                 hidden?: "hide" | "show" | "only";
+                /** @description Порядок списка: new — новые сверху (как без сортировки); traffic — по израсходованному трафику, большие сверху; traffic_least — наоборот; expires — по сроку, истекающие сверху, бессрочные внизу; name — по имени, безымянные внизу */
+                sort?: "expires" | "name" | "new" | "traffic" | "traffic_least";
                 limit?: number;
                 offset?: number;
             };

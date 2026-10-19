@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"mikan/internal/panel/referral"
 	"mikan/internal/panel/store"
 	"mikan/internal/panel/store/db"
 )
@@ -32,8 +33,11 @@ const Currency = "RUB"
 const tagMaxLen = 48
 
 var (
-	ErrTagInvalid = errors.New("camp_tag_invalid")
-	ErrNotFound   = errors.New("camp_not_found")
+	ErrTagInvalid   = errors.New("camp_tag_invalid")
+	ErrNotFound     = errors.New("camp_not_found")
+	ErrAgentPercent = errors.New("agent_percent")
+	// The agent the campaign is being linked to is gone (or was never there).
+	ErrAgentNotFound = errors.New("agent_not_found")
 )
 
 // Service is the campaign tags and what they brought.
@@ -41,6 +45,10 @@ type Service struct {
 	Store *store.Store
 	Log   *slog.Logger
 	Now   func() time.Time
+	// StarsRate is how many kopecks one Telegram Star counts as, by the referral
+	// programme's setting: a Stars sale's commission is taken of that worth. 0 (or nil):
+	// Stars count nothing, like the campaign totals.
+	StarsRate func(ctx context.Context) int64
 }
 
 func New(st *store.Store, log *slog.Logger, now func() time.Time) *Service {
@@ -77,6 +85,9 @@ type View struct {
 	Note      string
 	Enabled   bool
 	CreatedAt time.Time
+	// The agent the campaign pays, 0 and 0 for the admin's own campaigns.
+	AgentID      int64
+	AgentPercent int64
 	Stats
 }
 
@@ -170,14 +181,77 @@ func (s *Service) Attribute(ctx context.Context, q *db.Queries, p db.Payment) er
 	_, err = q.CreateCampaignEvent(ctx, db.CreateCampaignEventParams{
 		CampaignID: v.CampaignID, ChatID: p.TgID, PaymentID: sql.NullInt64{Int64: p.ID, Valid: true},
 		Kind: what, Amount: p.Amount, Currency: p.Currency, CreatedAt: s.Now().Unix()})
+	if err != nil {
+		if store.IsUnique(err) {
+			// Already counted, by a reconcile pass that ran the same payment again; the
+			// commission stood behind that counting and exists too.
+			return nil
+		}
+		return err
+	}
+	return s.commission(ctx, q, v.CampaignID, p)
+}
+
+// commission credits the campaign's agent for the payment, on q's transaction — the one
+// that applied the payment, so a sale pays out once or not at all. The percent is read
+// off the campaign as it stands now and saved with the commission, so a later change of
+// the link's percent does not rewrite what was earned. A campaign without an agent, or a
+// sale whose worth comes out to nothing (Stars with no rate set), earns nothing.
+func (s *Service) commission(ctx context.Context, q *db.Queries, campaignID int64, p db.Payment) error {
+	c, err := q.GetCampaignTag(ctx, campaignID)
+	if err != nil {
+		return err
+	}
+	if !c.AgentID.Valid || !c.AgentPercent.Valid || c.AgentPercent.Int64 < 1 {
+		return nil
+	}
+	sale := referral.Rub(p.Amount, p.Currency, s.starsRate(ctx))
+	if sale <= 0 {
+		return nil
+	}
+	_, err = q.CreateAgentCommission(ctx, db.CreateAgentCommissionParams{
+		AgentID: c.AgentID.Int64, CampaignID: c.ID, PaymentID: sql.NullInt64{Int64: p.ID, Valid: true},
+		Percent: c.AgentPercent.Int64, Kind: whatOf(p.Kind), SaleAmount: sale,
+		Amount: share(sale, c.AgentPercent.Int64), Currency: Currency, CreatedAt: s.Now().Unix()})
 	if err != nil && store.IsUnique(err) {
-		// Already counted, by a reconcile pass that ran the same payment again.
+		// The payment paid once already, by a reconcile pass.
 		return nil
 	}
 	return err
 }
 
-// Revert takes back what a refunded payment counted, on q's transaction (the refund's).
+// starsRate is what one Telegram Star counts as in kopecks, 0 when nobody told us.
+func (s *Service) starsRate(ctx context.Context) int64 {
+	if s.StarsRate == nil {
+		return 0
+	}
+	return max(0, s.StarsRate(ctx))
+}
+
+// share is percent of an amount without losing anything to integer division, the way the
+// referral programme's share does it.
+func share(amount, percent int64) int64 {
+	if amount <= 0 || percent <= 0 {
+		return 0
+	}
+	if percent > 100 {
+		percent = 100
+	}
+	v := (amount/100)*percent + (amount%100)*percent/100
+	return max(0, v)
+}
+
+// whatOf names a payment's kind as the commission rows spell it.
+func whatOf(kind string) string {
+	if kind == "new" {
+		return "bought"
+	}
+	return "renewed"
+}
+
+// Revert takes back what a refunded payment counted, on q's transaction (the refund's):
+// the campaign's event, and with it the agent's commission — a refunded sale earns
+// nothing.
 func (s *Service) Revert(ctx context.Context, q *db.Queries, paymentID int64) error {
 	if paymentID == 0 {
 		return nil
@@ -185,7 +259,44 @@ func (s *Service) Revert(ctx context.Context, q *db.Queries, paymentID int64) er
 	_, err := q.RevertCampaignEventsByPayment(ctx, db.RevertCampaignEventsByPaymentParams{
 		RevertedAt: sql.NullInt64{Int64: s.Now().Unix(), Valid: true},
 		PaymentID:  sql.NullInt64{Int64: paymentID, Valid: true}})
+	if err != nil {
+		return err
+	}
+	_, err = q.RevertAgentCommissionsByPayment(ctx, db.RevertAgentCommissionsByPaymentParams{
+		RevertedAt: sql.NullInt64{Int64: s.Now().Unix(), Valid: true},
+		PaymentID:  sql.NullInt64{Int64: paymentID, Valid: true}})
 	return err
+}
+
+// Assign binds a campaign to an agent with its sales percent, or (agentID 0) unbinds it.
+// The percent applies to payments applied from now on: each commission keeps the percent
+// it was earned for.
+func (s *Service) Assign(ctx context.Context, id, agentID, percent int64) error {
+	var agent, pct sql.NullInt64
+	if agentID != 0 {
+		if percent < 1 || percent > 100 {
+			return ErrAgentPercent
+		}
+		if _, err := s.Store.Q.GetAgent(ctx, agentID); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return ErrAgentNotFound
+			}
+			return err
+		}
+		agent, pct = sql.NullInt64{Int64: agentID, Valid: true}, sql.NullInt64{Int64: percent, Valid: true}
+	}
+	n, err := s.Store.Q.SetCampaignAgent(ctx, db.SetCampaignAgentParams{
+		AgentID: agent, AgentPercent: pct, UpdatedAt: s.Now().Unix(), ID: id})
+	if err != nil {
+		if store.IsForeignKey(err) && agentID != 0 {
+			return ErrAgentNotFound
+		}
+		return err
+	}
+	if n == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 // Views is every campaign with its numbers, newest first.
@@ -200,8 +311,16 @@ func (s *Service) Views(ctx context.Context, lim, offset int64) ([]View, int64, 
 	}
 	out := make([]View, 0, len(rows))
 	for _, r := range rows {
+		var agentID, percent int64
+		if r.AgentID.Valid {
+			agentID = r.AgentID.Int64
+		}
+		if r.AgentPercent.Valid {
+			percent = r.AgentPercent.Int64
+		}
 		out = append(out, View{
 			ID: r.ID, Tag: r.Tag, Name: r.Name, Note: r.Note, Enabled: r.Enabled != 0, CreatedAt: time.Unix(r.CreatedAt, 0),
+			AgentID: agentID, AgentPercent: percent,
 			Stats: Stats{Visits: r.Visits, Bought: r.Bought, Renewed: r.Renewed, Rub: r.Rub},
 		})
 	}

@@ -241,3 +241,21 @@ func TestCountStatesMatchesState(t *testing.T) {
 		t.Fatalf("the cases do not cover every state: %+v", want)
 	}
 }
+
+// The tariff's closed list survives a store round: sorted, without repeats, and nothing
+// closed is an empty string, which nothing reads as a list.
+func TestClosedCodecs(t *testing.T) {
+	if got := EncodeClosed(nil); got != "" {
+		t.Fatalf("nothing closed encoded %q", got)
+	}
+	if got := DecodeClosed(""); got != nil {
+		t.Fatalf("an empty column decoded %v", got)
+	}
+	if got := EncodeClosed([]int64{7, 3, 3}); got != "[3,7]" {
+		t.Fatalf("encoded %q", got)
+	}
+	got := DecodeClosed(EncodeClosed([]int64{7, 3, 3}))
+	if len(got) != 2 || got[0] != 3 || got[1] != 7 {
+		t.Fatalf("decoded %v", got)
+	}
+}

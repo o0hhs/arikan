@@ -24,7 +24,10 @@ type Server struct {
 	// monitorPath is the page's own secret segment (settings.KeyMonitor); "" while the
 	// admin has not turned it on, and the path is then served like any other.
 	monitorPath atomic.Pointer[string]
-	hsts        atomic.Pointer[func() bool]
+	// agent is the advertising agents' panel (its page and its API) under its own secret
+	// path; nil until the panel wires it in.
+	agent http.Handler
+	hsts  atomic.Pointer[func() bool]
 	// subHost is the subscription domain's host when one is set: that host serves
 	// subscriptions alone, at the root, and nothing of the panel.
 	subHost atomic.Pointer[string]
@@ -79,6 +82,9 @@ func New(admin, sub http.Handler) *Server {
 
 func (s *Server) SetPaths(p settings.Paths) { s.paths.Store(&p) }
 
+// SetAgent takes the handler of the advertising agents' panel.
+func (s *Server) SetAgent(h http.Handler) { s.agent = h }
+
 // SetHSTS makes the answers tell browsers to use HTTPS for this host from now on, while on
 // says so. Only for a panel that serves TLS itself, and only while its certificate is one
 // browsers trust: a browser that remembers HSTS offers no way past a certificate warning,
@@ -128,6 +134,8 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request, admin bool) {
 	case admin && s.monitor != nil && seg != "" && monPath != "" && secure.Equal(seg, monPath):
 		// The monitoring page: its own address, its own password, no admin session.
 		s.forward(w, r, s.monitor, seg, rest, p)
+	case s.agent != nil && admin && seg != "" && paths.Agent != "" && secure.Equal(seg, paths.Agent):
+		s.forward(w, r, s.agent, seg, rest, p)
 	case s.legacy != nil && paths.Legacy != "" && strings.HasPrefix(p, "/"+paths.Legacy+"/"):
 		// The old panel's links: on every port, as the old panel had them on its own.
 		r2 := r.Clone(r.Context())

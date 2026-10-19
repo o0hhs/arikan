@@ -87,6 +87,39 @@ type Admin struct {
 	TotpStep      int64
 }
 
+type AgentCommission struct {
+	ID         int64
+	AgentID    int64
+	CampaignID int64
+	PaymentID  sql.NullInt64
+	Kind       string
+	Percent    int64
+	SaleAmount int64
+	Amount     int64
+	Currency   string
+	CreatedAt  int64
+	RevertedAt sql.NullInt64
+}
+
+type AgentPayout struct {
+	ID        int64
+	AgentID   int64
+	Amount    int64
+	Note      string
+	CreatedAt int64
+}
+
+type AgentSession struct {
+	IDHash     string
+	AgentID    int64
+	CsrfToken  string
+	CreatedAt  int64
+	LastSeenAt int64
+	ExpiresAt  int64
+	Ip         string
+	UserAgent  string
+}
+
 type ApiKey struct {
 	ID         int64
 	AdminID    int64
@@ -126,6 +159,16 @@ type BoundDevice struct {
 	Name      string
 }
 
+type CampaignAgent struct {
+	ID           int64
+	Login        string
+	PasswordHash string
+	Note         string
+	Disabled     int32
+	CreatedAt    int64
+	UpdatedAt    int64
+}
+
 type CampaignEvent struct {
 	ID         int64
 	CampaignID int64
@@ -139,14 +182,16 @@ type CampaignEvent struct {
 }
 
 type CampaignTag struct {
-	ID        int64
-	Tag       string
-	Name      string
-	Note      string
-	Enabled   int32
-	Deleted   int32
-	CreatedAt int64
-	UpdatedAt int64
+	ID           int64
+	Tag          string
+	Name         string
+	Note         string
+	Enabled      int32
+	Deleted      int32
+	CreatedAt    int64
+	UpdatedAt    int64
+	AgentID      sql.NullInt64
+	AgentPercent sql.NullInt64
 }
 
 type CampaignVisit struct {
@@ -610,6 +655,7 @@ type Tariff struct {
 	SpeedLimit    sql.NullInt64
 	Description   string
 	DeviceMode    string
+	Closed        string
 }
 
 type TariffPool struct {

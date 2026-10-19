@@ -131,6 +131,14 @@ export function TelegramSection({ u }: { u: User }) {
             <div className="truncate text-[13px] font-medium">{tg.username ? `@${tg.username}` : tg.name || tg.id}</div>
             {tg.username && tg.name ? <div className="truncate text-xs text-[var(--md-on-surface-variant)]">{tg.name}</div> : null}
           </div>
+          <a
+            className="btn btn-glass btn-sm"
+            href={safeHref(tg.username ? `https://t.me/${tg.username}` : `tg://user?id=${tg.id}`, { tg: !tg.username })}
+            target="_blank"
+            rel="noreferrer noopener"
+          >
+            {t("userDrawer.openTelegram")} <ExternalLink size={14} aria-hidden />
+          </a>
           <Button size="sm" variant="danger" onClick={() => setConfirm(true)}>
             {t("userDrawer.telegramUnlink")}
           </Button>
@@ -165,7 +173,10 @@ export function ProtocolsSection({ u }: { u: User }) {
   const update = useUserMutation(userActions.update);
   const toast = useToast();
   const all = (inbounds.data ?? []).filter((i) => i.enabled);
-  const allowed = new Set(u.inbounds.length ? u.inbounds : all.map((i) => i.id));
+  // The tariff's closed protocols are off for the user whatever the user's own list says:
+  // the switches show what is actually left, and a closed one cannot be switched on here.
+  const closed = new Set(u.closed_inbounds ?? []);
+  const allowed = new Set((u.inbounds.length ? u.inbounds : all.map((i) => i.id)).filter((id) => !closed.has(id)));
   const toggle = (id: number, on: boolean) => {
     const next = new Set(allowed);
     if (on) next.add(id);
@@ -186,8 +197,9 @@ export function ProtocolsSection({ u }: { u: User }) {
             <div className="text-xs text-[var(--md-on-surface-variant)]">
               {i.title} · {i.port}/{i.network}
             </div>
+            {closed.has(i.id) ? <div className="text-xs text-[var(--md-error)]">{t("userDrawer.protocolClosedByTariff")}</div> : null}
           </div>
-          <Switch checked={allowed.has(i.id)} onChange={(v) => toggle(i.id, v)} label={i.sub_name} disabled={update.isPending} />
+          <Switch checked={allowed.has(i.id)} onChange={(v) => toggle(i.id, v)} label={i.sub_name} disabled={update.isPending || closed.has(i.id)} />
         </div>
       ))}
     </Section>

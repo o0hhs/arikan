@@ -2,6 +2,7 @@ package subs
 
 import (
 	"context"
+	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -434,6 +435,10 @@ func (h *Handler) profile(ctx context.Context, u db.User, cfg Config, slot db.Sl
 		return prof, err
 	}
 	allowed := domain.DecodeInbounds(u.Inbounds)
+	closed, err := h.tariffClosed(ctx, u.TariffID)
+	if err != nil {
+		return prof, err
+	}
 	if grants == nil {
 		if grants, err = domain.UserGrantsLeft(ctx, h.st.Q, u.ID, h.now()); err != nil {
 			return prof, err
@@ -461,12 +466,33 @@ func (h *Handler) profile(ctx context.Context, u db.User, cfg Config, slot db.Sl
 		}
 	}
 	for _, in := range all {
-		if in.Enabled == 0 || !nodes[in.NodeID] || (len(allowed) > 0 && !slices.Contains(allowed, in.ID)) || in.PoolID.Valid && spent[in.PoolID.Int64] {
+		if in.Enabled == 0 || !nodes[in.NodeID] || (len(allowed) > 0 && !slices.Contains(allowed, in.ID)) || in.PoolID.Valid && spent[in.PoolID.Int64] || closed[in.ID] {
 			continue
 		}
 		prof.Inbounds = append(prof.Inbounds, in)
 	}
 	return prof, nil
+}
+
+// tariffClosed is the inbounds the user's tariff closes (Tariffs' own "protocols off"),
+// for the profile's filter. A user without a tariff, or one whose tariff is gone, has
+// none; the intersection with the user's own allow-list is the caller's business.
+func (h *Handler) tariffClosed(ctx context.Context, tariffID sql.NullInt64) (map[int64]bool, error) {
+	set := map[int64]bool{}
+	if !tariffID.Valid {
+		return set, nil
+	}
+	t, err := h.st.Q.GetTariff(ctx, tariffID.Int64)
+	if errors.Is(err, sql.ErrNoRows) {
+		return set, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	for _, id := range domain.DecodeClosed(t.Closed) {
+		set[id] = true
+	}
+	return set, nil
 }
 
 // userInfoHeaders: the traffic and term apps show. With traffic packages left the total

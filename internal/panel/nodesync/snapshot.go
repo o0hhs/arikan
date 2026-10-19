@@ -29,6 +29,9 @@ type snapshot struct {
 	slots    []db.Slot
 	grants   domain.GrantsLeft
 	pools    []db.UserPool
+	// closed is what every tariff keeps out of its users' subscriptions (the tariff's
+	// own "protocols off"), by the tariff's id.
+	closed   map[int64][]int64
 	counters map[int64]counterPos
 	torrent  torrent.Config
 	bans     map[int64]int64 // user → when the torrent blocker's ban ends (unix)
@@ -88,6 +91,16 @@ func (m *Manager) readSnapshot(ctx context.Context) (s *snapshot, err error) {
 	}
 	if s.pools, err = q.ListAllUserPools(ctx); err != nil {
 		return nil, err
+	}
+	if rows, err := q.ListTariffClosed(ctx); err != nil {
+		return nil, err
+	} else {
+		s.closed = map[int64][]int64{}
+		for _, r := range rows {
+			if c := domain.DecodeClosed(r.Closed); len(c) > 0 {
+				s.closed[r.ID] = c
+			}
+		}
 	}
 	if s.torrent, err = torrent.Load(ctx, settings.New(q)); err != nil {
 		return nil, err

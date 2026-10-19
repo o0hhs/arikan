@@ -488,6 +488,16 @@ func (s *Syncer) policiesFrom(snap *snapshot) (epoch string, out []nodeapi.Polic
 	grants := snap.grants
 	pools := userPoolQuotas(snap.pools, grants)
 	for _, u := range snap.users {
+		// The tariff's own closed protocols close the way an excluded pool does: out of
+		// "all" when the user spells no list, and out of the user's own list too.
+		if u.TariffID.Valid {
+			for _, id := range snap.closed[u.TariffID.Int64] {
+				if shut[u.ID] == nil {
+					shut[u.ID] = map[int64]bool{}
+				}
+				shut[u.ID][id] = true
+			}
+		}
 		names := slotsOf[u.ID]
 		sort.Strings(names)
 		for _, name := range names {
@@ -506,7 +516,7 @@ func (s *Syncer) policiesFrom(snap *snapshot) (epoch string, out []nodeapi.Polic
 
 // userPolicy is the user's rules for one of the user's slots; grants is what is left of
 // the user's main grants, added to the quota, and shut the inbounds here the user's tariff
-// leaves out (an excluded pool).
+// leaves out (an excluded pool, or a protocol the tariff closes).
 func userPolicy(u db.User, grants int64, name string, seq int64, now time.Time, here map[int64]string, shut map[int64]bool, otherIPs []string) nodeapi.Policy {
 	// A user whose main traffic ran out still gets in: the node turns away the inbounds
 	// outside every pool (QuotaRemaining 0) and keeps the pools that have traffic left.
