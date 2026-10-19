@@ -1,6 +1,6 @@
 import { keepPreviousData, useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
-import { Gift, HandCoins, History as HistoryIcon, ListChecks, Megaphone, Ticket, TriangleAlert, Undo2, Wallet } from "lucide-react";
+import { Gift, HandCoins, History as HistoryIcon, ListChecks, Megaphone, Ticket, TriangleAlert, Undo2, UserPlus, Wallet } from "lucide-react";
 import { useState, type FormEvent, type ReactNode } from "react";
 import { api, apiCodeText, errorText, unwrap, type Schemas } from "../../api/client";
 import { qk, useAddons, usePaymentSettings, useTariffs, useTelegram } from "../../api/hooks";
@@ -19,6 +19,7 @@ import { PAYMENT_TABS, type PaymentsSearch } from "../search";
 import { addonName } from "./payment-addons";
 import { Referrals } from "./referrals";
 import { Campaigns } from "./campaigns";
+import { Agents } from "./agents";
 import { PromoSection } from "./promocodes";
 
 type Settings = Schemas["PaymentSettingsView"];
@@ -37,7 +38,7 @@ const STATUS_TONE: Record<Status, "ok" | "warn" | "bad" | "off"> = {
 };
 const STATUSES: Status[] = ["applied", "paid", "pending", "failed", "expired", "refunded"];
 const BUILT_IN: Provider[] = ["stars"];
-const TAB_ICONS = { history: HistoryIcon, methods: Wallet, rules: ListChecks, referrals: Gift, campaigns: Megaphone, promocodes: Ticket } as const;
+const TAB_ICONS = { history: HistoryIcon, methods: Wallet, rules: ListChecks, referrals: Gift, campaigns: Megaphone, agents: UserPlus, promocodes: Ticket } as const;
 type PaymentTab = NonNullable<PaymentsSearch["tab"]>;
 
 /** A payment's provider as the admin knows it; adapters by their own name. */
@@ -85,6 +86,8 @@ export function PaymentsPage() {
           <Referrals />
         ) : shown === "campaigns" ? (
           <Campaigns />
+        ) : shown === "agents" ? (
+          <Agents />
         ) : (
           <QueryBoundary query={settings} pending={<Skeleton style={{ height: 320, borderRadius: 20 }} />} wrap={(state) => <section className="card glass">{state}</section>}>
             {(v) =>

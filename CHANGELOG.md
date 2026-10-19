@@ -3,6 +3,20 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
+## Unreleased
+### en
+**Advertising agents: your partners get a panel of their own, and every sale they bring is worth a percent you set.**
+- **Agents live in Payments → Agents.** An agent is a login and a password of their own; create one, hand over the credentials and pin campaigns to them on the Campaigns tab, each with a percent of its sales (1–100, snapshotted per payment — changing a percent later does not rewrite what was already earned). The admin's own campaigns simply carry no agent.
+- **The agents' panel is a page of its own** under a secret path of its own (Payments → Agents sets it; empty is off). An agent signs in with their login and password and sees, and only sees: how much they earned and how much is left to pay out, how many people the links brought, who they are and what they bought, every link's conversion — plus the payout history. Commissions are earned where the payments are applied, on the billing transaction, and a refund takes a commission back.
+- **Payouts are a written record.** «Pay out» puts a number and a note («in cash 19.10») against the agent's balance; there is no deleting, a mistake is fixed by another record. The admin sees, per agent: links, arrivals, first purchases, revenue, earned, paid out and what is still owed.
+- **Stars are only money at the referral rate.** A Stars sale earns a commission of its kopecks' worth at the programme's `stars_rate`; with no rate set, Stars earn nothing — the same rule the campaign totals keep.
+### ru
+**Рекламные агенты: партнёры получают собственную панель, а каждая приведённая ими продажа стоит процент, который вы назначили.**
+- **Агенты живут в «Платежи → Агенты».** Агент — это собственный логин и пароль: создайте его, передайте реквизиты и закрепите за ним кампании на вкладке «Кампании», каждую со своим процентом с продаж (1–100, запоминается на каждый платёж — смена процента не переписывает уже начисленное). Свои кампании просто остаются без агента.
+- **Панель агентов — отдельная страница** по собственному секретному пути (задаётся там же, в «Агентах»; пусто — выключена). Агент входит со своим логином и паролем и видит — и только видит: сколько заработал и сколько осталось к выплате, сколько людей привели ссылки, кто это и что купил, конверсию каждой ссылки — плюс историю выплат. Комиссии начисляются там же, где применяется платёж, — на транзакции биллинга, а возврат платежа забирает комиссию обратно.
+- **Выплаты — это запись.** «Выплатить» кладёт против остатка агента сумму и заметку («наличными 19.10»); удалить нельзя — ошибка правится новой записью. Админ по каждому агенту видит: ссылки, приходы, первые покупки, оборот, начислено, выплачено и сколько ещё должно остаться.
+- **Звёзды — деньги только по курсу реферальной программы.** Оплата звёздами приносит комиссию с их стоимости в копейках по `stars_rate`; без курса звёзды не зарабатывают ничего — то же правило, что и у итогов кампаний.
+
 ## 0.5.1.8
 ### en
 **The GET uplink: the CDN scheme rides the CDNs that refuse POST — Yandex included.** Released right after 0.5.1.7.

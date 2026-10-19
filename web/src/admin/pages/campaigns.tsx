@@ -21,6 +21,8 @@ type Campaign = {
   note: string;
   enabled: boolean;
   link?: string;
+  agent_id?: number;
+  agent_percent?: number;
   visits: number;
   bought: number;
   renewed: number;
@@ -28,11 +30,21 @@ type Campaign = {
   currency: string;
 };
 
+type AgentLite = { id: number; login: string; disabled: boolean };
+
 type Stats = { campaigns: number; visits: number; bought: number; renewed: number };
 
 type List = { items: Campaign[]; total: number; stats: Stats };
 
 type Visit = { chat_id: number; name?: string; tag: string; first_seen: string };
+
+/** The agents' own tab holds the full cards; here only the picker of whom a link pays. */
+function useAgentsLite() {
+  return useQuery({
+    queryKey: qk.agents,
+    queryFn: ({ signal }) => rawJson<{ items: AgentLite[] }>("/api/v1/agents?limit=100", { signal }),
+  });
+}
 
 export function useCampaigns() {
   return useQuery({
@@ -51,10 +63,12 @@ export function Campaigns() {
 }
 
 function CampaignCards({ v }: { v: List }) {
+  const agents = useAgentsLite();
+  const names = agents.data ? new Map(agents.data.items.map((x) => [x.id, x])) : undefined;
   return (
     <div className="flex flex-col gap-4">
       <Header stats={v.stats} />
-      <AddCard />
+      <AddCard agents={names} />
       {v.items.length === 0 ? (
         <section className="card glass reveal">
           <EmptyState title={t("campaigns.empty")} text={t("campaigns.emptyText")} />
@@ -62,7 +76,7 @@ function CampaignCards({ v }: { v: List }) {
       ) : (
         <ul className="flex flex-col gap-3">
           {v.items.map((c) => (
-            <CampaignRow key={c.id} c={c} />
+            <CampaignRow key={c.id} c={c} agents={names} />
           ))}
         </ul>
       )}
@@ -97,12 +111,13 @@ function Header({ stats }: { stats: Stats }) {
   );
 }
 
-/** A tag the admin makes by hand: the link works as soon as the bot is on. */
-function AddCard() {
+/** A tag the admin makes by hand: the link works as soon as the bot is on. It may pay an
+ * advertising agent a percent of its sales. */
+function AddCard({ agents }: { agents?: Map<number, AgentLite> }) {
   const qc = useQueryClient();
   const toast = useToast();
   const create = useMutation({
-    mutationFn: (body: { tag: string; name: string; note: string }) =>
+    mutationFn: (body: { tag: string; name: string; note: string; agent_id: number; agent_percent: number }) =>
       rawJson<Campaign>("/api/v1/campaigns", { method: "POST", body: JSON.stringify(body), headers: { "Content-Type": "application/json" } }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: qk.campaigns });
@@ -110,11 +125,13 @@ function AddCard() {
     },
     onError: (e) => toast.error(errorText(e)),
   });
-  const { draft: f, setDraft: setF, dirty, reset } = useDraft({ tag: "", name: "", note: "" });
+  const { draft: f, setDraft: setF, dirty, reset } = useDraft({ tag: "", name: "", note: "", agentId: 0, percent: "10" });
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!f.tag.trim()) return;
-    create.mutate({ tag: f.tag.trim(), name: f.name, note: f.note }, { onSuccess: () => reset() });
+    const percent = f.agentId > 0 ? Number(f.percent) : 0;
+    if (f.agentId > 0 && (!Number.isFinite(percent) || percent < 1 || percent > 100)) return;
+    create.mutate({ tag: f.tag.trim(), name: f.name, note: f.note, agent_id: f.agentId, agent_percent: percent }, { onSuccess: () => reset() });
   };
   return (
     <section className="card glass reveal">
@@ -125,7 +142,7 @@ function AddCard() {
           </div>
         </div>
         {create.error ? <div className="banner err mb-4">{errorText(create.error)}</div> : null}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <Field label={t("campaigns.tag")} hint={t("campaigns.tagHint")}>
             <input className="input mono" maxLength={48} value={f.tag} onChange={(e) => setF((c) => ({ ...c, tag: e.target.value }))} placeholder="instagram-oct" />
           </Field>
@@ -135,6 +152,21 @@ function AddCard() {
           <Field label={t("campaigns.note")} hint={t("campaigns.noteHint")}>
             <input className="input" maxLength={500} value={f.note} onChange={(e) => setF((c) => ({ ...c, note: e.target.value }))} />
           </Field>
+          <Field label={t("campaigns.agent")} hint={t("campaigns.agentHint")}>
+            <select className="input" value={f.agentId} onChange={(e) => setF((c) => ({ ...c, agentId: Number(e.target.value) }))}>
+              <option value={0}>{t("campaigns.noAgent")}</option>
+              {(agents ? [...agents.values()] : []).filter((x) => !x.disabled).map((x) => (
+                <option key={x.id} value={x.id}>
+                  {x.login}
+                </option>
+              ))}
+            </select>
+          </Field>
+          {f.agentId > 0 ? (
+            <Field label={t("campaigns.agentPercent")} hint={t("campaigns.agentPercentHint")}>
+              <input className="input mono" inputMode="numeric" maxLength={3} value={f.percent} onChange={(e) => setF((c) => ({ ...c, percent: e.target.value }))} />
+            </Field>
+          ) : null}
         </div>
         <FormActions dirty={dirty || !!f.tag} saving={create.isPending} onReset={reset} label={t("campaigns.add")} />
       </form>
@@ -142,7 +174,7 @@ function AddCard() {
   );
 }
 
-function CampaignRow({ c }: { c: Campaign }) {
+function CampaignRow({ c, agents }: { c: Campaign; agents?: Map<number, AgentLite> }) {
   const qc = useQueryClient();
   const toast = useToast();
   const copyText = useCopy();
@@ -166,9 +198,22 @@ function CampaignRow({ c }: { c: Campaign }) {
     },
     onError: (e) => toast.error(errorText(e)),
   });
-  const { draft: f, setDraft: setF, dirty, reset } = useDraft({ name: c.name, note: c.note });
+  const { draft: f, setDraft: setF, dirty, reset } = useDraft({
+    name: c.name,
+    note: c.note,
+    agentId: c.agent_id ?? 0,
+    percent: String(c.agent_percent ?? 10),
+  });
+  const agent = c.agent_id && agents ? agents.get(c.agent_id) : undefined;
   const conversion = c.visits > 0 ? Math.round((c.bought / c.visits) * 100) : 0;
   const title = c.name || c.tag;
+  const withAgent = (on: boolean) => ({
+    name: f.name,
+    note: f.note,
+    enabled: on,
+    agent_id: f.agentId,
+    agent_percent: f.agentId > 0 ? Math.min(100, Math.max(1, Number(f.percent) || 0)) : 0,
+  });
   return (
     <li className="card glass reveal">
       <div className="card-head items-start">
@@ -176,12 +221,15 @@ function CampaignRow({ c }: { c: Campaign }) {
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="card-title">{title}</h3>
             <code className="pill mono">{c.tag}</code>
+            {c.agent_id ? (
+              <code className="pill mono">{agent ? agent.login : `#${c.agent_id}`} · {c.agent_percent ?? 0}%</code>
+            ) : null}
             <Pill tone={c.enabled ? "ok" : "off"}>{c.enabled ? t("common.enable") : t("common.disable")}</Pill>
           </div>
           {c.note ? <div className="mt-1 text-xs text-[var(--md-on-surface-variant)]">{c.note}</div> : null}
         </div>
         <div className="flex items-center gap-2">
-          <Switch checked={c.enabled} label={t("campaigns.on")} disabled={save.isPending} onChange={(on) => save.mutate({ name: f.name, note: f.note, enabled: on })} />
+          <Switch checked={c.enabled} label={t("campaigns.on")} disabled={save.isPending} onChange={(on) => save.mutate(withAgent(on))} />
           <Button size="sm" variant="ghost" onClick={() => setConfirmDelete(true)} aria-label={t("common.delete")}>
             <Trash2 size={16} aria-hidden />
           </Button>
@@ -222,7 +270,7 @@ function CampaignRow({ c }: { c: Campaign }) {
         className="mt-4"
         onSubmit={(e) => {
           e.preventDefault();
-          save.mutate({ name: f.name, note: f.note, enabled: c.enabled });
+          save.mutate(withAgent(c.enabled));
         }}
         noValidate
       >
@@ -233,6 +281,22 @@ function CampaignRow({ c }: { c: Campaign }) {
           <Field label={t("campaigns.note")}>
             <input className="input" maxLength={500} value={f.note} onChange={(e) => setF((x) => ({ ...x, note: e.target.value }))} />
           </Field>
+          <Field label={t("campaigns.agent")} hint={t("campaigns.agentHint")}>
+            <select className="input" value={f.agentId} onChange={(e) => setF((x) => ({ ...x, agentId: Number(e.target.value) }))}>
+              <option value={0}>{t("campaigns.noAgent")}</option>
+              {(agents ? [...agents.values()] : []).map((x) => (
+                <option key={x.id} value={x.id}>
+                  {x.login}
+                  {x.disabled ? ` (${t("agents.off")})` : ""}
+                </option>
+              ))}
+            </select>
+          </Field>
+          {f.agentId > 0 ? (
+            <Field label={t("campaigns.agentPercent")} hint={t("campaigns.agentPercentHint")}>
+              <input className="input mono" inputMode="numeric" maxLength={3} value={f.percent} onChange={(e) => setF((x) => ({ ...x, percent: e.target.value }))} />
+            </Field>
+          ) : null}
         </div>
         <FormActions dirty={dirty} saving={save.isPending} onReset={reset} note={t("campaigns.onSub")} />
       </form>

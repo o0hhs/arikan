@@ -20,6 +20,7 @@ import (
 	"mikan/internal/panel/addons"
 	addonpages "mikan/internal/panel/addons/pages"
 	"mikan/internal/panel/addons/panelapi"
+	"mikan/internal/panel/agents"
 	"mikan/internal/panel/api"
 	"mikan/internal/panel/auth"
 	"mikan/internal/panel/autotune"
@@ -74,7 +75,10 @@ type Panel struct {
 	server    *server.Server
 	spa       *server.SPA
 	subPage   *server.SPA
+	agentPage *server.SPA
 	sessions  *auth.Sessions
+	// agentAuth is the advertising agents' service: their panel's sessions and logins.
+	agentAuth *agents.Service
 	st        *store.Store
 	devices   *domain.Devices
 	ipLimit   *auth.Limiter
@@ -262,8 +266,15 @@ func NewPanel(st *store.Store, o Options) (*Panel, error) {
 	refs := referral.New(st, set, o.Log, o.Now)
 	refs.Changed = deps.Users.Changed
 	// The ad campaign tags: which tagged link a buyer arrived through, so a campaign's
-	// arrivals, first purchases and renewals are counted.
+	// arrivals, first purchases and renewals are counted. A campaign may belong to an
+	// advertising agent; the agent's percent is taken where the payment is applied, and
+	// the Stars for its worth are kopecks by the referral programme's rate.
 	camps := campaigns.New(st, o.Log, o.Now)
+	camps.StarsRate = refs.StarsRate
+	// The advertising agents: their money is the campaigns' commissions, their panel its
+	// own page under its own secret path.
+	agts := agents.New(st, o.Log, o.Now)
+	p.agentAuth = agts
 	p.Billing = billing.New(billing.Deps{Store: st, Settings: set, Users: deps.Users, Log: o.Log, Now: o.Now, TrustProxy: o.TrustProxy,
 		MaxLinks: tgate.MaxLinks,
 		Addons:   deps.Addons, SubBase: subBase, Promo: promos, Events: hub,
@@ -300,7 +311,7 @@ func NewPanel(st *store.Store, o Options) (*Panel, error) {
 	// What an invitee's payment brought the inviter is the panel's to tell, through the
 	// bot's outbox (the addon holds the sending when it runs as one).
 	refs.Reward = p.Telegram.Reward
-	deps.Referral, deps.Campaigns = refs, camps
+	deps.Referral, deps.Campaigns, deps.Agents = refs, camps, agts
 	// The updates wait in the buffer for the addon that holds the bot.
 	p.Gateway.SetHandler(p.AddonsAPI.BotSlot())
 	deps.Telegram, deps.Gateway = p.Telegram, p.Gateway
@@ -493,6 +504,26 @@ func NewPanel(st *store.Store, o Options) (*Panel, error) {
 	adminMux.Handle(addonpages.Prefix, addonPages)
 	adminMux.Handle("/", p.spa)
 	p.server = server.New(adminMux, subHandler)
+	// The agents' panel: its API and its page under the agent path (settings.Paths.Agent),
+	// served like the admin's, with nothing showing on any other path.
+	if apiH, err := agents.Handler(agents.APIDeps{Service: agts, TrustProxy: o.TrustProxy, Log: o.Log, Now: o.Now,
+		BotUsername: func() string {
+			st := p.Gateway.Status()
+			if !st.Running {
+				return ""
+			}
+			return st.Bot.Username
+		}}); err != nil {
+		o.Log.Warn("agents: the agents' API is not on", "err", err)
+	} else if sp, err := server.NewSPA(o.Web, "agent.html"); err != nil {
+		o.Log.Warn("web bundle: no agent.html, the agents' panel is off", "err", err)
+	} else {
+		p.agentPage = sp
+		agentMux := http.NewServeMux()
+		agentMux.Handle("/api/", apiH)
+		agentMux.Handle("/", sp)
+		p.server.SetAgent(agentMux)
+	}
 	p.server.SetLegacy(subHandler.Legacy())
 	if o.DataDir != "" {
 		p.server.SetSite(server.OwnSite(filepath.Join(o.DataDir, "www")))
@@ -536,6 +567,10 @@ func (p *Panel) Apply(ctx context.Context) (settings.Paths, error) {
 		p.subPage.SetPrefix(paths.Sub)
 		p.subPage.SetLang(lang)
 	}
+	if p.agentPage != nil {
+		p.agentPage.SetPrefix(paths.Agent)
+		p.agentPage.SetLang(lang)
+	}
 	return paths, nil
 }
 
@@ -576,6 +611,11 @@ func (p *Panel) Run(ctx context.Context) {
 			every(ctx, 10*time.Minute, func() {
 				if err := p.sessions.Cleanup(ctx); err != nil {
 					p.log.Error("session cleanup", "err", err)
+				}
+				if p.agentAuth != nil {
+					if err := p.agentAuth.Cleanup(ctx); err != nil {
+						p.log.Error("agent session cleanup", "err", err)
+					}
 				}
 				p.ipLimit.Sweep(p.now())
 				p.userLimit.Sweep(p.now())

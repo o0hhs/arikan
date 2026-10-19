@@ -15,9 +15,12 @@ import (
 // path, or nothing. Everything else gets the same bare 404, so a scanner cannot tell
 // a panel from any other HTTPS endpoint.
 type Server struct {
-	paths  atomic.Pointer[settings.Paths]
-	admin  http.Handler
-	sub    http.Handler
+	paths atomic.Pointer[settings.Paths]
+	admin http.Handler
+	sub   http.Handler
+	// agent is the advertising agents' panel (its page and its API) under its own secret
+	// path; nil until the panel wires it in.
+	agent  http.Handler
 	legacy http.Handler // the old panel's links (settings.Paths.Legacy); nil: none
 	site   http.Handler // every other path (OwnSite); nil: NotFound
 	hsts   atomic.Pointer[func() bool]
@@ -66,6 +69,9 @@ func New(admin, sub http.Handler) *Server {
 
 func (s *Server) SetPaths(p settings.Paths) { s.paths.Store(&p) }
 
+// SetAgent takes the handler of the advertising agents' panel.
+func (s *Server) SetAgent(h http.Handler) { s.agent = h }
+
 // SetHSTS makes the answers tell browsers to use HTTPS for this host from now on, while on
 // says so. Only for a panel that serves TLS itself, and only while its certificate is one
 // browsers trust: a browser that remembers HSTS offers no way past a certificate warning,
@@ -111,6 +117,8 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request, admin bool) {
 		s.forward(w, r, s.admin, seg, rest, p)
 	case seg != "" && paths.Sub != "" && secure.Equal(seg, paths.Sub):
 		s.forward(w, r, s.sub, seg, rest, p)
+	case s.agent != nil && admin && seg != "" && paths.Agent != "" && secure.Equal(seg, paths.Agent):
+		s.forward(w, r, s.agent, seg, rest, p)
 	case s.legacy != nil && paths.Legacy != "" && strings.HasPrefix(p, "/"+paths.Legacy+"/"):
 		// The old panel's links: on every port, as the old panel had them on its own.
 		r2 := r.Clone(r.Context())

@@ -20,6 +20,8 @@ type CampaignView struct {
 	Note     string `json:"note"`
 	Enabled  bool   `json:"enabled"`
 	Link     string `json:"link,omitempty" doc:"Ссылка на бота с меткой кампании; пусто, пока бот не подключён"`
+	AgentID  int64  `json:"agent_id,omitempty" doc:"Рекламный агент, которому платит кампания; 0 — своя"`
+	Percent  int64  `json:"agent_percent,omitempty" doc:"Процент с продаж, который получает агент этой кампании"`
 	Visits   int64  `json:"visits" doc:"Сколько людей пришло по ссылке"`
 	Bought   int64  `json:"bought" doc:"Сколько из них купили подписку впервые"`
 	Renewed  int64  `json:"renewed" doc:"Сколько продлили подписку"`
@@ -68,15 +70,21 @@ type createCampaignInput struct {
 		Tag  string `json:"tag" minLength:"1" maxLength:"48" doc:"Метка в ссылке: латиница, цифры, дефис и подчёркивание"`
 		Name string `json:"name" maxLength:"120"`
 		Note string `json:"note" maxLength:"500"`
+		// AgentID: a campaign of an advertising agent, paid a percent of its sales;
+		// 0 (the default): the admin's own campaign. AgentPercent goes with it, 1..100.
+		AgentID      int64 `json:"agent_id,omitempty" minimum:"0" maximum:"9223372036854775807"`
+		AgentPercent int64 `json:"agent_percent,omitempty" minimum:"0" maximum:"100"`
 	}
 }
 
 type updateCampaignInput struct {
 	ID   int64 `path:"id"`
 	Body struct {
-		Name    string `json:"name" maxLength:"120"`
-		Note    string `json:"note" maxLength:"500"`
-		Enabled bool   `json:"enabled"`
+		Name         string `json:"name" maxLength:"120"`
+		Note         string `json:"note" maxLength:"500"`
+		Enabled      bool   `json:"enabled"`
+		AgentID      int64  `json:"agent_id,omitempty" minimum:"0" maximum:"9223372036854775807"`
+		AgentPercent int64  `json:"agent_percent,omitempty" minimum:"0" maximum:"100"`
 	}
 }
 
@@ -114,7 +122,21 @@ func (h *handlers) botLink(tag string) string {
 
 func (h *handlers) campaignView(v campaigns.View) CampaignView {
 	return CampaignView{ID: v.ID, Tag: v.Tag, Name: v.Name, Note: v.Note, Enabled: v.Enabled, Link: h.botLink(v.Tag),
+		AgentID: v.AgentID, Percent: v.AgentPercent,
 		Visits: v.Visits, Bought: v.Bought, Renewed: v.Renewed, Amount: v.Rub, Currency: campaigns.Currency}
+}
+
+// assignCampaign is the agent half of a campaign write: who the campaign pays and for
+// what share, mapped to the API's answers.
+func (h *handlers) assignCampaign(ctx context.Context, id, agentID, percent int64) error {
+	err := h.d.Campaigns.Assign(ctx, id, agentID, percent)
+	switch {
+	case errors.Is(err, campaigns.ErrAgentNotFound):
+		return huma.Error422UnprocessableEntity("validation", &huma.ErrorDetail{Location: "body.agent_id", Message: "agent_not_found"})
+	case errors.Is(err, campaigns.ErrAgentPercent):
+		return huma.Error422UnprocessableEntity("validation", &huma.ErrorDetail{Location: "body.agent_percent", Message: "agent_percent"})
+	}
+	return err
 }
 
 func (h *handlers) listCampaigns(ctx context.Context, in *campaignListInput) (*campaignsOutput, error) {
@@ -155,9 +177,16 @@ func (h *handlers) createCampaign(ctx context.Context, in *createCampaignInput) 
 	if err != nil {
 		return nil, err
 	}
+	if in.Body.AgentID != 0 || in.Body.AgentPercent != 0 {
+		if err := h.assignCampaign(ctx, c.ID, in.Body.AgentID, in.Body.AgentPercent); err != nil {
+			// The tag itself is in place; its agent half comes when the agent is.
+			return nil, err
+		}
+	}
 	h.audit(ctx, sessionOf(ctx).AdminID, "campaign.create", "campaign", c.Tag, map[string]any{"tag": c.Tag})
 	out := &campaignOneOutput{}
-	out.Body = CampaignView{ID: c.ID, Tag: c.Tag, Name: c.Name, Note: c.Note, Enabled: c.Enabled != 0, Link: h.botLink(c.Tag), Currency: campaigns.Currency}
+	out.Body = CampaignView{ID: c.ID, Tag: c.Tag, Name: c.Name, Note: c.Note, Enabled: c.Enabled != 0, Link: h.botLink(c.Tag),
+		AgentID: in.Body.AgentID, Percent: in.Body.AgentPercent, Currency: campaigns.Currency}
 	return out, nil
 }
 
@@ -172,9 +201,21 @@ func (h *handlers) updateCampaign(ctx context.Context, in *updateCampaignInput) 
 	if err != nil {
 		return nil, err
 	}
+	if err := h.assignCampaign(ctx, in.ID, in.Body.AgentID, in.Body.AgentPercent); err != nil {
+		return nil, err
+	}
 	h.audit(ctx, sessionOf(ctx).AdminID, "campaign.update", "campaign", c.Tag, map[string]any{"enabled": in.Body.Enabled})
 	out := &campaignOneOutput{}
-	out.Body = CampaignView{ID: c.ID, Tag: c.Tag, Name: c.Name, Note: c.Note, Enabled: c.Enabled != 0, Link: h.botLink(c.Tag), Currency: campaigns.Currency}
+	if v, _, err := h.d.Campaigns.Views(ctx, 200, 0); err == nil {
+		for _, view := range v {
+			if view.ID == in.ID {
+				out.Body = h.campaignView(view)
+				return out, nil
+			}
+		}
+	}
+	out.Body = CampaignView{ID: c.ID, Tag: c.Tag, Name: c.Name, Note: c.Note, Enabled: c.Enabled != 0, Link: h.botLink(c.Tag),
+		AgentID: in.Body.AgentID, Percent: in.Body.AgentPercent, Currency: campaigns.Currency}
 	return out, nil
 }
 

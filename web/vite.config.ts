@@ -58,7 +58,7 @@ export default defineConfig({
     // Never inline assets as data: URIs — the CSP only allows fonts and scripts from 'self'.
     assetsInlineLimit: 0,
     rollupOptions: {
-      input: { index: "index.html", sub: "sub.html" },
+      input: { index: "index.html", sub: "sub.html", agent: "agent.html" },
     },
   },
   server: {
