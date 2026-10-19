@@ -325,7 +325,7 @@ function AgentRow({ a }: { a: Agent }) {
           className="mb-3 border-t border-[var(--hairline)] pt-3"
           onSubmit={(e) => {
             e.preventDefault();
-            const amount = Number(p.amount);
+            const amount = Number(payoutAmount);
             if (!Number.isFinite(amount) || amount <= 0) return;
             setConfirmPayout(true);
           }}

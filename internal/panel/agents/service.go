@@ -128,7 +128,7 @@ func (s *Service) Create(ctx context.Context, rawLogin, password, note string) (
 	}
 	now := s.Now().Unix()
 	a, err := s.Store.Q.CreateAgent(ctx, db.CreateAgentParams{
-		Login: login, PasswordHash: hash, Note: strings.TrimSpace(note), CreatedAt: now, UpdatedAt: now})
+		Login: login, PasswordHash: hash, Note: strings.TrimSpace(note), CreatedAt: now})
 	if store.IsUnique(err) {
 		return db.CampaignAgent{}, ErrLoginTaken
 	}

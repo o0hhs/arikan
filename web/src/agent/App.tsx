@@ -1,7 +1,7 @@
 // The advertising agents' screen: a login of its own and three pages — the money's
 // summary, the links and the clients they brought. The numbers are the panel's; the
 // agent may look but not touch, so every call is a plain GET.
-import { useMutation, useQuery, type UseQueryResult } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
 import { Copy, LogOut } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { ApiError, errorText, setCsrf } from "../api/client";
