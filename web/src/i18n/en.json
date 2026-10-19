@@ -1,4 +1,65 @@
 {
+"monitor": {
+    "title": "Monitoring",
+    "subtitle": "Traffic and the state of the servers",
+    "updated": "Updated at {time}",
+    "stale": "Could not refresh: this is what was last received.",
+    "auto": "The page refreshes itself every 30 seconds.",
+    "refresh": "Refresh now",
+    "logout": "Sign out",
+    "period": "Period",
+    "range": {
+      "24h": "24 hours",
+      "7d": "7 days",
+      "30d": "30 days"
+    },
+    "login": {
+      "title": "The monitoring page",
+      "sub": "Enter the password the service's owner set.",
+      "closed": "The page no longer answers: its owner closed the access.",
+      "password": "Password",
+      "submit": "Open",
+      "bad": "Wrong password.",
+      "limited": "Too many attempts. Try again later.",
+      "failed": "The page did not answer. Try again."
+    },
+    "kpi": {
+      "online": "Online",
+      "active": "Active",
+      "ofSubs": "of {n} subscriptions",
+      "today": "Traffic today",
+      "month": "This month",
+      "total": "All time",
+      "nodes": "Nodes"
+    },
+    "traffic": {
+      "title": "Traffic",
+      "totals": "Over {range}: {down} down, {up} up"
+    },
+    "nodes": {
+      "title": "Servers",
+      "sub": "The service's nodes and what each carried over the period.",
+      "none": "No nodes yet.",
+      "panel": "the panel's own",
+      "up": "running",
+      "seen": "seen {ago}",
+      "never": "never answered",
+      "conns": "connections: {n}"
+    },
+    "sites": {
+      "title": "Where clients go",
+      "sub": "The sites by traffic, with no clients and no addresses.",
+      "off": "The service's owner does not count traffic by site.",
+      "none": "No data for this period.",
+      "other": "other sites"
+    },
+    "payments": {
+      "title": "Payments",
+      "sub": "Payments taken over the last 30 days.",
+      "none": "No payments yet.",
+      "count": "{n, plural, one {# payment} other {# payments}}"
+    }
+  },
   "common": {
     "add": "Add",
     "cancel": "Cancel",
@@ -2104,6 +2165,46 @@
       },
       "seconds": "Seconds",
       "secondsSub": "Write the time to the second: the clock on the dashboard ticks."
+    },
+    "monitor": {
+      "title": "Monitoring",
+      "sub": "A separate page with the service at a glance: traffic, nodes and more. It opens by its own link and only by password — the panel's password and an admin session mean nothing there.",
+      "on": "Show the page",
+      "onSub": "The page lives at the address below and opens by its password. Switched off, it answers the same 404 as any other path.",
+      "link": "The link",
+      "linkHint": "Hand it to whoever needs the access. The segment is random: the page cannot be found by guessing.",
+      "noLink": "The link appears once the page is on and has a password.",
+      "newLink": "A new link",
+      "newLinkTitle": "Change the page's address?",
+      "newLinkText": "The old link stops working for everyone who has it. The password stays.",
+      "newLinkConfirm": "Change it",
+      "linkRotated": "The page's address has changed.",
+      "password": "Password",
+      "passwordSet": "A password is set. Only its hash is kept: the panel cannot show the password.",
+      "passwordNone": "No password: the page is closed even while it is switched on.",
+      "passwordHint": "At least {n} characters. Changing it signs out everyone looking at the page.",
+      "passwordSet2": "Set a password",
+      "passwordChange": "Change the password",
+      "passwordSaved": "The password is set: every open session of the page is closed.",
+      "passwordClear": "Remove the password",
+      "passwordClearTitle": "Remove the page's password?",
+      "passwordClearText": "The page closes at once: nothing can be opened through it until you set a password again.",
+      "passwordClearConfirm": "Remove",
+      "passwordCleared": "The password is gone: the page is closed.",
+      "blocks": "What the page shows",
+      "blocksHint": "Anyone with the link and the password sees it. What is off is neither asked for nor served.",
+      "block": {
+        "summary": "The summary",
+        "summarySub": "Online, active subscriptions, traffic today, this month and all time, the nodes.",
+        "traffic": "The traffic chart",
+        "trafficSub": "Over 24 hours, 7 or 30 days, with the period's totals.",
+        "nodes": "The servers",
+        "nodesSub": "Every node: its state, its connections and what it carried.",
+        "sites": "Where clients go",
+        "sitesSub": "The sites by traffic. Shown only while the traffic detail is on.",
+        "payments": "The payments",
+        "paymentsSub": "Payments taken over 30 days, by currency. Off by default."
+      }
     }
   },
   "deviceMode": {

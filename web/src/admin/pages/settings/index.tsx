@@ -12,6 +12,7 @@ import { SETTINGS_PARTS, SETTINGS_TABS, type SettingsSearch } from "../../search
 import { AboutCard } from "./about";
 import { BackupCard } from "./backup";
 import { DashboardCard } from "./dashboard";
+import { MonitorCard } from "./monitor";
 import { AutoCard, LanguageCard, ServiceCard, UpdatesCard } from "./general";
 import { ServerCheckCard } from "../node-check";
 import { GoalsCard } from "./goals";
@@ -99,6 +100,7 @@ export function SettingsPage() {
                   <TwoFactorCard />
                   <SessionsCard />
                   <AccessCard s={s} />
+                  <MonitorCard />
                   <CertificateCard s={s} />
                   <ApiCard />
                 </>

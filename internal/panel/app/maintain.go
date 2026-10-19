@@ -42,4 +42,8 @@ func (p *Panel) maintain(ctx context.Context) {
 	if err := p.devices.Prune(ctx); err != nil {
 		p.log.Error("prune device pauses and unbinds", "err", err)
 	}
+	// What the monitoring page's rate limiter remembers of clients long gone.
+	if p.monitor != nil {
+		p.monitor.Sweep()
+	}
 }

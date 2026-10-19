@@ -66,6 +66,7 @@ func newHarness(t *testing.T, with ...func(*Options)) *harness {
 		"index.html":           {Data: []byte("<!doctype html><html><head><!-- mikan:base --></head><body></body></html>")},
 		"assets/app-1.js":      {Data: []byte("console.log(1)")},
 		"sub.html":             {Data: []byte("<!doctype html><html><head><!-- mikan:base --></head><body>sub</body></html>")},
+		"monitor.html":         {Data: []byte("<!doctype html><html><head><!-- mikan:base --></head><body>monitor</body></html>")},
 		"favicon.png":          {Data: []byte("\x89PNG icon")},
 		"apple-touch-icon.png": {Data: []byte("\x89PNG touch")},
 		"secret.txt":           {Data: []byte("not for the subscription path")},

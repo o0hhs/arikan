@@ -831,6 +831,68 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/monitor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Публичная страница мониторинга: включена, её ссылка и блоки */
+        get: operations["get-monitor"];
+        /**
+         * Включить или выключить страницу мониторинга и выбрать её блоки
+         * @description Пока пароль не задан, страница не открывается, даже если она включена.
+         */
+        put: operations["put-monitor"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/monitor/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Задать пароль страницы мониторинга
+         * @description Пароль не возвращается: панель хранит только его хеш. Старый пароль и все открытые сессии страницы перестают работать.
+         */
+        post: operations["set-monitor-password"];
+        /** Убрать пароль: страница закрывается */
+        delete: operations["clear-monitor-password"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/monitor/path": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Сменить адрес страницы мониторинга
+         * @description Старая ссылка перестаёт работать; пароль остаётся.
+         */
+        post: operations["rotate-monitor-path"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/node": {
         parameters: {
             query?: never;
@@ -3854,6 +3916,18 @@ export interface components {
             /** @description Для action=url: https:// или tg:// */
             url?: string;
         };
+        MonitorView: {
+            available: string[];
+            /** @description Что показывает страница */
+            blocks: string[];
+            /** @description Показывать страницу по публичной ссылке */
+            enabled: boolean;
+            has_password: boolean;
+            /** Format: int64 */
+            min_password: number;
+            /** @description Адрес страницы в ссылке */
+            path: string;
+        };
         NodeCertInputBody: {
             /** @description Цепочка в PEM: сначала сертификат, за ним промежуточные (fullchain.pem) */
             cert: string;
@@ -5031,6 +5105,10 @@ export interface components {
             /** Format: int64 */
             successful_activations: number;
         };
+        PutMonitorInputBody: {
+            blocks: string[];
+            enabled: boolean;
+        };
         PutSubImageInputBody: {
             /** @description Картинка в base64: PNG, JPEG или WebP; логотип до 512 КБ, фон до 2 МБ. SVG не принимается */
             data: string;
@@ -5171,6 +5249,10 @@ export interface components {
             tls13: boolean;
             x25519: boolean;
         };
+        RotateMonitorInputBody: {
+            /** @description Новый адрес страницы; старый перестаёт работать */
+            path: string;
+        };
         RouteDirectSet: {
             id: string;
             name: string;
@@ -5288,6 +5370,10 @@ export interface components {
             /** Format: date-time */
             last_seen_at: string;
             user_agent: string;
+        };
+        SetMonitorPasswordInputBody: {
+            /** @description Пароль страницы; старый и все его сессии перестают работать */
+            password: string;
         };
         SettingsView: {
             /**
@@ -8258,6 +8344,163 @@ export interface operations {
                 };
                 content: {
                     "text/plain": unknown;
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-monitor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MonitorView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "put-monitor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PutMonitorInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MonitorView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "set-monitor-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetMonitorPasswordInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MonitorView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "clear-monitor-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MonitorView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "rotate-monitor-path": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RotateMonitorInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MonitorView"];
                 };
             };
             /** @description Error */

@@ -7,23 +7,32 @@ import tailwindcss from "@tailwindcss/vite";
 // Dev: run the panel with MIKAN_DEV=1 on 127.0.0.1:2053 and admin path "dev-admin-path-0000".
 const devAdminPath = process.env.MIKAN_DEV_ADMIN_PATH ?? "dev-admin-path-0000";
 
-// The sections of the dictionaries the subscription page and the Mini App read. They are
-// 5% of the text, and the page should not download the rest: add a section here when
-// sub/ (or what it imports) starts using one (`pnpm dev` warns about a missing key).
-const SUB_SECTIONS = ["common", "promocodes", "states", "sub", "time", "units"];
+// The sections of the dictionaries each page outside the admin panel reads. They are a few
+// percent of the text, and those pages should not download the rest: add a section here
+// when such a page (or what it imports) starts using one (`pnpm dev` warns about a missing
+// key).
+const DICTS: Record<string, string[]> = {
+  sub: ["common", "promocodes", "states", "sub", "time", "units"],
+  monitor: ["common", "monitor", "time", "units"],
+};
 
-/** virtual:i18n-sub-ru / -en: the dictionary cut down to SUB_SECTIONS. */
-function subDictionaries(): Plugin {
-  const prefix = "virtual:i18n-sub-";
+/** virtual:i18n-<page>-<lang>: the dictionary cut down to that page's sections. */
+function cutDictionaries(): Plugin {
+  const prefix = "virtual:i18n-";
   return {
-    name: "mikan-i18n-sub",
-    resolveId: (id) => (id.startsWith(prefix) ? `\0${id}` : undefined),
+    name: "mikan-i18n-cut",
+    resolveId: (id) => {
+      if (!id.startsWith(prefix)) return undefined;
+      const [name, lang] = id.slice(prefix.length).split("-");
+      return DICTS[name!] && (lang === "ru" || lang === "en") ? `\0${id}` : undefined;
+    },
     load(id) {
       if (!id.startsWith(`\0${prefix}`)) return undefined;
-      const file = fileURLToPath(new URL(`./src/i18n/${id.slice(prefix.length + 1)}.json`, import.meta.url));
+      const [name, lang] = id.slice(1 + prefix.length).split("-");
+      const file = fileURLToPath(new URL(`./src/i18n/${lang}.json`, import.meta.url));
       this.addWatchFile(file);
       const all = JSON.parse(readFileSync(file, "utf8")) as Record<string, unknown>;
-      const part = Object.fromEntries(SUB_SECTIONS.map((s) => [s, all[s]]));
+      const part = Object.fromEntries(DICTS[name!]!.map((s) => [s, all[s]]));
       return `export default ${JSON.stringify(part)};`;
     },
   };
@@ -51,14 +60,14 @@ function preloadFonts(files: string[]): Plugin {
 export default defineConfig({
   // Relative asset URLs: the Go server injects <base href="/<secret>/"> at runtime.
   base: "./",
-  plugins: [react(), tailwindcss(), subDictionaries(), preloadFonts(["onest-latin-wght", "onest-cyrillic-wght"])],
+  plugins: [react(), tailwindcss(), cutDictionaries(), preloadFonts(["onest-latin-wght", "onest-cyrillic-wght"])],
   build: {
     outDir: "dist",
     emptyOutDir: true,
     // Never inline assets as data: URIs — the CSP only allows fonts and scripts from 'self'.
     assetsInlineLimit: 0,
     rollupOptions: {
-      input: { index: "index.html", sub: "sub.html" },
+      input: { index: "index.html", sub: "sub.html", monitor: "monitor.html" },
     },
   },
   server: {

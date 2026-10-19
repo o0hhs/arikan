@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"mikan/internal/nodeapi"
 	"mikan/internal/nodetls"
 	"mikan/internal/panel/acme"
 	"mikan/internal/panel/addons"
@@ -31,6 +32,7 @@ import (
 	"mikan/internal/panel/events"
 	"mikan/internal/panel/geoip"
 	"mikan/internal/panel/infraalerts"
+	"mikan/internal/panel/monitor"
 	"mikan/internal/panel/nodesync"
 	"mikan/internal/panel/nodeupdate"
 	"mikan/internal/panel/panelimport"
@@ -74,13 +76,16 @@ type Panel struct {
 	server    *server.Server
 	spa       *server.SPA
 	subPage   *server.SPA
-	sessions  *auth.Sessions
-	st        *store.Store
-	devices   *domain.Devices
-	ipLimit   *auth.Limiter
-	userLimit *auth.Limiter
-	now       func() time.Time
-	log       *slog.Logger
+	// monitorPage is the public monitoring page's own bundle entry, monitor its API.
+	monitorPage *server.SPA
+	monitor     *monitor.Handler
+	sessions    *auth.Sessions
+	st          *store.Store
+	devices     *domain.Devices
+	ipLimit     *auth.Limiter
+	userLimit   *auth.Limiter
+	now         func() time.Time
+	log         *slog.Logger
 }
 
 type Options struct {
@@ -359,6 +364,33 @@ func NewPanel(st *store.Store, o Options) (*Panel, error) {
 	if sp, err := server.NewSPA(o.Web, "sub.html"); err == nil {
 		p.subPage, subPageHandler = sp, sp
 	}
+	// The public monitoring page: its own bundle entry, its own address, its own password.
+	var monitorPageHandler http.Handler
+	if sp, err := server.NewSPA(o.Web, "monitor.html"); err == nil {
+		p.monitorPage, monitorPageHandler = sp, sp
+	}
+	// The nodes are taken as the interface only when the manager is really there: a nil
+	// *nodesync.Manager in it is not a nil interface, and the page would ask it anyway.
+	var nodeHealth monitor.Nodes
+	if p.Nodes != nil {
+		nodeHealth = p.Nodes
+	}
+	p.monitor = monitor.NewHandler(monitor.Deps{
+		Store: st, Set: set, Now: o.Now, Nodes: nodeHealth, TrustProxy: o.TrustProxy, Log: o.Log,
+		Online: func() map[string]nodeapi.Online {
+			if deps.Online == nil {
+				return nil
+			}
+			return deps.Online()
+		},
+		Brand: func(ctx context.Context) string {
+			brand, _, err := settings.Get[string](ctx, set, settings.KeyBrand)
+			if err != nil {
+				return ""
+			}
+			return brand
+		},
+	}, monitorPageHandler)
 	pages := subpage.NewService(st.Q)
 	buildSubCfg := func(ctx context.Context) (subs.Config, error) {
 		ep, err := set.Endpoint(ctx)
@@ -493,6 +525,7 @@ func NewPanel(st *store.Store, o Options) (*Panel, error) {
 	adminMux.Handle(addonpages.Prefix, addonPages)
 	adminMux.Handle("/", p.spa)
 	p.server = server.New(adminMux, subHandler)
+	p.server.SetMonitor(p.monitor)
 	p.server.SetLegacy(subHandler.Legacy())
 	if o.DataDir != "" {
 		p.server.SetSite(server.OwnSite(filepath.Join(o.DataDir, "www")))
@@ -535,6 +568,22 @@ func (p *Panel) Apply(ctx context.Context) (settings.Paths, error) {
 	if p.subPage != nil {
 		p.subPage.SetPrefix(paths.Sub)
 		p.subPage.SetLang(lang)
+	}
+	// The monitoring page answers under a path of its own, and only while it has a password
+	// to guard it with: the segment is read here, in the loop that keeps the panel's own
+	// paths in step with the settings.
+	mon, err := monitor.Load(ctx, p.reload)
+	if err != nil {
+		return paths, err
+	}
+	monPath := ""
+	if mon.Ready() {
+		monPath = mon.Path
+	}
+	p.server.SetMonitorPath(monPath)
+	if p.monitorPage != nil {
+		p.monitorPage.SetPrefix(monPath)
+		p.monitorPage.SetLang(lang)
 	}
 	return paths, nil
 }
