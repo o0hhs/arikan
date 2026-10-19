@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"slices"
 
@@ -16,6 +17,15 @@ import (
 
 // The public monitoring page as the admin sets it up: its own address, its password and
 // what it shows. The password is never given back, only whether one is set.
+
+// monitorFieldErr names the field the document refused and what it refused it for.
+func monitorFieldErr(err error, value any) error {
+	var bad monitor.BadBlock
+	if errors.As(err, &bad) {
+		return fieldErrs(fieldDetail("body.blocks", err.Error(), bad.Block))
+	}
+	return fieldErrs(fieldDetail("body.path", err.Error(), value))
+}
 
 type MonitorView struct {
 	Enabled bool `json:"enabled" doc:"Показывать страницу по публичной ссылке"`
@@ -87,14 +97,10 @@ func (h *handlers) getMonitor(ctx context.Context, _ *struct{}) (*monitorOutput,
 }
 
 func (h *handlers) putMonitor(ctx context.Context, in *putMonitorInput) (*monitorOutput, error) {
-	var details []error
-	for _, b := range in.Body.Blocks {
-		if !slices.Contains(monitor.Blocks, b) {
-			details = append(details, fieldDetail("body.blocks", "monitor_block_unknown", b))
-		}
-	}
-	if len(details) > 0 {
-		return nil, fieldErrs(details...)
+	// The document knows its own rules: the request is one (a link is made below, so an
+	// empty path here is not a wrong one).
+	if err := (monitor.Config{Enabled: in.Body.Enabled, Blocks: in.Body.Blocks}).Validate(); err != nil {
+		return nil, monitorFieldErr(err, in.Body.Blocks)
 	}
 	err := h.d.Store.TxRC(ctx, func(q *db.Queries) error {
 		c, err := monitor.Load(ctx, settings.New(q))
@@ -164,8 +170,8 @@ func (h *handlers) clearMonitorPassword(ctx context.Context, _ *struct{}) (*moni
 }
 
 func (h *handlers) rotateMonitorPath(ctx context.Context, in *rotateMonitorInput) (*monitorOutput, error) {
-	if !monitor.ValidPath(in.Body.Path) {
-		return nil, fieldErrs(fieldDetail("body.path", "monitor_path_bad", in.Body.Path))
+	if err := (monitor.Config{Path: in.Body.Path}).Validate(); err != nil {
+		return nil, monitorFieldErr(err, in.Body.Path)
 	}
 	err := h.d.Store.TxRC(ctx, func(q *db.Queries) error {
 		c, err := monitor.Load(ctx, settings.New(q))

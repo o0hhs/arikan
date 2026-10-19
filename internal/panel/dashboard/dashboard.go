@@ -29,9 +29,6 @@ const (
 	DefaultDate = "compact"
 	// DefaultSeconds: with a date that carries the time, it is written to the second.
 	DefaultSeconds = true
-	// Breaking is the width the Large date is written for: the panel's layout switches
-	// there, and the heading holds its line.
-	Breaking = 380
 )
 
 // Layout is the dashboard's settings document: which cards it shows and how it writes the
@@ -74,6 +71,3 @@ func Load(ctx context.Context, set *settings.Settings) (Layout, error) {
 	out.Seconds = stored.Seconds
 	return out, nil
 }
-
-// Show says whether the named card is shown.
-func (c Layout) Show(card string) bool { return c.Cards[card] }

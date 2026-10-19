@@ -97,7 +97,7 @@ func (c Config) Ready() bool { return c.Enabled && c.Path != "" && c.Hash != "" 
 func (c Config) Validate() error {
 	for _, b := range c.Blocks {
 		if !slices.Contains(Blocks, b) {
-			return ErrBadBlock
+			return BadBlock{Block: b}
 		}
 	}
 	if c.Path != "" && !ValidPath(c.Path) {
@@ -107,11 +107,19 @@ func (c Config) Validate() error {
 }
 
 var (
-	// ErrBadBlock: a block this panel does not have.
-	ErrBadBlock = errors.New("bad_block")
+	// ErrBadBlock is answered when the document asks for a block this panel does not have;
+	// BadBlock names it. The text is the API's error code.
+	ErrBadBlock = errors.New("monitor_block_unknown")
 	// ErrBadPath: the link's segment is not one (unsafe in a URL path or too short).
-	ErrBadPath = errors.New("bad_path")
+	ErrBadPath = errors.New("monitor_path_bad")
 )
+
+// BadBlock is the block the document asked for and this panel does not have: the API
+// answers with this error's text at body.blocks and this name as the value.
+type BadBlock struct{ Block string }
+
+func (e BadBlock) Error() string { return ErrBadBlock.Error() }
+func (e BadBlock) Unwrap() error { return ErrBadBlock }
 
 // ValidPath: what may stand in a URL path segment of its own and is not worth guessing.
 func ValidPath(p string) bool {

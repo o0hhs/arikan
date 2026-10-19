@@ -1,6 +1,7 @@
 package monitor
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -142,13 +143,15 @@ func TestDefaultIsOffAndGuarded(t *testing.T) {
 	if err := d.Validate(); err != nil {
 		t.Fatalf("Validate: %v", err)
 	}
+	// A block this panel does not have is named, so the API can say which one it refused.
 	d.Blocks = []string{"summary", "nonsense"}
-	if err := d.Validate(); err != ErrBadBlock {
+	var bad BadBlock
+	if err := d.Validate(); !errors.As(err, &bad) || bad.Block != "nonsense" || !errors.Is(err, ErrBadBlock) {
 		t.Fatalf("an unknown block: %v", err)
 	}
 	d.Blocks = []string{"summary"}
 	d.Path = "with/slash"
-	if err := d.Validate(); err != ErrBadPath {
+	if err := d.Validate(); !errors.Is(err, ErrBadPath) {
 		t.Fatalf("an unsafe link: %v", err)
 	}
 }

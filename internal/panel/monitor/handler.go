@@ -97,13 +97,13 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// servePage hands out the bundle's entry: the page itself, which is the login form until
+// the API answers with a session. It carries no numbers of its own.
 func (h *Handler) servePage(w http.ResponseWriter, r *http.Request) {
 	if h.page == nil || (r.Method != http.MethodGet && r.Method != http.MethodHead) {
 		server.NotFound(w)
 		return
 	}
-	// The state the page needs before its first request: whether it may show anything at
-	// all. The page asks the API for the rest.
 	w.Header().Set("Cache-Control", "no-store")
 	h.page.ServeHTTP(w, r)
 }
