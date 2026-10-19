@@ -329,6 +329,7 @@ func (e *Engine) Apply(st nodeapi.DesiredState) (nodeapi.ApplyResult, error) {
 	e.Reg.SetShared(sharedListeners(st))
 	e.Reg.SetTorrent(st.Torrent)
 	e.Reg.SetIngress(st.Filters)
+	e.Reg.SetDetail(st.Detail)
 	// The TURN server is a child process of this agent, not a mihomo listener: it is
 	// started, restarted and stopped here, beside the rest of the state.
 	e.turn.Apply(st.Turn)

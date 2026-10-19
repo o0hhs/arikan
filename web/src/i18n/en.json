@@ -973,7 +973,19 @@
     "unbanned": "“{name}” is unbanned",
     "pausedUntil": "Unbound by the client · returns {when} at {time}",
     "unpauseTitle": "Let “{name}” back earlier?",
-    "pausedForever": "Unbound by the client · stays out until you let it"
+    "pausedForever": "Unbound by the client · stays out until you let it",
+    "sites": {
+      "title": "Where it goes",
+      "off": "the detail is off",
+      "period": "Period",
+      "days": "{n, plural, one {# day} other {# days}}",
+      "none": "No data for this period.",
+      "other": "other sites",
+      "block": "Block {site} for everyone",
+      "blocked": "{site} is in the filters: the nodes let nobody there",
+      "isBlocked": "In the filters already",
+      "hint": "Traffic by site, with no times or addresses. Kept for {n, plural, one {# day} other {# days}}; turned on on the Filters page."
+    }
   },
   "tariffs": {
     "subtitle": "Templates for granting access in one click. Changing a plan does not touch subscriptions already issued.",
@@ -2042,7 +2054,22 @@
     "reissueLimit": "Times",
     "reissueSummary": "The client replaces the link at most {n, plural, one {# time} other {# times}} per {period}.",
     "reissueSummaryFree": "The client replaces the link whenever they like.",
-    "reissueSummaryOff": "The client does not replace the link themselves: only you on the client's card. There is no “New link” button in the bot or the Mini App."
+    "reissueSummaryOff": "The client does not replace the link themselves: only you on the client's card. There is no “New link” button in the bot or the Mini App.",
+    "detail": {
+      "title": "Where clients go",
+      "sub": "The nodes count each subscription's traffic by site (the registrable domain or the address), with no times, client addresses or single connections. Shown on the client's card, where a site can be blocked too.",
+      "on": "Count traffic by site",
+      "onSub": "The node works a little harder: the connections go through a counter.",
+      "keep": "Keep, days",
+      "keepHint": "Older is removed once a day, 1 to 90.",
+      "clear": "What was collected",
+      "clearSub": "Every sum by site, for all the days and every subscription, goes at once. With the detail on, the nodes start collecting again.",
+      "clearButton": "Clear the data",
+      "clearDone": "{n, plural, one {# record removed} other {# records removed}}",
+      "clearConfirmTitle": "Clear everything about where clients go?",
+      "clearConfirmText": "The sums by site, for all the days and every subscription, will be deleted. There is no way back. With the detail on, the nodes keep counting.",
+      "clearConfirm": "Clear"
+    }
   },
   "deviceMode": {
     "label": "How to count:",

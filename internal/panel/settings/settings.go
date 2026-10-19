@@ -114,6 +114,10 @@ const (
 	// KeySubPage is the subscription page as the admin built it (subpage.Config): its look,
 	// blocks, apps and own CSS; unset: the page as it always was.
 	KeySubPage = "sub_page"
+	// KeyTrafficDetail: the nodes sum each subscription's bytes by site (user_sites), kept
+	// KeyTrafficDetailDays days.
+	KeyTrafficDetail     = "traffic_detail"
+	KeyTrafficDetailDays = "traffic_detail_days"
 )
 
 // Switch is an on/off setting with its default: read it with On, so the default lives
@@ -136,6 +140,7 @@ var (
 	ShowGoals     = Switch{KeyShowGoals, true}
 	AppBranding   = Switch{KeyAppBranding, false}
 	HappHide      = Switch{KeyHappHide, false}
+	TrafficDetail = Switch{KeyTrafficDetail, false}
 )
 
 // ValidLang says whether s is a language of the panel.

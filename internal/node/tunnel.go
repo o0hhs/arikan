@@ -68,6 +68,13 @@ func (t *Tunnel) HandleTCPConn(conn net.Conn, m *C.Metadata) {
 	}
 	s.addConn(c)
 	defer c.Close()
+	// The core handles the connection to its end, the sniffed name set on m by then.
+	if t.reg.detail.Load() {
+		sc := &siteConn{Conn: through}
+		t.inner.HandleTCPConn(sc, m)
+		t.reg.countSite(s, siteOf(m.RuleHost(), m.DstIP), sc.up.Load(), sc.down.Load())
+		return
+	}
 	t.inner.HandleTCPConn(through, m)
 }
 
@@ -117,6 +124,11 @@ func (t *Tunnel) HandleUDPPacket(p C.UDPPacket, m *C.Metadata) {
 		return
 	}
 	s.countIn(b, int64(len(p.Data())), 0)
+	// A packet counts to the name its client sent, else to its address: the sniffer has not
+	// looked at it yet. Answers are not counted here.
+	if t.reg.detail.Load() {
+		t.reg.countSite(s, siteOf(m.Host, m.DstIP), int64(len(p.Data())), 0)
+	}
 	t.inner.HandleUDPPacket(&countingPacket{UDPPacket: p, slot: s, bucket: b, g: g}, m)
 }
 
