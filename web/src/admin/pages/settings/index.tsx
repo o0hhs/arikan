@@ -11,6 +11,7 @@ import { t, type Key } from "../../../i18n";
 import { SETTINGS_PARTS, SETTINGS_TABS, type SettingsSearch } from "../../search";
 import { AboutCard } from "./about";
 import { BackupCard } from "./backup";
+import { DashboardCard } from "./dashboard";
 import { AutoCard, LanguageCard, ServiceCard, UpdatesCard } from "./general";
 import { ServerCheckCard } from "../node-check";
 import { GoalsCard } from "./goals";
@@ -75,6 +76,7 @@ export function SettingsPage() {
               tab === "general" ? (
                 <>
                   <ServiceCard s={s} />
+                  <DashboardCard />
                   <LanguageCard s={s} />
                   <ThemeCard />
                   <FontCard />

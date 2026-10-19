@@ -634,7 +634,13 @@
     "plusMonth": "+1 month",
     "top": "Most traffic",
     "topSub": "since the start of the month",
-    "topEmpty": "Statistics will appear once clients start connecting."
+    "topEmpty": "Statistics will appear once clients start connecting.",
+    "inYourZone": "in your time zone",
+    "hidden": {
+      "title": "Every card is off",
+      "sub": "The dashboard is empty: every card is switched off in its settings.",
+      "open": "Open the settings"
+    }
   },
   "users": {
     "loadFailed": "Could not load the list",
@@ -2069,6 +2075,35 @@
       "clearConfirmTitle": "Clear everything about where clients go?",
       "clearConfirmText": "The sums by site, for all the days and every subscription, will be deleted. There is no way back. With the detail on, the nodes keep counting.",
       "clearConfirm": "Clear"
+    },
+    "dash": {
+      "title": "The dashboard",
+      "sub": "What the dashboard shows and how it writes the date and the time. The time is the time zone of the device the panel is open on: everyone sees their own.",
+      "cards": "Cards",
+      "cardsHint": "A card that is off leaves the dashboard; its data stays on its own pages.",
+      "card": {
+        "kpis": "The numbers",
+        "kpisSub": "Online, active subscriptions, today's traffic and what is due within 7 days.",
+        "traffic": "Traffic",
+        "trafficSub": "The chart for 24 hours, 7 or 30 days, with the totals.",
+        "attention": "Needs attention",
+        "attentionSub": "Subscriptions running out of term or traffic, with a renew button right there.",
+        "top": "The busiest",
+        "topSub": "The five subscriptions that used the most this month.",
+        "server": "The server",
+        "serverSub": "Processor, memory, network and the protocols of the panel's node.",
+        "nodes": "The nodes",
+        "nodesSub": "How the traffic is shared between the nodes. With one node the card hides itself."
+      },
+      "date": "Date and time",
+      "dateHint": "The example below is your device's time. The time zone comes from whoever is looking at the panel.",
+      "dateOp": {
+        "compact": "Compact",
+        "full": "With the time",
+        "large": "Large (h1)"
+      },
+      "seconds": "Seconds",
+      "secondsSub": "Write the time to the second: the clock on the dashboard ticks."
     }
   },
   "deviceMode": {

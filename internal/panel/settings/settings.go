@@ -118,6 +118,9 @@ const (
 	// KeyTrafficDetailDays days.
 	KeyTrafficDetail     = "traffic_detail"
 	KeyTrafficDetailDays = "traffic_detail_days"
+	// KeyDashboard is the panel's own front page as the admin set it up (dashboard.Config):
+	// which cards it shows and how it dates them; unset: all of them, as they always were.
+	KeyDashboard = "dashboard"
 )
 
 // Switch is an on/off setting with its default: read it with On, so the default lives

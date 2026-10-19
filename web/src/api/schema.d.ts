@@ -451,6 +451,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Какие карточки показывает главная и как пишет дату */
+        get: operations["get-dashboard"];
+        /** Настроить главную: карточки и дату с временем */
+        put: operations["put-dashboard"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/database/backup": {
         parameters: {
             query?: never;
@@ -3615,6 +3633,19 @@ export interface components {
             state: "idle" | "fetching" | "checking" | "importing" | "done" | "failed";
             /** Format: int64 */
             total: number;
+        };
+        Layout: {
+            /** @description Какие карточки показывает главная */
+            cards: {
+                [key: string]: boolean;
+            };
+            /**
+             * @description compact — день недели и дата, full — дата и время, large — то же крупно
+             * @enum {string}
+             */
+            date: "compact" | "full" | "large";
+            /** @description Писать время до секунды (для full и large) */
+            seconds: boolean;
         };
         LegacyLinks: {
             /** @description Старые ссылки сейчас открываются: задан их путь, а для подписанных ещё и секрет старой панели */
@@ -7316,6 +7347,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CampaignVisitsOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Layout"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "put-dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Layout"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Layout"];
                 };
             };
             /** @description Error */

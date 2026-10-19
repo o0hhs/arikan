@@ -46,6 +46,7 @@ export const qk = {
   userGrants: (id: number) => ["users", "grants", id] as const,
   torrent: ["torrent"] as const,
   filters: ["filters"] as const,
+  dashboard: ["dashboard"] as const,
   torrentHits: (user: number) => ["torrent", "hits", user] as const,
   speedTests: (node: number) => ["speedtests", node] as const,
   subPage: ["sub-page"] as const,
@@ -167,6 +168,11 @@ export function useOverview(o: { poll?: boolean } = {}) {
     queryFn: ({ signal }) => unwrap(api.GET("/api/v1/stats/overview", { signal })),
     refetchInterval: o.poll === false ? false : poll(15_000),
   });
+}
+
+/** The dashboard as the admin set it up: which cards it shows, how it dates them. */
+export function useDashboard() {
+  return useQuery({ queryKey: qk.dashboard, queryFn: ({ signal }) => unwrap(api.GET("/api/v1/dashboard", { signal })) });
 }
 
 export function useServerTraffic(range: "24h" | "7d" | "30d") {

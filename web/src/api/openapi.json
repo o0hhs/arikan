@@ -3190,6 +3190,37 @@
         ],
         "type": "object"
       },
+      "Layout": {
+        "additionalProperties": false,
+        "properties": {
+          "cards": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "description": "Какие карточки показывает главная",
+            "type": "object"
+          },
+          "date": {
+            "description": "compact — день недели и дата, full — дата и время, large — то же крупно",
+            "enum": [
+              "compact",
+              "full",
+              "large"
+            ],
+            "type": "string"
+          },
+          "seconds": {
+            "description": "Писать время до секунды (для full и large)",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "cards",
+          "date",
+          "seconds"
+        ],
+        "type": "object"
+      },
       "LegacyLinks": {
         "additionalProperties": false,
         "properties": {
@@ -11679,6 +11710,76 @@
           "campaigns"
         ],
         "x-session-only": true
+      }
+    },
+    "/api/v1/dashboard": {
+      "get": {
+        "operationId": "get-dashboard",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Layout"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Какие карточки показывает главная и как пишет дату",
+        "tags": [
+          "settings"
+        ]
+      },
+      "put": {
+        "operationId": "put-dashboard",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Layout"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Layout"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Настроить главную: карточки и дату с временем",
+        "tags": [
+          "settings"
+        ]
       }
     },
     "/api/v1/database/backup": {
