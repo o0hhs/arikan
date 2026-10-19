@@ -4,7 +4,7 @@ import { ApiError, basePath, setCsrf } from "../api/client";
 import { meQuery } from "../api/hooks";
 import { useLocale } from "../i18n";
 import { NotFoundPage, PageLoading, RouteError } from "./route-states";
-import { ADDON_KINDS, ADDON_TABS, PAYMENT_TABS, PROMO_TABS, SETTINGS_PARTS, SETTINGS_TABS, TARIFF_TABS, TELEGRAM_TABS, USER_SORTS, USER_SOURCES, USER_STATES, type AddonsSearch, type PaymentsSearch, type SettingsSearch, type TariffsSearch, type TelegramSearch, type UsersSearch } from "./search";
+import { ADDON_KINDS, ADDON_TABS, ADS_TABS, PAYMENT_TABS, PROMO_TABS, SETTINGS_PARTS, SETTINGS_TABS, TARIFF_TABS, TELEGRAM_TABS, USER_SORTS, USER_SOURCES, USER_STATES, type AddonsSearch, type PaymentsSearch, type SettingsSearch, type TariffsSearch, type TelegramSearch, type UsersSearch } from "./search";
 import { Shell } from "./shell";
 
 /**
@@ -162,10 +162,16 @@ export function createAppRouter(queryClient: QueryClient) {
     getParentRoute: () => app,
     path: "/payments",
     component: page(() => import("./pages/payments"), "PaymentsPage"),
-    validateSearch: (s: Record<string, unknown>): PaymentsSearch => ({
-      tab: PAYMENT_TABS.includes(s.tab as (typeof PAYMENT_TABS)[number]) ? (s.tab as PaymentsSearch["tab"]) : undefined,
-      promo: PROMO_TABS.includes(s.promo as (typeof PROMO_TABS)[number]) ? (s.promo as PaymentsSearch["promo"]) : undefined,
-    }),
+    validateSearch: (s: Record<string, unknown>): PaymentsSearch => {
+      // Campaigns and agents were two tabs until they became one: a link to either opens it
+      // on its part, and nothing of the old address is lost.
+      const legacy = s.tab === "campaigns" || s.tab === "agents" ? (s.tab as (typeof ADS_TABS)[number]) : undefined;
+      return {
+        tab: legacy ? "ads" : PAYMENT_TABS.includes(s.tab as (typeof PAYMENT_TABS)[number]) ? (s.tab as PaymentsSearch["tab"]) : undefined,
+        ads: ADS_TABS.includes(s.ads as (typeof ADS_TABS)[number]) ? (s.ads as PaymentsSearch["ads"]) : legacy,
+        promo: PROMO_TABS.includes(s.promo as (typeof PROMO_TABS)[number]) ? (s.promo as PaymentsSearch["promo"]) : undefined,
+      };
+    },
   });
   const apiDocs = createRoute({ getParentRoute: () => app, path: "/settings/api", component: page(() => import("./pages/api"), "ApiPage") });
   // The API section lived in the sidebar until 0.4.2: old links land on its new place.

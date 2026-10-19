@@ -1,6 +1,6 @@
 import { keepPreviousData, useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
-import { Gift, HandCoins, History as HistoryIcon, ListChecks, Megaphone, Ticket, TriangleAlert, Undo2, UserPlus, Wallet } from "lucide-react";
+import { Gift, HandCoins, History as HistoryIcon, ListChecks, Megaphone, Ticket, TriangleAlert, Undo2, Wallet } from "lucide-react";
 import { useState, type FormEvent, type ReactNode } from "react";
 import { api, apiCodeText, errorText, unwrap, type Schemas } from "../../api/client";
 import { qk, useAddons, usePaymentSettings, useTariffs, useTelegram } from "../../api/hooks";
@@ -10,12 +10,12 @@ import { QueryBoundary } from "../../components/query";
 import { Switch, SwitchRow } from "../../components/switch";
 import { FormActions } from "../../components/layout";
 import { Tabs } from "../../components/tabs";
-import { Button, EmptyState, Field, PageHeader, Pill, Skeleton } from "../../components/ui";
+import { Button, EmptyState, Field, PageHeader, Pill, Segmented, Skeleton } from "../../components/ui";
 import { t } from "../../i18n";
 import { useDraft } from "../../lib/draft";
 import { dateShort, days, money, num, time } from "../../lib/format";
 import { isKopecks, isStars, rubKopecks } from "../../lib/validate";
-import { PAYMENT_TABS, type PaymentsSearch } from "../search";
+import { ADS_TABS, PAYMENT_TABS, type PaymentsSearch } from "../search";
 import { addonName } from "./payment-addons";
 import { Referrals } from "./referrals";
 import { Campaigns } from "./campaigns";
@@ -38,8 +38,22 @@ const STATUS_TONE: Record<Status, "ok" | "warn" | "bad" | "off"> = {
 };
 const STATUSES: Status[] = ["applied", "paid", "pending", "failed", "expired", "refunded"];
 const BUILT_IN: Provider[] = ["stars"];
-const TAB_ICONS = { history: HistoryIcon, methods: Wallet, rules: ListChecks, referrals: Gift, campaigns: Megaphone, agents: UserPlus, promocodes: Ticket } as const;
+const TAB_ICONS = { history: HistoryIcon, methods: Wallet, rules: ListChecks, referrals: Gift, ads: Megaphone, promocodes: Ticket } as const;
 type PaymentTab = NonNullable<PaymentsSearch["tab"]>;
+
+/**
+ * Advertising, one tab: the campaign links and the agents who bring them. The two were tabs
+ * of their own, and one without the other says little — an agent earns on campaigns, a
+ * campaign's numbers are the agent's too.
+ */
+function AdsSection({ sub, onSub }: { sub: (typeof ADS_TABS)[number]; onSub: (next: (typeof ADS_TABS)[number]) => void }) {
+  return (
+    <div className="flex flex-col gap-4">
+      <Segmented label={t("payments.tabs.ads")} value={sub} onChange={onSub} options={ADS_TABS.map((id) => ({ value: id, label: t(`payments.tabs.${id}`) }))} />
+      {sub === "campaigns" ? <Campaigns /> : <Agents />}
+    </div>
+  );
+}
 
 /** A payment's provider as the admin knows it; adapters by their own name. */
 function providerName(p: Provider, addons: Addons | undefined): string {
@@ -48,7 +62,7 @@ function providerName(p: Provider, addons: Addons | undefined): string {
 
 export function PaymentsPage() {
   const settings = usePaymentSettings();
-  const { tab, promo } = useSearch({ from: "/_app/payments" });
+  const { tab, ads, promo } = useSearch({ from: "/_app/payments" });
   const navigate = useNavigate({ from: "/payments" });
   const s = settings.data;
   // Until a way to take payments is on, setting one up is what the page is for.
@@ -84,10 +98,8 @@ export function PaymentsPage() {
           <PromoSection sub={promo ?? "codes"} onSub={(next) => void navigate({ search: { tab: "promocodes", promo: next }, replace: true })} />
         ) : shown === "referrals" ? (
           <Referrals />
-        ) : shown === "campaigns" ? (
-          <Campaigns />
-        ) : shown === "agents" ? (
-          <Agents />
+        ) : shown === "ads" ? (
+          <AdsSection sub={ads ?? "campaigns"} onSub={(next) => void navigate({ search: (s) => ({ ...s, tab: "ads", ads: next }), replace: true })} />
         ) : (
           <QueryBoundary query={settings} pending={<Skeleton style={{ height: 320, borderRadius: 20 }} />} wrap={(state) => <section className="card glass">{state}</section>}>
             {(v) =>

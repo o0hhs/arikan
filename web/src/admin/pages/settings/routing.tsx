@@ -7,6 +7,7 @@ import { SwitchRow } from "../../../components/switch";
 import { Button, ErrorState, Field, Pill, Segmented, Skeleton } from "../../../components/ui";
 import { t, useLocale } from "../../../i18n";
 import { useDraft } from "../../../lib/draft";
+import { TrafficDetailCard } from "../traffic-detail";
 import { RulesEditor } from "./rules";
 import { useSaveSettings } from "./shared";
 import { TemplateCard } from "./template";
@@ -343,6 +344,9 @@ export function RoutingSection({ s, view, onView }: { s: Schemas["SettingsView"]
             <FormActions dirty={dirty} saving={save.isPending} onReset={discard} />
           </form>
         </section>
+        {/* What the nodes count by site is a routing decision too: it lives beside the
+            DNS and the rules the admin comes here for, not on the filters page. */}
+        <TrafficDetailCard />
     </WithPreview>
   );
 }

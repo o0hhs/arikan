@@ -2857,6 +2857,7 @@
     "sections": "Payment sections",
     "tabs": {
       "promocodes": "Promo codes",
+      "ads": "Advertising",
       "agents": "Agents",
       "history": "Payments",
       "methods": "Payment methods",

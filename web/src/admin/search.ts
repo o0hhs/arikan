@@ -36,8 +36,10 @@ export const TARIFF_TABS = ["tariffs", "pools", "packages"] as const;
 export type TariffsSearch = { tab: (typeof TARIFF_TABS)[number] };
 
 /** Payments open on their history; without a way to take payments yet, on setting one up. */
-export const PAYMENT_TABS = ["history", "methods", "rules", "referrals", "campaigns", "agents", "promocodes"] as const;
-export type PaymentsSearch = { tab?: (typeof PAYMENT_TABS)[number]; promo?: (typeof PROMO_TABS)[number] };
+/** Campaigns and agents are one function — advertising — in one tab with these parts. */
+export const ADS_TABS = ["campaigns", "agents"] as const;
+export const PAYMENT_TABS = ["history", "methods", "rules", "referrals", "ads", "promocodes"] as const;
+export type PaymentsSearch = { tab?: (typeof PAYMENT_TABS)[number]; ads?: (typeof ADS_TABS)[number]; promo?: (typeof PROMO_TABS)[number] };
 
 export const PROMO_TABS = ["codes", "history"] as const;
 
