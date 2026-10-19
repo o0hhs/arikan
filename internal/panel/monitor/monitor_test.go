@@ -105,6 +105,19 @@ func TestKnownBlocks(t *testing.T) {
 	}
 }
 
+// Reading the document changes nothing: the page's address is made where the admin turns
+// it on, so two reads of a page nobody set up answer the same (nothing), and a page
+// without an address is not ready however it is switched.
+func TestLoadIsAPureRead(t *testing.T) {
+	c := Config{Enabled: true, Hash: "$argon2id$v=19$m=65536,t=3,p=4$aaaaaaaaaaaaaaaaaaaaaa$bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", Blocks: []string{"summary"}}
+	if c.Path != "" || c.Ready() {
+		t.Fatalf("a page with no address: %+v", c)
+	}
+	if got := knownBlocks(c.Blocks); len(got) != 1 || got[0] != "summary" {
+		t.Fatalf("knownBlocks = %v", got)
+	}
+}
+
 // A page nobody set up shows the service's traffic and its nodes, and is not ready to open
 // until it has both a password and a link.
 func TestDefaultIsOffAndGuarded(t *testing.T) {

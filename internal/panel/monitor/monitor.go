@@ -54,8 +54,10 @@ type Config struct {
 // traffic and nodes the moment the admin turns it on with a password.
 func Default() Config { return Config{Blocks: slices.Clone(defaultBlocks)} }
 
-// Load reads the document, and makes the link of a page the admin turned on before one
-// was ever made. What is stored is what the page shows: a block nobody is on is off.
+// Load reads the document and keeps the blocks this panel has, in the order the page lays
+// them out. Reading changes nothing and writes nothing: the page's address is made where
+// the admin turns it on (the API), never here — a request from a stranger reads the same
+// document as the Apply loop, and a link that changed with every read would be no link.
 func Load(ctx context.Context, set *settings.Settings) (Config, error) {
 	c, ok, err := settings.Get[Config](ctx, set, settings.KeyMonitor)
 	if err != nil {
@@ -65,9 +67,6 @@ func Load(ctx context.Context, set *settings.Settings) (Config, error) {
 		return Default(), nil
 	}
 	c.Blocks = knownBlocks(c.Blocks)
-	if c.Path == "" && c.Enabled {
-		c.Path = secure.Token(PathLen)
-	}
 	return c, nil
 }
 
