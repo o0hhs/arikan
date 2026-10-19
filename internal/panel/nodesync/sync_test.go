@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -503,4 +504,58 @@ func TestPolicyCarriesSpeedCap(t *testing.T) {
 func (s *Syncer) desired(ctx context.Context) (nodeapi.DesiredState, error) {
 	st, _, err := s.desiredPin(ctx)
 	return st, err
+}
+
+// The bytes by site are kept once per batch, by subscription and day; a slot of nobody and
+// a site no name can be are dropped. Clearing takes everything, and the detail reaches the
+// node with the rest of its state.
+func TestSitesStoredOnce(t *testing.T) {
+	s, node, st, users, _ := setup(t)
+	s.m.storeInterval = 0
+	ctx := context.Background()
+	tariffs, _ := st.Q.ListTariffs(ctx)
+	u, err := users.Create(ctx, domain.CreateInput{Name: "a", TariffID: tariffs[1].ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	slot, _ := st.Q.GetSlot(ctx, u.SlotID.Int64)
+	long := strings.Repeat("a", 300)
+	node.batch = nodeapi.Counters{Epoch: "e1", Seq: 1, Slots: map[string]nodeapi.Traffic{slot.Name: {Up: 30, Down: 300}},
+		Sites: map[string]map[string]nodeapi.Traffic{slot.Name: {"example.com": {Up: 10, Down: 100}, "*": {Up: 20, Down: 200}, long: {Up: 1}}, "s999999": {"x.com": {Up: 5}}}}
+	s.pullCounters(ctx)
+	s.pullCounters(ctx)
+	rows, err := st.Q.UserSites(ctx, db.UserSitesParams{UserID: u.ID, Since: 0, Lim: 10})
+	if err != nil || len(rows) != 2 || rows[0].Site != "*" || rows[0].Down != 200 || rows[1].Site != "example.com" || rows[1].Up != 10 {
+		t.Fatalf("sites: %+v %v", rows, err)
+	}
+	if n, err := st.Q.ClearUserSites(ctx); err != nil || n != 2 {
+		t.Fatalf("clear: %d %v", n, err)
+	}
+	if rows, err := st.Q.UserSites(ctx, db.UserSitesParams{UserID: u.ID, Since: 0, Lim: 10}); err != nil || len(rows) != 0 {
+		t.Fatalf("after clear: %+v %v", rows, err)
+	}
+}
+
+// The switch reaches the node with the rest of its state, and off is the default.
+func TestDetailInTheDesiredState(t *testing.T) {
+	s, _, st, _, _ := setup(t)
+	ctx := context.Background()
+	st1, err := s.desired(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st1.Detail {
+		t.Fatal("the detail is on before the admin turned it on")
+	}
+	if err := settings.Set(ctx, settings.New(st.Q), settings.KeyTrafficDetail, true); err != nil {
+		t.Fatal(err)
+	}
+	s.m.SlotsChanged() // what the API does after the change
+	st2, err := s.desired(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !st2.Detail {
+		t.Fatal("the detail did not reach the node")
+	}
 }

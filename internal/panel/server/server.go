@@ -12,18 +12,22 @@ import (
 )
 
 // Server routes by the first path segment: the secret admin path, the subscription
-// path, or nothing. Everything else gets the same bare 404, so a scanner cannot tell
-// a panel from any other HTTPS endpoint.
+// path, the monitoring page's own path, or nothing. Everything else gets the same bare 404,
+// so a scanner cannot tell a panel from any other HTTPS endpoint.
 type Server struct {
-	paths atomic.Pointer[settings.Paths]
-	admin http.Handler
-	sub   http.Handler
+	paths   atomic.Pointer[settings.Paths]
+	admin   http.Handler
+	sub     http.Handler
+	legacy  http.Handler // the old panel's links (settings.Paths.Legacy); nil: none
+	site    http.Handler // every other path (OwnSite); nil: NotFound
+	monitor http.Handler // the public monitoring page; nil: none
+	// monitorPath is the page's own secret segment (settings.KeyMonitor); "" while the
+	// admin has not turned it on, and the path is then served like any other.
+	monitorPath atomic.Pointer[string]
 	// agent is the advertising agents' panel (its page and its API) under its own secret
 	// path; nil until the panel wires it in.
-	agent  http.Handler
-	legacy http.Handler // the old panel's links (settings.Paths.Legacy); nil: none
-	site   http.Handler // every other path (OwnSite); nil: NotFound
-	hsts   atomic.Pointer[func() bool]
+	agent http.Handler
+	hsts  atomic.Pointer[func() bool]
 	// subHost is the subscription domain's host when one is set: that host serves
 	// subscriptions alone, at the root, and nothing of the panel.
 	subHost atomic.Pointer[string]
@@ -52,6 +56,13 @@ func hostOnly(hostname string) string { //nolint:gocritic // a name, not an addr
 	return strings.Trim(hostname, "[]")
 }
 
+// SetMonitor takes the handler of the public monitoring page.
+func (s *Server) SetMonitor(h http.Handler) { s.monitor = h }
+
+// SetMonitorPath points the page at the secret segment it answers under ("" when the admin
+// has not turned it on, or has no password for it: the path is then served like any other).
+func (s *Server) SetMonitorPath(path string) { s.monitorPath.Store(&path) }
+
 // SetHello takes the handler of the nodes' hellos.
 func (s *Server) SetHello(h func(w http.ResponseWriter, r *http.Request) bool) { s.hello = h }
 
@@ -64,6 +75,8 @@ func (s *Server) SetSite(h http.Handler) { s.site = h }
 func New(admin, sub http.Handler) *Server {
 	s := &Server{admin: admin, sub: sub}
 	s.paths.Store(&settings.Paths{})
+	empty := ""
+	s.monitorPath.Store(&empty)
 	return s
 }
 
@@ -112,11 +125,15 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request, admin bool) {
 	}
 	seg, rest, _ := strings.Cut(p[1:], "/")
 	paths := s.paths.Load()
+	monPath := *s.monitorPath.Load()
 	switch {
 	case admin && seg != "" && paths.Admin != "" && secure.Equal(seg, paths.Admin):
 		s.forward(w, r, s.admin, seg, rest, p)
 	case seg != "" && paths.Sub != "" && secure.Equal(seg, paths.Sub):
 		s.forward(w, r, s.sub, seg, rest, p)
+	case admin && s.monitor != nil && seg != "" && monPath != "" && secure.Equal(seg, monPath):
+		// The monitoring page: its own address, its own password, no admin session.
+		s.forward(w, r, s.monitor, seg, rest, p)
 	case s.agent != nil && admin && seg != "" && paths.Agent != "" && secure.Equal(seg, paths.Agent):
 		s.forward(w, r, s.agent, seg, rest, p)
 	case s.legacy != nil && paths.Legacy != "" && strings.HasPrefix(p, "/"+paths.Legacy+"/"):

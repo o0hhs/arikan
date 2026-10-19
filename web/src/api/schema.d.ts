@@ -451,6 +451,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Какие карточки показывает главная и как пишет дату */
+        get: operations["get-dashboard"];
+        /** Настроить главную: карточки и дату с временем */
+        put: operations["put-dashboard"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/database/backup": {
         parameters: {
             query?: never;
@@ -807,6 +825,68 @@ export interface paths {
         get: operations["metrics"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/monitor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Публичная страница мониторинга: включена, её ссылка и блоки */
+        get: operations["get-monitor"];
+        /**
+         * Включить или выключить страницу мониторинга и выбрать её блоки
+         * @description Пока пароль не задан, страница не открывается, даже если она включена.
+         */
+        put: operations["put-monitor"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/monitor/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Задать пароль страницы мониторинга
+         * @description Пароль не возвращается: панель хранит только его хеш. Старый пароль и все открытые сессии страницы перестают работать.
+         */
+        post: operations["set-monitor-password"];
+        /** Убрать пароль: страница закрывается */
+        delete: operations["clear-monitor-password"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/monitor/path": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Сменить адрес страницы мониторинга
+         * @description Старая ссылка перестаёт работать; пароль остаётся.
+         */
+        post: operations["rotate-monitor-path"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2022,6 +2102,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/traffic-detail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Детализация трафика по сайтам */
+        get: operations["get-traffic-detail"];
+        /**
+         * Включить или выключить детализацию по сайтам
+         * @description Ноды получают её со своим состоянием; ноды старше неё не считают.
+         */
+        put: operations["put-traffic-detail"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/traffic-detail/sites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Удалить всё собранное о том, куда ходят клиенты
+         * @description Собранные нодами суммы по сайтам удаляются целиком, за все дни и подписки. Ноды продолжают считать, если детализация включена.
+         */
+        delete: operations["clear-user-sites"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/updates": {
         parameters: {
             query?: never;
@@ -2349,6 +2470,23 @@ export interface paths {
         put?: never;
         /** Сбросить трафик */
         post: operations["reset-user-traffic"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{id}/sites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Куда ходит подписка: трафик по сайтам */
+        get: operations["user-sites"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3014,6 +3152,13 @@ export interface components {
             id: string;
             ports: components["schemas"]["PortResult"][];
         };
+        ClearSitesBody: {
+            /**
+             * Format: int64
+             * @description Сколько записей удалено
+             */
+            rows: number;
+        };
         ClientEndpoint: {
             /**
              * Format: int64
@@ -3551,6 +3696,19 @@ export interface components {
             /** Format: int64 */
             total: number;
         };
+        Layout: {
+            /** @description Какие карточки показывает главная */
+            cards: {
+                [key: string]: boolean;
+            };
+            /**
+             * @description compact — день недели и дата, full — дата и время, large — то же крупно
+             * @enum {string}
+             */
+            date: "compact" | "full" | "large";
+            /** @description Писать время до секунды (для full и large) */
+            seconds: boolean;
+        };
         LegacyLinks: {
             /** @description Старые ссылки сейчас открываются: задан их путь, а для подписанных ещё и секрет старой панели */
             active: boolean;
@@ -3757,6 +3915,18 @@ export interface components {
             text?: string;
             /** @description Для action=url: https:// или tg:// */
             url?: string;
+        };
+        MonitorView: {
+            available: string[];
+            /** @description Что показывает страница */
+            blocks: string[];
+            /** @description Показывать страницу по публичной ссылке */
+            enabled: boolean;
+            has_password: boolean;
+            /** Format: int64 */
+            min_password: number;
+            /** @description Адрес страницы в ссылке */
+            path: string;
         };
         NodeCertInputBody: {
             /** @description Цепочка в PEM: сначала сертификат, за ним промежуточные (fullchain.pem) */
@@ -4935,6 +5105,10 @@ export interface components {
             /** Format: int64 */
             successful_activations: number;
         };
+        PutMonitorInputBody: {
+            blocks: string[];
+            enabled: boolean;
+        };
         PutSubImageInputBody: {
             /** @description Картинка в base64: PNG, JPEG или WebP; логотип до 512 КБ, фон до 2 МБ. SVG не принимается */
             data: string;
@@ -4944,6 +5118,11 @@ export interface components {
             /** @description #RRGGBB или пусто */
             brand_accent?: string;
             config: components["schemas"]["Page"];
+        };
+        PutTrafficDetailInputBody: {
+            /** Format: int64 */
+            days: number;
+            enabled: boolean;
         };
         RecoveryOutputBody: {
             /** @description Показываются один раз */
@@ -5070,6 +5249,10 @@ export interface components {
             tls13: boolean;
             x25519: boolean;
         };
+        RotateMonitorInputBody: {
+            /** @description Новый адрес страницы; старый перестаёт работать */
+            path: string;
+        };
         RouteDirectSet: {
             id: string;
             name: string;
@@ -5188,6 +5371,10 @@ export interface components {
             last_seen_at: string;
             user_agent: string;
         };
+        SetMonitorPasswordInputBody: {
+            /** @description Пароль страницы; старый и все его сессии перестают работать */
+            password: string;
+        };
         SettingsView: {
             /**
              * @description Центр сертификации панели и нод: letsencrypt, zerossl (нужен e-mail) или google (нужен ключ EAB). IP-адреса всегда получают сертификат Let's Encrypt
@@ -5286,6 +5473,14 @@ export interface components {
             support_url: string;
             /** @description Искать сайты маскировки REALITY не только в /24 ноды, но и в соседних /24 её /16, до 20 найденных сайтов или 2 минут. Много подключений: хостер может принять это за сканирование сети */
             wide_sni_scan: boolean;
+        };
+        SiteBytes: {
+            /** Format: int64 */
+            down: number;
+            /** @description Домен второго уровня или адрес; * — остальные сайты */
+            site: string;
+            /** Format: int64 */
+            up: number;
         };
         SourceSkipView: {
             /** @description Идентификатор записи, как его написал источник */
@@ -5787,6 +5982,15 @@ export interface components {
             secret: string;
             uri: string;
         };
+        TrafficDetailView: {
+            /**
+             * Format: int64
+             * @description Сколько дней хранить
+             */
+            days: number;
+            /** @description Ноды считают трафик подписок по сайтам */
+            enabled: boolean;
+        };
         TrafficOutputBody: {
             points: components["schemas"]["TrafficPoint"][];
         };
@@ -6032,6 +6236,12 @@ export interface components {
         };
         UserPoolsInputBody: {
             pools: components["schemas"]["PoolLimit"][];
+        };
+        UserSitesOutputBody: {
+            enabled: boolean;
+            items: components["schemas"]["SiteBytes"][];
+            /** Format: int64 */
+            keep_days: number;
         };
         UserView: {
             /**
@@ -7242,6 +7452,68 @@ export interface operations {
             };
         };
     };
+    "get-dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Layout"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "put-dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Layout"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Layout"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "download-database-backup": {
         parameters: {
             query?: never;
@@ -8078,6 +8350,163 @@ export interface operations {
                 };
                 content: {
                     "text/plain": unknown;
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-monitor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MonitorView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "put-monitor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PutMonitorInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MonitorView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "set-monitor-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetMonitorPasswordInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MonitorView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "clear-monitor-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MonitorView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "rotate-monitor-path": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RotateMonitorInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MonitorView"];
                 };
             };
             /** @description Error */
@@ -11240,6 +11669,97 @@ export interface operations {
             };
         };
     };
+    "get-traffic-detail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrafficDetailView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "put-traffic-detail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PutTrafficDetailInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrafficDetailView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "clear-user-sites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClearSitesBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "get-updates": {
         parameters: {
             query?: never;
@@ -12063,6 +12583,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UserView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "user-sites": {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserSitesOutputBody"];
                 };
             };
             /** @description Error */

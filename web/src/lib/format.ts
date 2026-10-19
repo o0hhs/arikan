@@ -75,6 +75,24 @@ export function time(iso: string): string {
   return df({ hour: "2-digit", minute: "2-digit", hour12: false }, "time").format(new Date(iso));
 }
 
+/** How the dashboard writes its day (dashboard.Dates): compact — weekday and date, full and
+ * large — the date and the time. The format is the panel's, the time zone and the language
+ * are the visitor's own, so the same dashboard shows everyone their own clock. */
+export type DateStyle = "compact" | "full" | "large";
+
+/** The dashboard's date: the weekday and the date, or the date with its year. */
+export function dashDay(d: Date, style: DateStyle): string {
+  if (style === "compact") return df({ weekday: "long", day: "numeric", month: "long" }, "dashCompact").format(d);
+  return df({ day: "numeric", month: "long", year: "numeric" }, "dashDay").format(d);
+}
+
+/** The dashboard's time, to the second when the admin asked for it. */
+export function dashTime(d: Date, seconds: boolean): string {
+  const opts: Intl.DateTimeFormatOptions = { hour: "2-digit", minute: "2-digit", hour12: false };
+  if (seconds) opts.second = "2-digit";
+  return df(opts, seconds ? "dashTimeSec" : "dashTime").format(d);
+}
+
 /** Whole days until iso (negative when in the past), counted by calendar-free 24 h steps. */
 export function daysUntil(iso: string, now = Date.now()): number {
   return Math.ceil((new Date(iso).getTime() - now) / 86_400_000);

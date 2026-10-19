@@ -1,4 +1,65 @@
 {
+"monitor": {
+    "title": "Monitoring",
+    "subtitle": "Traffic and the state of the servers",
+    "updated": "Updated at {time}",
+    "stale": "Could not refresh: this is what was last received.",
+    "auto": "The page refreshes itself every 30 seconds.",
+    "refresh": "Refresh now",
+    "logout": "Sign out",
+    "period": "Period",
+    "range": {
+      "24h": "24 hours",
+      "7d": "7 days",
+      "30d": "30 days"
+    },
+    "login": {
+      "title": "The monitoring page",
+      "sub": "Enter the password the service's owner set.",
+      "closed": "The page no longer answers: its owner closed the access.",
+      "password": "Password",
+      "submit": "Open",
+      "bad": "Wrong password.",
+      "limited": "Too many attempts. Try again later.",
+      "failed": "The page did not answer. Try again."
+    },
+    "kpi": {
+      "online": "Online",
+      "active": "Active",
+      "ofSubs": "of {n} subscriptions",
+      "today": "Traffic today",
+      "month": "This month",
+      "total": "All time",
+      "nodes": "Nodes"
+    },
+    "traffic": {
+      "title": "Traffic",
+      "totals": "Over {range}: {down} down, {up} up"
+    },
+    "nodes": {
+      "title": "Servers",
+      "sub": "The service's nodes and what each carried over the period.",
+      "none": "No nodes yet.",
+      "panel": "the panel's own",
+      "up": "running",
+      "seen": "seen {ago}",
+      "never": "never answered",
+      "conns": "connections: {n}"
+    },
+    "sites": {
+      "title": "Where clients go",
+      "sub": "The sites by traffic, with no clients and no addresses.",
+      "off": "The service's owner does not count traffic by site.",
+      "none": "No data for this period.",
+      "other": "other sites"
+    },
+    "payments": {
+      "title": "Payments",
+      "sub": "Payments taken over the last 30 days.",
+      "none": "No payments yet.",
+      "count": "{n, plural, one {# payment} other {# payments}}"
+    }
+  },
   "common": {
     "add": "Add",
     "cancel": "Cancel",
@@ -644,7 +705,13 @@
     "plusMonth": "+1 month",
     "top": "Most traffic",
     "topSub": "since the start of the month",
-    "topEmpty": "Statistics will appear once clients start connecting."
+    "topEmpty": "Statistics will appear once clients start connecting.",
+    "inYourZone": "in your time zone",
+    "hidden": {
+      "title": "Every card is off",
+      "sub": "The dashboard is empty: every card is switched off in its settings.",
+      "open": "Open the settings"
+    }
   },
   "users": {
     "sort": "Sort",
@@ -987,7 +1054,19 @@
     "unbanned": "“{name}” is unbanned",
     "pausedUntil": "Unbound by the client · returns {when} at {time}",
     "unpauseTitle": "Let “{name}” back earlier?",
-    "pausedForever": "Unbound by the client · stays out until you let it"
+    "pausedForever": "Unbound by the client · stays out until you let it",
+    "sites": {
+      "title": "Where it goes",
+      "off": "the detail is off",
+      "period": "Period",
+      "days": "{n, plural, one {# day} other {# days}}",
+      "none": "No data for this period.",
+      "other": "other sites",
+      "block": "Block {site} for everyone",
+      "blocked": "{site} is in the filters: the nodes let nobody there",
+      "isBlocked": "In the filters already",
+      "hint": "Traffic by site, with no times or addresses. Kept for {n, plural, one {# day} other {# days}}; turned on on the Filters page."
+    }
   },
   "tariffs": {
     "protocolsClosed": "Protocols off",
@@ -2058,7 +2137,91 @@
     "reissueLimit": "Times",
     "reissueSummary": "The client replaces the link at most {n, plural, one {# time} other {# times}} per {period}.",
     "reissueSummaryFree": "The client replaces the link whenever they like.",
-    "reissueSummaryOff": "The client does not replace the link themselves: only you on the client's card. There is no “New link” button in the bot or the Mini App."
+    "reissueSummaryOff": "The client does not replace the link themselves: only you on the client's card. There is no “New link” button in the bot or the Mini App.",
+    "detail": {
+      "title": "Where clients go",
+      "sub": "The nodes count each subscription's traffic by site (the registrable domain or the address), with no times, client addresses or single connections. Shown on the client's card, where a site can be blocked too.",
+      "on": "Count traffic by site",
+      "onSub": "The node works a little harder: the connections go through a counter.",
+      "keep": "Keep, days",
+      "keepHint": "Older is removed once a day, 1 to 90.",
+      "clear": "What was collected",
+      "clearSub": "Every sum by site, for all the days and every subscription, goes at once. With the detail on, the nodes start collecting again.",
+      "clearButton": "Clear the data",
+      "clearDone": "{n, plural, one {# record removed} other {# records removed}}",
+      "clearConfirmTitle": "Clear everything about where clients go?",
+      "clearConfirmText": "The sums by site, for all the days and every subscription, will be deleted. There is no way back. With the detail on, the nodes keep counting.",
+      "clearConfirm": "Clear"
+    },
+    "dash": {
+      "title": "The dashboard",
+      "sub": "What the dashboard shows and how it writes the date and the time. The time is the time zone of the device the panel is open on: everyone sees their own.",
+      "cards": "Cards",
+      "cardsHint": "A card that is off leaves the dashboard; its data stays on its own pages.",
+      "card": {
+        "kpis": "The numbers",
+        "kpisSub": "Online, active subscriptions, today's traffic and what is due within 7 days.",
+        "traffic": "Traffic",
+        "trafficSub": "The chart for 24 hours, 7 or 30 days, with the totals.",
+        "attention": "Needs attention",
+        "attentionSub": "Subscriptions running out of term or traffic, with a renew button right there.",
+        "top": "The busiest",
+        "topSub": "The five subscriptions that used the most this month.",
+        "server": "The server",
+        "serverSub": "Processor, memory, network and the protocols of the panel's node.",
+        "nodes": "The nodes",
+        "nodesSub": "How the traffic is shared between the nodes. With one node the card hides itself."
+      },
+      "date": "Date and time",
+      "dateHint": "The example below is your device's time. The time zone comes from whoever is looking at the panel.",
+      "dateOp": {
+        "compact": "Compact",
+        "full": "With the time",
+        "large": "Large (h1)"
+      },
+      "seconds": "Seconds",
+      "secondsSub": "Write the time to the second: the clock on the dashboard ticks."
+    },
+    "monitor": {
+      "title": "Monitoring",
+      "sub": "A separate page with the service at a glance: traffic, nodes and more. It opens by its own link and only by password — the panel's password and an admin session mean nothing there.",
+      "on": "Show the page",
+      "onSub": "The page lives at the address below and opens by its password. Switched off, it answers the same 404 as any other path.",
+      "link": "The link",
+      "linkHint": "Hand it to whoever needs the access. The segment is random: the page cannot be found by guessing.",
+      "noLink": "The link appears once the page is on and has a password.",
+      "newLink": "A new link",
+      "newLinkTitle": "Change the page's address?",
+      "newLinkText": "The old link stops working for everyone who has it. The password stays.",
+      "newLinkConfirm": "Change it",
+      "linkRotated": "The page's address has changed.",
+      "password": "Password",
+      "passwordSet": "A password is set. Only its hash is kept: the panel cannot show the password.",
+      "passwordNone": "No password: the page is closed even while it is switched on.",
+      "passwordHint": "At least {n} characters. Changing it signs out everyone looking at the page.",
+      "passwordSet2": "Set a password",
+      "passwordChange": "Change the password",
+      "passwordSaved": "The password is set: every open session of the page is closed.",
+      "passwordClear": "Remove the password",
+      "passwordClearTitle": "Remove the page's password?",
+      "passwordClearText": "The page closes at once: nothing can be opened through it until you set a password again.",
+      "passwordClearConfirm": "Remove",
+      "passwordCleared": "The password is gone: the page is closed.",
+      "blocks": "What the page shows",
+      "blocksHint": "Anyone with the link and the password sees it. What is off is neither asked for nor served.",
+      "block": {
+        "summary": "The summary",
+        "summarySub": "Online, active subscriptions, traffic today, this month and all time, the nodes.",
+        "traffic": "The traffic chart",
+        "trafficSub": "Over 24 hours, 7 or 30 days, with the period's totals.",
+        "nodes": "The servers",
+        "nodesSub": "Every node: its state, its connections and what it carried.",
+        "sites": "Where clients go",
+        "sitesSub": "The sites by traffic. Shown only while the traffic detail is on.",
+        "payments": "The payments",
+        "paymentsSub": "Payments taken over 30 days, by currency. Off by default."
+      }
+    }
   },
   "deviceMode": {
     "label": "How to count:",

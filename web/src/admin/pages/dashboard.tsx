@@ -2,25 +2,45 @@ import { Link } from "@tanstack/react-router";
 import { Plus, ShieldCheck } from "lucide-react";
 import { useMemo, useState } from "react";
 import { errorText, type Overview, type User } from "../../api/client";
-import { onePeriod, useInbounds, useNode, useNodes, useNodeShares, useOverview, userActions, useServerTraffic, useUserMutation, useUsers } from "../../api/hooks";
+import { onePeriod, useDashboard, useInbounds, useNode, useNodes, useNodeShares, useOverview, userActions, useServerTraffic, useUserMutation, useUsers } from "../../api/hooks";
 import { buckets, TrafficChart, type Range } from "../../components/chart";
 import { QueryBoundary, StaleNotice } from "../../components/query";
 import { useToast } from "../../components/toast";
 import { Avatar, Bar, Button, ErrorState, PageHeader, Pill, Segmented, Skeleton, StatePill } from "../../components/ui";
 import { getLocale, t } from "../../i18n";
+import { tickStep, useTick } from "../../lib/clock";
 import { poll } from "../../lib/perf";
-import { bits, bytes, dateShort, expiryText, maskedAs, num, uptime } from "../../lib/format";
+import { bits, bytes, dashDay, dashTime, dateShort, expiryText, maskedAs, num, uptime } from "../../lib/format";
 import { nodeLabel } from "../../lib/node-label";
 
 export function Dashboard() {
   const node = useNode();
+  const dash = useDashboard();
+  // Until the panel answers, the dashboard is the one it always was: every card, the compact
+  // date. Switching cards on and off has nothing to show a spinner for.
+  const style = dash.data?.date ?? "compact";
+  const seconds = dash.data?.seconds ?? true;
+  const now = useTick(tickStep(style, seconds));
+  const show = (card: string) => dash.data?.cards[card] !== false;
   const status = node.data ? (node.data.ok ? t("dashboard.statusOk") : t("dashboard.statusDown")) : t("dashboard.statusChecking");
-  const today = new Intl.DateTimeFormat(getLocale(), { weekday: "long", day: "numeric", month: "long" }).format(new Date());
+  // The date as the admin set it up: in the header's line, or, large, on a line of its own
+  // under it — with the time to the second, in the reader's own time zone.
+  const day = `${dashDay(now, style).charAt(0).toUpperCase()}${dashDay(now, style).slice(1)}`;
+  const sub = style === "compact" ? `${day} · ${status}` : style === "full" ? `${day}, ${dashTime(now, seconds)} · ${status}` : status;
+  const left = [
+    show("traffic") ? <TrafficCard key="traffic" /> : null,
+    show("attention") || show("top") ? (
+      <div key="pair" className="grid grid-cols-[minmax(0,1fr)] gap-4 min-[1440px]:grid-cols-2">
+        {show("attention") ? <AttentionCard /> : null}
+        {show("top") ? <TopCard /> : null}
+      </div>
+    ) : null,
+  ].filter(Boolean);
   return (
     <>
       <PageHeader
         title={t("dashboard.title")}
-        sub={`${today.charAt(0).toUpperCase()}${today.slice(1)} · ${status}`}
+        sub={sub}
         actions={
           <Link to="/users" search={{ state: "all", q: "", create: true }} className="btn btn-primary">
             <Plus size={18} aria-hidden />
@@ -28,22 +48,50 @@ export function Dashboard() {
           </Link>
         }
       />
-      <Kpis />
+      {style === "large" ? (
+        <div className="mb-4 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+          <span className="num text-[clamp(24px,3.2vw,38px)] leading-none font-semibold text-[var(--md-on-surface)]">{day}</span>
+          <span className="num text-[clamp(20px,2.6vw,32px)] leading-none font-medium text-[var(--md-primary)]">{dashTime(now, seconds)}</span>
+          <span className="text-[13px] text-[var(--md-on-surface-variant)]">{t("dashboard.inYourZone")}</span>
+        </div>
+      ) : null}
+      {show("kpis") ? <Kpis /> : null}
+      {left.length === 0 && !show("server") ? <EverythingHidden /> : null}
       {/* The chart and under it the subscriptions to attend to and the top users; the server
           card has the column beside them and is exactly as tall (its protocols scroll), and
-          the two cards side by side share their height, so nothing leaves a hole. */}
-      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 xl:grid-cols-[minmax(0,1.75fr)_minmax(0,1fr)]">
-        <div className="grid min-w-0 gap-4">
-          <TrafficCard />
-          <div className="grid grid-cols-[minmax(0,1fr)] gap-4 min-[1440px]:grid-cols-2">
-            <AttentionCard />
-            <TopCard />
-          </div>
+          the two cards side by side share their height, so nothing leaves a hole. A card the
+          admin turned off leaves its place to the ones that are left: with no left column the
+          server card takes the whole width rather than a bare column. */}
+      {left.length > 0 && show("server") ? (
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-4 xl:grid-cols-[minmax(0,1.75fr)_minmax(0,1fr)]">
+          <div className="grid min-w-0 gap-4">{left}</div>
+          <ServerCard />
         </div>
-        <ServerCard />
-      </div>
-      <NodeTrafficCard />
+      ) : (
+        <>
+          {left.length > 0 ? <div className="grid min-w-0 gap-4">{left}</div> : null}
+          {show("server") ? <ServerCard /> : null}
+        </>
+      )}
+      {show("nodes") ? <NodeTrafficCard /> : null}
     </>
+  );
+}
+
+/** Every card switched off: the way back to them, since the page itself cannot show one. */
+function EverythingHidden() {
+  return (
+    <section className="card glass reveal">
+      <div className="card-head">
+        <div>
+          <h2 className="card-title">{t("dashboard.hidden.title")}</h2>
+          <div className="card-sub">{t("dashboard.hidden.sub")}</div>
+        </div>
+      </div>
+      <Link to="/settings" search={{ tab: "general" }} className="btn btn-primary">
+        {t("dashboard.hidden.open")}
+      </Link>
+    </section>
   );
 }
 

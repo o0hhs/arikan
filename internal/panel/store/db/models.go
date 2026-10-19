@@ -819,3 +819,11 @@ type UserPool struct {
 	UsedDown     int64
 	Excluded     bool
 }
+
+type UserSite struct {
+	Day    int64
+	UserID int64
+	Site   string
+	Up     int64
+	Down   int64
+}

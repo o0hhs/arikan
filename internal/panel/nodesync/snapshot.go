@@ -37,6 +37,7 @@ type snapshot struct {
 	bans     map[int64]int64 // user → when the torrent blocker's ban ends (unix)
 	filters  filters.Config
 	routes   subs.Routes
+	detail   bool // the nodes sum the bytes by site
 }
 
 type counterPos struct {
@@ -108,6 +109,9 @@ func (m *Manager) readSnapshot(ctx context.Context) (s *snapshot, err error) {
 		return nil, err
 	}
 	if s.routes, _, err = settings.Get[subs.Routes](ctx, settings.New(q), settings.KeyRoutes); err != nil {
+		return nil, err
+	}
+	if s.detail, err = settings.New(q).On(ctx, settings.TrafficDetail); err != nil {
 		return nil, err
 	}
 	if s.torrent.Enabled {
