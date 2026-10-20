@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Menu from "@radix-ui/react-dropdown-menu";
-import { Activity, ArrowDown, ArrowUp, ArrowUpCircle, ArrowUpDown, Check, Cloud, Copy, Gauge, KeyRound, LoaderCircle, MoreHorizontal, Pencil, Plus, RefreshCw, ShieldCheck, Stethoscope, Trash2, Users, Waypoints } from "lucide-react";
+import { Activity, ArrowDown, ArrowUp, ArrowUpCircle, ArrowUpDown, Check, Cloud, Copy, Gauge, HardDrive, KeyRound, LoaderCircle, MoreHorizontal, Pencil, Plus, RefreshCw, ShieldCheck, Stethoscope, Trash2, Users, Waypoints } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { api, ApiError, errorText, unwrap, type Schemas } from "../../api/client";
 import { onFormError } from "../../lib/fields";
@@ -18,6 +18,7 @@ import { bytes, num } from "../../lib/format";
 import { nodeLabel } from "../../lib/node-label";
 import { CascadeDrawer } from "./node-cascade";
 import { NodeClientsDrawer } from "./node-clients";
+import { NodeDiskDrawer } from "./node-disk";
 import { HelloLine, JoinProgress, NodeCheckDrawer, NodeProblem, SkewLine, type FixActions } from "./node-check";
 import { SpeedDrawer } from "./node-speed";
 import { NodeTrafficDrawer } from "./node-traffic";
@@ -51,6 +52,7 @@ export function NodesPage() {
   const [cascadeOf, setCascadeOf] = useState<Node | null>(null);
   const [certOf, setCertOf] = useState<Node | null>(null);
   const [checkOf, setCheckOf] = useState<Node | null>(null);
+  const [diskOf, setDiskOf] = useState<Node | null>(null);
   // The arrows that order the nodes show only while ordering: most of the time they are noise.
   const [ordering, setOrdering] = useState(false);
   const many = (nodes.data?.length ?? 0) > 1;
@@ -205,7 +207,7 @@ export function NodesPage() {
                 </p>
               ) : null}
               {list.map((n, idx) => (
-                <NodeCard key={n.id} n={n} idx={idx} total={list.length} ordering={ordering} sorting={order.isPending} moving={order.isPending && order.variables.moved === n.id} onMove={(by) => move(list, idx, by)} updating={update.isPending && update.variables === n.id} busy={update.isPending} onUpdate={() => setUpdateOf(n)} onEdit={() => setEditing(n)} onWarp={() => setWarpOf(n)} onSpeed={() => setSpeedOf(n)} onTraffic={() => setTrafficOf(n)} onClients={() => setClientsOf(n)} onCascade={() => setCascadeOf(n)} onCert={() => setCertOf(n)} onCheck={() => setCheckOf(n)} onRekey={() => setRekeying(n)} onRemove={() => setRemoving(n)} />
+                <NodeCard key={n.id} n={n} idx={idx} total={list.length} ordering={ordering} sorting={order.isPending} moving={order.isPending && order.variables.moved === n.id} onMove={(by) => move(list, idx, by)} updating={update.isPending && update.variables === n.id} busy={update.isPending} onUpdate={() => setUpdateOf(n)} onEdit={() => setEditing(n)} onWarp={() => setWarpOf(n)} onSpeed={() => setSpeedOf(n)} onTraffic={() => setTrafficOf(n)} onClients={() => setClientsOf(n)} onCascade={() => setCascadeOf(n)} onCert={() => setCertOf(n)} onCheck={() => setCheckOf(n)} onDisk={() => setDiskOf(n)} onRekey={() => setRekeying(n)} onRemove={() => setRemoving(n)} />
               ))}
             </div>
           )
@@ -222,6 +224,7 @@ export function NodesPage() {
       <EditNodeDrawer node={editing} onClose={() => setEditing(null)} />
       <KeyDrawer joined={joined} onClose={() => setJoined(null)} actions={fixesFor(joinedNode, () => setJoined(null))} />
       <NodeCheckDrawer node={checkOf} onClose={() => setCheckOf(null)} actions={fixesFor(checkOf ?? undefined, () => setCheckOf(null))} />
+      <NodeDiskDrawer node={diskOf ? { id: diskOf.id, name: nodeLabel(diskOf) } : null} onClose={() => setDiskOf(null)} />
       <WarpDrawer node={warpOf ? { id: warpOf.id, name: nodeLabel(warpOf) } : null} onClose={() => setWarpOf(null)} />
       <SpeedDrawer node={speedOf ? { id: speedOf.id, name: nodeLabel(speedOf) } : null} onClose={() => setSpeedOf(null)} />
       <NodeTrafficDrawer node={trafficOf ? { id: trafficOf.id, name: nodeLabel(trafficOf) } : null} onClose={() => setTrafficOf(null)} />
@@ -290,6 +293,7 @@ function NodeCard({
   onCascade,
   onCert,
   onCheck,
+  onDisk,
   onRekey,
   onRemove,
 }: {
@@ -317,6 +321,7 @@ function NodeCard({
   onCascade: () => void;
   onCert: () => void;
   onCheck: () => void;
+  onDisk: () => void;
   onRekey: () => void;
   onRemove: () => void;
 }) {
@@ -451,6 +456,9 @@ function NodeCard({
               </Menu.Item>
               <Menu.Item className="menu-item" onSelect={onSpeed}>
                 <Gauge size={16} aria-hidden /> {t("speed.button")}
+              </Menu.Item>
+              <Menu.Item className="menu-item" onSelect={onDisk}>
+                <HardDrive size={16} aria-hidden /> {t("nodes.disk")}
               </Menu.Item>
               <Menu.Item className="menu-item" onSelect={onCert}>
                 <ShieldCheck size={16} aria-hidden /> {t("nodes.certButton")}

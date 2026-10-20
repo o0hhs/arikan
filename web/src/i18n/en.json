@@ -2523,7 +2523,22 @@
     "nameLocalHint": "Name your own node with a flag, e.g. «🇳🇱 Netherlands»: that is its group in the subscription, and the flag prefixes its protocols.",
     "cert": "Certificate",
     "certOwn": "own, until {until}",
-    "certButton": "Certificate"
+    "certButton": "Certificate",
+    "disk": "Disk",
+    "diskTitle": "Node disk",
+    "diskFs": "Data directory filesystem",
+    "diskUsed": "used {size}",
+    "diskFree": "free {size}",
+    "diskUnknown": "The filesystem size is unknown.",
+    "diskDirs": "What takes space",
+    "diskJunk": "Junk",
+    "diskJunkSize": "A clean will remove {size}",
+    "diskEmpty": "Nothing to clean: no update leftovers or temporary files.",
+    "diskClean": "Clean",
+    "diskCleanSure": "Sure?",
+    "diskFreed": "Removed {size}",
+    "diskNothing": "There was nothing to clean.",
+    "diskNote": "Old release images on the node's server are pruned by the updater itself after a successful update."
   },
   "telegram": {
     "subtitle": "A bot for subscription owners and a Mini App with the subscription page",
