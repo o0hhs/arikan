@@ -2747,6 +2747,8 @@ export interface components {
             /** Format: int64 */
             earned_days: number;
             /** Format: int64 */
+            idle: number;
+            /** Format: int64 */
             invited: number;
             /** Format: int64 */
             owed: number;
@@ -2754,6 +2756,8 @@ export interface components {
             paid: number;
             /** Format: int64 */
             spent: number;
+            /** Format: int64 */
+            trial: number;
         };
         AdminView: {
             /** Format: int64 */
@@ -5143,8 +5147,14 @@ export interface components {
             /** Format: int64 */
             referral_id: number;
             referrer_code: string;
+            referrer_name?: string;
             /** Format: int64 */
             referrer_tg_id: number;
+            /**
+             * @description Докуда дошёл приглашённый: прошёл по ссылке, взял пробный, получил подписку или оплатил
+             * @enum {string}
+             */
+            stage: "invited" | "trial" | "subscribed" | "paid";
         };
         ReferralLinksOutputBody: {
             items: components["schemas"]["ReferralLinkView"][];

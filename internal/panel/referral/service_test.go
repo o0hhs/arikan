@@ -1114,3 +1114,47 @@ func TestPercentRulesAreUnchanged(t *testing.T) {
 		t.Fatalf("after a refund the balance is %d, wanted %d", got, want)
 	}
 }
+
+// The stage the panel marks an invitee with: the furthest of paid, trial and subscription,
+// with the trial asked before the plain subscription every trial brings anyway.
+func TestStageOf(t *testing.T) {
+	cases := []struct {
+		paid, trial, sub bool
+		want             string
+	}{
+		{true, true, true, StagePaid},
+		{false, true, true, StageTrial},
+		{false, false, true, StageSubscribed},
+		{false, false, false, StageInvited},
+	}
+	for _, c := range cases {
+		if got := StageOf(c.paid, c.trial, c.sub); got != c.want {
+			t.Fatalf("StageOf(paid=%v, trial=%v, sub=%v) = %q, wanted %q", c.paid, c.trial, c.sub, got, c.want)
+		}
+	}
+}
+
+// The admin's header counts what came of every invite — who took the trial, who paid, and
+// who took nothing at all. The last is the number the panel was missing: an invitee who
+// followed the link and left used to be invisible outside the links list.
+func TestAdminStatsCountWhatInviteesTook(t *testing.T) {
+	e := newEnv(t)
+	e.program(Rule{ID: "p", Kind: KindPercent, Value: 10, Enabled: true})
+	// Fourth follows the link and does nothing else.
+	fourth := int64(505)
+	for _, tg := range []int64{invitee, second, stranger, fourth} {
+		e.invite(inviter, tg)
+	}
+	e.pay(invitee, e.cheap, 7000, "RUB") // bought a subscription
+	if _, err := e.st.Q.TakeTrial(e.ctx, db.TakeTrialParams{TgID: second,
+		TariffID: sql.NullInt64{Int64: e.trial.ID, Valid: true}, CreatedAt: e.now.Unix()}); err != nil {
+		t.Fatal(err)
+	}
+	// A subscription the trial did not give — an access code, a gift — is taken anyway.
+	e.sub(stranger)
+	_, st, err := e.s.View(e.ctx)
+	must(t, err)
+	if st.Invited != 4 || st.Trial != 1 || st.Paid != 1 || st.Idle != 1 {
+		t.Fatalf("stats %+v", st)
+	}
+}

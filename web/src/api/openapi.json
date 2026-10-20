@@ -517,6 +517,10 @@
             "format": "int64",
             "type": "integer"
           },
+          "idle": {
+            "format": "int64",
+            "type": "integer"
+          },
           "invited": {
             "format": "int64",
             "type": "integer"
@@ -532,11 +536,17 @@
           "spent": {
             "format": "int64",
             "type": "integer"
+          },
+          "trial": {
+            "format": "int64",
+            "type": "integer"
           }
         },
         "required": [
           "invited",
           "paid",
+          "trial",
+          "idle",
           "accounts",
           "owed",
           "earned",
@@ -7018,9 +7028,22 @@
           "referrer_code": {
             "type": "string"
           },
+          "referrer_name": {
+            "type": "string"
+          },
           "referrer_tg_id": {
             "format": "int64",
             "type": "integer"
+          },
+          "stage": {
+            "description": "Докуда дошёл приглашённый: прошёл по ссылке, взял пробный, получил подписку или оплатил",
+            "enum": [
+              "invited",
+              "trial",
+              "subscribed",
+              "paid"
+            ],
+            "type": "string"
           }
         },
         "required": [
@@ -7029,7 +7052,8 @@
           "referrer_code",
           "referee_tg_id",
           "code",
-          "created_at"
+          "created_at",
+          "stage"
         ],
         "type": "object"
       },
