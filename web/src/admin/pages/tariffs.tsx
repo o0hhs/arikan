@@ -505,7 +505,7 @@ function TariffDrawer({ tariff, onClose }: { tariff: Tariff | "new" | null; onCl
         {inboundList.length ? (
           <Field label={t("tariffs.protocolsClosed")} hint={t("tariffs.protocolsClosedHint")}>
             <div className="flex flex-col" role="group" aria-label={t("tariffs.protocolsClosed")}>
-              {inboundList.map((i) => (
+              {inboundList.filter((i) => !closedIds.includes(i.id)).map((i) => (
                 <div key={i.id} className="flex items-center justify-between gap-3 py-2">
                   <div>
                     <div className="text-[13px] font-medium">{i.sub_name}</div>
@@ -514,12 +514,36 @@ function TariffDrawer({ tariff, onClose }: { tariff: Tariff | "new" | null; onCl
                     </div>
                   </div>
                   <Switch
-                    checked={closedIds.includes(i.id)}
-                    onChange={(on) => setClosedIds((pre) => (on ? [...pre, i.id] : pre.filter((x) => x !== i.id)))}
+                    checked={false}
+                    onChange={(on) => on && setClosedIds((pre) => [...pre, i.id])}
                     label={i.sub_name}
                   />
                 </div>
               ))}
+              {(() => {
+                const closed = inboundList.filter((i) => closedIds.includes(i.id));
+                if (!closed.length) return null;
+                return (
+                  <div className="mt-2 rounded-2xl border border-dashed border-[var(--hairline)] p-3">
+                    <div className="text-xs font-medium text-[var(--md-on-surface-variant)]">{t("tariffs.closedGroup")}</div>
+                    <ul className="mt-2 flex flex-col gap-2">
+                      {closed.map((i) => (
+                        <li key={i.id} className="flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="text-[13px] font-medium">{i.sub_name}</div>
+                            <div className="truncate text-xs text-[var(--md-on-surface-variant)]">
+                              {i.title} · {i.port}/{i.network}
+                            </div>
+                          </div>
+                          <Button size="sm" variant="ghost" onClick={() => setClosedIds((pre) => pre.filter((x) => x !== i.id))}>
+                            {t("tariffs.openProtocol")}
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })()}
             </div>
           </Field>
         ) : null}

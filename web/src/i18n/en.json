@@ -1166,7 +1166,9 @@
     "applyPoolsTitle": "Apply the pool limits of “{name}” to subscriptions given out?",
     "applyPoolsText": "Every client of this tariff gets its pool limits ({limits}), as on a renewal: their own pool limits are replaced, the traffic they used stays. Then the traffic packages of these pools are offered to them.",
     "applyPoolsConfirm": "Apply",
-    "applyPoolsDone": "Pool limits updated for {n, plural, one {# client} other {# clients}}"
+    "applyPoolsDone": "Pool limits updated for {n, plural, one {# client} other {# clients}}",
+    "closedGroup": "Closed for this tariff",
+    "openProtocol": "Open"
   },
   "presets": {
     "vless_reality_xhttp": "Main one for Russia: looks like plain HTTPS and keeps few connections",
