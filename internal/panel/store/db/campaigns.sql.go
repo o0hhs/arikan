@@ -165,6 +165,20 @@ func (q *Queries) DeleteCampaignTag(ctx context.Context, arg DeleteCampaignTagPa
 	return result.RowsAffected()
 }
 
+const deleteCampaignVisit = `-- name: DeleteCampaignVisit :execrows
+DELETE FROM campaign_visits WHERE chat_id = $1
+`
+
+// The admin takes a person out of the arrivals by hand: a chat that was counted by a
+// mistake (an agent's own click, say) stops being an arrival at once.
+func (q *Queries) DeleteCampaignVisit(ctx context.Context, chatID int64) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteCampaignVisit, chatID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const getCampaignTag = `-- name: GetCampaignTag :one
 SELECT id, tag, name, note, enabled, deleted, created_at, updated_at, agent_id, agent_percent FROM campaign_tags WHERE id = $1
 `

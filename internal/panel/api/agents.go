@@ -21,6 +21,7 @@ type AgentView struct {
 	Note      string    `json:"note,omitempty"`
 	Disabled  bool      `json:"disabled"`
 	CreatedAt time.Time `json:"created_at"`
+	TgID      *int64    `json:"tg_id" doc:"Телеграм-аккаунт самого агента; null — не указан. Его переходы по своим ссылкам считаются его юзом, а не пришедшими"`
 	Links     int64     `json:"links" doc:"Сколько ссылок-кампаний закреплено за агентом"`
 	Visits    int64     `json:"visits" doc:"Сколько людей пришло по ссылкам агента"`
 	Bought    int64     `json:"bought" doc:"Сколько из них купили подписку впервые"`
@@ -29,6 +30,7 @@ type AgentView struct {
 	Earned    int64     `json:"earned" doc:"Сколько агент заработал процентом с продаж, в копейках"`
 	Paid      int64     `json:"paid" doc:"Сколько агенту уже выдано, в копейках"`
 	Owed      int64     `json:"owed" doc:"Сколько агенту осталось выдать, в копейках"`
+	Usages    int64     `json:"usages" doc:"Сколько раз сам агент заходил по своим ссылкам; к пришедшим не относится"`
 	Currency  string    `json:"currency" enum:"RUB"`
 }
 
@@ -41,6 +43,7 @@ type AgentsStatsView struct {
 	Earned  int64 `json:"earned"`
 	Paid    int64 `json:"paid"`
 	Owed    int64 `json:"owed"`
+	Usages  int64 `json:"usages"`
 }
 
 type agentsOutput struct {
@@ -61,6 +64,7 @@ type createAgentInput struct {
 		Login    string `json:"login" minLength:"3" maxLength:"64" doc:"Латиница, цифры, точка, дефис и подчёркивание; регистр не важен"`
 		Password string `json:"password" minLength:"12" maxLength:"256" doc:"Выдадите агенту вместе со ссылкой на его панель; не короче 12 символов"`
 		Note     string `json:"note" maxLength:"500"`
+		TgID     *int64 `json:"tg_id,omitempty" minimum:"1" doc:"Телеграм-аккаунт самого агента: его входы по своим ссылкам не считаются пришедшими"`
 	}
 }
 
@@ -72,6 +76,7 @@ type updateAgentInput struct {
 		Login    string `json:"login" minLength:"3" maxLength:"64"`
 		Note     string `json:"note" maxLength:"500"`
 		Disabled bool   `json:"disabled" doc:"Выключенный агент не может войти, его числа остаются"`
+		TgID    *int64 `json:"tg_id,omitempty" minimum:"1" doc:"Телеграм-аккаунт самого агента; null — убрать"`
 		// Password: "" keeps the old one. A change ends the agent's sessions at once.
 		Password string `json:"password,omitempty" minLength:"0" maxLength:"256"`
 	}
@@ -105,6 +110,65 @@ type agentPayoutsInput struct {
 	ID int64 `path:"id"`
 }
 
+type agentCampaignsInput struct {
+	ID     int64 `path:"id"`
+	Limit  int64 `query:"limit" minimum:"1" maximum:"200" default:"50"`
+	Offset int64 `query:"offset" minimum:"0" default:"0"`
+}
+
+// AgentLinkView is one of an agent's links as the admin sees it: the placement that was
+// handed to the agent, with what it brought and what the agent earned on it.
+type AgentLinkView struct {
+	ID        int64     `json:"id"`
+	Tag       string    `json:"tag"`
+	Name      string    `json:"name"`
+	Enabled   bool      `json:"enabled"`
+	Percent   int64     `json:"percent" doc:"Процент агента с продаж этой ссылки"`
+	URL       string    `json:"url,omitempty" doc:"Ссылка для раздачи; пусто, пока бот без имени"`
+	CreatedAt time.Time `json:"created_at"`
+	Visits    int64     `json:"visits"`
+	Bought    int64     `json:"bought"`
+	Renewed   int64     `json:"renewed"`
+	Rub       int64     `json:"rub" doc:"Сумма оплаченного через ссылку, в копейках"`
+	Earned    int64     `json:"earned" doc:"Сколько агент заработал на этой ссылке, в копейках"`
+}
+
+type agentCampaignsOutput struct {
+	Body struct {
+		Items []AgentLinkView `json:"items"`
+		Total int64           `json:"total"`
+	}
+}
+
+type agentReferralsInput struct {
+	ID     int64 `path:"id"`
+	Limit  int64 `query:"limit" minimum:"1" maximum:"200" default:"50"`
+	Offset int64 `query:"offset" minimum:"0" default:"0"`
+}
+
+// AgentReferralView is one person an agent's links brought, as the admin sees it.
+type AgentReferralView struct {
+	ChatID    int64     `json:"chat_id"`
+	Name      string    `json:"name"`
+	Tag       string    `json:"tag" doc:"Ссылка, по которой человек пришёл"`
+	FirstSeen time.Time `json:"first_seen"`
+	Bought    int64     `json:"bought"`
+	Renewed   int64     `json:"renewed"`
+	Rub       int64     `json:"rub"`
+}
+
+type agentReferralsOutput struct {
+	Body struct {
+		Items []AgentReferralView `json:"items"`
+		Total int64               `json:"total"`
+	}
+}
+
+type deleteAgentReferralInput struct {
+	ID     int64 `path:"id"`
+	ChatID int64 `path:"chat_id"`
+}
+
 // agentPanelOutput is where the agents' panel lives; URL is the panel's own address with
 // the path attached, ready to hand to the agent.
 type agentPanelOutput struct {
@@ -129,13 +193,20 @@ func (h *handlers) registerAgents() {
 	huma.Register(h.api, huma.Operation{OperationID: "update-agent", Method: http.MethodPut, Path: "/api/v1/agents/{id}", Summary: "Изменить агента", Tags: tags, Metadata: sessionOnly, Extensions: sessionOnlyExt}, h.updateAgent)
 	huma.Register(h.api, huma.Operation{OperationID: "list-agent-payouts", Method: http.MethodGet, Path: "/api/v1/agents/{id}/payouts", Summary: "Выплаты агенту", Tags: tags, Metadata: sessionOnly, Extensions: sessionOnlyExt}, h.listAgentPayouts)
 	huma.Register(h.api, huma.Operation{OperationID: "record-agent-payout", Method: http.MethodPost, Path: "/api/v1/agents/{id}/payouts", Summary: "Отметить выплату агенту", Tags: tags, Metadata: sessionOnly, Extensions: sessionOnlyExt}, h.recordAgentPayout)
+	huma.Register(h.api, huma.Operation{OperationID: "list-agent-campaigns", Method: http.MethodGet, Path: "/api/v1/agents/{id}/campaigns", Summary: "Ссылки агента", Tags: tags, Metadata: sessionOnly, Extensions: sessionOnlyExt}, h.listAgentCampaigns)
+	huma.Register(h.api, huma.Operation{OperationID: "list-agent-referrals", Method: http.MethodGet, Path: "/api/v1/agents/{id}/referrals", Summary: "Кто пришёл по ссылкам агента", Tags: tags, Metadata: sessionOnly, Extensions: sessionOnlyExt}, h.listAgentReferrals)
+	huma.Register(h.api, huma.Operation{OperationID: "delete-agent-referral", Method: http.MethodDelete, Path: "/api/v1/agents/{id}/referrals/{chat_id}", Summary: "Убрать человека из пришедших", Tags: tags, Metadata: sessionOnly, Extensions: sessionOnlyExt}, h.deleteAgentReferral)
 }
 
 func viewAgent(a agents.Agent) AgentView {
+	var tg *int64
+	if a.TgID.Valid {
+		tg = &a.TgID.Int64
+	}
 	return AgentView{
 		ID: a.ID, Login: a.Login, Note: a.Note, Disabled: a.Disabled != 0, CreatedAt: time.Unix(a.CreatedAt, 0).UTC(),
-		Links: a.Links, Visits: a.Visits, Bought: a.Bought, Renewed: a.Renewed,
-		Revenue: a.Revenue, Earned: a.Earned, Paid: a.Paid, Owed: a.Owed(), Currency: agents.Currency,
+		TgID: tg, Links: a.Links, Visits: a.Visits, Bought: a.Bought, Renewed: a.Renewed,
+		Revenue: a.Revenue, Earned: a.Earned, Paid: a.Paid, Owed: a.Owed(), Usages: a.Usages, Currency: agents.Currency,
 	}
 }
 
@@ -148,6 +219,8 @@ func agentErr(err error) error {
 		return huma.Error422UnprocessableEntity("validation", &huma.ErrorDetail{Location: "body.password", Message: "agent_password_invalid"})
 	case errors.Is(err, agents.ErrLoginTaken):
 		return huma.Error409Conflict("agent_login_taken")
+	case errors.Is(err, agents.ErrTgTaken):
+		return huma.Error409Conflict("agent_tg_taken")
 	case errors.Is(err, agents.ErrNotFound):
 		return huma.Error404NotFound("agent_not_found")
 	case errors.Is(err, agents.ErrPayout):
@@ -172,7 +245,7 @@ func (h *handlers) listAgents(ctx context.Context, in *agentListInput) (*agentsO
 	out.Body.Total = total
 	out.Body.Stats = AgentsStatsView{
 		Agents: total, Visits: sum.Visits, Bought: sum.Bought, Renewed: sum.Renewed,
-		Revenue: sum.Revenue, Earned: sum.Earned, Paid: sum.Paid, Owed: sum.Owed(),
+		Revenue: sum.Revenue, Earned: sum.Earned, Paid: sum.Paid, Owed: sum.Owed(), Usages: sum.Usages,
 	}
 	out.Body.Items = make([]AgentView, 0, len(rows))
 	for _, a := range rows {
@@ -185,7 +258,7 @@ func (h *handlers) createAgent(ctx context.Context, in *createAgentInput) (*agen
 	if h.d.Agents == nil {
 		return nil, huma.Error503ServiceUnavailable("agents_unavailable")
 	}
-	a, err := h.d.Agents.Create(ctx, in.Body.Login, in.Body.Password, in.Body.Note)
+	a, err := h.d.Agents.Create(ctx, in.Body.Login, in.Body.Password, in.Body.Note, in.Body.TgID)
 	if err := agentErr(err); err != nil {
 		return nil, err
 	}
@@ -199,7 +272,7 @@ func (h *handlers) updateAgent(ctx context.Context, in *updateAgentInput) (*agen
 	if h.d.Agents == nil {
 		return nil, huma.Error503ServiceUnavailable("agents_unavailable")
 	}
-	a, err := h.d.Agents.Update(ctx, in.ID, in.Body.Login, in.Body.Note, in.Body.Disabled)
+	a, err := h.d.Agents.Update(ctx, in.ID, in.Body.Login, in.Body.Note, in.Body.Disabled, in.Body.TgID)
 	if err := agentErr(err); err != nil {
 		return nil, err
 	}
@@ -213,7 +286,7 @@ func (h *handlers) updateAgent(ctx context.Context, in *updateAgentInput) (*agen
 	out := &agentOneOutput{}
 	out.Body = viewAgent(agents.Agent{CampaignAgent: a})
 	if st, err := h.d.Agents.StatsOf(ctx, a.ID); err == nil {
-		out.Body.Visits, out.Body.Bought, out.Body.Renewed, out.Body.Revenue, out.Body.Earned, out.Body.Paid, out.Body.Owed = st.Visits, st.Bought, st.Renewed, st.Revenue, st.Earned, st.Paid, st.Owed()
+		out.Body.Visits, out.Body.Bought, out.Body.Renewed, out.Body.Revenue, out.Body.Earned, out.Body.Paid, out.Body.Owed, out.Body.Usages = st.Visits, st.Bought, st.Renewed, st.Revenue, st.Earned, st.Paid, st.Owed(), st.Usages
 	}
 	return out, nil
 }
@@ -245,6 +318,58 @@ func (h *handlers) recordAgentPayout(ctx context.Context, in *recordPayoutInput)
 	out := &payoutOneOutput{}
 	out.Body = PayoutView{ID: p.ID, Amount: p.Amount, Note: p.Note, CreatedAt: time.Unix(p.CreatedAt, 0).UTC()}
 	return out, nil
+}
+
+func (h *handlers) listAgentCampaigns(ctx context.Context, in *agentCampaignsInput) (*agentCampaignsOutput, error) {
+	if h.d.Agents == nil {
+		return nil, huma.Error503ServiceUnavailable("agents_unavailable")
+	}
+	links, total, err := h.d.Agents.Links(ctx, in.ID, in.Limit, in.Offset)
+	if err := agentErr(err); err != nil {
+		return nil, err
+	}
+	out := &agentCampaignsOutput{}
+	out.Body.Total = total
+	out.Body.Items = make([]AgentLinkView, 0, len(links))
+	for _, l := range links {
+		out.Body.Items = append(out.Body.Items, AgentLinkView{
+			ID: l.ID, Tag: l.Tag, Name: l.Name, Enabled: l.Enabled, Percent: l.Percent,
+			URL: h.botLink(l.Tag), CreatedAt: l.CreatedAt,
+			Visits: l.Visits, Bought: l.Bought, Renewed: l.Renewed, Rub: l.Rub, Earned: l.Earned,
+		})
+	}
+	return out, nil
+}
+
+func (h *handlers) listAgentReferrals(ctx context.Context, in *agentReferralsInput) (*agentReferralsOutput, error) {
+	if h.d.Agents == nil {
+		return nil, huma.Error503ServiceUnavailable("agents_unavailable")
+	}
+	refs, total, err := h.d.Agents.Referrals(ctx, in.ID, in.Limit, in.Offset)
+	if err := agentErr(err); err != nil {
+		return nil, err
+	}
+	out := &agentReferralsOutput{}
+	out.Body.Total = total
+	out.Body.Items = make([]AgentReferralView, 0, len(refs))
+	for _, r := range refs {
+		out.Body.Items = append(out.Body.Items, AgentReferralView{
+			ChatID: r.ChatID, Name: r.Name, Tag: r.Tag, FirstSeen: r.FirstSeen,
+			Bought: r.Bought, Renewed: r.Renewed, Rub: r.Rub,
+		})
+	}
+	return out, nil
+}
+
+func (h *handlers) deleteAgentReferral(ctx context.Context, in *deleteAgentReferralInput) (*struct{}, error) {
+	if h.d.Agents == nil {
+		return nil, huma.Error503ServiceUnavailable("agents_unavailable")
+	}
+	if err := h.d.Agents.RemoveReferral(ctx, in.ID, in.ChatID); err != nil {
+		return nil, agentErr(err)
+	}
+	h.audit(ctx, sessionOf(ctx).AdminID, "agent.referral_remove", "agent", "", map[string]any{"agent_id": in.ID, "chat_id": in.ChatID})
+	return &struct{}{}, nil
 }
 
 // agentPanel is where the agents' panel is served from. The URL is the panel's own

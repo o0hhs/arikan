@@ -1,6 +1,6 @@
 -- name: CreateAgent :one
-INSERT INTO campaign_agents (login, password_hash, note, created_at, updated_at)
-VALUES ($1, $2, $3, $4, $4) RETURNING *;
+INSERT INTO campaign_agents (login, password_hash, note, tg_id, created_at, updated_at)
+VALUES ($1, $2, $3, sqlc.narg(tg_id), $4, $4) RETURNING *;
 
 -- name: GetAgent :one
 SELECT * FROM campaign_agents WHERE id = $1;
@@ -10,7 +10,8 @@ SELECT * FROM campaign_agents WHERE login = $1;
 
 -- name: UpdateAgent :execrows
 UPDATE campaign_agents
-SET login = sqlc.arg(login), note = sqlc.arg(note), disabled = sqlc.arg(disabled), updated_at = sqlc.arg(updated_at)
+SET login = sqlc.arg(login), note = sqlc.arg(note), disabled = sqlc.arg(disabled),
+    tg_id = sqlc.narg(tg_id), updated_at = sqlc.arg(updated_at)
 WHERE id = sqlc.arg(id);
 
 -- name: UpdateAgentPassword :execrows
@@ -27,7 +28,8 @@ SELECT a.*,
   CAST(COALESCE((SELECT COUNT(*) FROM campaign_events e JOIN campaign_tags c ON c.id = e.campaign_id WHERE c.agent_id = a.id AND e.kind = 'renewed' AND e.reverted_at IS NULL), 0) AS BIGINT) AS renewed,
   CAST(COALESCE((SELECT SUM(e.amount) FROM campaign_events e JOIN campaign_tags c ON c.id = e.campaign_id WHERE c.agent_id = a.id AND e.reverted_at IS NULL AND e.currency = 'RUB'), 0) AS BIGINT) AS revenue,
   CAST(COALESCE((SELECT SUM(ac.amount) FROM agent_commissions ac WHERE ac.agent_id = a.id AND ac.reverted_at IS NULL), 0) AS BIGINT) AS earned,
-  CAST(COALESCE((SELECT SUM(ap.amount) FROM agent_payouts ap WHERE ap.agent_id = a.id), 0) AS BIGINT) AS paid
+  CAST(COALESCE((SELECT SUM(ap.amount) FROM agent_payouts ap WHERE ap.agent_id = a.id), 0) AS BIGINT) AS paid,
+  CAST(COALESCE((SELECT SUM(visits) FROM agent_usage WHERE agent_id = a.id), 0) AS BIGINT) AS usages
 FROM campaign_agents a
 ORDER BY a.id DESC LIMIT CAST(sqlc.arg(lim) AS BIGINT) OFFSET CAST(sqlc.arg(row_offset) AS BIGINT);
 
@@ -42,7 +44,8 @@ SELECT
   CAST(COALESCE((SELECT COUNT(*) FROM campaign_events e JOIN campaign_tags c ON c.id = e.campaign_id WHERE c.agent_id = $1 AND e.kind = 'renewed' AND e.reverted_at IS NULL), 0) AS BIGINT) AS renewed,
   CAST(COALESCE((SELECT SUM(e.amount) FROM campaign_events e JOIN campaign_tags c ON c.id = e.campaign_id WHERE c.agent_id = $1 AND e.reverted_at IS NULL AND e.currency = 'RUB'), 0) AS BIGINT) AS revenue,
   CAST(COALESCE((SELECT SUM(ac.amount) FROM agent_commissions ac WHERE ac.agent_id = $1 AND ac.reverted_at IS NULL), 0) AS BIGINT) AS earned,
-  CAST(COALESCE((SELECT SUM(ap.amount) FROM agent_payouts ap WHERE ap.agent_id = $1), 0) AS BIGINT) AS paid;
+  CAST(COALESCE((SELECT SUM(ap.amount) FROM agent_payouts ap WHERE ap.agent_id = $1), 0) AS BIGINT) AS paid,
+  CAST(COALESCE((SELECT SUM(visits) FROM agent_usage WHERE agent_id = $1), 0) AS BIGINT) AS usages;
 
 -- name: SetCampaignAgent :execrows
 -- Binds a campaign to an agent with its percent, or unbinds it (NULLs).
@@ -122,3 +125,14 @@ DELETE FROM agent_sessions WHERE agent_id = $1;
 
 -- name: DeleteStaleAgentSessions :exec
 DELETE FROM agent_sessions WHERE expires_at < sqlc.arg(now) OR last_seen_at < sqlc.arg(idle_before);
+
+-- name: AgentByTgID :one
+-- The agent whose own Telegram account this is; an unknown or switched-off one answers
+-- nothing, so only a real agent is recognized.
+SELECT id FROM campaign_agents WHERE tg_id = $1 AND disabled = 0 LIMIT 1;
+
+-- name: AddAgentUsage :execrows
+-- One more click of his own link by the agent; first_seen keeps the first one.
+INSERT INTO agent_usage (agent_id, visits, first_seen, last_seen)
+VALUES ($1, 1, $2, $2)
+ON CONFLICT (agent_id) DO UPDATE SET visits = agent_usage.visits + 1, last_seen = GREATEST(agent_usage.last_seen, excluded.last_seen);

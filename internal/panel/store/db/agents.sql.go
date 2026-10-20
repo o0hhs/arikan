@@ -10,6 +10,39 @@ import (
 	"database/sql"
 )
 
+const addAgentUsage = `-- name: AddAgentUsage :execrows
+INSERT INTO agent_usage (agent_id, visits, first_seen, last_seen)
+VALUES ($1, 1, $2, $2)
+ON CONFLICT (agent_id) DO UPDATE SET visits = agent_usage.visits + 1, last_seen = GREATEST(agent_usage.last_seen, excluded.last_seen)
+`
+
+type AddAgentUsageParams struct {
+	AgentID   int64
+	FirstSeen int64
+}
+
+// One more click of his own link by the agent; first_seen keeps the first one.
+func (q *Queries) AddAgentUsage(ctx context.Context, arg AddAgentUsageParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, addAgentUsage, arg.AgentID, arg.FirstSeen)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const agentByTgID = `-- name: AgentByTgID :one
+SELECT id FROM campaign_agents WHERE tg_id = $1 AND disabled = 0 LIMIT 1
+`
+
+// The agent whose own Telegram account this is; an unknown or switched-off one answers
+// nothing, so only a real agent is recognized.
+func (q *Queries) AgentByTgID(ctx context.Context, tgID sql.NullInt64) (int64, error) {
+	row := q.db.QueryRowContext(ctx, agentByTgID, tgID)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
 const agentOverview = `-- name: AgentOverview :one
 SELECT
   CAST(COALESCE((SELECT COUNT(*) FROM campaign_visits v JOIN campaign_tags c ON c.id = v.campaign_id WHERE c.agent_id = $1), 0) AS BIGINT) AS visits,
@@ -17,7 +50,8 @@ SELECT
   CAST(COALESCE((SELECT COUNT(*) FROM campaign_events e JOIN campaign_tags c ON c.id = e.campaign_id WHERE c.agent_id = $1 AND e.kind = 'renewed' AND e.reverted_at IS NULL), 0) AS BIGINT) AS renewed,
   CAST(COALESCE((SELECT SUM(e.amount) FROM campaign_events e JOIN campaign_tags c ON c.id = e.campaign_id WHERE c.agent_id = $1 AND e.reverted_at IS NULL AND e.currency = 'RUB'), 0) AS BIGINT) AS revenue,
   CAST(COALESCE((SELECT SUM(ac.amount) FROM agent_commissions ac WHERE ac.agent_id = $1 AND ac.reverted_at IS NULL), 0) AS BIGINT) AS earned,
-  CAST(COALESCE((SELECT SUM(ap.amount) FROM agent_payouts ap WHERE ap.agent_id = $1), 0) AS BIGINT) AS paid
+  CAST(COALESCE((SELECT SUM(ap.amount) FROM agent_payouts ap WHERE ap.agent_id = $1), 0) AS BIGINT) AS paid,
+  CAST(COALESCE((SELECT SUM(visits) FROM agent_usage WHERE agent_id = $1), 0) AS BIGINT) AS usages
 `
 
 type AgentOverviewRow struct {
@@ -27,6 +61,7 @@ type AgentOverviewRow struct {
 	Revenue int64
 	Earned  int64
 	Paid    int64
+	Usages  int64
 }
 
 // One agent's totals in one row, for the agent's own panel and for the admin's card.
@@ -40,6 +75,7 @@ func (q *Queries) AgentOverview(ctx context.Context, agentID sql.NullInt64) (Age
 		&i.Revenue,
 		&i.Earned,
 		&i.Paid,
+		&i.Usages,
 	)
 	return i, err
 }
@@ -91,8 +127,8 @@ func (q *Queries) CountAgents(ctx context.Context) (int64, error) {
 }
 
 const createAgent = `-- name: CreateAgent :one
-INSERT INTO campaign_agents (login, password_hash, note, created_at, updated_at)
-VALUES ($1, $2, $3, $4, $4) RETURNING id, login, password_hash, note, disabled, created_at, updated_at
+INSERT INTO campaign_agents (login, password_hash, note, tg_id, created_at, updated_at)
+VALUES ($1, $2, $3, $5, $4, $4) RETURNING id, login, password_hash, note, disabled, created_at, updated_at, tg_id
 `
 
 type CreateAgentParams struct {
@@ -100,6 +136,7 @@ type CreateAgentParams struct {
 	PasswordHash string
 	Note         string
 	CreatedAt    int64
+	TgID         sql.NullInt64
 }
 
 func (q *Queries) CreateAgent(ctx context.Context, arg CreateAgentParams) (CampaignAgent, error) {
@@ -108,6 +145,7 @@ func (q *Queries) CreateAgent(ctx context.Context, arg CreateAgentParams) (Campa
 		arg.PasswordHash,
 		arg.Note,
 		arg.CreatedAt,
+		arg.TgID,
 	)
 	var i CampaignAgent
 	err := row.Scan(
@@ -118,6 +156,7 @@ func (q *Queries) CreateAgent(ctx context.Context, arg CreateAgentParams) (Campa
 		&i.Disabled,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TgID,
 	)
 	return i, err
 }
@@ -252,7 +291,7 @@ func (q *Queries) DeleteStaleAgentSessions(ctx context.Context, arg DeleteStaleA
 }
 
 const getAgent = `-- name: GetAgent :one
-SELECT id, login, password_hash, note, disabled, created_at, updated_at FROM campaign_agents WHERE id = $1
+SELECT id, login, password_hash, note, disabled, created_at, updated_at, tg_id FROM campaign_agents WHERE id = $1
 `
 
 func (q *Queries) GetAgent(ctx context.Context, id int64) (CampaignAgent, error) {
@@ -266,12 +305,13 @@ func (q *Queries) GetAgent(ctx context.Context, id int64) (CampaignAgent, error)
 		&i.Disabled,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TgID,
 	)
 	return i, err
 }
 
 const getAgentByLogin = `-- name: GetAgentByLogin :one
-SELECT id, login, password_hash, note, disabled, created_at, updated_at FROM campaign_agents WHERE login = $1
+SELECT id, login, password_hash, note, disabled, created_at, updated_at, tg_id FROM campaign_agents WHERE login = $1
 `
 
 func (q *Queries) GetAgentByLogin(ctx context.Context, login string) (CampaignAgent, error) {
@@ -285,6 +325,7 @@ func (q *Queries) GetAgentByLogin(ctx context.Context, login string) (CampaignAg
 		&i.Disabled,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TgID,
 	)
 	return i, err
 }
@@ -490,14 +531,15 @@ func (q *Queries) ListAgentReferrals(ctx context.Context, arg ListAgentReferrals
 }
 
 const listAgentsWithStats = `-- name: ListAgentsWithStats :many
-SELECT a.id, a.login, a.password_hash, a.note, a.disabled, a.created_at, a.updated_at,
+SELECT a.id, a.login, a.password_hash, a.note, a.disabled, a.created_at, a.updated_at, a.tg_id,
   CAST(COALESCE((SELECT COUNT(*) FROM campaign_tags c WHERE c.agent_id = a.id AND c.deleted = 0), 0) AS BIGINT) AS links,
   CAST(COALESCE((SELECT COUNT(*) FROM campaign_visits v JOIN campaign_tags c ON c.id = v.campaign_id WHERE c.agent_id = a.id), 0) AS BIGINT) AS visits,
   CAST(COALESCE((SELECT COUNT(*) FROM campaign_events e JOIN campaign_tags c ON c.id = e.campaign_id WHERE c.agent_id = a.id AND e.kind = 'bought' AND e.reverted_at IS NULL), 0) AS BIGINT) AS bought,
   CAST(COALESCE((SELECT COUNT(*) FROM campaign_events e JOIN campaign_tags c ON c.id = e.campaign_id WHERE c.agent_id = a.id AND e.kind = 'renewed' AND e.reverted_at IS NULL), 0) AS BIGINT) AS renewed,
   CAST(COALESCE((SELECT SUM(e.amount) FROM campaign_events e JOIN campaign_tags c ON c.id = e.campaign_id WHERE c.agent_id = a.id AND e.reverted_at IS NULL AND e.currency = 'RUB'), 0) AS BIGINT) AS revenue,
   CAST(COALESCE((SELECT SUM(ac.amount) FROM agent_commissions ac WHERE ac.agent_id = a.id AND ac.reverted_at IS NULL), 0) AS BIGINT) AS earned,
-  CAST(COALESCE((SELECT SUM(ap.amount) FROM agent_payouts ap WHERE ap.agent_id = a.id), 0) AS BIGINT) AS paid
+  CAST(COALESCE((SELECT SUM(ap.amount) FROM agent_payouts ap WHERE ap.agent_id = a.id), 0) AS BIGINT) AS paid,
+  CAST(COALESCE((SELECT SUM(visits) FROM agent_usage WHERE agent_id = a.id), 0) AS BIGINT) AS usages
 FROM campaign_agents a
 ORDER BY a.id DESC LIMIT CAST($2 AS BIGINT) OFFSET CAST($1 AS BIGINT)
 `
@@ -515,6 +557,7 @@ type ListAgentsWithStatsRow struct {
 	Disabled     int32
 	CreatedAt    int64
 	UpdatedAt    int64
+	TgID         sql.NullInt64
 	Links        int64
 	Visits       int64
 	Bought       int64
@@ -522,6 +565,7 @@ type ListAgentsWithStatsRow struct {
 	Revenue      int64
 	Earned       int64
 	Paid         int64
+	Usages       int64
 }
 
 // Every agent with what it brought and earned: the arrivals, purchases and their money
@@ -544,6 +588,7 @@ func (q *Queries) ListAgentsWithStats(ctx context.Context, arg ListAgentsWithSta
 			&i.Disabled,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.TgID,
 			&i.Links,
 			&i.Visits,
 			&i.Bought,
@@ -551,6 +596,7 @@ func (q *Queries) ListAgentsWithStats(ctx context.Context, arg ListAgentsWithSta
 			&i.Revenue,
 			&i.Earned,
 			&i.Paid,
+			&i.Usages,
 		); err != nil {
 			return nil, err
 		}
@@ -628,14 +674,16 @@ func (q *Queries) TouchAgentSession(ctx context.Context, arg TouchAgentSessionPa
 
 const updateAgent = `-- name: UpdateAgent :execrows
 UPDATE campaign_agents
-SET login = $1, note = $2, disabled = $3, updated_at = $4
-WHERE id = $5
+SET login = $1, note = $2, disabled = $3,
+    tg_id = $4, updated_at = $5
+WHERE id = $6
 `
 
 type UpdateAgentParams struct {
 	Login     string
 	Note      string
 	Disabled  int32
+	TgID      sql.NullInt64
 	UpdatedAt int64
 	ID        int64
 }
@@ -645,6 +693,7 @@ func (q *Queries) UpdateAgent(ctx context.Context, arg UpdateAgentParams) (int64
 		arg.Login,
 		arg.Note,
 		arg.Disabled,
+		arg.TgID,
 		arg.UpdatedAt,
 		arg.ID,
 	)
