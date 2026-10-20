@@ -59,7 +59,7 @@ func must(t *testing.T, err error) {
 // agent makes one with a percent-carrying campaign and counts the buyer's arrival through it.
 func (e *env) agent(login string, percent int64) (db.CampaignAgent, db.CampaignTag) {
 	e.t.Helper()
-	a, err := e.s.Create(e.ctx, login, "long-enough-pass-phrase", "")
+	a, err := e.s.Create(e.ctx, login, "long-enough-pass-phrase", "", nil)
 	must(e.t, err)
 	c, err := e.camps.Create(e.ctx, login, login, "")
 	must(e.t, err)
@@ -190,7 +190,7 @@ func TestLoginAndSessions(t *testing.T) {
 	e := newEnv(t)
 	a, _ := e.agent("pravilny", 10)
 
-	if _, err := e.s.Create(e.ctx, "Pravilny ", "another-long-pass-phrase", ""); !errors.Is(err, ErrLoginTaken) {
+	if _, err := e.s.Create(e.ctx, "Pravilny ", "another-long-pass-phrase", "", nil); !errors.Is(err, ErrLoginTaken) {
 		t.Fatalf("a second login of one name: %v", err)
 	}
 	if _, _, err := e.s.Login(e.ctx, "pravilny", "wrong-pass-phrase", "127.0.0.1:1", "test"); !errors.Is(err, ErrCredentials) {
@@ -210,7 +210,7 @@ func TestLoginAndSessions(t *testing.T) {
 		t.Fatal("a stranger's token opened the panel")
 	}
 
-	if _, err := e.s.Update(e.ctx, a.ID, "pravilny", "", true); err != nil {
+	if _, err := e.s.Update(e.ctx, a.ID, "pravilny", "", true, nil); err != nil {
 		t.Fatal(err)
 	}
 	if _, _, err := e.s.Login(e.ctx, "pravilny", "long-enough-pass-phrase", "127.0.0.1:1", "test"); !errors.Is(err, ErrCredentials) {

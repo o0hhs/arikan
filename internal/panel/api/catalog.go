@@ -82,7 +82,7 @@ type tariffBody struct {
 	OnSale        bool        `json:"on_sale,omitempty" doc:"Продавать в боте и Mini App; нужна хотя бы одна цена"`
 	Terms         []termBody  `json:"terms,omitempty" maxItems:"12" doc:"Все сроки по порядку, когда тариф продаётся на несколько; тогда duration_days, price_stars и price_rub берутся из первого. Не передан — первый срок из duration_days, price_stars и price_rub, остальные без изменений"`
 	Pools         []PoolLimit `json:"pools,omitempty" maxItems:"100" doc:"Лимиты пулов трафика; не передан — без изменений"`
-	Closed        []int64     `json:"closed,omitempty" doc:"Отключённые протоколы тарифа (id подключений); не передан — без изменений"`
+	Closed        []int64     `json:"closed,omitempty" doc:"Отключённые протоколы тарифа (id подключений); пусто или нет в теле — все открыты. PUT заменяет тариф, так что закрыто ровно то, что в списке"`
 	Sort          int64       `json:"sort,omitempty"`
 }
 
@@ -172,17 +172,9 @@ func (h *handlers) updateTariff(ctx context.Context, in *tariffUpdateInput) (*ta
 	}
 	var t db.Tariff
 	err = h.d.Store.TxRC(ctx, func(q *db.Queries) error {
-		// Without closed in the body the tariff keeps the protocols it had closed.
+		// PUT replaces the tariff: the closed list is exactly what the body carries, so an
+		// emptied list opens every protocol back up instead of keeping the old ones.
 		closed := domain.EncodeClosed(b.Closed)
-		if b.Closed == nil {
-			if cur, cerr := q.GetTariff(ctx, in.ID); cerr != nil {
-				if !errors.Is(cerr, sql.ErrNoRows) {
-					return cerr
-				}
-			} else {
-				closed = cur.Closed
-			}
-		}
 		// Without terms in the body the tariff keeps the ones after the first.
 		var kept []domain.Term
 		if b.Terms == nil {
@@ -220,9 +212,12 @@ func (h *handlers) updateTariff(ctx context.Context, in *tariffUpdateInput) (*ta
 	if err != nil {
 		return nil, err
 	}
-	if in.Body.Pools != nil || in.Body.Closed != nil {
-		h.d.Changes.PoliciesChanged() // a pool or a protocol closed or opened for the tariff's users
+	if in.Body.Pools != nil {
+		h.d.Changes.PoliciesChanged() // a pool closed or opened for the tariff's users
 	}
+	// PUT rewrites the closed set (absent counts as empty), so the nodes' protocol
+	// closures move with it, whatever the body carried.
+	h.d.Changes.PoliciesChanged()
 	h.audit(ctx, sessionOf(ctx).AdminID, "tariff.update", "tariff", strconv.FormatInt(t.ID, 10), nil)
 	return h.tariffOut(ctx, t)
 }

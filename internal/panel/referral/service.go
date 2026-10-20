@@ -663,14 +663,43 @@ func (s *Service) ReleaseClosed(ctx context.Context) error {
 
 // AdminStats is what the admin's page shows above the rules.
 type AdminStats struct {
-	Invited  int64 `json:"invited"`
-	Paid     int64 `json:"paid"`
+	Invited int64 `json:"invited"`
+	Paid    int64 `json:"paid"`
+	// Trial is how many invitees took their trial; Idle how many took nothing at all: no
+	// trial, no subscription, no payment.
+	Trial    int64 `json:"trial"`
+	Idle     int64 `json:"idle"`
 	Accounts int64 `json:"accounts"`
 	// Owed is every balance in the programme: what it would cost to pay them all out.
 	Owed       int64 `json:"owed"`
 	Earned     int64 `json:"earned"`
 	EarnedDays int64 `json:"earned_days"`
 	Spent      int64 `json:"spent"`
+}
+
+// How far an invitee got, as the panel marks them: following a link, taking the trial,
+// holding a subscription somebody else gave them, or paying.
+const (
+	StageInvited    = "invited"
+	StageTrial      = "trial"
+	StageSubscribed = "subscribed"
+	StagePaid       = "paid"
+)
+
+// StageOf is the furthest of what is known about an invitee. Every trial brings a
+// subscription of its own, so the trial is asked before the plain subscription: it is the
+// fact the referrer's work is measured by, and a subscription taken otherwise (an access
+// code, a free plan) only says the account is a customer.
+func StageOf(paid, trial, subscribed bool) string {
+	switch {
+	case paid:
+		return StagePaid
+	case trial:
+		return StageTrial
+	case subscribed:
+		return StageSubscribed
+	}
+	return StageInvited
 }
 
 // View is the setup with the numbers behind it.
@@ -694,7 +723,7 @@ func (s *Service) View(ctx context.Context) (Program, AdminStats, error) {
 	if err != nil {
 		return cfg, out, err
 	}
-	out = AdminStats{Invited: refs.Total, Paid: refs.Paid, Accounts: accs.Accounts, Owed: accs.Owed,
-		Earned: rw.Rub, EarnedDays: rw.Days, Spent: sp.Total}
+	out = AdminStats{Invited: refs.Total, Paid: refs.Paid, Trial: refs.Trial, Idle: refs.Idle,
+		Accounts: accs.Accounts, Owed: accs.Owed, Earned: rw.Rub, EarnedDays: rw.Days, Spent: sp.Total}
 	return cfg, out, nil
 }

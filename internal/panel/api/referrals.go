@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -37,14 +38,18 @@ type ReferralRewardView struct {
 }
 
 type ReferralLinkView struct {
-	ReferralID   int64      `json:"referral_id"`
+	ReferralID int64 `json:"referral_id"`
+	// ReferrerTgID and ReferrerCode name the account that invited; ReferrerName is how to
+	// show it, empty when the chat is unknown.
 	ReferrerTgID int64      `json:"referrer_tg_id"`
 	ReferrerCode string     `json:"referrer_code"`
+	ReferrerName string     `json:"referrer_name,omitempty"`
 	RefereeTgID  int64      `json:"referee_tg_id"`
 	RefereeName  string     `json:"referee_name,omitempty"`
 	Code         string     `json:"code"`
 	CreatedAt    time.Time  `json:"created_at"`
 	FirstPaidAt  *time.Time `json:"first_paid_at,omitempty" doc:"Не пусто — реферал уже оплатил подписку"`
+	Stage        string     `json:"stage" enum:"invited,trial,subscribed,paid" doc:"Докуда дошёл приглашённый: прошёл по ссылке, взял пробный, получил подписку или оплатил"`
 }
 
 type referralsOutput struct{ Body ReferralView }
@@ -152,11 +157,7 @@ func (h *handlers) listReferralRewards(ctx context.Context, in *referralRewardsI
 	for _, r := range rows {
 		v := ReferralRewardView{ID: r.ID, ReferrerTgID: r.ReferrerTgID, ReferralID: r.ReferralID, RuleID: r.RuleID, Kind: r.Kind,
 			Amount: r.Amount, Days: r.Days, EveryN: r.EveryN, CreatedAt: time.Unix(r.CreatedAt, 0).UTC(), RevertedAt: ts(r.RevertedAt)}
-		if r.ReferrerUsername != "" {
-			v.ReferrerName = "@" + r.ReferrerUsername
-		} else {
-			v.ReferrerName = r.ReferrerName
-		}
+		v.ReferrerName = chatName(r.ReferrerUsername, r.ReferrerName)
 		if r.PaymentID.Valid {
 			id := r.PaymentID.Int64
 			v.PaymentID = &id
@@ -183,8 +184,19 @@ func (h *handlers) listReferralLinks(ctx context.Context, in *referralLinksInput
 	out.Body.Items = make([]ReferralLinkView, 0, len(rows))
 	for _, r := range rows {
 		out.Body.Items = append(out.Body.Items, ReferralLinkView{ReferralID: r.ID, ReferrerTgID: r.ReferrerTgID, ReferrerCode: r.ReferrerCode,
-			RefereeTgID: r.RefereeTgID, RefereeName: r.RefereeUsername, Code: r.Code,
-			CreatedAt: time.Unix(r.CreatedAt, 0).UTC(), FirstPaidAt: ts(r.FirstPaidAt)})
+			ReferrerName: chatName(r.ReferrerUsername, r.ReferrerName),
+			RefereeTgID:  r.RefereeTgID, RefereeName: chatName(r.RefereeUsername, r.RefereeName),
+			Code: r.Code, CreatedAt: time.Unix(r.CreatedAt, 0).UTC(), FirstPaidAt: ts(r.FirstPaidAt),
+			Stage: referral.StageOf(r.FirstPaidAt.Valid, r.TookTrial, r.HasSubscription)})
 	}
 	return out, nil
+}
+
+// chatName is how the panel names a Telegram chat: its @username, else the first name it
+// goes by; "" when the chat is unknown, which the panel then shows as a tg id.
+func chatName(username, first string) string {
+	if username != "" {
+		return "@" + username
+	}
+	return strings.TrimSpace(first)
 }

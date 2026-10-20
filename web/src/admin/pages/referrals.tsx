@@ -16,9 +16,13 @@ type Rule = Schemas["Rule"];
 type View = Schemas["ReferralView"];
 type Reward = Schemas["ReferralRewardView"];
 type Link = Schemas["ReferralLinkView"];
+type Stage = Link["stage"];
 
 type Kind = Rule["kind"];
 const KIND_LABEL: Record<Kind, "referrals.kindPercent" | "referrals.kindDays"> = { percent: "referrals.kindPercent", days: "referrals.kindDays" };
+
+/** What an invitee got to: nothing yet, the trial, a subscription somebody else gave, or a payment. */
+const STAGE_TONE: Record<Stage, "ok" | "warn" | "off"> = { invited: "off", trial: "warn", subscribed: "ok", paid: "ok" };
 
 /** The setup with its numbers; the rules come with the ids the editor keeps across a save. */
 function blankRule(n: number): Rule {
@@ -246,7 +250,9 @@ function TariffPicker({ value, onChange, nameOf }: { value: number[]; onChange: 
 function Stats({ stats }: { stats: View["stats"] }) {
   const items: [string, string][] = [
     [t("referrals.statInvited"), num(stats.invited)],
+    [t("referrals.statTrial"), num(stats.trial)],
     [t("referrals.statPaid"), num(stats.paid)],
+    [t("referrals.statIdle"), num(stats.idle)],
     [t("referrals.statEarned"), money(stats.earned, "RUB")],
     [t("referrals.statSpent"), money(stats.spent, "RUB")],
     [t("referrals.statOwed"), money(stats.owed, "RUB")],
@@ -326,11 +332,14 @@ function LinksCard({ links }: { links: ReturnType<typeof useReferralLists>["link
               <li key={l.referral_id} className="flex items-center justify-between gap-3 py-2">
                 <div className="min-w-0">
                   <div className="truncate text-[13px]">
-                    {l.referee_name ? `@${l.referee_name}` : `tg ${l.referee_tg_id}`} <span className="text-[var(--md-on-surface-variant)]">{t("referrals.invitedBy", { code: l.referrer_code })}</span>
+                    {l.referee_name || `tg ${l.referee_tg_id}`}{" "}
+                    <span className="text-[var(--md-on-surface-variant)]">{t("referrals.invitedBy", { name: l.referrer_name || `tg ${l.referrer_tg_id}` })}</span>
                   </div>
-                  <div className="mt-0.5 text-xs text-[var(--md-on-surface-variant)]">{dateShort(l.created_at)}</div>
+                  <div className="mt-0.5 text-xs text-[var(--md-on-surface-variant)]">
+                    {dateShort(l.created_at)} · {t("referrals.code", { code: l.referrer_code })}
+                  </div>
                 </div>
-                <Pill tone={l.first_paid_at ? "ok" : "off"}>{l.first_paid_at ? t("referrals.paid") : t("referrals.invited")}</Pill>
+                <Pill tone={STAGE_TONE[l.stage]}>{t(`referrals.${l.stage}`)}</Pill>
               </li>
             ))}
           </ul>

@@ -33,6 +33,11 @@ VALUES ($1, $2, $3, $4) ON CONFLICT (chat_id) DO NOTHING;
 -- name: GetCampaignVisit :one
 SELECT * FROM campaign_visits WHERE chat_id = $1;
 
+-- name: DeleteCampaignVisit :execrows
+-- The admin takes a person out of the arrivals by hand: a chat that was counted by a
+-- mistake (an agent's own click, say) stops being an arrival at once.
+DELETE FROM campaign_visits WHERE chat_id = $1;
+
 -- name: CountCampaignVisits :one
 SELECT COUNT(*) AS visits, CAST(COALESCE(MIN(first_seen), 0) AS BIGINT) AS first_seen
 FROM campaign_visits WHERE campaign_id = $1;

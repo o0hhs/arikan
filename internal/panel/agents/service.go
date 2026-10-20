@@ -26,7 +26,9 @@ var (
 	ErrPassword = errors.New("agent_password_invalid")
 	// The login is somebody else's.
 	ErrLoginTaken = errors.New("agent_login_taken")
-	ErrNotFound   = errors.New("agent_not_found")
+	// The agent's own Telegram is somebody else's.
+	ErrTgTaken  = errors.New("agent_tg_taken")
+	ErrNotFound = errors.New("agent_not_found")
 	// The payout recorded is one the panel cannot believe: not a positive kopeck sum.
 	ErrPayout = errors.New("agent_payout_amount")
 	// The login or the password did not match an agent (or the agent is switched off).
@@ -86,6 +88,9 @@ type Stats struct {
 	Revenue int64
 	Earned  int64
 	Paid    int64
+	// Usages is how many times the agent themselves went through their own links: their
+	// own activity, never an arrival.
+	Usages int64
 }
 
 // Owed is what the agent still waits for: everything earned that a payout has not
@@ -115,9 +120,18 @@ func normalizeLogin(raw string) (string, bool) {
 	return l, true
 }
 
+// tgID turns the admin's own Telegram id into the column's shape; 0 means none.
+func tgID(t *int64) sql.NullInt64 {
+	if t == nil || *t <= 0 {
+		return sql.NullInt64{}
+	}
+	return sql.NullInt64{Int64: *t, Valid: true}
+}
+
 // Create makes an agent with a login and a password to give them (out of band), and a
-// note the admin calls them by.
-func (s *Service) Create(ctx context.Context, rawLogin, password, note string) (db.CampaignAgent, error) {
+// note the admin calls them by. tgID is the agent's own Telegram account if they have
+// one: their visits of their own links then count as their own use, not as arrivals.
+func (s *Service) Create(ctx context.Context, rawLogin, password, note string, tg *int64) (db.CampaignAgent, error) {
 	login, ok := normalizeLogin(rawLogin)
 	if !ok {
 		return db.CampaignAgent{}, ErrLogin
@@ -128,16 +142,20 @@ func (s *Service) Create(ctx context.Context, rawLogin, password, note string) (
 	}
 	now := s.Now().Unix()
 	a, err := s.Store.Q.CreateAgent(ctx, db.CreateAgentParams{
-		Login: login, PasswordHash: hash, Note: strings.TrimSpace(note), CreatedAt: now})
+		Login: login, PasswordHash: hash, Note: strings.TrimSpace(note), TgID: tgID(tg), CreatedAt: now})
 	if store.IsUnique(err) {
+		if tg != nil && *tg > 0 {
+			return db.CampaignAgent{}, ErrTgTaken
+		}
 		return db.CampaignAgent{}, ErrLoginTaken
 	}
 	return a, err
 }
 
-// Update changes the login, the note and the on/off of an agent. Switching an agent off
-// ends their sessions and refuses logins, but keeps every number of theirs.
-func (s *Service) Update(ctx context.Context, id int64, rawLogin, note string, disabled bool) (db.CampaignAgent, error) {
+// Update changes the login, the note, the agent's own Telegram and the on/off of an
+// agent. Switching an agent off ends their sessions and refuses logins, but keeps every
+// number of theirs.
+func (s *Service) Update(ctx context.Context, id int64, rawLogin, note string, disabled bool, tg *int64) (db.CampaignAgent, error) {
 	login, ok := normalizeLogin(rawLogin)
 	if !ok {
 		return db.CampaignAgent{}, ErrLogin
@@ -147,9 +165,9 @@ func (s *Service) Update(ctx context.Context, id int64, rawLogin, note string, d
 		dis = 1
 	}
 	n, err := s.Store.Q.UpdateAgent(ctx, db.UpdateAgentParams{
-		Login: login, Note: strings.TrimSpace(note), Disabled: dis, UpdatedAt: s.Now().Unix(), ID: id})
+		Login: login, Note: strings.TrimSpace(note), Disabled: dis, TgID: tgID(tg), UpdatedAt: s.Now().Unix(), ID: id})
 	if store.IsUnique(err) {
-		return db.CampaignAgent{}, ErrLoginTaken
+		return db.CampaignAgent{}, ErrTgTaken
 	}
 	if err != nil {
 		return db.CampaignAgent{}, err
@@ -221,8 +239,8 @@ func (s *Service) List(ctx context.Context, lim, offset int64) ([]Agent, int64, 
 	out := make([]Agent, 0, len(rows))
 	for _, r := range rows {
 		out = append(out, Agent{
-			CampaignAgent: db.CampaignAgent{ID: r.ID, Login: r.Login, PasswordHash: r.PasswordHash, Note: r.Note, Disabled: r.Disabled, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt},
-			Stats:         Stats{Links: r.Links, Visits: r.Visits, Bought: r.Bought, Renewed: r.Renewed, Revenue: r.Revenue, Earned: r.Earned, Paid: r.Paid},
+			CampaignAgent: db.CampaignAgent{ID: r.ID, Login: r.Login, PasswordHash: r.PasswordHash, Note: r.Note, Disabled: r.Disabled, TgID: r.TgID, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt},
+			Stats:         Stats{Links: r.Links, Visits: r.Visits, Bought: r.Bought, Renewed: r.Renewed, Revenue: r.Revenue, Earned: r.Earned, Paid: r.Paid, Usages: r.Usages},
 		})
 	}
 	return out, total, nil
@@ -243,6 +261,7 @@ func (s *Service) Summary(ctx context.Context) (Stats, error) {
 		out.Revenue += a.Revenue
 		out.Earned += a.Earned
 		out.Paid += a.Paid
+		out.Usages += a.Usages
 	}
 	return out, nil
 }
@@ -253,7 +272,7 @@ func (s *Service) StatsOf(ctx context.Context, agentID int64) (Stats, error) {
 	if err != nil {
 		return Stats{}, err
 	}
-	return Stats{Visits: r.Visits, Bought: r.Bought, Renewed: r.Renewed, Revenue: r.Revenue, Earned: r.Earned, Paid: r.Paid}, nil
+	return Stats{Visits: r.Visits, Bought: r.Bought, Renewed: r.Renewed, Revenue: r.Revenue, Earned: r.Earned, Paid: r.Paid, Usages: r.Usages}, nil
 }
 
 // Link is one of an agent's campaigns: the placement the admin linked to them, with what
@@ -332,6 +351,34 @@ func (s *Service) Referrals(ctx context.Context, agentID, lim, offset int64) ([]
 		})
 	}
 	return out, total, nil
+}
+
+// RemoveReferral takes a person out of an agent's arrivals by hand: a chat that was
+// counted by a mistake (an agent's own click of their own link, say) stops being an
+// arrival at once. Only a visit that belongs to this agent can be removed.
+func (s *Service) RemoveReferral(ctx context.Context, agentID, chatID int64) error {
+	v, err := s.Store.Q.GetCampaignVisit(ctx, chatID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrNotFound
+	}
+	if err != nil {
+		return err
+	}
+	c, err := s.Store.Q.GetCampaignTag(ctx, v.CampaignID)
+	if err != nil {
+		return err
+	}
+	if !c.AgentID.Valid || c.AgentID.Int64 != agentID {
+		return ErrNotFound
+	}
+	n, err := s.Store.Q.DeleteCampaignVisit(ctx, chatID)
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 // Payout records that the admin handed the agent money outside the panel: the number

@@ -1195,9 +1195,10 @@ func (q *Queries) ListUsersByIDs(ctx context.Context, ids []int64) ([]User, erro
 }
 
 const listUsersToReset = `-- name: ListUsersToReset :many
-SELECT id, period_start, reset_strategy, billing_day, period_days FROM users
-WHERE reset_strategy = 'month_start'
-   OR reset_strategy = 'period' AND period_start + GREATEST(period_days, 1) * 86400 <= $1::bigint
+SELECT id, period_start, reset_strategy, billing_day, period_days, expires_at FROM users
+WHERE (reset_strategy = 'month_start'
+   OR reset_strategy = 'period' AND period_start + GREATEST(period_days, 1) * 86400 <= $1::bigint)
+  AND (expires_at IS NULL OR expires_at > $1::bigint)
 `
 
 type ListUsersToResetRow struct {
@@ -1206,10 +1207,13 @@ type ListUsersToResetRow struct {
 	ResetStrategy string
 	BillingDay    sql.NullInt64
 	PeriodDays    int64
+	ExpiresAt     sql.NullInt64
 }
 
 // The users whose traffic period may be over: every monthly one (its day depends on the
-// billing day, checked in Go), and the periodic ones whose period has run out.
+// billing day, checked in Go), and the periodic ones whose period has run out. A
+// subscription that has ended has no new period: its counters keep what they have, so the
+// list and the card show the traffic that really was used.
 func (q *Queries) ListUsersToReset(ctx context.Context, now int64) ([]ListUsersToResetRow, error) {
 	rows, err := q.db.QueryContext(ctx, listUsersToReset, now)
 	if err != nil {
@@ -1225,6 +1229,7 @@ func (q *Queries) ListUsersToReset(ctx context.Context, now int64) ([]ListUsersT
 			&i.ResetStrategy,
 			&i.BillingDay,
 			&i.PeriodDays,
+			&i.ExpiresAt,
 		); err != nil {
 			return nil, err
 		}

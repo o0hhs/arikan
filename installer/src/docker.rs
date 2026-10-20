@@ -398,6 +398,22 @@ pub fn image_present(reference: &str) -> bool {
     crate::system::succeeds("docker", &["image", "inspect", reference])
 }
 
+/// Removes the images no container references any more: the releases an update replaced,
+/// which would otherwise pile up until their disk blocks the next update. Best effort:
+/// an update that went through must not fail on its cleanup.
+pub fn prune_images(say: &mut dyn FnMut(&str)) -> Result<()> {
+    let out = Command::new("docker").args(["image", "prune", "-f"]).output();
+    match &out {
+        Ok(o) if o.status.success() => {
+            let stdout = String::from_utf8_lossy(&o.stdout);
+            let freed = stdout.lines().find_map(|l| l.strip_prefix("Total reclaimed space: ")).unwrap_or("");
+            say(&format!("Old release images cleaned{freed}."));
+        }
+        _ => say("Old release images stay: docker image prune failed"),
+    }
+    Ok(())
+}
+
 /// Loads an image archive (docker save | gzip) and returns the image's name.
 pub fn load(archive: &str) -> Result<String> {
     let out = Command::new("docker").args(["load", "-i", archive]).output()?;

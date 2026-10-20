@@ -136,19 +136,33 @@ func (q *Queries) CountReferralRewards(ctx context.Context) (CountReferralReward
 
 const countReferrals = `-- name: CountReferrals :one
 SELECT COUNT(*) AS total,
-  CAST(COALESCE(SUM(CASE WHEN first_paid_at IS NOT NULL THEN 1 ELSE 0 END), 0) AS BIGINT) AS paid
-FROM referrals
+  CAST(COALESCE(SUM(CASE WHEN r.first_paid_at IS NOT NULL THEN 1 ELSE 0 END), 0) AS BIGINT) AS paid,
+  CAST(COALESCE(SUM(CASE WHEN t.tg_id IS NOT NULL THEN 1 ELSE 0 END), 0) AS BIGINT) AS trial,
+  CAST(COALESCE(SUM(CASE WHEN r.first_paid_at IS NULL AND t.tg_id IS NULL
+    AND NOT EXISTS (SELECT 1 FROM tg_links l WHERE l.tg_id = r.referee_tg_id) THEN 1 ELSE 0 END), 0) AS BIGINT) AS idle
+FROM referrals r
+LEFT JOIN trials t ON t.tg_id = r.referee_tg_id
 `
 
 type CountReferralsRow struct {
 	Total int64
 	Paid  int64
+	Trial int64
+	Idle  int64
 }
 
+// What the programme brought: everybody who followed a link, those who paid, those who took
+// a trial, and those who took nothing at all — no trial, no subscription, no payment. A
+// subscription somebody else's link or an access code gave still counts as taken.
 func (q *Queries) CountReferrals(ctx context.Context) (CountReferralsRow, error) {
 	row := q.db.QueryRowContext(ctx, countReferrals)
 	var i CountReferralsRow
-	err := row.Scan(&i.Total, &i.Paid)
+	err := row.Scan(
+		&i.Total,
+		&i.Paid,
+		&i.Trial,
+		&i.Idle,
+	)
 	return i, err
 }
 
@@ -663,11 +677,16 @@ func (q *Queries) ListPendingReferralRewardGrants(ctx context.Context) ([]Referr
 const listRecentReferrals = `-- name: ListRecentReferrals :many
 SELECT r.id, r.referrer_tg_id, r.referee_tg_id, r.code, r.created_at, r.first_paid_at, COALESCE(a.code, '') AS referrer_code,
   CAST(COALESCE(ra.username, '') AS TEXT) AS referrer_username,
-  CAST(COALESCE(rb.username, '') AS TEXT) AS referee_username
+  CAST(COALESCE(ra.first_name, '') AS TEXT) AS referrer_name,
+  CAST(COALESCE(rb.username, '') AS TEXT) AS referee_username,
+  CAST(COALESCE(rb.first_name, '') AS TEXT) AS referee_name,
+  CAST(t.tg_id IS NOT NULL AS BOOLEAN) AS took_trial,
+  EXISTS (SELECT 1 FROM tg_links l WHERE l.tg_id = r.referee_tg_id) AS has_subscription
 FROM referrals r
 LEFT JOIN referral_accounts a ON a.tg_id = r.referrer_tg_id
 LEFT JOIN tg_chats ra ON ra.tg_id = r.referrer_tg_id
 LEFT JOIN tg_chats rb ON rb.tg_id = r.referee_tg_id
+LEFT JOIN trials t ON t.tg_id = r.referee_tg_id
 ORDER BY r.id DESC LIMIT CAST($2 AS BIGINT) OFFSET CAST($1 AS BIGINT)
 `
 
@@ -685,9 +704,16 @@ type ListRecentReferralsRow struct {
 	FirstPaidAt      sql.NullInt64
 	ReferrerCode     string
 	ReferrerUsername string
+	ReferrerName     string
 	RefereeUsername  string
+	RefereeName      string
+	TookTrial        bool
+	HasSubscription  bool
 }
 
+// Everybody who followed a link, with what became of them: the panel names the referrer
+// beside their code, and marks whether the invitee took a trial, holds a subscription or
+// has paid — the stage is worked out from these in the API.
 func (q *Queries) ListRecentReferrals(ctx context.Context, arg ListRecentReferralsParams) ([]ListRecentReferralsRow, error) {
 	rows, err := q.db.QueryContext(ctx, listRecentReferrals, arg.RowOffset, arg.Lim)
 	if err != nil {
@@ -706,7 +732,11 @@ func (q *Queries) ListRecentReferrals(ctx context.Context, arg ListRecentReferra
 			&i.FirstPaidAt,
 			&i.ReferrerCode,
 			&i.ReferrerUsername,
+			&i.ReferrerName,
 			&i.RefereeUsername,
+			&i.RefereeName,
+			&i.TookTrial,
+			&i.HasSubscription,
 		); err != nil {
 			return nil, err
 		}

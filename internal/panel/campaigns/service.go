@@ -138,6 +138,20 @@ func (s *Service) Visit(ctx context.Context, chat int64, rawTag string) (db.Camp
 		// counted: nothing of it appears in the stats.
 		return c, false, nil
 	}
+	// An agent's own Telegram is never an arrival: it would count its own ad among the
+	// referrals. Its own clicks still count as its own use of the link, apart from the
+	// arrivals, so the panel carries that activity too.
+	if agentID, err := s.Store.Q.AgentByTgID(ctx, sql.NullInt64{Int64: chat, Valid: true}); err == nil {
+		if c.AgentID.Valid && c.AgentID.Int64 == agentID {
+			if _, err := s.Store.Q.AddAgentUsage(ctx, db.AddAgentUsageParams{
+				AgentID: agentID, FirstSeen: s.Now().Unix()}); err != nil {
+				return db.CampaignTag{}, false, err
+			}
+		}
+		return c, false, nil
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return db.CampaignTag{}, false, err
+	}
 	n, err := s.Store.Q.TakeCampaignVisit(ctx, db.TakeCampaignVisitParams{
 		CampaignID: c.ID, ChatID: chat, Tag: tag, FirstSeen: s.Now().Unix()})
 	if err != nil {

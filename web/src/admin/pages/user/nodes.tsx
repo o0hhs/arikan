@@ -39,7 +39,15 @@ export function NodesSection({ u }: { u: User }) {
           ))}
         </ul>
       )}
-      {items.length > 0 ? <p className="mt-2 text-xs text-[var(--md-on-surface-variant)]">{t("userDrawer.nodesNote")}</p> : null}
+      {items.length > 0 ? (
+        <>
+          <p className="mt-3 flex items-center justify-between border-t border-[var(--hairline)] pt-2 text-xs text-[var(--md-on-surface-variant)]">
+            <span>{t("userDrawer.nodesTotal")}</span>
+            <b className="num text-[13px] font-semibold text-[var(--md-on-surface)]">{bytes(items.reduce((s, n) => s + n.bytes, 0))}</b>
+          </p>
+          <p className="mt-2 text-xs text-[var(--md-on-surface-variant)]">{t("userDrawer.nodesNote")}</p>
+        </>
+      ) : null}
     </Section>
   );
 }

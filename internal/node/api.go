@@ -152,6 +152,14 @@ func Handler(e *Engine, log *slog.Logger) http.Handler {
 	mux.HandleFunc("GET /v1/activity", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, e.Reg.Activity())
 	})
+	// The disk of the data directory: what it has free and what a clean removes. The panel
+	// runs the clean with one button; nothing but the junk above is touched.
+	mux.HandleFunc("GET /v1/disk", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, e.DiskStatus())
+	})
+	mux.HandleFunc("POST /v1/disk/clean", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, e.CleanDisk())
+	})
 	mux.HandleFunc("GET /v1/torrents", func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
 		after, _ := strconv.ParseInt(q.Get("after"), 10, 64)

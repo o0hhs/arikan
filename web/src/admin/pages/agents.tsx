@@ -20,6 +20,7 @@ type Agent = {
   note?: string;
   disabled: boolean;
   created_at: string;
+  tg_id?: number | null;
   links: number;
   visits: number;
   bought: number;
@@ -28,14 +29,40 @@ type Agent = {
   earned: number;
   paid: number;
   owed: number;
+  usages: number;
   currency: string;
 };
 
-type Stats = { agents: number; visits: number; bought: number; renewed: number; revenue: number; earned: number; paid: number; owed: number };
+type Stats = { agents: number; visits: number; bought: number; renewed: number; revenue: number; earned: number; paid: number; owed: number; usages: number };
 
 type List = { items: Agent[]; total: number; stats: Stats };
 
 type Payout = { id: number; amount: number; note?: string; created_at: string };
+
+type AgentLink = {
+  id: number;
+  tag: string;
+  name: string;
+  enabled: boolean;
+  percent: number;
+  url?: string;
+  created_at: string;
+  visits: number;
+  bought: number;
+  renewed: number;
+  rub: number;
+  earned: number;
+};
+
+type AgentReferral = {
+  chat_id: number;
+  name: string;
+  tag: string;
+  first_seen: string;
+  bought: number;
+  renewed: number;
+  rub: number;
+};
 
 export function Agents() {
   const list = useQuery({
@@ -78,6 +105,7 @@ function Header({ stats }: { stats: Stats }) {
     [t("agents.revenueStat"), money(stats.revenue, "RUB")],
     [t("agents.earned"), money(stats.earned, "RUB")],
     [t("agents.owed"), money(stats.owed, "RUB")],
+    [t("agents.usages"), num(stats.usages)],
   ];
   return (
     <section className="card glass reveal">
@@ -185,7 +213,7 @@ function AddCard() {
   const qc = useQueryClient();
   const toast = useToast();
   const create = useMutation({
-    mutationFn: (body: { login: string; password: string; note: string }) =>
+    mutationFn: (body: { login: string; password: string; note: string; tg_id?: number }) =>
       rawJson<Agent>("/api/v1/agents", { method: "POST", body: JSON.stringify(body), headers: { "Content-Type": "application/json" } }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: qk.agents });
@@ -193,11 +221,12 @@ function AddCard() {
     },
     onError: (e) => toast.error(errorText(e)),
   });
-  const { draft: f, setDraft: setF, dirty, reset } = useDraft({ login: "", password: "", note: "" });
+  const { draft: f, setDraft: setF, dirty, reset } = useDraft({ login: "", password: "", note: "", tg: "" });
+  const tgID = f.tg.trim() ? Number(f.tg.trim()) : undefined;
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!f.login.trim() || !f.password) return;
-    create.mutate({ login: f.login.trim(), password: f.password, note: f.note }, { onSuccess: () => reset() });
+    create.mutate({ login: f.login.trim(), password: f.password, note: f.note, tg_id: tgID }, { onSuccess: () => reset() });
   };
   return (
     <section className="card glass reveal">
@@ -215,6 +244,9 @@ function AddCard() {
           <Field label={t("agents.password")} hint={t("agents.passwordHint")}>
             <input className="input mono" type="password" maxLength={256} value={f.password} onChange={(e) => setF((c) => ({ ...c, password: e.target.value }))} placeholder={t("agents.passwordPlaceholder")} />
           </Field>
+          <Field label={t("agents.tgId")} hint={t("agents.tgIdHint")}>
+            <input className="input mono" inputMode="numeric" maxLength={32} value={f.tg} onChange={(e) => setF((c) => ({ ...c, tg: e.target.value }))} placeholder="123456789" />
+          </Field>
           <Field label={t("agents.note")} hint={t("agents.noteHint")}>
             <input className="input" maxLength={500} value={f.note} onChange={(e) => setF((c) => ({ ...c, note: e.target.value }))} />
           </Field>
@@ -231,9 +263,11 @@ function AgentRow({ a }: { a: Agent }) {
   const [openEdit, setOpenEdit] = useState(false);
   const [openPayout, setOpenPayout] = useState(false);
   const [confirmPayout, setConfirmPayout] = useState(false);
+  const [openLinks, setOpenLinks] = useState(false);
+  const [openRefs, setOpenRefs] = useState(false);
   const refresh = () => void qc.invalidateQueries({ queryKey: qk.agents });
   const save = useMutation({
-    mutationFn: (body: { login: string; note: string; disabled: boolean; password?: string }) =>
+    mutationFn: (body: { login: string; note: string; disabled: boolean; tg_id?: number; password?: string }) =>
       rawJson<Agent>(`/api/v1/agents/${a.id}`, { method: "PUT", body: JSON.stringify(body), headers: { "Content-Type": "application/json" } }),
     onSuccess: () => {
       refresh();
@@ -253,11 +287,13 @@ function AgentRow({ a }: { a: Agent }) {
     },
     onError: (e) => toast.error(errorText(e)),
   });
-  const { draft: f, setDraft: setF, dirty, reset } = useDraft({ login: a.login, note: a.note ?? "", password: "" });
+  const { draft: f, setDraft: setF, dirty, reset } = useDraft({ login: a.login, note: a.note ?? "", password: "", tg: a.tg_id ? String(a.tg_id) : "" });
   const [payoutAmount, setPayoutAmount] = useState(a.owed > 0 ? String(a.owed) : "");
   const [payoutNote, setPayoutNote] = useState("");
   const payDirty = payoutAmount !== (a.owed > 0 ? String(a.owed) : "") || payoutNote !== "";
   const conversion = a.visits > 0 ? Math.round((a.bought / a.visits) * 100) : 0;
+  const tgID = f.tg.trim() ? Number(f.tg.trim()) : undefined;
+  const saveBody = () => ({ login: f.login.trim(), note: f.note, disabled: a.disabled, tg_id: tgID, password: f.password || undefined });
   return (
     <li className="card glass reveal">
       <div className="card-head">
@@ -289,7 +325,20 @@ function AgentRow({ a }: { a: Agent }) {
         <Stat label={t("agents.earned")} value={money(a.earned, a.currency)} />
         <Stat label={t("agents.paid")} value={money(a.paid, a.currency)} />
         <Stat label={t("agents.owed")} value={money(a.owed, a.currency)} />
+        <Stat label={t("agents.usages")} value={num(a.usages)} />
       </dl>
+
+      <div className="mb-3 flex flex-wrap gap-2">
+        <Button size="sm" variant="ghost" onClick={() => setOpenLinks((v) => !v)}>
+          {openLinks ? t("common.hide") : t("agents.linksTitle")}
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => setOpenRefs((v) => !v)}>
+          {openRefs ? t("common.hide") : t("agents.referralsTitle")}
+        </Button>
+      </div>
+
+      {openLinks ? <AgentLinks agent={a} /> : null}
+      {openRefs ? <AgentReferrals agent={a} /> : null}
 
       {openEdit ? (
         <form
@@ -297,7 +346,7 @@ function AgentRow({ a }: { a: Agent }) {
           onSubmit={(e) => {
             e.preventDefault();
             if (!f.login.trim()) return;
-            save.mutate({ login: f.login.trim(), note: f.note, disabled: a.disabled, password: f.password || undefined });
+            save.mutate(saveBody());
           }}
           noValidate
         >
@@ -312,9 +361,12 @@ function AgentRow({ a }: { a: Agent }) {
             <Field label={t("agents.note")}>
               <input className="input" maxLength={500} value={f.note} onChange={(e) => setF((c) => ({ ...c, note: e.target.value }))} />
             </Field>
+            <Field label={t("agents.tgId")} hint={t("agents.tgIdHint")}>
+              <input className="input mono" inputMode="numeric" maxLength={32} value={f.tg} onChange={(e) => setF((c) => ({ ...c, tg: e.target.value }))} />
+            </Field>
           </div>
           <div className="mt-2 flex items-center justify-between gap-3">
-            <Switch checked={!a.disabled} label={t("agents.on")} onChange={(on) => save.mutate({ login: f.login.trim(), note: f.note, disabled: !on })} />
+            <Switch checked={!a.disabled} label={t("agents.on")} onChange={(on) => save.mutate({ ...saveBody(), disabled: !on })} />
             <FormActions dirty={dirty} saving={save.isPending} onReset={reset} />
           </div>
         </form>
@@ -353,6 +405,128 @@ function AgentRow({ a }: { a: Agent }) {
         </form>
       ) : null}
     </li>
+  );
+}
+
+/** The links an agent was handed: each placement with what it brought and earned. */
+function AgentLinks({ agent }: { agent: Agent }) {
+  const links = useQuery({
+    queryKey: [...qk.agents, agent.id, "campaigns"],
+    queryFn: ({ signal }) => rawJson<{ items: AgentLink[]; total: number }>(`/api/v1/agents/${agent.id}/campaigns?limit=100`, { signal }),
+  });
+  return (
+    <div className="mb-3 border-t border-[var(--hairline)] pt-3">
+      <QueryBoundary query={links} pending={<Skeleton style={{ height: 80, borderRadius: 16 }} />}>
+        {(v) =>
+          v.items.length === 0 ? (
+            <EmptyState title={t("agents.linksEmpty")} text={t("agents.linksEmptyText")} />
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {v.items.map((l) => (
+                <li key={l.id} className="panel-soft grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 p-3">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="truncate text-[13px] font-medium">{l.name || l.tag}</span>
+                      <code className="pill mono">{l.tag}</code>
+                      {l.percent > 0 ? <Pill tone="ok">{t("agents.percentShort", { n: l.percent })}</Pill> : null}
+                    </div>
+                    <div className="mt-0.5 flex flex-wrap gap-x-4 text-xs text-[var(--md-on-surface-variant)]">
+                      <span>{t("agents.visits")}: {num(l.visits)}</span>
+                      <span>{t("agents.bought")}: {num(l.bought)}</span>
+                      <span>{t("agents.renewed")}: {num(l.renewed)}</span>
+                      <span>{t("agents.revenue")}: {money(l.rub, "RUB")}</span>
+                      <span>{t("agents.earned")}: {money(l.earned, "RUB")}</span>
+                    </div>
+                  </div>
+                  {l.url ? <LinkCopy url={l.url} /> : null}
+                </li>
+              ))}
+            </ul>
+          )
+        }
+      </QueryBoundary>
+    </div>
+  );
+}
+
+/** Who came through an agent's links, with the hand-picked removal of a mistaken one. */
+function AgentReferrals({ agent }: { agent: Agent }) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [arm, setArm] = useState<number | null>(null);
+  const refs = useQuery({
+    queryKey: [...qk.agents, agent.id, "referrals"],
+    queryFn: ({ signal }) => rawJson<{ items: AgentReferral[]; total: number }>(`/api/v1/agents/${agent.id}/referrals?limit=100`, { signal }),
+  });
+  const remove = useMutation({
+    mutationFn: (chatID: number) => rawJson(`/api/v1/agents/${agent.id}/referrals/${chatID}`, { method: "DELETE" }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: [...qk.agents, agent.id, "referrals"] });
+      void qc.invalidateQueries({ queryKey: qk.agents });
+      setArm(null);
+      toast.ok(t("agents.refRemoved"));
+    },
+    onError: (e) => toast.error(errorText(e)),
+  });
+  return (
+    <div className="mb-3 border-t border-[var(--hairline)] pt-3">
+      <QueryBoundary query={refs} pending={<Skeleton style={{ height: 80, borderRadius: 16 }} />}>
+        {(v) =>
+          v.items.length === 0 ? (
+            <EmptyState title={t("agents.referralsEmpty")} text={t("agents.referralsEmptyText")} />
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {v.items.map((r) => (
+                <li key={r.chat_id} className="panel-soft grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 p-3">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="truncate text-[13px] font-medium">{r.name || r.chat_id}</span>
+                      <code className="pill mono">{r.tag}</code>
+                    </div>
+                    <div className="mt-0.5 flex flex-wrap gap-x-4 text-xs text-[var(--md-on-surface-variant)]">
+                      <span>{dateShort(r.first_seen)}</span>
+                      <span>{t("agents.bought")}: {num(r.bought)}</span>
+                      <span>{t("agents.renewed")}: {num(r.renewed)}</span>
+                      <span>{t("agents.revenue")}: {money(r.rub, "RUB")}</span>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={remove.isPending}
+                    className={arm === r.chat_id ? "text-[var(--md-error)]" : undefined}
+                    onClick={() => {
+                      if (arm !== r.chat_id) {
+                        setArm(r.chat_id);
+                        return;
+                      }
+                      remove.mutate(r.chat_id);
+                    }}
+                    onBlur={() => setArm(null)}
+                  >
+                    {arm === r.chat_id ? t("common.confirm") : t("agents.removeRef")}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )
+        }
+      </QueryBoundary>
+    </div>
+  );
+}
+
+function LinkCopy({ url }: { url: string }) {
+  const copyText = useCopy();
+  return (
+    <div className="link-field min-w-[220px]">
+      <span className="mono truncate" title={url}>
+        {url}
+      </span>
+      <button type="button" className="icon-btn shrink-0" onClick={() => void copyText(url, t("common.linkCopied"))} aria-label={t("common.copyLink")}>
+        <Copy size={14} />
+      </button>
+    </div>
   );
 }
 
