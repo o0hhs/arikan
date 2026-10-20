@@ -1,3 +1,5 @@
+//go:build !linux
+
 package node
 
 // fsSpace is not available off Linux: the node's servers are Linux (the tests build and
