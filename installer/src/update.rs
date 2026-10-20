@@ -835,6 +835,11 @@ fn recover(
 fn finish(install: &Install, target: Target, daily: bool, at: &mut Attempt, say: &mut dyn FnMut(&str)) -> Result<()> {
     seal_when_current(Path::new(DIR), install.node, say);
     say(&format!("Arikan {} is running.", target.version));
+    // Each release replaces the previous images; the old ones are dead weight now, and a
+    // server whose disk filled with them would stop updating. Prune best-effort.
+    if let Err(e) = docker::prune_images(say) {
+        say(&format!("Old release images stay: {e:#}"));
+    }
     if let Some(m) = &target.manifest
         && self_update(m, say)
     {
