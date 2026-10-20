@@ -3,6 +3,18 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
+## Unreleased
+### en
+**Three answers to the panel's daily work: the clients list orders by what you pick, where clients go sits where you look for it, and campaigns and agents share one tab.**
+- **The clients list sorts.** The picker offered traffic, term and name, but the page never told the request which one was chosen: the list stayed newest-first whatever was picked. It now goes with the choice, and the choice stays in the address as before.
+- **Where clients go lives in Settings → Routing**, beside the DNS and the rules it belongs with: counting traffic by site, how many days are kept, and the button that clears everything collected. It stood on the filters page, which sits under Addons and was easy to miss; the client's card is unchanged.
+- **Campaigns and agents are one tab: Payments → Advertising**, with «Campaigns» and «Agents» inside — an agent earns on campaigns, and a campaign's numbers are the agent's too. Links to the old tabs open the same place on the right part.
+### ru
+**Три ответа на ежедневную работу панели: список клиентов сортируется по выбору, «куда ходят клиенты» стоит там, где его ищут, а кампании и агенты живут в одной вкладке.**
+- **Список клиентов сортируется.** В выборе были трафик, срок и имя, но страница не передавала запросу, что выбрано: список оставался «новые сверху» при любом выборе. Теперь порядок идёт за выбором, и сам выбор по-прежнему остаётся в адресе.
+- **«Куда ходят клиенты» — в «Настройках → Маршрутизация»**, рядом с DNS и правилами, к которым относится: счёт трафика по сайтам, сколько дней хранить и кнопка, стирающая всё собранное. Карточка стояла на странице «Фильтры», а та спрятана под «Аддонами» — её легко не найти. Карточка клиента не изменилась.
+- **«Кампании» и «Агенты» — одна вкладка: «Платежи → Реклама»**, внутри «Кампании» и «Агенты»: агент зарабатывает на кампаниях, а числа кампании — это и его числа. Старые ссылки на прежние вкладки открывают то же место на нужной половине.
+
 ## 0.5.1.9
 ### en
 **Advertising agents: your partners get a panel of their own, and every sale they bring is worth a percent you set.**

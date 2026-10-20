@@ -88,7 +88,7 @@ export function UsersPage() {
   // came from outside (Back, a link, the reset button) and replaces what is typed.
   const written = useRef(search.q);
   // The list hides the hidden unless asked: the API's own default shows everyone.
-  const users = useUsers({ state: search.state, q: search.q, folder: search.folder, source: search.source, hidden: search.hidden ?? "hide" });
+  const users = useUsers({ state: search.state, q: search.q, folder: search.folder, source: search.source, hidden: search.hidden ?? "hide", sort: search.sort });
   const tariffs = useTariffs();
   const folders = useFolders();
   const overview = useOverview({ poll: false });
