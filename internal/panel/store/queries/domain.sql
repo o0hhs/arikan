@@ -100,10 +100,13 @@ SELECT * FROM users ORDER BY id DESC;
 
 -- name: ListUsersToReset :many
 -- The users whose traffic period may be over: every monthly one (its day depends on the
--- billing day, checked in Go), and the periodic ones whose period has run out.
-SELECT id, period_start, reset_strategy, billing_day, period_days FROM users
-WHERE reset_strategy = 'month_start'
-   OR reset_strategy = 'period' AND period_start + GREATEST(period_days, 1) * 86400 <= sqlc.arg(now)::bigint;
+-- billing day, checked in Go), and the periodic ones whose period has run out. A
+-- subscription that has ended has no new period: its counters keep what they have, so the
+-- list and the card show the traffic that really was used.
+SELECT id, period_start, reset_strategy, billing_day, period_days, expires_at FROM users
+WHERE (reset_strategy = 'month_start'
+   OR reset_strategy = 'period' AND period_start + GREATEST(period_days, 1) * 86400 <= sqlc.arg(now)::bigint)
+  AND (expires_at IS NULL OR expires_at > sqlc.arg(now)::bigint);
 
 -- name: UpdateUser :one
 UPDATE users
