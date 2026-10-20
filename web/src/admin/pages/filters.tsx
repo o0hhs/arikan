@@ -128,6 +128,11 @@ function IngressCard({ v }: { v: View }) {
             ]}
           />
         </Field>
+        {draft.mode === "allow" && !lines(draft.networks).length ? (
+          <p className="mb-2 text-xs text-[var(--md-error)]" role="alert">
+            {t("filters.ingressEmptyAllow")}
+          </p>
+        ) : null}
         <Field label={t("filters.networks")} htmlFor="f-in-networks" hint={t("filters.ingressNetworksHint")} error={listError(errors, "ingress.networks")}>
           <textarea id="f-in-networks" className="input mono min-h-[96px]" value={draft.networks} onChange={(ev) => setDraft((d) => ({ ...d, networks: ev.target.value }))} spellCheck={false} placeholder={"203.0.113.0/24\n2001:db8::/32"} />
         </Field>

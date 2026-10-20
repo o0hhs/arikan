@@ -113,7 +113,7 @@ export function TrafficSection({ u }: { u: User }) {
         />
         <div>
           <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-xs text-[var(--md-on-surface-variant)]">
-            <Stat label={t("userDrawer.used")} value={bytes(used)} />
+            <Stat label={t("userDrawer.usedPeriod")} value={bytes(used)} />
             <Stat label={t("userDrawer.left")} value={u.traffic_limit != null ? bytes(Math.max(0, u.traffic_limit - used) + u.traffic_extra) : "∞"} />
             {u.traffic_limit != null && u.traffic_extra > 0 ? (
               <div className="col-span-2 text-[var(--md-on-surface-variant)]">{t("grants.plusPackages", { limit: bytes(u.traffic_limit), extra: bytes(u.traffic_extra) })}</div>

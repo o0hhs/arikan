@@ -1075,7 +1075,9 @@
       "blocked": "{site} is in the filters: the nodes let nobody there",
       "isBlocked": "In the filters already",
       "hint": "Traffic by site, with no times or addresses. Kept for {n, plural, one {# day} other {# days}}; turned on on the Filters page."
-    }
+    },
+    "usedPeriod": "Used this period",
+    "nodesTotal": "Total, all time"
   },
   "tariffs": {
     "protocolsClosed": "Protocols off",
@@ -3235,8 +3237,8 @@
     "networksHint": "One per line: 203.0.113.0/24, 198.51.100.7, 2001:db8::/32",
     "domains": "Domains",
     "domainsHint": "One per line, with their subdomains: example.com also closes mail.example.com",
-    "ingress": "Incoming connections",
-    "ingressSub": "The nodes check where connections come from",
+    "ingress": "Where connections may come from",
+    "ingressSub": "Who may reach the nodes at all: the clients' addresses and subnets. With the check off, everyone can.",
     "ingressOn": "Check where connections come from",
     "ingressNetworksHint": "One per line. With a CDN or a TCP proxy in front of a node, the node sees its address, not the user's: list its networks or leave the check off",
     "relay": "The panel's other nodes (cascade) are always let in",
@@ -3245,7 +3247,8 @@
     "allow": "Allow only these networks",
     "denyHint": "Connections from the listed networks are refused, the rest are let in",
     "allowWarn": "Only the listed networks can connect: every other user loses access",
-    "nodes": "The nodes apply the filters. A node older than the panel skips them: update it on the Nodes page."
+    "nodes": "The nodes apply the filters. A node older than the panel skips them: update it on the Nodes page.",
+    "ingressEmptyAllow": "The list is empty and the mode is “only these networks”: access closes for everyone. Add networks or switch the mode."
   },
   "market": {
     "openPages": "Open",
