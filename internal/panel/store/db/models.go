@@ -120,6 +120,13 @@ type AgentSession struct {
 	UserAgent  string
 }
 
+type AgentUsage struct {
+	AgentID   int64
+	Visits    int64
+	FirstSeen int64
+	LastSeen  int64
+}
+
 type ApiKey struct {
 	ID         int64
 	AdminID    int64
@@ -167,6 +174,7 @@ type CampaignAgent struct {
 	Disabled     int32
 	CreatedAt    int64
 	UpdatedAt    int64
+	TgID         sql.NullInt64
 }
 
 type CampaignEvent struct {
