@@ -239,7 +239,7 @@ func (s *Service) List(ctx context.Context, lim, offset int64) ([]Agent, int64, 
 	out := make([]Agent, 0, len(rows))
 	for _, r := range rows {
 		out = append(out, Agent{
-			CampaignAgent: db.CampaignAgent{ID: r.ID, Login: r.Login, PasswordHash: r.PasswordHash, Note: r.Note, Disabled: r.Disabled, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt},
+			CampaignAgent: db.CampaignAgent{ID: r.ID, Login: r.Login, PasswordHash: r.PasswordHash, Note: r.Note, Disabled: r.Disabled, TgID: r.TgID, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt},
 			Stats:         Stats{Links: r.Links, Visits: r.Visits, Bought: r.Bought, Renewed: r.Renewed, Revenue: r.Revenue, Earned: r.Earned, Paid: r.Paid, Usages: r.Usages},
 		})
 	}
