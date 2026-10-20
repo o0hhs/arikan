@@ -82,7 +82,7 @@ type tariffBody struct {
 	OnSale        bool        `json:"on_sale,omitempty" doc:"Продавать в боте и Mini App; нужна хотя бы одна цена"`
 	Terms         []termBody  `json:"terms,omitempty" maxItems:"12" doc:"Все сроки по порядку, когда тариф продаётся на несколько; тогда duration_days, price_stars и price_rub берутся из первого. Не передан — первый срок из duration_days, price_stars и price_rub, остальные без изменений"`
 	Pools         []PoolLimit `json:"pools,omitempty" maxItems:"100" doc:"Лимиты пулов трафика; не передан — без изменений"`
-	Closed        []int64     `json:"closed" doc:"Отключённые протоколы тарифа (id подключений); пусто — все открыты. PUT заменяет тариф, так что закрыто ровно то, что в списке"`
+	Closed        []int64     `json:"closed,omitempty" doc:"Отключённые протоколы тарифа (id подключений); пусто или нет в теле — все открыты. PUT заменяет тариф, так что закрыто ровно то, что в списке"`
 	Sort          int64       `json:"sort,omitempty"`
 }
 
@@ -215,10 +215,9 @@ func (h *handlers) updateTariff(ctx context.Context, in *tariffUpdateInput) (*ta
 	if in.Body.Pools != nil {
 		h.d.Changes.PoliciesChanged() // a pool closed or opened for the tariff's users
 	}
-	// A protocol list in the body changes the tariff's closed set, whatever it is.
-	if in.Body.Closed != nil {
-		h.d.Changes.PoliciesChanged()
-	}
+	// PUT rewrites the closed set (absent counts as empty), so the nodes' protocol
+	// closures move with it, whatever the body carried.
+	h.d.Changes.PoliciesChanged()
 	h.audit(ctx, sessionOf(ctx).AdminID, "tariff.update", "tariff", strconv.FormatInt(t.ID, 10), nil)
 	return h.tariffOut(ctx, t)
 }

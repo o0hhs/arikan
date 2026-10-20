@@ -405,7 +405,8 @@ pub fn prune_images(say: &mut dyn FnMut(&str)) -> Result<()> {
     let out = Command::new("docker").args(["image", "prune", "-f"]).output();
     match &out {
         Ok(o) if o.status.success() => {
-            let freed = String::from_utf8_lossy(&o.stdout).lines().find_map(|l| l.strip_prefix("Total reclaimed space: ")).unwrap_or("");
+            let stdout = String::from_utf8_lossy(&o.stdout);
+            let freed = stdout.lines().find_map(|l| l.strip_prefix("Total reclaimed space: ")).unwrap_or("");
             say(&format!("Old release images cleaned{freed}."));
         }
         _ => say("Old release images stay: docker image prune failed"),

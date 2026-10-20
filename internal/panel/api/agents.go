@@ -76,7 +76,7 @@ type updateAgentInput struct {
 		Login    string `json:"login" minLength:"3" maxLength:"64"`
 		Note     string `json:"note" maxLength:"500"`
 		Disabled bool   `json:"disabled" doc:"Выключенный агент не может войти, его числа остаются"`
-		TgID    *int64 `json:"tg_id,omitempty" minimum:"1" doc:"Телеграм-аккаунт самого агента; null — убрать"`
+		TgID     *int64 `json:"tg_id,omitempty" minimum:"1" doc:"Телеграм-аккаунт самого агента; null — убрать"`
 		// Password: "" keeps the old one. A change ends the agent's sessions at once.
 		Password string `json:"password,omitempty" minLength:"0" maxLength:"256"`
 	}

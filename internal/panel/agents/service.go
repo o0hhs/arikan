@@ -27,7 +27,7 @@ var (
 	// The login is somebody else's.
 	ErrLoginTaken = errors.New("agent_login_taken")
 	// The agent's own Telegram is somebody else's.
-	ErrTgTaken = errors.New("agent_tg_taken")
+	ErrTgTaken  = errors.New("agent_tg_taken")
 	ErrNotFound = errors.New("agent_not_found")
 	// The payout recorded is one the panel cannot believe: not a positive kopeck sum.
 	ErrPayout = errors.New("agent_payout_amount")

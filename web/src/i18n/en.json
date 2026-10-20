@@ -621,7 +621,9 @@
       "source_in_use": "An addon from this source is installed. Remove it first.",
       "source_builtin": "The source this panel ships with cannot be removed: the panel's own bot comes from it",
       "source_unknown": "No such source.",
-      "agent_tg_taken": "This Telegram is already pinned to another agent"
+      "agent_tg_taken": "This Telegram is already pinned to another agent",
+      "node_disk_failed": "Could not look at the node's disk: the node did not answer.",
+      "node_disk_full": "The node's disk has no room for this operation."
     },
     "acme": {
       "port80_busy": "Port 80 is held by another program, and the certificate authority checks the server through it. If it is nginx or Caddy, the command below lets the check through to Arikan; otherwise free the port",
