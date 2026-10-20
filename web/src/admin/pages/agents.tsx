@@ -428,7 +428,7 @@ function AgentLinks({ agent }: { agent: Agent }) {
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="truncate text-[13px] font-medium">{l.name || l.tag}</span>
                       <code className="pill mono">{l.tag}</code>
-                      {l.percent > 0 ? <Pill>{t("agents.percentShort", { n: l.percent })}</Pill> : null}
+                      {l.percent > 0 ? <Pill tone="ok">{t("agents.percentShort", { n: l.percent })}</Pill> : null}
                     </div>
                     <div className="mt-0.5 flex flex-wrap gap-x-4 text-xs text-[var(--md-on-surface-variant)]">
                       <span>{t("agents.visits")}: {num(l.visits)}</span>

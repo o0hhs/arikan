@@ -170,6 +170,10 @@ type NodeRuntime interface {
 	Turn(ctx context.Context, id int64) (nodeapi.TurnStatus, error)
 	// SpeedTest measures a node's own way to the internet.
 	SpeedTest(ctx context.Context, id int64) (nodeapi.SpeedTest, error)
+	// Disk is how a node's disk looks: its data directory and what a clean would remove.
+	Disk(ctx context.Context, id int64) (nodeapi.DiskStatus, error)
+	// CleanDisk removes a node's junk (update leftovers, temporary files).
+	CleanDisk(ctx context.Context, id int64) (nodeapi.DiskStatus, error)
 	// CheckNow asks a node for its health at once (Check node, a node's hello).
 	CheckNow(ctx context.Context, id int64) (nodesync.HealthView, bool)
 	// Hello is a node's last hello since the panel started.
