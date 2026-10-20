@@ -3,7 +3,7 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
-## Unreleased
+## 0.5.1.11
 ### en
 **A round of answers to daily work: the disk of a node drawn into the panel with a one-button clean and the updater pruning the old images itself, referrals told by the referrer's name, agents without self-visits, and the traffic of an expired subscription no longer reset.**
 - **The node's disk is in the panel**: the node card gains Disk — the data directory's filesystem with used and free, what each directory takes (mihomo, update, site), and how much junk has piled up: update leftovers and temporary files. One button cleans it, and the answer says how much was freed. The heavy part of a node's disk, the old release images an update replaced, is the updater's: after every successful update it prunes them itself (best-effort, so a cleanup failure never fails an update), and the doctor's advice stays for a disk still full for other reasons.
