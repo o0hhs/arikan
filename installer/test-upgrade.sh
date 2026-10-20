@@ -35,7 +35,11 @@ case "$1" in
     exit 0 ;;
   image)
     # the database's image is never there yet: the update pulls it
-    case "$*" in 'image inspect postgres:18-alpine@sha256:'*) exit 1 ;; *) unexpected "$@" ;; esac ;;
+    case "$*" in
+      'image inspect postgres:18-alpine@sha256:'*) exit 1 ;;
+      'image prune -f') echo 'Total reclaimed space: 1.2GB' ; exit 0 ;;
+      *) unexpected "$@" ;;
+    esac ;;
   volume)
     case "$*" in 'volume inspect --format {{.Mountpoint}} mikan_pg-data') exit 1 ;; *) unexpected "$@" ;; esac ;;
   rm)

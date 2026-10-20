@@ -54,12 +54,16 @@ func TestScanDiskFindsDirsAndJunk(t *testing.T) {
 			t.Fatalf("junk file %d = %q, want %q", i, f, want[i])
 		}
 	}
-	// The directories come biggest first: mihomo carries the cert, update the leftovers.
+	// The directories come biggest first: update carries the leftovers (100), site the page
+	// (60), mihomo the cert (50).
 	if len(s.dirs) < 3 {
 		t.Fatalf("dirs = %v, want at least update, mihomo, site", s.dirs)
 	}
-	if s.dirs[0].Path != "mihomo" || s.dirs[0].Bytes != 50 {
-		t.Fatalf("biggest dir = %+v, want mihomo 50", s.dirs[0])
+	if s.dirs[0].Path != "update" || s.dirs[0].Bytes != 100 {
+		t.Fatalf("biggest dir = %+v, want update 100", s.dirs[0])
+	}
+	if s.dirs[1].Path != "site" || s.dirs[1].Bytes != 60 {
+		t.Fatalf("second dir = %+v, want site 60", s.dirs[1])
 	}
 }
 
