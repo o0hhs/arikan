@@ -590,3 +590,27 @@ const (
 	CheckFail = "fail"
 	CheckSkip = "skip"
 )
+
+// DiskStatus is how a node's disk looks: the filesystem of its data directory, what its
+// directories take, and what a cleanup (POST /v1/disk/clean) will remove. The panel shows
+// it on the node page and runs the cleanup with one button.
+type DiskStatus struct {
+	// Total, Free and Used are the data directory's filesystem, in bytes.
+	Total int64 `json:"total"`
+	Free  int64 `json:"free"`
+	Used  int64 `json:"used"`
+	// Dirs are the sizes of the data directory's own subdirectories.
+	Dirs []DirUsage `json:"dirs"`
+	// Junk is what Clean removes: update leftovers and temporary files. Files names them.
+	Junk  int64    `json:"junk"`
+	Files []string `json:"files"`
+	// Freed is what the last clean removed, in bytes; 0 when none ran or none was removed.
+	Freed int64 `json:"freed"`
+}
+
+// DirUsage is one directory's share of a node's data.
+type DirUsage struct {
+	// Path is relative to the node's data directory: "mihomo", "update".
+	Path  string `json:"path"`
+	Bytes int64  `json:"bytes"`
+}

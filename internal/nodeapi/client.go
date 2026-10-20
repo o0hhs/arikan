@@ -187,6 +187,22 @@ func (c *Client) Torrents(ctx context.Context, epoch string, after int64) (Torre
 	return r, err
 }
 
+// Disk is the node's data directory's filesystem and its directories, with what a clean
+// would remove. Nodes that predate it answer 404 (a *StatusError).
+func (c *Client) Disk(ctx context.Context) (DiskStatus, error) {
+	var s DiskStatus
+	err := c.do(ctx, http.MethodGet, "/v1/disk", nil, &s, 20*time.Second)
+	return s, err
+}
+
+// CleanDisk removes the node's junk (update leftovers, temporary files) and reports the
+// disk after.
+func (c *Client) CleanDisk(ctx context.Context) (DiskStatus, error) {
+	var s DiskStatus
+	err := c.do(ctx, http.MethodPost, "/v1/disk/clean", nil, &s, 60*time.Second)
+	return s, err
+}
+
 // SpeedTest runs the node's speed test, about twenty seconds. Nodes that predate it
 // answer 404 (a *StatusError); one running a test answers 409 speed_test_busy.
 func (c *Client) SpeedTest(ctx context.Context) (SpeedTest, error) {

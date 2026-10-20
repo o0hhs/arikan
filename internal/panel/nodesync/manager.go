@@ -427,6 +427,29 @@ func (m *Manager) SpeedTest(ctx context.Context, id int64) (nodeapi.SpeedTest, e
 	return c.SpeedTest(ctx)
 }
 
+// Disk is how a node's disk looks: its data directory's filesystem and directories, and
+// what a clean would remove.
+func (m *Manager) Disk(ctx context.Context, id int64) (nodeapi.DiskStatus, error) {
+	c, err := clientOf[interface {
+		Disk(context.Context) (nodeapi.DiskStatus, error)
+	}](m, id)
+	if err != nil {
+		return nodeapi.DiskStatus{}, err
+	}
+	return c.Disk(ctx)
+}
+
+// CleanDisk removes a node's junk and reports the disk after.
+func (m *Manager) CleanDisk(ctx context.Context, id int64) (nodeapi.DiskStatus, error) {
+	c, err := clientOf[interface {
+		CleanDisk(context.Context) (nodeapi.DiskStatus, error)
+	}](m, id)
+	if err != nil {
+		return nodeapi.DiskStatus{}, err
+	}
+	return c.CleanDisk(ctx)
+}
+
 // clientOf returns a node's client as T: methods beyond Node are optional, and tests
 // stand in for nodes with fakes that have only some of them.
 func clientOf[T any](m *Manager, id int64) (T, error) {
