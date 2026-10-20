@@ -3,6 +3,24 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
+## Unreleased
+### en
+**A round of answers to daily work: the disk of a node drawn into the panel with a one-button clean and the updater pruning the old images itself, referrals told by the referrer's name, agents without self-visits, and the traffic of an expired subscription no longer reset.**
+- **The node's disk is in the panel**: the node card gains Disk — the data directory's filesystem with used and free, what each directory takes (mihomo, update, site), and how much junk has piled up: update leftovers and temporary files. One button cleans it, and the answer says how much was freed. The heavy part of a node's disk, the old release images an update replaced, is the updater's: after every successful update it prunes them itself (best-effort, so a cleanup failure never fails an update), and the doctor's advice stays for a disk still full for other reasons.
+- **The traffic of an expired subscription is not reset any more.** The period reset skipped the expiry check: the counters of an expired user returned to zero on every reset, so the list showed 0 while the per-node totals of the card kept growing. The reset now skips expired users, and the card's labels say what is what: usage for the period, and the total across the nodes.
+- **Agents: their own visits are not referrals.** An agent's Telegram id is stored with the agent, and their own clicks on their own links count as their usage, not as referrals; the owner's panel shows that usage, and «who came» can have a visitor removed — the two agents who counted themselves are gone with one click each.
+- **Referrals read by name.** The referral list shows the referrer's name and a stage pill (came, bought, renewed, paid), and the «nothing taken» idle count; the bot and the panel agree on the stages.
+- **A tariff with an emptied protocol list opens every protocol back up.** The closed list is written exactly as sent, so closing nothing closes nothing; the editor groups the closed protocols in a dashed box with «Open» on each.
+- **The incoming filter says what it does** and warns when it is on «only from the list» with an empty list — which would cut every client off.
+### ru
+**Раунд ответов на ежедневную работу: диск ноды — в панели, с уборкой в одну кнопку, а старые образы чистит сам установщик; рефералы с именем приведшего; агенты без самопереходов; трафик истёкшей подписки больше не сбрасывается.**
+- **Диск ноды — в панели**: в карточке ноды появился «Диск» — файловая система каталога данных с занятым и свободным, что занимает место (mihomo, update, site) и сколько накопилось мусора: остатки обновлений и временные файлы. Одна кнопка всё убирает, ответ говорит, сколько освобождено. Тяжёлую часть диска ноды — старые образы релизов, оставшиеся после обновлений, — чистит сам установщик: после каждого успешного обновления он запускает `docker image prune` (не настаивая, чтобы неудача уборки не ломала обновление), а совет доктора остаётся для диска, полного по другим причинам.
+- **Трафик истёкшей подписки больше не сбрасывается.** Периодический сброс не проверял срок: счётчики истёкшего пользователя обнулялись при каждом сбросе, поэтому в списке стоял 0, а итоги по нодам в карточке росли. Теперь сброс пропускает истёкших, а подписи в карточке честно говорят, что есть что: использование за период и итог по нодам.
+- **Агенты: свои входы — не рефералы.** У агента хранится его Telegram-id, и его собственные переходы по своим ссылкам считаются его использованием, а не рефералами; в панели владельца видно это использование, а из списка «кто пришёл» можно убрать посетителя — те двое агентов, что засчитали себя, убираются по одному клику.
+- **Рефералы читаются по имени.** В списке рефералов видно имя приведшего и стадию (пришёл, купил, продлил, заплатил), а также счётчик «ничего не взяли»; бот и панель используют одни и те же стадии.
+- **Тариф с опустошённым списком протоколов открывает все обратно.** Список закрытых пишется ровно так, как отправлен: ничего не закрыть — значит ничего не закрыто; редактор собирает закрытые протоколы в пунктирный блок с кнопкой «Открыть» на каждом.
+- **Фильтр входящих говорит, что он делает**, и предупреждает, когда включён режим «только из списка», а список пуст — это отрежет всех клиентов.
+
 ## 0.5.1.10
 ### en
 **Three answers to the panel's daily work: the clients list orders by what you pick, where clients go sits where you look for it, and campaigns and agents share one tab.**
