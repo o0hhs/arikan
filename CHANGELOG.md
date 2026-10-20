@@ -3,7 +3,7 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
-## Unreleased
+## 0.5.1.10
 ### en
 **Three answers to the panel's daily work: the clients list orders by what you pick, where clients go sits where you look for it, and campaigns and agents share one tab.**
 - **The clients list sorts.** The picker offered traffic, term and name, but the page never told the request which one was chosen: the list stayed newest-first whatever was picked. It now goes with the choice, and the choice stays in the address as before.
