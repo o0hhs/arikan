@@ -83,7 +83,11 @@ func TestTariffClosesPool(t *testing.T) {
 	}
 	put := func(pools []map[string]any) {
 		t.Helper()
-		body := map[string]any{"name": tariff.Name, "duration_days": tariff.DurationDays, "traffic_limit": tariff.TrafficLimit.Int64, "reset_strategy": tariff.ResetStrategy, "pools": pools}
+		body := map[string]any{"name": tariff.Name, "duration_days": tariff.DurationDays, "reset_strategy": tariff.ResetStrategy, "pools": pools}
+		// Unlimited (no limit) is the field left out: zero is refused by the API.
+		if tariff.TrafficLimit.Valid {
+			body["traffic_limit"] = tariff.TrafficLimit.Int64
+		}
 		if resp, b := h.do(http.MethodPut, "/"+adminPath+"/api/v1/tariffs/"+strconv.FormatInt(tariff.ID, 10), body, csrf); resp.StatusCode != http.StatusOK {
 			t.Fatalf("tariff: %d %s", resp.StatusCode, b)
 		}
