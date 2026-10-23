@@ -41,6 +41,8 @@ type Bot struct {
 	// Subscriptions somebody asked to take over: by subscription, and who was refused.
 	transfers map[int64]transfer
 	refused   map[string]time.Time
+	// adminAwait: the admin chats the next message answers as a search.
+	adminAwait sync.Map
 }
 
 func New(d Deps) *Bot {
@@ -100,6 +102,10 @@ func (b *Bot) onMessage(ctx context.Context, m *tgapi.Message) {
 	}
 	var notice string
 	text := strings.TrimSpace(m.Text)
+	// The admin's own commands and the search input answer here.
+	if b.adminMessage(ctx, m, w) {
+		return
+	}
 	// An open top-up takes its amount or its screenshot first.
 	if n, ok := b.topupMessage(ctx, w, m); ok {
 		if n != "" {

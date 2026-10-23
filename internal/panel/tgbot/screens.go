@@ -34,6 +34,13 @@ func (b *Bot) screen(ctx context.Context, cfg Config, chat int64, data, notice s
 	case !ungated[cmd] && !b.passes(ctx, cfg, chat, false):
 		return b.gateScreen(ctx, cfg, w, notice)
 	}
+	// The admin's screens: apart from the subscriber's menu and the channel gate.
+	if cmd == "ad" {
+		if arg == "" {
+			return b.adminMenu(ctx, w, chat)
+		}
+		return b.adminPress(ctx, w, chat, arg)
+	}
 	list, u, ok := b.subs(ctx, chat)
 	// The balance is the account's, with or without a subscription.
 	switch cmd {

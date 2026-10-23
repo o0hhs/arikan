@@ -88,6 +88,17 @@ type Backend interface {
 	Shop() Shop
 	// Tariff is one tariff, for what a trial, a free plan or an invoice gives.
 	Tariff(ctx context.Context, id int64) (model.Tariff, error)
+	// The bot's admin side (admin_users): the role of an account, the support's card of one
+	// subscription, its gifts and the sleeping trials.
+	AdminRole(ctx context.Context, tgID int64) (string, error)
+	AdminFindUser(ctx context.Context, query string) (model.User, bool, error)
+	AdminAddDays(ctx context.Context, userID int64, days int) (model.User, error)
+	AdminResetSessions(ctx context.Context, userID int64) error
+	AdminSetDisabled(ctx context.Context, userID int64, disabled bool) (model.User, error)
+	AdminSleepingTrials(ctx context.Context) ([]SleepingTrial, error)
+	AdminSetRole(ctx context.Context, tgID int64, role string, by int64) error
+	AdminDelRole(ctx context.Context, tgID int64) error
+	AdminList(ctx context.Context) ([]AdminUser, error)
 
 	// BotUsername is the bot's own @name, for the invite links; "" while it is unknown.
 	BotUsername(ctx context.Context) string
@@ -111,6 +122,21 @@ type Backend interface {
 	// CampaignVisit binds the account to the campaign tag of the link it followed, so the
 	// panel counts where it came from (POST /tg/campaign).
 	CampaignVisit(ctx context.Context, tgID int64, tag string) (CampaignGreeting, error)
+}
+
+// SleepingTrial is an account whose trial moved no traffic through it.
+type SleepingTrial struct {
+	TgID     int64
+	UserID   int64
+	Username string
+	Name     string
+}
+
+// AdminUser is one account of the bot's admin side.
+type AdminUser struct {
+	TgID     int64
+	Username string
+	Role     string
 }
 
 // MTLink is one MTProto proxy as the bot's buttons take it.

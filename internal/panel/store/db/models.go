@@ -93,6 +93,14 @@ type Admin struct {
 	TotpStep      int64
 }
 
+type AdminUser struct {
+	TgID      int64
+	Username  string
+	Role      string
+	CreatedAt int64
+	CreatedBy sql.NullInt64
+}
+
 type AgentCommission struct {
 	ID         int64
 	AgentID    int64

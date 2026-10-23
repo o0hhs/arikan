@@ -171,6 +171,57 @@ func (r *Remote) Reissue(ctx context.Context, userID int64) error {
 
 func (r *Remote) Shop() Shop { return r.shop }
 
+func (r *Remote) AdminRole(ctx context.Context, tgID int64) (string, error) {
+	var role string
+	err := r.call(ctx, "AdminRole", []any{tgID}, &role)
+	return role, err
+}
+
+func (r *Remote) AdminFindUser(ctx context.Context, query string) (model.User, bool, error) {
+	var (
+		u  model.User
+		ok bool
+	)
+	err := r.call(ctx, "AdminFindUser", []any{query}, &u, &ok)
+	return u, ok, err
+}
+
+func (r *Remote) AdminAddDays(ctx context.Context, userID int64, days int) (model.User, error) {
+	var u model.User
+	err := r.call(ctx, "AdminAddDays", []any{userID, days}, &u)
+	return u, err
+}
+
+func (r *Remote) AdminResetSessions(ctx context.Context, userID int64) error {
+	return r.call(ctx, "AdminResetSessions", []any{userID})
+}
+
+func (r *Remote) AdminSetDisabled(ctx context.Context, userID int64, disabled bool) (model.User, error) {
+	var u model.User
+	err := r.call(ctx, "AdminSetDisabled", []any{userID, disabled}, &u)
+	return u, err
+}
+
+func (r *Remote) AdminSleepingTrials(ctx context.Context) ([]SleepingTrial, error) {
+	var out []SleepingTrial
+	err := r.call(ctx, "AdminSleepingTrials", nil, &out)
+	return out, err
+}
+
+func (r *Remote) AdminSetRole(ctx context.Context, tgID int64, role string, by int64) error {
+	return r.call(ctx, "AdminSetRole", []any{tgID, role, by})
+}
+
+func (r *Remote) AdminDelRole(ctx context.Context, tgID int64) error {
+	return r.call(ctx, "AdminDelRole", []any{tgID})
+}
+
+func (r *Remote) AdminList(ctx context.Context) ([]AdminUser, error) {
+	var out []AdminUser
+	err := r.call(ctx, "AdminList", nil, &out)
+	return out, err
+}
+
 func (r *Remote) MTProto(ctx context.Context) []MTLink {
 	var out []MTLink
 	_ = r.call(ctx, "MTProto", nil, &out)
