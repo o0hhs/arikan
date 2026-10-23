@@ -49,3 +49,13 @@ func hidesSecrets(ctx context.Context) bool {
 	_, ok := supportGrantOf(ctx)
 	return ok
 }
+
+// requireNotKey refuses an API key on the listener template: a leaked "full" key must not
+// re-dress the listener it was let into. A support operator at a writing level keeps the
+// template open (the admin's grant is a person's, and the key inside it stays hidden).
+func requireNotKey(ctx context.Context, field string) error {
+	if _, ok := apiKeyOf(ctx); ok {
+		return huma.Error403Forbidden("session_only", &huma.ErrorDetail{Location: "body." + field, Message: "session_only"})
+	}
+	return nil
+}

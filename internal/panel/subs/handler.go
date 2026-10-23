@@ -330,12 +330,6 @@ func (h *Handler) serveProfile(w http.ResponseWriter, r *http.Request, u db.User
 	app := DetectApp(r.Header.Get("User-Agent"))
 	state := domain.State(u, grants.Main(u.ID), h.now())
 	prof.Inbounds = forApp(prof.Inbounds, app, state)
-	// A subscription that ran out says so in the profile itself: a server entry that reaches
-	// nowhere, on top of the list, with where to renew it. The page and the traffic headers
-	// say the same thing; this is the one place the apps read without the page.
-	if state == domain.StateExpired || state == domain.StateLimited {
-		prof.Notice = &Notice{Name: h.noticeText(r.Context(), u, state, cfg)}
-	}
 	// The block detector trusts a device only once it took a profile with an inbound's
 	// current port and target (see autotune.Detect).
 	_ = h.st.Q.RecordSubFetch(r.Context(), db.RecordSubFetchParams{UserID: u.ID, Ip: h.clientIP(r), FetchedAt: h.now().Unix()})

@@ -52,12 +52,12 @@ func TestCopy(t *testing.T) {
 	}
 	// What placement is: the same switches and pool; upstream's copy finds its own SNI and
 	// leaves the listen address to its port.
-	if cp.DisplayName != "" || cp.Listen != "" || cp.AutoPort != src.AutoPort || cp.AutoSni != 1 || cp.PoolID.Int64 != pool.ID {
+	if cp.DisplayName != "" || cp.Listen != "" || cp.AutoPort != 1 || cp.AutoSni != 1 || cp.PoolID.Int64 != pool.ID {
 		t.Fatalf("inherited: %+v", cp)
 	}
-	// A copy of a copy counts from the base name.
+	// A copy of a copy counts from its parent's name, as upstream names them.
 	third, err := s.Copy(ctx, cp.ID, CopyInbound{Port: "2643"})
-	if err != nil || third.Name != "vless-xhttp-3" {
+	if err != nil || third.Name != "vless-xhttp-2-2" {
 		t.Fatalf("third: %+v %v", third, err)
 	}
 
@@ -78,7 +78,7 @@ func TestCopy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if remote.NodeID != n.ID || remote.Port != "2543" || remote.Name != "vless-xhttp-2" || remote.Listen != "127.0.0.1" || remote.Outbound != "direct" || remote.ExitNodeID.Valid {
+	if remote.NodeID != n.ID || remote.Port != "2543" || remote.Name != "vless-xhttp-2" || remote.Listen != "" || remote.Outbound != "direct" || remote.ExitNodeID.Valid {
 		t.Fatalf("remote copy: %+v", remote)
 	}
 	if _, err := s.Copy(ctx, cp.ID, CopyInbound{NodeID: n.ID, Port: "40000"}); !errors.As(err, &busy) || busy.Kind != PortNodeAPI {

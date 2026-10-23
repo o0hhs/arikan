@@ -211,11 +211,8 @@ func (h *handlers) viewInbound(ctx context.Context, in db.Inbound, last map[int6
 		DisplayName: in.DisplayName, SubName: domain.ProxyName(in), Config: config, Status: "unknown", UpdatedAt: store.Time(in.UpdatedAt),
 		AutoPort: in.AutoPort != 0, AutoSNI: in.AutoSni != 0, Outbound: in.Outbound, Listen: in.Listen}
 	// The listener template holds the inbound's own key material (a REALITY private key, a
-	// protocol password): a key that may only read sees the connection without it. The
-	// fields parsed out of it below are not secret and stay.
-	if hidesSecrets(ctx) {
-		v.Config = ""
-	}
+	// protocol password): a key that may only read sees it as proto.Hidden (Redact above);
+	// the fields parsed out of it below are not secret and stay.
 	if in.PoolID.Valid {
 		id := in.PoolID.Int64
 		v.PoolID = &id
@@ -458,7 +455,6 @@ func (h *handlers) updateInbound(ctx context.Context, in *patchInboundInput) (*i
 		name string
 		set  bool
 	}{
-		{"config", b.Config != nil},
 		{"dest", b.Dest != nil},
 		{"server_name", b.ServerName != nil},
 		{"outbound", b.Outbound != nil},
@@ -470,6 +466,13 @@ func (h *handlers) updateInbound(ctx context.Context, in *patchInboundInput) (*i
 			if err := requireSession(ctx, f.name); err != nil {
 				return nil, err
 			}
+		}
+	}
+	// The template itself: an API key must not re-dress the listener; a support operator at
+	// a writing level may, as the fork has always let it.
+	if b.Config != nil {
+		if err := requireNotKey(ctx, "config"); err != nil {
+			return nil, err
 		}
 	}
 	prev, row, err := h.d.Inbounds.Update(ctx, in.ID, p)

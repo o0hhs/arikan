@@ -102,7 +102,7 @@ func TestAddonFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cat, err := addons.ParseCatalog(catalog, release.Sign(catalog, priv), pub, e.Version)
+	cat, err := addons.ParseCatalog(catalog, release.SignIn(release.CatalogContext, catalog, priv), pub, e.Version)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -122,6 +122,7 @@ func TestAddonFileSigned(t *testing.T) {
 	dir := t.TempDir()
 	const digest = "sha256:" + "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 	key := keypair(t)
+	trust(t, key.pub)
 	t.Setenv("RELEASE_SIGNING_KEY", key.pem)
 	if err := makeAddon([]string{"-version", "0.5.1.4", "-image", "ghcr.io/o0hhs/arikan", "-digest", digest, "-sign", "-out", dir}); err != nil {
 		t.Fatal(err)

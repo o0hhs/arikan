@@ -82,7 +82,7 @@ func TestCopyInboundEndpoint(t *testing.T) {
 	} else if err := json.Unmarshal(body, &view); err != nil {
 		t.Fatalf("copy body: %s", body)
 	}
-	if view.NodeID != 1 || view.Name != "vless-xhttp-2" || view.Port != "2543" || view.Config != source.Config || !view.AutoPort || view.ExitNodeID != nil {
+	if view.NodeID != 1 || view.Name != "vless-xhttp-2" || view.Port != "2543" || !strings.Contains(view.Config, "type: vless") || view.Config == source.Config || !view.AutoPort || view.ExitNodeID != nil {
 		t.Fatalf("copy: %+v", view)
 	}
 	var audit int

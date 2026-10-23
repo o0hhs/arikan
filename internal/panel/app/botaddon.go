@@ -65,18 +65,18 @@ func (b *botAddon) check(ctx context.Context) {
 		return
 	}
 	if auto, ok, err := settings.Get[bool](ctx, p.Settings, panelapi.AutoBotKey); err != nil || ok && !auto {
-		return // the admin removed the bot addon: theirs to bring back
+		return // the admin removed
 	}
 	st, err := p.Addons.State()
 	if err != nil || st.HostVersion == "" {
-		return // a host before protocol 2 runs no bot addon: `arikan update` first
+		return // a host before protocol 2
 	}
 	e, ok := b.wanted(ctx)
 	if !ok {
-		return // nothing offers a bot addon now
+		return // nothing offers
 	}
 	if !b.mayTake(ctx, e.ID) {
-		return // another addon holds the bot: the admin's own choice
+		return // another addon holds
 	}
 	if a, ok := st.Adapters[e.ID]; ok && a.KindOf() != addons.KindPayment {
 		// The copy that is installed runs the bot it was granted: a digest that differs from
@@ -92,7 +92,7 @@ func (b *botAddon) check(ctx context.Context) {
 			p.Gateway.Reload()
 		}
 		if a.Digest == e.Digest {
-			return // the entry offered now is the copy that is installed
+			return // the entry offered
 		}
 		p.log.Info("bot addon: a newer release of the bot is offered", "addon", e.ID,
 			"installed", a.Version, "offered", e.Version)
