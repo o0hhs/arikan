@@ -2571,7 +2571,13 @@
       },
       "open": "Open the panel's page"
     },
-    "routesLeaveText": "The routing changes are not saved yet and will be lost."
+    "routesLeaveText": "The routing changes are not saved yet and will be lost.",
+    "protocols": "Protocols and Telegram",
+    "protocolsSub": "The order of protocols in a subscription and the MTProto proxies for the messenger itself",
+    "protocolOrder": "Protocol order",
+    "protocolOrderHint": "Families comma-separated: vless, hysteria2, shadowsocks, trojan, tuic, anytls. Within a node the inbounds follow it; unnamed ones after them",
+    "mtproto": "MTProto proxies",
+    "mtprotoHint": "One per line: server:port:secret:name. The bot's button and the profile page block; the secret comes from mtg/mtproto-proxy"
   },
   "deviceMode": {
     "label": "How to count:",

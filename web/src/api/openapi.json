@@ -5131,6 +5131,30 @@
         ],
         "type": "object"
       },
+      "MTProxy": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "port": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "secret": {
+            "type": "string"
+          },
+          "server": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "server",
+          "port",
+          "secret"
+        ],
+        "type": "object"
+      },
       "MarketEntry": {
         "additionalProperties": false,
         "properties": {
@@ -7739,10 +7763,26 @@
           "link_reissue": {
             "$ref": "#/components/schemas/ReissueRules"
           },
+          "mtproto": {
+            "description": "MTProto-прокси для Telegram",
+            "items": {
+              "$ref": "#/components/schemas/MTProxy"
+            },
+            "maxItems": 8,
+            "type": "array"
+          },
           "panel_app_name": {
             "description": "Пусто — по бренду",
             "maxLength": 30,
             "type": "string"
+          },
+          "protocol_order": {
+            "description": "Порядок семейств протоколов в подписке; пусто — как были",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 16,
+            "type": "array"
           },
           "public_host": {
             "maxLength": 253,
@@ -10429,6 +10469,13 @@
             "$ref": "#/components/schemas/ReissueRules",
             "description": "Как часто подписчик может сменить свою ссылку подписки сам (бот и Mini App)"
           },
+          "mtproto": {
+            "description": "MTProto-прокси для Telegram: кнопка в боте и блок на странице подписки; пусто — нет",
+            "items": {
+              "$ref": "#/components/schemas/MTProxy"
+            },
+            "type": "array"
+          },
           "panel_app_name": {
             "description": "Название панели, установленной как приложение (ярлык на рабочем столе, в меню, на главном экране); пусто — бренд, без бренда — mikan",
             "type": "string"
@@ -10436,6 +10483,13 @@
           "panel_port": {
             "format": "int64",
             "type": "integer"
+          },
+          "protocol_order": {
+            "description": "Порядок семейств протоколов в подписке, например vless, hysteria2, shadowsocks: внутри ноды подключения идут в нём; не названные — после них, как были",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "public_host": {
             "type": "string"
@@ -10573,6 +10627,8 @@
           "sub_rules",
           "rule_targets",
           "sub_routing",
+          "protocol_order",
+          "mtproto",
           "sub_template",
           "sub_routes",
           "client_fingerprint",

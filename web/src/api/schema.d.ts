@@ -5319,6 +5319,13 @@ export interface components {
             lines: components["schemas"]["LogLine"][];
             source: string;
         };
+        MTProxy: {
+            name?: string;
+            /** Format: int64 */
+            port: number;
+            secret: string;
+            server: string;
+        };
         MarketEntry: {
             description: {
                 [key: string]: string;
@@ -6314,8 +6321,12 @@ export interface components {
             /** @description happ://routing/…, auto — собрать из маршрутизации; пусто — не отдавать */
             happ_routing?: string;
             link_reissue?: components["schemas"]["ReissueRules"];
+            /** @description MTProto-прокси для Telegram */
+            mtproto?: components["schemas"]["MTProxy"][];
             /** @description Пусто — по бренду */
             panel_app_name?: string;
+            /** @description Порядок семейств протоколов в подписке; пусто — как были */
+            protocol_order?: string[];
             public_host?: string;
             /** Format: int64 */
             quiet_hour_utc?: number;
@@ -7294,10 +7305,14 @@ export interface components {
             happ_routing: string;
             /** @description Как часто подписчик может сменить свою ссылку подписки сам (бот и Mini App) */
             link_reissue: components["schemas"]["ReissueRules"];
+            /** @description MTProto-прокси для Telegram: кнопка в боте и блок на странице подписки; пусто — нет */
+            mtproto: components["schemas"]["MTProxy"][];
             /** @description Название панели, установленной как приложение (ярлык на рабочем столе, в меню, на главном экране); пусто — бренд, без бренда — mikan */
             panel_app_name: string;
             /** Format: int64 */
             panel_port: number;
+            /** @description Порядок семейств протоколов в подписке, например vless, hysteria2, shadowsocks: внутри ноды подключения идут в нём; не названные — после них, как были */
+            protocol_order: string[];
             public_host: string;
             /**
              * Format: int64

@@ -195,6 +195,54 @@ export function SubscriptionCard({ s }: { s: Schemas["SettingsView"] }) {
   );
 }
 
+
+// The protocols within a node and the MTProto proxies for Telegram: plain text lists the
+// admin edits, parsed on save.
+const orderText = (s: Schemas["SettingsView"]) => (s.protocol_order ?? []).join(", ");
+const mtText = (s: Schemas["SettingsView"]) => (s.mtproto ?? []).map((p) => [p.server, p.port, p.secret, p.name ?? ""].join(":")).join("\n");
+
+export function ProtocolsCard({ s }: { s: Schemas["SettingsView"] }) {
+  const save = useSaveSettings();
+  const errors = fieldErrors(save.error);
+  const [order, setOrder] = useState(orderText(s));
+  const [mt, setMt] = useState(mtText(s));
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    const protocol_order = order
+      .split(/[,\s]+/)
+      .map((x) => x.trim().toLowerCase())
+      .filter(Boolean);
+    const mtproto = mt
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .map((l) => {
+        const [server = "", port = "", secret = "", name = ""] = l.split(":");
+        return { server: server.trim(), port: Number(port), secret: secret.trim(), ...(name ? { name: name.trim() } : {}) };
+      });
+    save.mutate({ protocol_order, mtproto }, {
+      onSuccess: (v) => {
+        setOrder(orderText(v));
+        setMt(mtText(v));
+      },
+    });
+  };
+  return (
+    <section className="card glass reveal">
+      <form onSubmit={submit} noValidate>
+        <CardHead title={t("settings.protocols")} sub={t("settings.protocolsSub")} />
+        <Field label={t("settings.protocolOrder")} htmlFor="s-order" hint={t("settings.protocolOrderHint")} error={errors.protocol_order}>
+          <input id="s-order" className="input" value={order} onChange={(e) => setOrder(e.target.value)} placeholder="vless, hysteria2, shadowsocks" autoComplete="off" aria-invalid={!!errors.protocol_order} />
+        </Field>
+        <Field label={t("settings.mtproto")} htmlFor="s-mtproto" hint={t("settings.mtprotoHint")} error={errors.mtproto}>
+          <textarea id="s-mtproto" className="input min-h-[96px]" rows={3} value={mt} onChange={(e) => setMt(e.target.value)} placeholder={"mt.example.com:443:ee0123…:Мой прокси"} aria-invalid={!!errors.mtproto} />
+        </Field>
+        <FormActions dirty={order !== orderText(s) || mt !== mtText(s)} saving={save.isPending} />
+      </form>
+    </section>
+  );
+}
+
 // The variables the title and the announcement take (subs.titleValues fills them).
 const TITLE_VARS = ["brand", "name", "tariff", "date", "days", "used", "left", "total", "devices"] as const;
 
