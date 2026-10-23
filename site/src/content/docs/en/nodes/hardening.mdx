@@ -47,12 +47,12 @@ apt install nftables
 
 The rule appears by itself within a minute.
 
-A node server set up before 0.5.2.0 gets the system service for the rule after `mikan update` on it, see [Nodes](/mikan/en/nodes/nodes/#updating-nodes-from-the-panel).
+A node server set up before 0.5.2.0 gets the system service for the rule after `mikan update` on it, see [Nodes](/arikan/en/nodes/nodes/#updating-nodes-from-the-panel).
 
 ## HTTP → HTTPS on port 80
 
 The **HTTP → HTTPS** switch. The node takes port 80 and answers plain HTTP with a 301 to https, as a real site does. A closed port 80 gives away a bare VPN server, and the redirect makes it look like an ordinary site.
 
-HTTP-01 certificates keep being issued: the node handles the certificate authority's checks on `/.well-known/acme-challenge/` as before, see [Node certificate](/mikan/en/nodes/nodes/#node-certificate).
+HTTP-01 certificates keep being issued: the node handles the certificate authority's checks on `/.well-known/acme-challenge/` as before, see [Node certificate](/arikan/en/nodes/nodes/#node-certificate).
 
 Do not turn it on if another web server on this server needs port 80. If the port is taken, the node card shows "Port 80 cannot be taken" and the reason.
