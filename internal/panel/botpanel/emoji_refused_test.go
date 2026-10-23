@@ -57,7 +57,7 @@ func TestMenuCarriesEmoji(t *testing.T) {
 		switch cfg.Buttons[i].Action {
 		case "sub":
 			cfg.Buttons[i].EmojiID = id
-		case "devices":
+		case "connect":
 			cfg.Buttons[i].EmojiID = id
 			cfg.Buttons[i].Row = false
 		}
@@ -81,7 +81,7 @@ func TestMenuCarriesEmoji(t *testing.T) {
 		for _, b := range r.([]any) {
 			btn := b.(map[string]any)
 			switch btn["text"] {
-			case "👤 Подписка", "🛠 Устройства", "Сайт":
+			case "👤 Мой профиль / Слоты", "⚡ Подключить VPN", "Сайт":
 				if btn["icon_custom_emoji_id"] != id {
 					t.Fatalf("%v: emoji %v", btn["text"], btn["icon_custom_emoji_id"])
 				}

@@ -57,7 +57,14 @@ func TestWireGoldens(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if got, want := append(got, '\n'), goldenFile(t, name+".json"); !bytes.Equal(got, want) {
+			got = append(got, '\n')
+			if os.Getenv("GOLDEN_UPDATE") == "1" {
+				if err := os.WriteFile(filepath.Join(goldenDir, name+".json"), got, 0o644); err != nil {
+					t.Fatal(err)
+				}
+				return
+			}
+			if want := goldenFile(t, name+".json"); !bytes.Equal(got, want) {
 				t.Errorf("%s crosses differently:\n got %s\nwant %s", name, got, want)
 			}
 		})

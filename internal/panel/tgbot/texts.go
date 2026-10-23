@@ -27,7 +27,13 @@ type words struct {
 	perDay, perWeek, perMonth, perDays, hours                    string
 	connectText, linked, alreadyLinked, linkExpired, linkInvalid string
 	tgProxy                                                      string // the Telegram-itself MTProto button
-	linkLimit, noSub, sharedPlace, device, justNow               string
+	// Connecting in two steps: the platform, then its clients.
+	platformIOS, platformAndroid, platformDesktop                   string
+	appHapp, appIncy, appKabosu, appManual                          string
+	connectPlatforms                                                string
+	connectDownload, connectOneTap, connectOneTapAny, connectManual string
+	connectButton                                                   string
+	linkLimit, noSub, sharedPlace, device, justNow                  string
 	// Taking a subscription off the Telegram account: it keeps working in the apps.
 	removeSub, confirmRemove, yesRemove, removed string
 	// A subscription already linked to another account is moved only if its owner agrees.
@@ -114,6 +120,19 @@ var ru = words{
 	removed:           "✅ Подписка «%s» убрана из бота.",
 	wait:              "⏳ Следующее устройство можно отвязать %s.",
 	tgProxy:           "⚡ Подключить Telegram-прокси",
+	platformIOS:       "📱 iOS",
+	platformAndroid:   "🤖 Android",
+	platformDesktop:   "💻 ПК / Mac / Linux",
+	appHapp:           "Happ",
+	appIncy:           "Incy",
+	appKabosu:         "Kabosu",
+	appManual:         "…или скопируйте ссылку вручную",
+	connectPlatforms:  "Выберите ваше устройство",
+	connectDownload:   "⬇️ Скачать %s",
+	connectOneTap:     "🔌 Подключить в 1 клик (%s)",
+	connectOneTapAny:  "🔌 Подключить в %s",
+	connectManual:     "%s",
+	connectButton:     "⚡ Подключить устройство",
 	connectText:       "1. Установите приложение: Happ или Incy (iPhone, Android), Kabosu (Windows, Mac, Linux).\n2. Добавьте в него ссылку:\n<code>%s</code>\n\nНа странице подписки — кнопки «Добавить» для всех приложений.",
 	linked:            "✅ Подписка «%s» подключена.",
 	alreadyLinked:     "Подписка «%s» уже здесь.",
@@ -266,6 +285,19 @@ var en = words{
 	removed:           "✅ The subscription “%s” is removed from the bot.",
 	wait:              "⏳ You can unbind the next device %s.",
 	tgProxy:           "⚡ Connect a Telegram proxy",
+	platformIOS:       "📱 iOS",
+	platformAndroid:   "🤖 Android",
+	platformDesktop:   "💻 PC / Mac / Linux",
+	appHapp:           "Happ",
+	appIncy:           "Incy",
+	appKabosu:         "Kabosu",
+	appManual:         "…or copy the link by hand",
+	connectPlatforms:  "Choose your device",
+	connectDownload:   "⬇️ Download %s",
+	connectOneTap:     "🔌 Connect in one tap (%s)",
+	connectOneTapAny:  "🔌 Connect with %s",
+	connectManual:     "%s",
+	connectButton:     "⚡ Connect a device",
 	connectText:       "1. Install an app: Happ or Incy (iPhone, Android), Kabosu (Windows, Mac, Linux).\n2. Add this link to it:\n<code>%s</code>\n\nThe subscription page has “Add” buttons for every app.",
 	linked:            "✅ Subscription “%s” is connected.",
 	alreadyLinked:     "Subscription “%s” is already here.",

@@ -487,8 +487,10 @@ func (b *Bot) paid(ctx context.Context, chat int64, p events.Payment, u model.Us
 		text = fmt.Sprintf(w.paidRenew, html.EscapeString(u.Name), html.EscapeString(until))
 	}
 	_ = b.d.Backend.SetCurrent(ctx, chat, u.ID)
+	// The subscription is ready: one tap leads to the platform, the clients and the import.
+	kb := &tgapi.Keyboard{InlineKeyboard: [][]tgapi.Button{{{Text: w.connectButton, CallbackData: "c", Style: tgapi.StylePrimary}}}}
 	b.d.Outbox.Notice(chat, func(ctx context.Context, c *tgapi.Client) error {
-		_, err := c.Send(ctx, chat, text, nil, false)
+		_, err := c.Send(ctx, chat, text, kb, false)
 		return err
 	}, nil)
 	b.freshMenu(chat, "")

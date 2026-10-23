@@ -501,7 +501,7 @@ func TestBot(t *testing.T) {
 	e.say(anna, "привет")
 	calls := e.tg.wait(t, n, "sendMessage")
 	send, _ := find(calls, "sendMessage")
-	if !strings.Contains(text(send), "Mikan VPN") || buttons(send)["🎧 Поддержка"] != "https://t.me/mikan_support" {
+	if !strings.Contains(text(send), "Mikan VPN") || buttons(send)["💬 Поддержка"] != "https://t.me/mikan_support" {
 		t.Fatalf("welcome: %q %v", text(send), buttons(send))
 	}
 
@@ -512,8 +512,8 @@ func TestBot(t *testing.T) {
 	calls = e.tg.wait(t, n, "sendMessage")
 	send, _ = find(calls, "sendMessage")
 	menu := buttons(send)
-	if !strings.Contains(text(send), "Подписка «Анна» подключена") || !strings.Contains(text(send), "Анна") || menu["👤 Подписка"] != "s" ||
-		menu["📲 Открыть страницу подписки"] != "webapp:https://vpn.example.com:21355/sub/tg" {
+	if !strings.Contains(text(send), "Подписка «Анна» подключена") || !strings.Contains(text(send), "Анна") || menu["👤 Мой профиль / Слоты"] != "s" ||
+		menu["⚡ Подключить VPN"] != "c" {
 		t.Fatalf("linked menu: %q %v", text(send), menu)
 	}
 	cleaned := false
@@ -812,7 +812,7 @@ func TestConfigSavedBefore(t *testing.T) {
 	}
 	defer st.Close()
 	b := &Local{Store: st, Settings: settings.New(st.Q)}
-	if c := b.Config(ctx); !c.QuietNight || len(c.Buttons) != 7 {
+	if c := b.Config(ctx); !c.QuietNight || len(c.Buttons) != 4 {
 		t.Fatalf("a fresh bot: %+v", c)
 	}
 	// As 0.3.6 saved it: no quiet_night yet, a menu of two buttons.

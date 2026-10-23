@@ -146,17 +146,10 @@ func (b *Bot) screen(ctx context.Context, cfg Config, chat int64, data, notice s
 		id, _ := strconv.ParseInt(arg, 10, 64)
 		return b.devices(ctx, w, u, cmd, id, notice, now)
 	case "c":
-		text := "<b>" + w.connectTitle + "</b>\n\n" + fmt.Sprintf(w.connectText, html.EscapeString(b.subURL(ctx, u)))
-		rows := [][]tgapi.Button{}
-		if btn, ok := b.pageButton(ctx, cfg, w, w.openPage); ok {
-			rows = append(rows, []tgapi.Button{btn})
-		}
-		// The messenger itself needs no subscription: the MTProto proxy is a button of
-		// its own, the first proxy the panel has.
-		if mts := b.d.Backend.MTProto(ctx); len(mts) > 0 {
-			rows = append(rows, []tgapi.Button{{Text: w.tgProxy, URL: mts[0].Link}})
-		}
-		return withNotice(text), &tgapi.Keyboard{InlineKeyboard: append(rows, back)}
+		// Two steps: the platform, then its clients with the one-tap import.
+		return b.connectPlatforms(ctx, w, notice, u)
+	case "c2":
+		return b.connectClients(ctx, cfg, w, u, arg, notice)
 	case "r":
 		if offers, _ := b.offers(ctx, chat); len(offers) > 0 {
 			text, kb := b.shopList(ctx, w, chat, u.ID, fmt.Sprintf(w.renewTitle, u.Name), "t", notice, nil)
