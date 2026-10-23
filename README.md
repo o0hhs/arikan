@@ -246,6 +246,10 @@ Run `arikan` for the menu, or use the commands directly:
 | `arikan targets scan` · `apply` | REALITY camouflage sites next to the server |
 | `arikan join KEY` | on a node: take a new key from the panel |
 | `arikan restart` | restart the containers |
+| `arikan doctor` | check the server: Docker, ports, firewall, clock, DNS, disk |
+| `arikan support CODE` | send diagnostics to a support ticket when the panel is down |
+| `arikan support-access on\|off` | allow or forbid support access on this server |
+| `arikan api-lockdown [status\|off]` | on a node: the state of the "node API from the panel's IP only" rule, or lift it at once |
 | `arikan uninstall` | stop and remove the command, keep the data |
 
 ## Updates

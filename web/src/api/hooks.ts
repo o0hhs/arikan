@@ -1,6 +1,7 @@
 import { poll } from "../lib/perf";
 import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import type { UsersSearch } from "../admin/search";
+import { nextOffset } from "../lib/paging";
 import { api, rawApi, unwrap, type Schemas, type User } from "./client";
 
 export const qk = {
@@ -50,6 +51,8 @@ export const qk = {
   filters: ["filters"] as const,
   dashboard: ["dashboard"] as const,
   monitor: ["monitor"] as const,
+  trafficDetail: ["traffic-detail"] as const,
+  exitDns: ["exit-dns"] as const,
   torrentHits: (user: number) => ["torrent", "hits", user] as const,
   speedTests: (node: number) => ["speedtests", node] as const,
   subPage: ["sub-page"] as const,
@@ -76,23 +79,32 @@ type UsersFilter = Pick<UsersSearch, "q" | "folder" | "source" | "sort"> & {
   hidden?: "hide" | "show" | "only";
 };
 
-/** The users page lists everyone it can (the API's cap); a card that shows a few asks for just those. */
-const USERS_MAX = 500;
+const usersQuery = (f: UsersFilter) => ({ state: f.state, q: f.q || undefined, folder: f.folder === undefined ? undefined : String(f.folder), source: f.source, hidden: f.hidden, sort: f.sort });
 
-export function useUsers(f: UsersFilter, o: { limit?: number; refetchInterval?: number } = {}) {
-  const limit = o.limit ?? USERS_MAX;
+/** A card that shows a few users asks for just those. */
+export function useUsers(f: UsersFilter, o: { limit: number; refetchInterval?: number }) {
   return useQuery({
-    queryKey: [...qk.users, "list", f, limit],
-    queryFn: ({ signal }) =>
-      unwrap(
-        api.GET("/api/v1/users", {
-          params: { query: { state: f.state, q: f.q || undefined, folder: f.folder === undefined ? undefined : String(f.folder), source: f.source, hidden: f.hidden, sort: f.sort, limit } },
-          signal,
-        }),
-      ),
+    queryKey: [...qk.users, "list", f, o.limit],
+    queryFn: ({ signal }) => unwrap(api.GET("/api/v1/users", { params: { query: { ...usersQuery(f), limit: o.limit } }, signal })),
     placeholderData: keepPreviousData,
     // Who is online is the only thing in the list that moves on its own; edits refresh it at once.
     refetchInterval: o.refetchInterval ?? poll(30_000),
+  });
+}
+
+// The users page asks for as many as the API gives at once, then the next ones ("show more").
+const USERS_PAGE = 500;
+
+/** The users page's list, a page at a time. The poll asks every page loaded again, so it
+ * slows down with them. */
+export function useUsersPages(f: UsersFilter) {
+  return useInfiniteQuery({
+    queryKey: [...qk.users, "pages", f],
+    initialPageParam: 0,
+    queryFn: ({ pageParam, signal }) => unwrap(api.GET("/api/v1/users", { params: { query: { ...usersQuery(f), limit: USERS_PAGE, offset: pageParam } }, signal })),
+    getNextPageParam: nextOffset,
+    placeholderData: keepPreviousData,
+    refetchInterval: (q) => 30_000 * Math.max(1, q.state.data?.pages.length ?? 1),
   });
 }
 
@@ -262,6 +274,16 @@ export function useFilters() {
   return useQuery({ queryKey: qk.filters, queryFn: ({ signal }) => unwrap(api.GET("/api/v1/filters", { signal })) });
 }
 
+/** Whether the nodes count the subscriptions' traffic by site, and for how many days. */
+export function useTrafficDetail() {
+  return useQuery({ queryKey: qk.trafficDetail, queryFn: ({ signal }) => unwrap(api.GET("/api/v1/traffic-detail", { signal })) });
+}
+
+/** The DNS at the exit of the nodes. */
+export function useExitDns() {
+  return useQuery({ queryKey: qk.exitDns, queryFn: ({ signal }) => unwrap(api.GET("/api/v1/exit-dns", { signal })) });
+}
+
 /** The torrent blocker's catches, newest first, a page at a time; user 0: everyone's. */
 export function useTorrentHits(user = 0, limit = 50) {
   return useInfiniteQuery({
@@ -295,7 +317,7 @@ type UserScope = "all" | "devices";
 
 /** The user views a devices mutation changes: the user (its device count), the list (the
  * same count) and the device lists. */
-const DEVICE_VIEWS = new Set(["one", "list", "devices", "bound", "bans"]);
+const DEVICE_VIEWS = new Set(["one", "list", "pages", "devices", "bound", "bans"]);
 
 /** Mutations that change a user refresh the user-related views they change. */
 export function useUserMutation<TArgs, TResult>(fn: (args: TArgs) => Promise<TResult>, scope: UserScope = "all") {
@@ -411,17 +433,27 @@ export type PromoCode = Schemas["PromoCodeView"];
 export type PromoRedemption = Schemas["PromoRedemptionView"];
 type PromoBody = Schemas["PromoBody"];
 
+// The promo lists come a page at a time, the next one by its offset ("show more").
+const PROMO_PAGE = 100;
+
 export function usePromocodes() {
-  return useQuery({
-    queryKey: qk.promocodes,
-    queryFn: ({ signal }) => unwrap(api.GET("/api/v1/promocodes", { params: { query: { limit: 100 } }, signal })),
+  return useInfiniteQuery({
+    queryKey: [...qk.promocodes, "list"],
+    initialPageParam: 0,
+    queryFn: ({ pageParam, signal }) => unwrap(api.GET("/api/v1/promocodes", { params: { query: { limit: PROMO_PAGE, offset: pageParam } }, signal })),
+    getNextPageParam: nextOffset,
   });
 }
 
-export function usePromoRedemptions() {
-  return useQuery({
-    queryKey: qk.promocodeRedemptions,
-    queryFn: ({ signal }) => unwrap(api.GET("/api/v1/promocodes/redemptions", { params: { query: { limit: 100 } }, signal })),
+/** The activations, newest first; q is searched on the server (a part of the code, a client's id). */
+export function usePromoRedemptions(q: string) {
+  return useInfiniteQuery({
+    queryKey: [...qk.promocodeRedemptions, q],
+    initialPageParam: 0,
+    queryFn: ({ pageParam, signal }) =>
+      unwrap(api.GET("/api/v1/promocodes/redemptions", { params: { query: { limit: PROMO_PAGE, offset: pageParam, q: q || undefined } }, signal })),
+    getNextPageParam: nextOffset,
+    placeholderData: keepPreviousData,
   });
 }
 

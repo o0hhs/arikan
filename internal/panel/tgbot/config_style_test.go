@@ -2,9 +2,8 @@ package tgbot
 
 import (
 	"errors"
+	"mikan/internal/tgapi"
 	"testing"
-
-	"mikan/internal/panel/tgate"
 )
 
 // A fresh bot's menu carries the colors: the subscription and its devices blue, renewing
@@ -13,7 +12,7 @@ func TestButtonStyles(t *testing.T) {
 	for _, lang := range []string{"ru", "en"} {
 		def := Default(lang)
 		for _, d := range def.Buttons {
-			if d.Action == "sub" && d.Style != tgate.StylePrimary || d.Action == "devices" && d.Style != tgate.StylePrimary || d.Action == "renew" && d.Style != tgate.StyleSuccess {
+			if d.Action == "sub" && d.Style != tgapi.StylePrimary || d.Action == "devices" && d.Style != tgapi.StylePrimary || d.Action == "renew" && d.Style != tgapi.StyleSuccess {
 				t.Fatalf("%s: %s got style %q", lang, d.Action, d.Style)
 			}
 		}
@@ -24,7 +23,7 @@ func TestButtonStyles(t *testing.T) {
 		f(&c)
 		return &c
 	}
-	for style, ok := range map[string]bool{"": true, " primary": true, tgate.StylePrimary: true, tgate.StyleSuccess: true, tgate.StyleDanger: true, "green": false} {
+	for style, ok := range map[string]bool{"": true, " primary": true, tgapi.StylePrimary: true, tgapi.StyleSuccess: true, tgapi.StyleDanger: true, "green": false} {
 		c := mutate(func(c *Config) { c.Buttons[4].Style = style })
 		err := c.Validate()
 		if ok != (err == nil) {
@@ -68,7 +67,7 @@ func TestStyleMigration(t *testing.T) {
 				t.Errorf("%s: stays plain", d.Action)
 			}
 		case "renew":
-			if d.Style != tgate.StyleSuccess {
+			if d.Style != tgapi.StyleSuccess {
 				t.Errorf("renew: %q", d.Style)
 			}
 		case "devices", "app":

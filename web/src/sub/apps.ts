@@ -5,15 +5,18 @@ export type Platform = "ios" | "android" | "windows" | "macos" | "linux";
 // it (link: the one-tap import).
 type App = {
   name: string;
-  note: "easiest" | "free" | "stable" | "openSource" | "modern" | "bestWindows" | "tun" | "oneButton" | "allProtocols" | "official";
+  note: "easiest" | "free" | "stable" | "openSource" | "modern" | "bestWindows" | "tun" | "oneButton" | "allProtocols" | "everything" | "official";
   site: string;
   link: (url: string, brand: string, happ?: string) => string;
 };
 export const enc = encodeURIComponent;
-const clash = (url: string, brand: string) => `clash://install-config?url=${enc(url)}&name=${enc(brand)}`;
 
 // Happ opens the crypt link when the panel gives one: the address stays hidden.
 const happ = (u: string, _brand: string, crypt?: string) => crypt || `happ://add/${u}`;
+const incy = (url: string) => `incy://add/${url}`;
+// Kabosu takes a scheme of its own: the profile lands in it, not in whichever app holds
+// clash://.
+const kabosu = (url: string, brand: string) => `kabosu://install-config?url=${enc(url)}&name=${enc(brand)}`;
 
 // Where each app is downloaded: the only three the page names now.
 export const SITES = {
@@ -27,15 +30,15 @@ export const SITES = {
 export const APPS: Record<Platform, App[]> = {
   ios: [
     { name: "Happ", note: "easiest", site: SITES.happAppStore, link: happ },
-    { name: "Incy", note: "modern", site: SITES.incy, link: (u) => `incy://add/${u}` },
+    { name: "Incy", note: "modern", site: SITES.incy, link: incy },
   ],
   android: [
     { name: "Happ", note: "easiest", site: SITES.happGooglePlay, link: happ },
-    { name: "Incy", note: "modern", site: SITES.incy, link: (u) => `incy://add/${u}` },
+    { name: "Incy", note: "modern", site: SITES.incy, link: incy },
   ],
-  windows: [{ name: "Kabosu", note: "official", site: SITES.kabosu, link: clash }],
-  macos: [{ name: "Kabosu", note: "official", site: SITES.kabosu, link: clash }],
-  linux: [{ name: "Kabosu", note: "official", site: SITES.kabosu, link: clash }],
+  windows: [{ name: "Kabosu", note: "official", site: SITES.kabosu, link: kabosu }],
+  macos: [{ name: "Kabosu", note: "official", site: SITES.kabosu, link: kabosu }],
+  linux: [{ name: "Kabosu", note: "official", site: SITES.kabosu, link: kabosu }],
 };
 
 export function detect(): Platform {

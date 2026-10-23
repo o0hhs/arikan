@@ -30,9 +30,9 @@ type keyHarness struct {
 	read, full string
 }
 
-func newKeyHarness(t *testing.T) *keyHarness {
+func newKeyHarness(t *testing.T, with ...func(*Options)) *keyHarness {
 	t.Helper()
-	h := newHarness(t)
+	h := newHarness(t, with...)
 	ctx := context.Background()
 	if err := domain.Seed(ctx, h.st, h.now); err != nil {
 		t.Fatal(err)
@@ -239,37 +239,25 @@ func TestReadKeyDoesNotGetSecrets(t *testing.T) {
 		}
 	}
 
-	// An inbound's listener template holds its own key material: the REALITY private key,
-	// a shared password. A read key sees the connection, not the key.
-	ins, err := k.st.Q.ListInbounds(ctx)
+	// A protocol's server key would let the reader stand in for the server: the list of
+	// protocols gives it as hidden, and a full key, which may edit them, as it is.
+	var config string
+	if err := k.st.DB.QueryRow("SELECT config FROM inbounds WHERE config LIKE '%private-key%' ORDER BY id LIMIT 1").Scan(&config); err != nil {
+		t.Fatal(err)
+	}
+	parsed, err := proto.Parse(config)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var material string
-	for _, in := range ins {
-		tpl, err := proto.Parse(in.Config)
-		if err != nil {
-			continue
-		}
-		if rc, ok := tpl["reality-config"].(map[string]any); ok {
-			if key, _ := rc["private-key"].(string); key != "" {
-				material = key
-				break
-			}
-		}
+	key, _ := parsed["reality-config"].(map[string]any)["private-key"].(string)
+	if key == "" {
+		t.Fatalf("no REALITY key in %s", config)
 	}
-	if material == "" {
-		t.Fatal("no seeded inbound with a REALITY private key")
+	if _, body := k.asKey(k.read, http.MethodGet, "/inbounds", nil); strings.Contains(string(body), key) || !strings.Contains(string(body), proto.Hidden) {
+		t.Errorf("a read key sees a protocol's server key: %s", body)
 	}
-	resp, body := k.asKey(k.read, http.MethodGet, "/inbounds", nil)
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("inbounds: %d %s", resp.StatusCode, body)
-	}
-	if strings.Contains(string(body), material) {
-		t.Errorf("a read key sees an inbound's private key: %s", body)
-	}
-	if _, body := k.asKey(k.full, http.MethodGet, "/inbounds", nil); !strings.Contains(string(body), material) {
-		t.Errorf("a full key misses an inbound's private key: %s", body)
+	if _, body := k.asKey(k.full, http.MethodGet, "/inbounds", nil); !strings.Contains(string(body), key) {
+		t.Errorf("a full key misses a protocol's server key: %s", body)
 	}
 
 	// An own Clash profile may hold the admin's own proxies and secrets.

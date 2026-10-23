@@ -136,7 +136,7 @@ func TestDirectDropsWhateverStandsInFront(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := proto.SetClientEndpoint(parsed, "cdn.example.com", 8443, ""); err != nil {
+	if err := proto.SetClientEndpoint(parsed, "cdn.example.com", 8443, "", ""); err != nil {
 		t.Fatal(err)
 	}
 	direct, err := Direct(parsed)

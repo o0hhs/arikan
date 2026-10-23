@@ -4,6 +4,7 @@ import { useUpdates } from "../../../api/hooks";
 import { Pill } from "../../../components/ui";
 import { getLocale, t } from "../../../i18n";
 import { safeHref } from "../../../lib/url";
+import { CardHead } from "../../../components/layout";
 
 type Goal = Schemas["Goal"];
 
@@ -27,14 +28,7 @@ export function GoalsCard() {
   const donate = safeHref(v.donate);
   return (
     <section className="card glass reveal" aria-labelledby="goals-title">
-      <div className="card-head">
-        <div>
-          <h2 className="card-title" id="goals-title">
-            {t("goals.title")}
-          </h2>
-          <div className="card-sub">{t("goals.sub")}</div>
-        </div>
-      </div>
+      <CardHead title={t("goals.title")} sub={t("goals.sub")} id="goals-title" />
       <ul className="row-list">
         {active.map((g: Goal) => {
           const pct = Math.min(100, Math.round((g.raised / g.target) * 100));

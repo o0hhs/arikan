@@ -182,7 +182,7 @@ func UDPOnly(in db.Inbound) (bool, error) {
 // something in front of the node (a CDN) is dropped. The fingerprint stays.
 func Direct(t proto.Template) (proto.Template, error) {
 	out := t.Clone()
-	if err := proto.SetClientEndpoint(out, "", 0, ""); err != nil {
+	if err := proto.SetClientEndpoint(out, "", 0, "", ""); err != nil {
 		return nil, &Error{Code: "turn_inbound", Field: "inbound_id", Detail: "the inbound's client override does not clear"}
 	}
 	return out, nil

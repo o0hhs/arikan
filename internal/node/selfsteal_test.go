@@ -73,7 +73,7 @@ func TestSelfStealRealityClient(t *testing.T) {
 			"mikan": map[string]any{"flow": "xtls-rprx-vision"},
 		}
 	}
-	listenPort := freePort(t)
+	listenPort := freeIntPort(t)
 	in := func(tpl proto.Template, selfPort int) nodeapi.DesiredState {
 		return nodeapi.DesiredState{
 			Revision: 1,
@@ -169,7 +169,7 @@ func TestSiteAsRealityDest(t *testing.T) {
 		t.Fatal(err)
 	}
 	uuid := base.Slots[0].UUID
-	listenPort := freePort(t)
+	listenPort := freeIntPort(t)
 	tpl := proto.Template{
 		"type": "vless",
 		"reality-config": map[string]any{
@@ -277,7 +277,7 @@ func randomRealityKey() (string, error) {
 	return base64.RawURLEncoding.EncodeToString(k.Bytes()), nil
 }
 
-func freePort(t *testing.T) int {
+func freeIntPort(t *testing.T) int {
 	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -289,7 +289,7 @@ func freePort(t *testing.T) int {
 
 func freeAddr(t *testing.T) string {
 	t.Helper()
-	return "127.0.0.1:" + strconv.Itoa(freePort(t))
+	return "127.0.0.1:" + strconv.Itoa(freeIntPort(t))
 }
 
 func mustAtoi(t *testing.T, s string) int {
@@ -306,7 +306,7 @@ func mustAtoi(t *testing.T, s string) int {
 // to its REALITY dest is not a user connection and never goes through these rules).
 func TestSelfStealKeepsPrivateRules(t *testing.T) {
 	st := nodeapi.DesiredState{SelfStealPort: 21355}
-	raw, _, err := buildConfig(st, proto.Cert{}, false, 0)
+	raw, _, err := buildConfig(st, proto.Cert{}, false, "", 0)
 	if err != nil {
 		t.Fatal(err)
 	}

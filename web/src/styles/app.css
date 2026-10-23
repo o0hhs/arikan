@@ -197,9 +197,10 @@ html[data-font="system"] {
 
   /* shell: the sidebar is the M3 navigation drawer — pill-shaped destinations, the active
      one marked by its indicator (secondary-container), which is what the collapsed rail and
-     the phone's bottom bar draw too. */
-  .app { display: grid; grid-template-columns: 248px minmax(0, 1fr); gap: 16px; padding: 16px; padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); min-height: 100vh; min-height: 100dvh; }
-  .sidebar { position: sticky; top: 16px; height: calc(100vh - 32px); height: calc(100dvh - 32px); border-radius: var(--md-shape-xl); padding: 16px 12px; display: flex; flex-direction: column; gap: 20px; }
+     the phone's bottom bar draw too. --bar-h is the support strip: everything sticky sits
+     below it. */
+  .app { display: grid; grid-template-columns: 248px minmax(0, 1fr); gap: 16px; padding: 16px; padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); min-height: calc(100vh - var(--bar-h, 0px)); min-height: calc(100dvh - var(--bar-h, 0px)); }
+  .sidebar { position: sticky; top: calc(16px + var(--bar-h, 0px)); height: calc(100vh - 32px - var(--bar-h, 0px)); height: calc(100dvh - 32px - var(--bar-h, 0px)); border-radius: var(--md-shape-xl); padding: 16px 12px; display: flex; flex-direction: column; gap: 20px; }
   .brand { display: flex; align-items: center; gap: 12px; padding: 4px 8px; }
   .brand-name { font: var(--md-title-large); letter-spacing: var(--md-tracking-title); }
   /* On a short screen (a laptop at 125%) the sections scroll and the foot stays inside the
@@ -303,6 +304,7 @@ html[data-font="system"] {
   .seg-block { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); width: 100%; }
   .seg-block button { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .seg button[aria-pressed="true"] { background: var(--md-secondary-container); color: var(--md-on-secondary-container); }
+  .seg button:disabled { opacity: 0.45; cursor: not-allowed; }
   .lang-switch button { padding: 0 8px; font: var(--md-label-medium); letter-spacing: 0.02em; }
   .metric { padding: 12px; border-radius: var(--md-shape-lg); background: var(--md-surface-container-low); border: 1px solid var(--md-outline-variant); }
   .metric-label { font: var(--md-body-small); color: var(--md-on-surface-variant); }
@@ -362,6 +364,7 @@ html[data-font="system"] {
   .utable tbody tr { cursor: pointer; transition: background-color var(--md-motion-short3) var(--md-ease-standard); }
   .utable tbody tr:hover td { background: color-mix(in srgb, var(--md-on-surface) 5%, transparent); }
   .utable tbody tr.sel td { background: var(--md-secondary-container); }
+  .card.sel { box-shadow: 0 0 0 2px var(--md-primary); }
   .utable tbody tr:has(.row-link:focus-visible) td { background: color-mix(in srgb, var(--md-on-surface) 5%, transparent); }
   .cv-auto { content-visibility: auto; contain-intrinsic-size: auto 128px; }
   .row-link { color: inherit; }
@@ -371,6 +374,8 @@ html[data-font="system"] {
   .check { appearance: none; width: 18px; height: 18px; border-radius: var(--md-shape-xs); border: 2px solid var(--md-outline); background: transparent; display: grid; place-items: center; cursor: pointer; margin: 0; transition: background-color var(--md-motion-short3) var(--md-ease-standard), border-color var(--md-motion-short3) var(--md-ease-standard); }
   .check:checked { background: var(--md-primary); border-color: var(--md-primary); }
   .check:checked::after { content: ""; width: 9px; height: 5px; border: 2px solid var(--md-on-primary); border-top: 0; border-right: 0; transform: translateY(-1px) rotate(-45deg); }
+  .check:indeterminate { background: var(--md-primary); border-color: var(--md-primary); }
+  .check:indeterminate::after { content: ""; width: 8px; height: 2px; border: 0; border-radius: 1px; background: var(--md-on-primary); transform: none; }
   .usage-txt { display: flex; justify-content: space-between; gap: 8px; font: var(--md-body-small); color: var(--md-on-surface-variant); margin-bottom: 6px; }
   .usage-txt b { color: var(--md-on-surface); font-weight: 500; }
   .usage .bar > i { background: var(--md-primary); }
@@ -572,9 +577,9 @@ html[data-font="system"] {
 /* Wide screens: the page's title and main actions stay at the top while it scrolls, the
    section list stands beside the content. */
 @media (min-width: 1024px) {
-  :root { --sticky-top: 96px; }
+  :root { --sticky-top: calc(96px + var(--bar-h, 0px)); }
   /* Flat on the page at rest; once the page scrolls, a floating bar like the cards. */
-  .topbar { position: sticky; top: 8px; z-index: 20; margin: 0 -12px; padding: 8px 12px; min-height: 72px; border-radius: var(--md-shape-xl); border: 1px solid transparent; transition: background-color var(--md-motion-short4) var(--md-ease-standard), box-shadow var(--md-motion-short4) var(--md-ease-standard), border-color var(--md-motion-short4) var(--md-ease-standard); }
+  .topbar { position: sticky; top: calc(8px + var(--bar-h, 0px)); z-index: 20; margin: 0 -12px; padding: 8px 12px; min-height: 72px; border-radius: var(--md-shape-xl); border: 1px solid transparent; transition: background-color var(--md-motion-short4) var(--md-ease-standard), box-shadow var(--md-motion-short4) var(--md-ease-standard), border-color var(--md-motion-short4) var(--md-ease-standard); }
   .topbar[data-stuck] { background: color-mix(in srgb, var(--md-surface-container-high) 88%, transparent); -webkit-backdrop-filter: blur(20px) saturate(160%); backdrop-filter: blur(20px) saturate(160%); border-color: var(--md-outline-variant); box-shadow: var(--md-elevation-1); }
   .topbar .page-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .section-layout { display: grid; grid-template-columns: 216px minmax(0, 1fr); gap: 24px; align-items: start; }
@@ -684,3 +689,37 @@ html[data-font="system"] {
 .addon-card-title { font: var(--md-title-medium); letter-spacing: var(--md-tracking-title); color: var(--md-on-surface); overflow-wrap: anywhere; }
 .addon-card-text { font: var(--md-body-medium); color: var(--md-on-surface-variant); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
 .addon-card-foot { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 12px; border-top: 1px solid var(--md-outline-variant); }
+
+/* Support. The strip across the top while an access is live: warm for the admin (someone can
+   work in the panel), cool for the operator (the mode they are in). It is as tall as --bar-h,
+   which the strip sets on the page and the sidebar and the sticky bars read. */
+.support-bar { position: sticky; top: 0; z-index: 36; display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 16px; padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); font-size: 13px; line-height: 20px; border-bottom: 1px solid transparent; }
+.support-bar p { margin: 0; }
+.support-bar.warn { background: var(--honey-50); color: var(--honey-600); border-bottom-color: color-mix(in srgb, var(--honey-600) 22%, transparent); }
+.support-bar.info { background: var(--lagoon-50); color: var(--lagoon-600); border-bottom-color: color-mix(in srgb, var(--lagoon-600) 22%, transparent); }
+.support-bar-link { flex: none; font-weight: 500; text-decoration: underline; text-underline-offset: 3px; border-radius: 6px; }
+.support-bar-link:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+.support-bar-tag { display: inline-flex; flex: none; align-items: center; gap: 4px; height: 24px; padding: 0 8px; border-radius: 999px; font-size: 12px; font-weight: 500; background: color-mix(in srgb, currentColor 12%, transparent); }
+@media (max-width: 760px) { .support-bar-more, .support-bar-link { display: none; } }
+@media (max-width: 560px) { .support-bar-tag { display: none; } }
+
+/* Diagnostics: the log is a dark block like the code samples; the terminal and the player
+   are xterm on the same ground. */
+.log-view { max-height: min(560px, 62dvh); min-height: 160px; overflow: auto; padding: 8px 0; border-radius: 12px; background: var(--code-bg); color: var(--code-fg); font: 12px/18px var(--font-mono-stack); }
+.log-view:focus-visible { outline: 2px solid var(--mikan-600); outline-offset: 2px; }
+.log-line { display: grid; grid-template-columns: auto 44px minmax(0, 1fr); gap: 0 12px; padding: 0 12px; }
+.log-line:hover { background: rgba(255, 255, 255, 0.06); }
+.log-at { color: #a4adbb; white-space: nowrap; }
+.log-lvl { font-weight: 600; color: #a4adbb; }
+.log-lvl.lv-WARN { color: #ffd36b; }
+.log-lvl.lv-ERROR { color: #ff9a9a; }
+.log-text { min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.term-host { height: min(520px, 62dvh); min-height: 280px; padding: 8px; overflow: hidden; border-radius: 12px; background: var(--code-bg); }
+.term-host .xterm-viewport { background-color: transparent !important; scrollbar-width: thin; }
+.term-idle { display: flex; align-items: center; justify-content: center; gap: 12px; min-height: 280px; padding: 24px; border-radius: 12px; background: var(--code-bg); color: #a4adbb; font-size: 13px; text-align: center; }
+.player-screen { max-width: 100%; overflow: auto; border-radius: 12px; background: var(--code-bg); }
+.player-screen .term-host { height: auto; min-height: 0; width: fit-content; overflow: visible; }
+.player-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.player-range { flex: 1 1 160px; min-width: 120px; height: 24px; accent-color: var(--mikan-600); cursor: pointer; }
+.player-range:disabled { cursor: not-allowed; }
+.player-time { font-size: 12px; color: var(--ink-500); white-space: nowrap; }

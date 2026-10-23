@@ -79,15 +79,29 @@ func outbounds(st nodeapi.DesiredState, rejected *[]nodeapi.ListenerStatus) ([]a
 	return out, live, nil
 }
 
-// buildConfig renders the mihomo config as JSON, which mihomo's YAML parser accepts.
-// log-level warning keeps per-connection lines out of mihomo's own output; the ones that
-// still come through are dropped by pumpLogs.
+// speaksHTTP says whether listener l is VLESS or Trojan on an HTTP transport (WebSocket, gRPC,
+// XHTTP): the ones that answer any request of a browser (Citrus' fallback-page).
+func speaksHTTP(l map[string]any) bool {
+	if l["type"] != "vless" && l["type"] != "trojan" {
+		return false
+	}
+	ws, _ := l["ws-path"].(string)
+	grpc, _ := l["grpc-service-name"].(string)
+	_, xhttp := l["xhttp-config"]
+	return ws != "" || grpc != "" || xhttp && l["type"] == "vless"
+}
+
+// buildConfig renders the core's config for st as JSON, which the core's YAML parser
+// accepts, with cert, the node's certificate, and front, the file of the node's front page
+// ("" none) that its inbounds on an HTTP transport give strangers. log-level warning keeps
+// per-connection lines out of the core's own output; the ones that still come through are
+// dropped by pumpLogs.
 //
 // A listener that does not pass the checks is left out and reported in rejected (not OK,
 // with the reason): one broken inbound must not stop the node from taking every other
 // change of the state, new users and policies included. What the whole state needs, the
 // outbounds, is an error as before.
-func buildConfig(st nodeapi.DesiredState, cert proto.Cert, allowPrivate bool, sitePort int) (raw []byte, rejected []nodeapi.ListenerStatus, err error) {
+func buildConfig(st nodeapi.DesiredState, cert proto.Cert, allowPrivate bool, front string, sitePort int) (raw []byte, rejected []nodeapi.ListenerStatus, err error) {
 	listeners := make([]map[string]any, 0, len(st.Inbounds)+1)
 	keep := func(name string, l map[string]any, err error) {
 		if err == nil {
@@ -102,6 +116,15 @@ func buildConfig(st nodeapi.DesiredState, cert proto.Cert, allowPrivate bool, si
 	}
 	for _, in := range st.Inbounds {
 		l, err := listenerFor(in, st.Slots, cert, proto.Options{SelfStealPort: st.SelfStealPort, SitePort: sitePort})
+		// Behind the SNI router an inbound takes connections from it alone, each with the
+		// client's address in a PROXY header.
+		if err == nil && st.Router.Routed(in.Name) {
+			l["listen"], l["proxy-protocol"], l["proxy-protocol-trusted"] = "127.0.0.1", true, []string{"loopback"}
+		}
+		// A stranger's request on an HTTP transport gets the front page, not a bare 404.
+		if err == nil && front != "" && speaksHTTP(l) {
+			l["fallback-page"] = front
+		}
 		keep(in.Name, l, err)
 	}
 	if st.Relay != nil {
@@ -120,8 +143,8 @@ func buildConfig(st nodeapi.DesiredState, cert proto.Cert, allowPrivate bool, si
 		"mixed-port":        0,
 		"find-process-mode": "off",
 		"profile":           map[string]any{"store-selected": false, "store-fake-ip": false},
-		"dns":               dnsSection(st.DNS),
-		"sniffer":           snifferSection(),
+		"dns":               dnsConfig(st.DNS),
+		"sniffer":           snifferConfig(st.DNS),
 		"proxies":           proxies,
 		"rules":             rules(st, allowPrivate, live),
 		"listeners":         listeners,
@@ -140,33 +163,6 @@ var defaultNameservers = []string{"https://1.1.1.1/dns-query", "https://dns.goog
 // public ones are interfered with.
 var defaultBootstraps = []string{"system", "1.1.1.1", "8.8.8.8"}
 
-// dnsSection is the node's own resolver: it resolves the destinations of its users'
-// traffic, so a client that sent an address, or whose own resolver answers with rubbish,
-// still reaches the right site. No server listens: clients keep their resolvers, the node
-// only resolves for its own outbound traffic.
-func dnsSection(d *nodeapi.DNS) map[string]any {
-	ns, boot := defaultNameservers, defaultBootstraps
-	var policy []nodeapi.DNSPolicy
-	if d != nil {
-		if len(d.Nameserver) > 0 {
-			ns = d.Nameserver
-		}
-		if len(d.Default) > 0 {
-			boot = d.Default
-		}
-		policy = d.Policy
-	}
-	out := map[string]any{
-		"enable": true, "listen": "", "ipv6": false, "enhanced-mode": "redir-host",
-		"nameserver":         cleanServers(ns),
-		"default-nameserver": cleanServers(boot),
-	}
-	if p := policySection(policy); len(p) > 0 {
-		out["nameserver-policy"] = p
-	}
-	return out
-}
-
 // cleanServers drops what a node cannot use: the "#group" suffix names a proxy group of an
 // app's profile (a node has none; its DoH goes out as it is), and an entry that is nothing
 // but a suffix is no server.
@@ -178,23 +174,6 @@ func cleanServers(in []string) []string {
 		}
 		if s = strings.TrimSpace(s); s != "" {
 			out = append(out, s)
-		}
-	}
-	return out
-}
-
-// policySection is the policies a node can apply: the ones that name domains ("+.cn").
-// A geosite: or rule-set: key needs the geodata, which only the apps have; sending it
-// would refuse the whole config here.
-func policySection(in []nodeapi.DNSPolicy) map[string]any {
-	out := map[string]any{}
-	for _, p := range in {
-		match := strings.ToLower(strings.TrimSpace(p.Match))
-		if match == "" || strings.HasPrefix(match, "geosite:") || strings.HasPrefix(match, "rule-set:") || strings.Contains(match, "geosite:") {
-			continue
-		}
-		if servers := cleanServers(p.Servers); len(servers) > 0 {
-			out[p.Match] = servers
 		}
 	}
 	return out
@@ -223,18 +202,26 @@ func listenerFor(in nodeapi.Inbound, slots []nodeapi.Slot, cert proto.Cert, o pr
 func sharedListeners(st nodeapi.DesiredState) []string {
 	var out []string
 	for _, in := range st.Inbounds {
-		if t, err := template(in); err == nil && proto.Shared(t.Type()) {
+		if t, err := template(in); err == nil && proto.Shared(t) {
 			out = append(out, in.Name)
 		}
 	}
 	return out
 }
 
-// template reads the inbound's listener template; states saved by mikan ≤ 0.1.2 carry
-// a preset with its settings instead.
-func template(in nodeapi.Inbound) (proto.Template, error) {
-	if len(in.Config) > 0 {
-		return proto.FromJSON(in.Config)
+// userListeners are the inbounds whose users are slots, each with whether the core knows
+// them by UUID (TUIC) rather than by name; the ones with one key for everyone are not.
+func userListeners(st nodeapi.DesiredState) map[string]bool {
+	out := map[string]bool{}
+	for _, in := range st.Inbounds {
+		if t, err := template(in); err == nil && !proto.Shared(t) {
+			out[in.Name] = t.Type() == "tuic"
+		}
 	}
-	return proto.FromPreset(in.Preset, in.Settings)
+	return out
+}
+
+// template reads the inbound's listener template.
+func template(in nodeapi.Inbound) (proto.Template, error) {
+	return proto.FromJSON(in.Config)
 }

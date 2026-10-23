@@ -1,12 +1,14 @@
 // Package release is the manifest every Arikan release publishes next to its files: the
 // version, the image digest in GitHub Packages, the installer checksums and what changed.
-// The panel and the installer trust a manifest only with a valid signature from the
-// release key, whose public half is PublicKey.
+// The panel and the installer trust a manifest only with a valid signature from one of the
+// release keys, whose public halves are ReleaseKeys.
 package release
 
 import (
 	"crypto/ed25519"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,11 +18,57 @@ import (
 	"time"
 )
 
-// PublicKey is the public half of the release signing key (raw Ed25519, base64). The
-// private half lives only in the RELEASE_SIGNING_KEY secret of the release workflow and
-// with the maintainer. It is this fork's own key: releases of o0hhs/arikan are
-// signed with it, and a manifest signed with the upstream key is refused here.
+// PublicKey is the fork's release key under the name it has always had here.
 const PublicKey = "ayuo0yLe0M0N5QQPaxkjAA0ltZcXSG7LRANrgyFAhUg="
+
+// ReleaseKeys are the public halves of the release keys a build trusts (raw Ed25519, base64):
+// a manifest or the release index signed by any of them is the project's. The first signs the
+// releases now; the second is trusted ahead, so the release workflow can move to it and leave
+// no panel or installer behind (installer/src/release.rs and install.sh hold the same list).
+// The private halves live only in the RELEASE_SIGNING_KEY secret of the release workflow and
+// with the maintainer.
+var ReleaseKeys = []string{
+	"ayuo0yLe0M0N5QQPaxkjAA0ltZcXSG7LRANrgyFAhUg=",
+}
+
+// CatalogKey and CommunityKey are the public halves of the keys of the marketplace's signed
+// documents: the official catalog (getmikan/marketplace) and the registry of community addons
+// (getmikan/marketplace-community). They sign in a context of their own (SignIn), and neither
+// signs a release.
+const (
+	CatalogKey   = "Z4QfL07dI/IRReSe6Gr76UcxxPoy4i2GiClBv8RcNuo="
+	CommunityKey = "BKCw8Uf/qo3xSrYL+jwWyEThn/PXxHh0FiJvLDowmdc="
+)
+
+// TrustedKeys are ReleaseKeys decoded.
+func TrustedKeys() []ed25519.PublicKey {
+	out := make([]ed25519.PublicKey, 0, len(ReleaseKeys))
+	for _, k := range ReleaseKeys {
+		pub, err := Key(k)
+		if err != nil {
+			panic(err) // a constant of the build
+		}
+		out = append(out, pub)
+	}
+	return out
+}
+
+// MustKey is a public key of the build decoded; it panics on a bad one.
+func MustKey(b64 string) ed25519.PublicKey {
+	pub, err := Key(b64)
+	if err != nil {
+		panic(err)
+	}
+	return pub
+}
+
+// KeyFingerprint names the release keys a build trusts: the first 16 hex digits of the SHA-256
+// of ReleaseKeys, one per line. The support desk compares it with the official one; a build
+// that trusts another key, or one more, is not mikan's own.
+func KeyFingerprint() string {
+	sum := sha256.Sum256([]byte(strings.Join(ReleaseKeys, "\n")))
+	return hex.EncodeToString(sum[:8])
+}
 
 // Repo is where this fork publishes its releases.
 const Repo = "o0hhs/arikan"
@@ -60,10 +108,6 @@ var (
 )
 
 // Key decodes a raw Ed25519 public key in base64.
-// CatalogKey is the public half of the key the built-in addon catalog is signed with: the
-// marketplace is the project's own (github.com/getmikan/marketplace), so its key is not the
-// release key a fork signs its releases with.
-const CatalogKey = "Z3wSIPBSaJxh5CsGO8eINI0aM0kyrQ46EcJSNeH85W8="
 
 func Key(b64 string) (ed25519.PublicKey, error) {
 	raw, err := base64.StdEncoding.DecodeString(b64)
@@ -78,10 +122,11 @@ func Sign(data []byte, key ed25519.PrivateKey) string {
 	return base64.StdEncoding.EncodeToString(ed25519.Sign(key, data))
 }
 
-// Parse checks the signature over the manifest's exact bytes, then decodes and checks it.
-func Parse(data []byte, sig string, pub ed25519.PublicKey) (Manifest, error) {
+// Parse checks the signature over the manifest's exact bytes, by any of keys, then decodes and
+// checks it.
+func Parse(data []byte, sig string, keys ...ed25519.PublicKey) (Manifest, error) {
 	var m Manifest
-	if err := Verify(data, sig, pub); err != nil {
+	if err := VerifyAny(data, sig, keys...); err != nil {
 		return m, err
 	}
 	// Unknown fields are ignored: the signature already vouches for every byte, and a

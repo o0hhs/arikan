@@ -1,14 +1,11 @@
 package node
 
 import (
-	"io"
 	"net"
 	"net/netip"
 	"strings"
-	"sync/atomic"
 
-	N "github.com/metacubex/mihomo/common/net"
-
+	C "github.com/metacubex/mihomo/constant"
 	"golang.org/x/net/publicsuffix"
 )
 
@@ -16,6 +13,8 @@ import (
 // bytes of each slot by site, the registrable domain of the name the connection was for
 // (SNI, Host, the sniffer's) or the address when there is none. Nothing else is kept: no
 // times, no source addresses, no single connection. The sums go with the counters' batch.
+// The core reports every connection and UDP session of a user as it ends, with the name
+// and both ways' bytes (left); nothing wraps the connections, so they may still be spliced.
 
 // maxSites is how many sites one slot keeps between two batches; the rest add up under
 // otherSite, so a user who walks the whole internet costs the node no more than this.
@@ -82,53 +81,19 @@ func (r *Registry) SetDetail(on bool) {
 	}
 }
 
-// siteConn counts what a connection carries for its site, once it is over. Its unwrapping
-// hands the conn under it down with its own counts kept (tunnel.go: a countingConn gives
-// its net.Conn and its counter, a limiter none and the bytes go through Read and Write), so
-// what a node spliced is still counted for its site.
-type siteConn struct {
-	net.Conn
-	up, down atomic.Int64
-}
-
-func (c *siteConn) Read(b []byte) (int, error) {
-	n, err := c.Conn.Read(b)
-	c.up.Add(int64(n))
-	return n, err
-}
-
-func (c *siteConn) Write(b []byte) (int, error) {
-	n, err := c.Conn.Write(b)
-	c.down.Add(int64(n))
-	return n, err
-}
-
-func (c *siteConn) UnwrapReader() (io.Reader, []N.CountFunc) {
-	r, fns := unwrapReader(c.Conn)
-	return r, append(fns[:len(fns):len(fns)], func(n int64) { c.up.Add(n) })
-}
-
-func (c *siteConn) UnwrapWriter() (io.Writer, []N.CountFunc) {
-	w, fns := unwrapWriter(c.Conn)
-	return w, append(fns[:len(fns):len(fns)], func(n int64) { c.down.Add(n) })
-}
-
-// unwrapReader and unwrapWriter hand down what the conn unwraps to; a conn that keeps its
-// bytes to itself (a limiter) is given as it is, and the copy loop reads through it.
-func unwrapReader(conn net.Conn) (io.Reader, []N.CountFunc) {
-	if u, ok := conn.(interface {
-		UnwrapReader() (io.Reader, []N.CountFunc)
-	}); ok {
-		return u.UnwrapReader()
+// left counts a connection or UDP session the core is done with to its slot's site, when
+// detail is on (statistic.Manager.SetOnLeave). With no user it is a listener's one key for
+// everyone; a REALITY handshake to its dest or another node's relay has no slot.
+func (r *Registry) left(m *C.Metadata, up, down int64) {
+	if !r.detail.Load() || m == nil {
+		return
 	}
-	return conn, nil
-}
-
-func unwrapWriter(conn net.Conn) (io.Writer, []N.CountFunc) {
-	if u, ok := conn.(interface {
-		UnwrapWriter() (io.Writer, []N.CountFunc)
-	}); ok {
-		return u.UnwrapWriter()
+	s := r.lookup(m.InUser)
+	if m.InUser == "" {
+		s = r.sharedSlot(m.InName)
 	}
-	return conn, nil
+	if s == nil {
+		return
+	}
+	r.countSite(s, siteOf(m.RuleHost(), m.DstIP), up, down)
 }

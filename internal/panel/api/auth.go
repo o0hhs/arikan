@@ -13,6 +13,7 @@ import (
 
 	"mikan/internal/panel/auth"
 	"mikan/internal/panel/secure"
+	"mikan/internal/panel/store"
 	"mikan/internal/panel/store/db"
 )
 
@@ -30,10 +31,7 @@ type MeBody struct {
 
 func viewAdmin(a db.Admin) AdminView {
 	v := AdminView{ID: a.ID, Username: a.Username, TOTPEnabled: a.TotpSecret.Valid}
-	if a.LastLoginAt.Valid {
-		t := time.Unix(a.LastLoginAt.Int64, 0).UTC()
-		v.LastLoginAt = &t
-	}
+	v.LastLoginAt = store.TimePtr(a.LastLoginAt)
 	return v
 }
 
@@ -284,7 +282,7 @@ func (h *handlers) reauth(ctx context.Context, admin db.Admin, password, code st
 			return err
 		}
 		if !ok {
-			return huma.Error422UnprocessableEntity("wrong_password", &huma.ErrorDetail{Location: "body.password", Message: "wrong_password"})
+			return fieldErr("body.password", "wrong_password")
 		}
 		if admin.TotpSecret.Valid {
 			spent, err := h.spendTOTPCode(ctx, admin.ID, admin.TotpSecret.String, code, now)
@@ -342,7 +340,7 @@ func (h *handlers) changePassword(ctx context.Context, in *passwordInput) (*stru
 	if err := h.guarded(admin, func(time.Time) error {
 		ok, err := h.verifyPassword(ctx, in.Body.Current, admin.PasswordHash)
 		if err == nil && !ok {
-			err = huma.Error422UnprocessableEntity("wrong_password", &huma.ErrorDetail{Location: "body.current", Message: "wrong_password"})
+			err = fieldErr("body.current", "wrong_password")
 		}
 		return err
 	}); err != nil {
@@ -489,7 +487,7 @@ func (h *handlers) listSessions(ctx context.Context, _ *struct{}) (*sessionsOutp
 	for _, s := range rows {
 		out.Body = append(out.Body, SessionView{
 			ID: s.IDHash, Current: s.IDHash == cur.IDHash, IP: s.Ip, UserAgent: s.UserAgent,
-			CreatedAt: time.Unix(s.CreatedAt, 0).UTC(), LastSeenAt: time.Unix(s.LastSeenAt, 0).UTC(),
+			CreatedAt: store.Time(s.CreatedAt), LastSeenAt: store.Time(s.LastSeenAt),
 		})
 	}
 	return out, nil

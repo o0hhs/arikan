@@ -1,6 +1,7 @@
 import { useNavigate, useSearch } from "@tanstack/react-router";
-import { ArrowDownToLine, Cpu, Globe, LayoutTemplate, Link2, Route, ShieldCheck } from "lucide-react";
+import { ArrowDownToLine, Cpu, Globe, LayoutTemplate, LifeBuoy, Link2, Route, ShieldCheck } from "lucide-react";
 import { useSettings } from "../../../api/hooks";
+import { useSupportMode } from "../../../api/support";
 import { SectionNav } from "../../../components/layout";
 import { QueryBoundary } from "../../../components/query";
 import { ThemeCard } from "../../../components/theme";
@@ -9,7 +10,10 @@ import { PerfCard } from "../../../components/perf";
 import { PageHeader, Skeleton } from "../../../components/ui";
 import { t, type Key } from "../../../i18n";
 import { SETTINGS_PARTS, SETTINGS_TABS, type SettingsSearch } from "../../search";
+import { ClosedForSupport } from "../../support-closed";
 import { AboutCard } from "./about";
+import { AppCard } from "./app";
+import { AuditCard } from "./audit";
 import { BackupCard } from "./backup";
 import { DashboardCard } from "./dashboard";
 import { MonitorCard } from "./monitor";
@@ -17,16 +21,17 @@ import { AutoCard, LanguageCard, ServiceCard, UpdatesCard } from "./general";
 import { ServerCheckCard } from "../node-check";
 import { GoalsCard } from "./goals";
 import { ImportCard, LegacyLinksCard } from "./import";
-import { RoutingSection } from "./routing";
+import { ROUTING_PARTS, RoutingSection, type RoutingPart } from "./routing";
 import { AccessCard, ApiCard, CertificateCard, PasswordCard, SessionsCard, TwoFactorCard } from "./security";
-import { AppsCard, DevicesCard, SubDomainCard, SubPortCard, SubscriptionCard } from "./subscription";
+import { SupportCard } from "./support";
+import { AppsCard, DevicesCard, InactiveCard, SubDomainCard, SubPortCard, SubscriptionCard } from "./subscription";
+import { SiteCard } from "./site";
 import { HappCard } from "./happ";
 import { SubPageSettings, type SubPagePart } from "./sub-page";
 
 type Tab = SettingsSearch["tab"];
-type RoutingPart = "simple" | "yaml";
 
-const ICONS = { general: Globe, subscription: Link2, page: LayoutTemplate, routing: Route, security: ShieldCheck, system: Cpu, import: ArrowDownToLine } as const;
+const ICONS = { general: Globe, subscription: Link2, page: LayoutTemplate, routing: Route, security: ShieldCheck, support: LifeBuoy, system: Cpu, import: ArrowDownToLine } as const;
 
 const PART_LABELS: Record<string, Key> = {
   look: "settings.page.tab.look",
@@ -35,6 +40,12 @@ const PART_LABELS: Record<string, Key> = {
   apps: "settings.page.tab.apps",
   docs: "settings.page.tab.docs",
   css: "settings.page.tab.css",
+  mode: "settings.routingParts.mode",
+  lists: "settings.routingParts.lists",
+  rules: "settings.routingParts.rules",
+  dns: "settings.routingParts.dns",
+  advanced: "settings.routingParts.advanced",
+  yaml: "settings.routingParts.yaml",
 };
 
 /**
@@ -44,13 +55,16 @@ const PART_LABELS: Record<string, Key> = {
  */
 export function SettingsPage() {
   const settings = useSettings();
+  // A support operator has no account of their own here: the credentials, the sessions and the keys are closed to them.
+  const operator = !!useSupportMode();
   const { tab, part } = useSearch({ from: "/_app/settings" });
   const navigate = useNavigate({ from: "/settings" });
   const go = (next: Tab, nextPart?: string) => void navigate({ search: { tab: next, part: nextPart }, replace: true });
-  // The routing opens where it is in use: the own YAML once there is one.
-  const routingPart: RoutingPart = part === "simple" || part === "yaml" ? part : settings.data?.sub_template.trim() ? "yaml" : "simple";
+  // The routing opens where it is in use: the own YAML once there is one. An old link to the
+  // simple mode ("simple") opens the mode.
+  const routingPart: RoutingPart = ROUTING_PARTS.includes(part as RoutingPart) ? (part as RoutingPart) : settings.data?.sub_template.trim() && part !== "simple" ? "yaml" : "mode";
   const pagePart: SubPagePart = (part as SubPagePart | undefined) ?? "look";
-  const shownPart = tab === "page" ? pagePart : undefined;
+  const shownPart = tab === "page" ? pagePart : tab === "routing" ? routingPart : undefined;
   const wide = tab === "page" || tab === "routing";
   return (
     <>
@@ -82,6 +96,7 @@ export function SettingsPage() {
                   <ThemeCard />
                   <FontCard />
                   <PerfCard />
+                  <AppCard s={s} />
                 </>
               ) : tab === "subscription" ? (
                 <>
@@ -90,20 +105,33 @@ export function SettingsPage() {
                   <AppsCard s={s} />
                   <HappCard s={s} />
                   <SubscriptionCard s={s} />
+                  <InactiveCard s={s} />
                   <SubPortCard s={s} />
                 </>
               ) : tab === "routing" ? (
-                <RoutingSection s={s} view={routingPart} onView={(v) => go("routing", v)} />
+                <RoutingSection s={s} part={routingPart} onPart={(p) => go("routing", p)} />
               ) : tab === "security" ? (
-                <>
-                  <PasswordCard />
-                  <TwoFactorCard />
-                  <SessionsCard />
-                  <AccessCard s={s} />
-                  <MonitorCard />
-                  <CertificateCard s={s} />
-                  <ApiCard />
-                </>
+                operator ? (
+                  <>
+                    <ClosedForSupport />
+                    <CertificateCard s={s} />
+                  </>
+                ) : (
+                  <>
+                    <PasswordCard />
+                    <TwoFactorCard />
+                    <SessionsCard />
+                    <AuditCard />
+                    <AccessCard s={s} />
+                    <SiteCard s={s} />
+                    <MonitorCard />
+                    <CertificateCard s={s} />
+                    <ApiCard />
+                  </>
+                )
+              ) : tab === "support" ? (
+                // Who may let a helper in is the admin's own business: an operator sees it closed.
+                operator ? <ClosedForSupport /> : <SupportCard />
               ) : tab === "system" ? (
                 <>
                   <UpdatesCard />

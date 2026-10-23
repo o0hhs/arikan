@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 	"html"
+	"mikan/internal/tgapi"
 	"net/url"
 	"strings"
 
 	"mikan/internal/panel/referral"
-	"mikan/internal/panel/tgate"
 )
 
 // The referral programme: the account's own invite link, what it has brought, and what an
@@ -23,8 +23,8 @@ import (
 // The programme is the panel's (referral.Service) and the screens reach it through Backend:
 // in the panel's own process, or over the Panel API when the bot runs as an addon.
 
-// refPrefix marks a referral code in /start.
-const refPrefix = "ref_"
+// RefPrefix marks a referral code in /start.
+const RefPrefix = "ref_"
 
 // ReferralLink is the account's invite link, made with its own code; "" while the bot is
 // off, the programme is off, or the account has no code yet.
@@ -41,7 +41,7 @@ func (b *Bot) ReferralLink(ctx context.Context, tgID int64) string {
 	if !v.Enabled || v.Code == "" {
 		return ""
 	}
-	return "https://t.me/" + username + "?start=" + refPrefix + v.Code
+	return "https://t.me/" + username + "?start=" + RefPrefix + v.Code
 }
 
 // Referral joins the chat to the account whose invite link it followed, and says what
@@ -89,8 +89,8 @@ func (b *Bot) CampaignVisit(ctx context.Context, w *words, chat int64, tag strin
 
 // referral is the screen: the account's own link, what it has brought and what it may
 // spend. It opens with or without a subscription.
-func (b *Bot) referral(ctx context.Context, w *words, chat int64, cmd string, notice string) (string, *tgate.Keyboard) {
-	home := []tgate.Button{{Text: w.back, CallbackData: "m"}}
+func (b *Bot) referral(ctx context.Context, w *words, chat int64, cmd string, notice string) (string, *tgapi.Keyboard) {
+	home := []tgapi.Button{{Text: w.back, CallbackData: "m"}}
 	title := func(s string) string {
 		if notice == "" {
 			return "<b>" + html.EscapeString(s) + "</b>"
@@ -102,14 +102,14 @@ func (b *Bot) referral(ctx context.Context, w *words, chat int64, cmd string, no
 		b.d.Log.Warn("telegram: referral", "tg", chat, "err", err)
 	}
 	if !v.Enabled {
-		return title(w.refTitle) + "\n\n" + html.EscapeString(w.refOff), &tgate.Keyboard{InlineKeyboard: [][]tgate.Button{home}}
+		return title(w.refTitle) + "\n\n" + html.EscapeString(w.refOff), &tgapi.Keyboard{InlineKeyboard: [][]tgapi.Button{home}}
 	}
 	if cmd == "fh" {
 		return refHistory(w, v, title(w.refHistoryTitle), home)
 	}
 	link := b.ReferralLink(ctx, chat)
 	if link == "" {
-		return title(w.refTitle) + "\n\n" + html.EscapeString(w.refLinkUnavailable), &tgate.Keyboard{InlineKeyboard: [][]tgate.Button{home}}
+		return title(w.refTitle) + "\n\n" + html.EscapeString(w.refLinkUnavailable), &tgapi.Keyboard{InlineKeyboard: [][]tgapi.Button{home}}
 	}
 	lines := []string{title(w.refTitle), "", html.EscapeString(w.refYourLink), "<code>" + html.EscapeString(link) + "</code>", "",
 		html.EscapeString(fmt.Sprintf(w.refStats, v.Invited, v.Paid, w.rubles(v.Balance)))}
@@ -123,17 +123,17 @@ func (b *Bot) referral(ctx context.Context, w *words, chat int64, cmd string, no
 		}
 	}
 	share := "https://t.me/share/url?url=" + url.QueryEscape(link) + "&text=" + url.QueryEscape(refShareText(ctx, w, b))
-	rows := [][]tgate.Button{{{Text: w.refShare, URL: share}}}
+	rows := [][]tgapi.Button{{{Text: w.refShare, URL: share}}}
 	if v.Paid > 0 {
-		rows = append(rows, []tgate.Button{{Text: w.refHistory, CallbackData: "fh"}})
+		rows = append(rows, []tgapi.Button{{Text: w.refHistory, CallbackData: "fh"}})
 	}
-	return strings.Join(lines, "\n"), &tgate.Keyboard{InlineKeyboard: append(rows, home)}
+	return strings.Join(lines, "\n"), &tgapi.Keyboard{InlineKeyboard: append(rows, home)}
 }
 
 // refHistory is what the account has earned, most recent first.
-func refHistory(w *words, v ReferralView, head string, home []tgate.Button) (string, *tgate.Keyboard) {
+func refHistory(w *words, v ReferralView, head string, home []tgapi.Button) (string, *tgapi.Keyboard) {
 	if len(v.Rewards) == 0 {
-		return head + "\n\n" + html.EscapeString(w.refHistoryNone), &tgate.Keyboard{InlineKeyboard: [][]tgate.Button{home}}
+		return head + "\n\n" + html.EscapeString(w.refHistoryNone), &tgapi.Keyboard{InlineKeyboard: [][]tgapi.Button{home}}
 	}
 	lines := []string{head, ""}
 	for _, r := range v.Rewards {
@@ -143,7 +143,7 @@ func refHistory(w *words, v ReferralView, head string, home []tgate.Button) (str
 		}
 		lines = append(lines, "• "+html.EscapeString(what)+" — "+html.EscapeString(w.shortDate(r.At)))
 	}
-	return strings.Join(lines, "\n"), &tgate.Keyboard{InlineKeyboard: [][]tgate.Button{home}}
+	return strings.Join(lines, "\n"), &tgapi.Keyboard{InlineKeyboard: [][]tgapi.Button{home}}
 }
 
 // refRuleLines says what the programme pays, each rule with the tariffs it counts.
@@ -188,3 +188,16 @@ func refShareText(ctx context.Context, w *words, b *Bot) string {
 
 // rubles is an amount in kopecks the way the bot writes money.
 func (w *words) rubles(kopecks int64) string { return w.price(kopecks, "RUB") }
+
+// ReferralEarnedText is what the referrer is told an invitee's payment brought them.
+func ReferralEarnedText(lang string, rub int64, days int64, everyN int64) string {
+	w := wordsFor(lang)
+	switch {
+	case days > 0 && everyN > 1:
+		return fmt.Sprintf(w.refEarnedDaysEvery, everyN, w.days(int(days)))
+	case days > 0:
+		return fmt.Sprintf(w.refEarnedDays, w.days(int(days)))
+	default:
+		return fmt.Sprintf(w.refEarnedRub, w.rubles(rub))
+	}
+}

@@ -8,6 +8,12 @@ import (
 	"database/sql"
 )
 
+type AddonCommunity struct {
+	AddonID string
+	Repo    string
+	Key     string
+}
+
 type AddonCursor struct {
 	AddonID   string
 	LastID    int64
@@ -149,6 +155,24 @@ type AuditLog struct {
 	TargetID   sql.NullString
 	Ip         sql.NullString
 	Details    sql.NullString
+}
+
+type Balance struct {
+	TgID      int64
+	Amount    int64
+	UpdatedAt int64
+}
+
+type BalanceOp struct {
+	ID        int64
+	TgID      int64
+	Amount    int64
+	Kind      string
+	PaymentID sql.NullInt64
+	TopupID   sql.NullInt64
+	AdminID   sql.NullInt64
+	Note      string
+	CreatedAt int64
 }
 
 type BoundDevice struct {
@@ -309,7 +333,6 @@ type Inbound struct {
 	Preset      string
 	Port        string
 	Enabled     int64
-	Settings    string
 	CreatedAt   int64
 	UpdatedAt   int64
 	DisplayName string
@@ -381,8 +404,22 @@ type Node struct {
 	TotalDown      int64
 	FairShare      int64
 	ChannelMbps    sql.NullInt64
+	Capacity       sql.NullInt64
+	BalanceGroup   string
+	HttpRedirect   int64
+	SniRouter      int64
+	ApiLockdown    int64
+	ApiAllow       []string
+	FrontPage      string
 	Emergency      bool
 	EmergencySpeed sql.NullInt32
+}
+
+type NodeAssignment struct {
+	UserID       int64
+	BalanceGroup string
+	NodeID       int64
+	AssignedAt   int64
 }
 
 type NodeClient struct {
@@ -421,17 +458,21 @@ type NodeState struct {
 }
 
 type NodeTrafficDaily struct {
-	NodeID int64
-	Day    int64
-	Up     int64
-	Down   int64
+	NodeID    int64
+	Day       int64
+	Up        int64
+	Down      int64
+	RelayUp   int64
+	RelayDown int64
 }
 
 type NodeTrafficHourly struct {
-	NodeID int64
-	Hour   int64
-	Up     int64
-	Down   int64
+	NodeID    int64
+	Hour      int64
+	Up        int64
+	Down      int64
+	RelayUp   int64
+	RelayDown int64
 }
 
 type NodeTurn struct {
@@ -476,6 +517,11 @@ type Outbound struct {
 	Enabled   int64
 	CreatedAt int64
 	UpdatedAt int64
+}
+
+type PackageTariff struct {
+	PackageID int64
+	TariffID  int64
 }
 
 type Payment struct {
@@ -647,14 +693,15 @@ type RelayUser struct {
 }
 
 type Session struct {
-	IDHash     string
-	AdminID    int64
-	CsrfToken  string
-	CreatedAt  int64
-	LastSeenAt int64
-	ExpiresAt  int64
-	Ip         string
-	UserAgent  string
+	IDHash         string
+	AdminID        int64
+	CsrfToken      string
+	CreatedAt      int64
+	LastSeenAt     int64
+	ExpiresAt      int64
+	Ip             string
+	UserAgent      string
+	SupportGrantID sql.NullInt64
 }
 
 type Setting struct {
@@ -709,32 +756,70 @@ type SubFetch struct {
 	FetchedAt int64
 }
 
+type SupportGrant struct {
+	ID              int64
+	TokenHash       string
+	AdminID         int64
+	Level           string
+	ShowPeople      bool
+	TerminalTargets []string
+	Note            string
+	CreatedAt       int64
+	ExpiresAt       int64
+	EnteredAt       sql.NullInt64
+	OperatorSeenAt  sql.NullInt64
+	LastUsedAt      sql.NullInt64
+	LastIp          string
+	RevokedAt       sql.NullInt64
+	EndedNotedAt    sql.NullInt64
+	Extended        bool
+}
+
 type Tariff struct {
-	ID            int64
-	Name          string
-	TrafficLimit  sql.NullInt64
-	DurationDays  int64
-	DeviceLimit   sql.NullInt64
-	ResetStrategy string
-	PriceLabel    string
-	Sort          int64
-	Archived      int64
-	CreatedAt     int64
-	BillingDay    sql.NullInt64
-	PriceStars    sql.NullInt64
-	PriceRub      sql.NullInt64
-	OnSale        int64
-	SpeedLimit    sql.NullInt64
-	Description   string
-	DeviceMode    string
-	Closed        string
+	ID               int64
+	Name             string
+	TrafficLimit     sql.NullInt64
+	DurationDays     int64
+	DeviceLimit      sql.NullInt64
+	ResetStrategy    string
+	PriceLabel       string
+	Sort             int64
+	Archived         int64
+	CreatedAt        int64
+	BillingDay       sql.NullInt64
+	PriceStars       sql.NullInt64
+	PriceRub         sql.NullInt64
+	OnSale           int64
+	SpeedLimit       sql.NullInt64
+	Description      string
+	DeviceMode       string
+	Closed           string
+	DevicePriceStars sql.NullInt64
+	DevicePriceRub   sql.NullInt64
+	DeviceExtraMax   int64
+	ChosenServers    int64
+}
+
+type TariffGift struct {
+	TariffID  int64
+	PackageID int64
+}
+
+type TariffInbound struct {
+	TariffID  int64
+	InboundID int64
+}
+
+type TariffNode struct {
+	TariffID int64
+	NodeID   int64
 }
 
 type TariffPool struct {
 	TariffID     int64
 	PoolID       int64
-	TrafficLimit int64
-	Excluded     bool
+	TrafficLimit sql.NullInt64
+	Mode         string
 }
 
 type TariffTerm struct {
@@ -757,6 +842,11 @@ type TgChat struct {
 	UpdatedAt int64
 }
 
+type TgClient struct {
+	TgID  int64
+	Since int64
+}
+
 type TgLink struct {
 	UserID    int64
 	TgID      int64
@@ -768,6 +858,19 @@ type TgNotice struct {
 	Kind   string
 	Period int64
 	SentAt int64
+}
+
+type Topup struct {
+	ID        int64
+	TgID      int64
+	Amount    int64
+	Currency  string
+	Photo     string
+	Status    string
+	CreatedAt int64
+	DecidedAt sql.NullInt64
+	AdminID   sql.NullInt64
+	Reason    string
 }
 
 type TorrentHit struct {
@@ -843,36 +946,38 @@ type Trial struct {
 }
 
 type User struct {
-	ID            int64
-	Name          string
-	Contact       string
-	Note          string
-	Tags          string
-	Status        string
-	TariffID      sql.NullInt64
-	TrafficLimit  sql.NullInt64
-	DeviceLimit   sql.NullInt64
-	ResetStrategy string
-	PeriodDays    int64
-	PeriodStart   int64
-	UsedUp        int64
-	UsedDown      int64
-	TotalUp       int64
-	TotalDown     int64
-	ExpiresAt     sql.NullInt64
-	Inbounds      sql.NullString
-	SubToken      string
-	SlotID        sql.NullInt64
-	OnlineAt      sql.NullInt64
-	CreatedAt     int64
-	UpdatedAt     int64
-	BillingDay    sql.NullInt64
-	Source        string
-	Hidden        int64
-	FolderID      sql.NullInt64
-	SpeedLimit    sql.NullInt64
-	DeviceMode    string
-	DevicePackID  sql.NullInt64
+	ID                int64
+	Name              string
+	Contact           string
+	Note              string
+	Tags              string
+	Status            string
+	TariffID          sql.NullInt64
+	TrafficLimit      sql.NullInt64
+	DeviceLimit       sql.NullInt64
+	ResetStrategy     string
+	PeriodDays        int64
+	PeriodStart       int64
+	UsedUp            int64
+	UsedDown          int64
+	TotalUp           int64
+	TotalDown         int64
+	ExpiresAt         sql.NullInt64
+	Inbounds          sql.NullString
+	SubToken          string
+	SlotID            sql.NullInt64
+	OnlineAt          sql.NullInt64
+	CreatedAt         int64
+	UpdatedAt         int64
+	BillingDay        sql.NullInt64
+	Source            string
+	Hidden            int64
+	FolderID          sql.NullInt64
+	SpeedLimit        sql.NullInt64
+	DeviceMode        string
+	ExtraDevices      int64
+	ExtraDevicesUntil sql.NullInt64
+	DevicePackID      sql.NullInt64
 }
 
 type UserFolder struct {
@@ -890,7 +995,7 @@ type UserPool struct {
 	TrafficLimit sql.NullInt64
 	UsedUp       int64
 	UsedDown     int64
-	Excluded     bool
+	Mode         string
 }
 
 type UserSite struct {
