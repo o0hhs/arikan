@@ -2916,7 +2916,12 @@
     "frontPageNone": "None",
     "frontPageMaintenance": "Maintenance",
     "frontPageCats": "Cat clicker",
-    "frontPageRouter": "With the shared port 443 the node's domain and a request with no name get it too: the node's real certificate, TLS 1.2 or later, HSTS. A domain a protocol on the shared 443 takes stays with the protocol and shows the page too if it is XHTTP, WebSocket or gRPC."
+    "frontPageRouter": "With the shared port 443 the node's domain and a request with no name get it too: the node's real certificate, TLS 1.2 or later, HSTS. A domain a protocol on the shared 443 takes stays with the protocol and shows the page too if it is XHTTP, WebSocket or gRPC.",
+    "emergency": "Emergency node",
+    "emergencyHint": "Ended subscriptions see its servers alone: Telegram keeps working while the buyer finds the bot",
+    "emergencySpeed": "Speed for ended",
+    "emergencySpeedHint": "Mbit/s on this node; empty — no cap",
+    "emergencySpeedErr": "1 to 10000 Mbit/s"
   },
   "telegram": {
     "subtitle": "A bot for subscription owners and a Mini App with the subscription page",

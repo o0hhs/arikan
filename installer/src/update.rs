@@ -1104,7 +1104,6 @@ pub fn converge(say: &mut dyn FnMut(&str)) -> Result<()> {
         }
     }
     let running = docker::services().is_ok_and(|s| s.iter().any(|s| s.state == "running"));
-    let mut install = install;
     // A server of before config.json moves its settings here: the files first (the new
     // compose.yaml mounts them), .env once the containers run on them.
     let moving = install.config.legacy();
