@@ -1,3 +1,4 @@
+-- +goose Up
 -- An emergency node keeps Telegram reachable for subscriptions that have ended: their
 -- profiles list its inbounds alone (a banner of dead entries says the rest), and the sync
 -- lets them in there with the speed the node says, while every other node turns them away

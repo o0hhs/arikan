@@ -1,3 +1,4 @@
+-- +goose Up
 -- Device packs buy a subscription more device places than its tariff has. The pack rides
 -- the subscription: its price adds to the tariff's on every invoice (a pack month is its
 -- price, part of every day of the term), and the places it bought widen the subscription's

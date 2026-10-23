@@ -174,14 +174,10 @@ jobs:
             echo "::error::duplicate migration numbers: $dupes"
             exit 1
           fi
+      # The app's own runner applies the files (goose, the version go.mod pins): a plain
+      # psql loop would run the -- +goose Down sections too and undo the schema.
       - name: migrations apply in order
-        run: |
-          status=0
-          for f in $(LC_ALL=C ls internal/panel/store/postgres/*.sql | LC_ALL=C sort); do
-            echo "applying $(basename "$f")"
-            psql "$MIKAN_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -q -f "$f" || { status=1; break; }
-          done
-          exit $status
+        run: go run github.com/pressly/goose/v3/cmd/goose@v3.28.0 -dir internal/panel/store/postgres postgres "$MIKAN_TEST_DATABASE_URL" up
       - name: sqlc regenerates nothing
         run: |
           # web/embed.go embeds web/dist, and `all:dist` needs at least one file there.
