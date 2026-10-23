@@ -20,6 +20,7 @@ import (
 type AdminView struct {
 	ID          int64      `json:"id"`
 	Username    string     `json:"username"`
+	Role        string     `json:"role" enum:"superadmin,support,tech"`
 	TOTPEnabled bool       `json:"totp_enabled"`
 	LastLoginAt *time.Time `json:"last_login_at,omitempty"`
 }
@@ -30,7 +31,7 @@ type MeBody struct {
 }
 
 func viewAdmin(a db.Admin) AdminView {
-	v := AdminView{ID: a.ID, Username: a.Username, TOTPEnabled: a.TotpSecret.Valid}
+	v := AdminView{ID: a.ID, Username: a.Username, Role: a.Role, TOTPEnabled: a.TotpSecret.Valid}
 	v.LastLoginAt = store.TimePtr(a.LastLoginAt)
 	return v
 }

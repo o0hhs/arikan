@@ -91,6 +91,15 @@ type Admin struct {
 	CreatedAt     int64
 	LastLoginAt   sql.NullInt64
 	TotpStep      int64
+	Role          string
+}
+
+type AdminUser struct {
+	TgID      int64
+	Username  string
+	Role      string
+	CreatedAt int64
+	CreatedBy sql.NullInt64
 }
 
 type AgentCommission struct {
@@ -251,10 +260,71 @@ type DeviceBan struct {
 	Until    sql.NullInt64
 }
 
+type DevicePack struct {
+	ID         int64
+	Title      string
+	Slots      int32
+	PriceRub   int64
+	PriceStars sql.NullInt64
+	Sort       int64
+	OnSale     bool
+	Archived   bool
+	CreatedAt  int64
+}
+
 type DeviceUnbind struct {
 	ID     int64
 	UserID int64
 	At     int64
+}
+
+type Discount struct {
+	ID             int64
+	Name           string
+	Description    string
+	Type           string
+	Value          int64
+	Currency       string
+	StartsAt       int64
+	EndsAt         int64
+	MaxUses        sql.NullInt64
+	UsedCount      int64
+	MinOrder       int64
+	MaxDiscount    int64
+	NotifyEnabled  int64
+	NotifyDays     string
+	NotifyAudience string
+	NotifyText     string
+	Enabled        int64
+	Deleted        int64
+	CreatedAt      int64
+	CreatedBy      sql.NullInt64
+}
+
+type DiscountNotice struct {
+	DiscountID int64
+	TgID       int64
+	Kind       string
+	SentAt     int64
+}
+
+type DiscountRedemption struct {
+	ID             int64
+	DiscountID     int64
+	UserID         sql.NullInt64
+	TgID           int64
+	PaymentID      sql.NullInt64
+	Status         string
+	RedeemedAt     int64
+	DiscountAmount int64
+	OriginalAmount int64
+	FinalAmount    int64
+	Currency       string
+}
+
+type DiscountTariff struct {
+	DiscountID int64
+	TariffID   int64
 }
 
 type FreePlan struct {
@@ -328,28 +398,30 @@ type MikanSqliteImport struct {
 }
 
 type Node struct {
-	ID           int64
-	Name         string
-	Address      string
-	PublicHost   string
-	Domain       string
-	CertSha256   string
-	Enabled      int64
-	CreatedAt    int64
-	UpdatedAt    int64
-	PublicName   string
-	Sort         int64
-	TotalUp      int64
-	TotalDown    int64
-	FairShare    int64
-	ChannelMbps  sql.NullInt64
-	Capacity     sql.NullInt64
-	BalanceGroup string
-	HttpRedirect int64
-	SniRouter    int64
-	ApiLockdown  int64
-	ApiAllow     []string
-	FrontPage    string
+	ID             int64
+	Name           string
+	Address        string
+	PublicHost     string
+	Domain         string
+	CertSha256     string
+	Enabled        int64
+	CreatedAt      int64
+	UpdatedAt      int64
+	PublicName     string
+	Sort           int64
+	TotalUp        int64
+	TotalDown      int64
+	FairShare      int64
+	ChannelMbps    sql.NullInt64
+	Capacity       sql.NullInt64
+	BalanceGroup   string
+	HttpRedirect   int64
+	SniRouter      int64
+	ApiLockdown    int64
+	ApiAllow       []string
+	FrontPage      string
+	Emergency      bool
+	EmergencySpeed sql.NullInt32
 }
 
 type NodeAssignment struct {
@@ -461,6 +533,34 @@ type PackageTariff struct {
 	TariffID  int64
 }
 
+type Partner struct {
+	ID        int64
+	Name      string
+	Note      string
+	CreatedAt int64
+}
+
+type PartnerBot struct {
+	ID                int64
+	PartnerID         int64
+	Code              string
+	BotUsername       string
+	BotToken          string
+	CommissionPercent int32
+	BalanceKop        int64
+	Enabled           bool
+	CreatedAt         int64
+}
+
+type PartnerTransaction struct {
+	ID           int64
+	PartnerBotID int64
+	PaymentID    int64
+	Kind         string
+	AmountKop    int64
+	CreatedAt    int64
+}
+
 type Payment struct {
 	ID           int64
 	Provider     string
@@ -485,6 +585,8 @@ type Payment struct {
 	Revert       string
 	Custom       string
 	CustomBaseID sql.NullInt64
+	DevicePackID sql.NullInt64
+	PartnerBotID sql.NullInt64
 }
 
 type PromoAccess struct {
@@ -768,14 +870,15 @@ type TariffTerm struct {
 }
 
 type TgChat struct {
-	TgID      int64
-	Username  string
-	FirstName string
-	MenuMsgID int64
-	Current   int64
-	Blocked   int64
-	CreatedAt int64
-	UpdatedAt int64
+	TgID         int64
+	Username     string
+	FirstName    string
+	MenuMsgID    int64
+	Current      int64
+	Blocked      int64
+	CreatedAt    int64
+	UpdatedAt    int64
+	PartnerBotID sql.NullInt64
 }
 
 type TgClient struct {
@@ -913,6 +1016,8 @@ type User struct {
 	DeviceMode        string
 	ExtraDevices      int64
 	ExtraDevicesUntil sql.NullInt64
+	DevicePackID      sql.NullInt64
+	PartnerBotID      sql.NullInt64
 }
 
 type UserFolder struct {

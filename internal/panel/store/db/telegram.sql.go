@@ -95,7 +95,7 @@ func (q *Queries) CountTgLinksOf(ctx context.Context, tgID int64) (int64, error)
 }
 
 const getTgChat = `-- name: GetTgChat :one
-SELECT tg_id, username, first_name, menu_msg_id, current, blocked, created_at, updated_at FROM tg_chats WHERE tg_id = $1
+SELECT tg_id, username, first_name, menu_msg_id, current, blocked, created_at, updated_at, partner_bot_id FROM tg_chats WHERE tg_id = $1
 `
 
 func (q *Queries) GetTgChat(ctx context.Context, tgID int64) (TgChat, error) {
@@ -110,6 +110,7 @@ func (q *Queries) GetTgChat(ctx context.Context, tgID int64) (TgChat, error) {
 		&i.Blocked,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PartnerBotID,
 	)
 	return i, err
 }
@@ -148,7 +149,7 @@ func (q *Queries) LinkTg(ctx context.Context, arg LinkTgParams) error {
 }
 
 const listTgLinksOf = `-- name: ListTgLinksOf :many
-SELECT u.id, u.name, u.contact, u.note, u.tags, u.status, u.tariff_id, u.traffic_limit, u.device_limit, u.reset_strategy, u.period_days, u.period_start, u.used_up, u.used_down, u.total_up, u.total_down, u.expires_at, u.inbounds, u.sub_token, u.slot_id, u.online_at, u.created_at, u.updated_at, u.billing_day, u.source, u.hidden, u.folder_id, u.speed_limit, u.device_mode, u.extra_devices, u.extra_devices_until FROM tg_links l JOIN users u ON u.id = l.user_id WHERE l.tg_id = $1 ORDER BY l.created_at, u.id
+SELECT u.id, u.name, u.contact, u.note, u.tags, u.status, u.tariff_id, u.traffic_limit, u.device_limit, u.reset_strategy, u.period_days, u.period_start, u.used_up, u.used_down, u.total_up, u.total_down, u.expires_at, u.inbounds, u.sub_token, u.slot_id, u.online_at, u.created_at, u.updated_at, u.billing_day, u.source, u.hidden, u.folder_id, u.speed_limit, u.device_mode, u.extra_devices, u.extra_devices_until, u.device_pack_id, u.partner_bot_id FROM tg_links l JOIN users u ON u.id = l.user_id WHERE l.tg_id = $1 ORDER BY l.created_at, u.id
 `
 
 // The subscriptions a Telegram account owns, oldest link first.
@@ -193,6 +194,8 @@ func (q *Queries) ListTgLinksOf(ctx context.Context, tgID int64) ([]User, error)
 			&i.DeviceMode,
 			&i.ExtraDevices,
 			&i.ExtraDevicesUntil,
+			&i.DevicePackID,
+			&i.PartnerBotID,
 		); err != nil {
 			return nil, err
 		}

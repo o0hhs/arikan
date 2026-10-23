@@ -74,6 +74,7 @@ func (s *Service) refundLatePromoPayment(ctx context.Context, paymentID int64, e
 		if err := s.d.Promo.ReleasePayment(ctx, paymentID); err != nil {
 			return true, err
 		}
+		s.releaseSale(ctx, paymentID)
 		return true, nil
 	}
 	r, err := s.d.Promo.GetPaymentRedemption(ctx, paymentID)
@@ -129,6 +130,7 @@ func (s *Service) refundLatePromoPayment(ctx context.Context, paymentID int64, e
 	if err := s.d.Promo.ReleasePayment(ctx, paymentID); err != nil {
 		return true, s.markLatePromoRefundFailed(ctx, paymentID, err)
 	}
+	s.releaseSale(ctx, paymentID)
 	s.d.Log.Warn("billing: late discounted payment refunded", "payment", paymentID, "provider", pay.Provider)
 	return true, nil
 }

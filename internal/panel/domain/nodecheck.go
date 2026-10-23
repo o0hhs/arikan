@@ -140,6 +140,10 @@ type NodePatch struct {
 	Enabled     *bool
 	FairShare   *bool
 	ChannelMbps *int64
+	// Emergency marks the node that keeps Telegram reachable for ended subscriptions;
+	// EmergencySpeed is the Mbit/s they are shaped to there (nil: as fast as the node).
+	Emergency      *bool
+	EmergencySpeed *int64
 	// HTTPRedirect: plain HTTP on port 80 gets 301 to https. Not on the panel's own node,
 	// whose port 80 the panel's certificates use.
 	HTTPRedirect *bool
@@ -286,6 +290,19 @@ func UpdateNode(ctx context.Context, st *store.Store, id int64, p NodePatch, now
 				return ErrChannelRequired
 			}
 			if err := q.SetNodeShaping(ctx, db.SetNodeShapingParams{FairShare: cur.FairShare, ChannelMbps: cur.ChannelMbps, UpdatedAt: now.Unix(), ID: cur.ID}); err != nil {
+				return err
+			}
+		}
+		if p.Emergency != nil || p.EmergencySpeed != nil {
+			speed := cur.EmergencySpeed
+			if p.EmergencySpeed != nil {
+				speed = sql.NullInt32{Int32: int32(*p.EmergencySpeed), Valid: true}
+			}
+			on := cur.Emergency
+			if p.Emergency != nil {
+				on = *p.Emergency
+			}
+			if err := q.SetNodeEmergency(ctx, db.SetNodeEmergencyParams{Emergency: on, EmergencySpeed: speed, UpdatedAt: now.Unix(), ID: cur.ID}); err != nil {
 				return err
 			}
 		}

@@ -26,12 +26,21 @@ func (s shop) Offers(ctx context.Context, tgID int64) ([]model.Offer, model.Avai
 	return model.Each(o, billing.Offer.Model), av.Model(), err
 }
 
+func (s shop) DevicePacks(ctx context.Context) ([]db.DevicePack, error) {
+	return s.b.DevicePacks(ctx)
+}
+
+func (s shop) Renewable(ctx context.Context, userID int64) (model.Offer, bool, error) {
+	o, ok, err := s.b.Renewable(ctx, userID)
+	return o.Model(), ok, err
+}
+
 func (s shop) AddonName(ctx context.Context, id, lang string) string {
 	return s.b.AddonName(ctx, id, lang)
 }
 
 func (s shop) Invoice(ctx context.Context, req model.InvoiceRequest) (model.Payment, error) {
-	p, err := s.b.Invoice(ctx, billing.InvoiceRequest{TgID: req.TgID, UserID: req.UserID, TariffID: req.TariffID, TermDays: req.TermDays, Provider: req.Provider, PromoCode: req.PromoCode})
+	p, err := s.b.Invoice(ctx, billing.InvoiceRequest{TgID: req.TgID, UserID: req.UserID, TariffID: req.TariffID, TermDays: req.TermDays, Provider: req.Provider, PromoCode: req.PromoCode, DevicePackID: req.DevicePackID})
 	return payment(p), err
 }
 

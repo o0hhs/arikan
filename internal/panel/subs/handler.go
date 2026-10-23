@@ -75,6 +75,12 @@ type Config struct {
 	InactiveText   string
 	// Tariffs names the tariffs, for {tariff} in the title and the notices.
 	Tariffs map[int64]string
+	// ProtocolOrder is the admin's order of protocol families (settings.KeyProtocolOrder):
+	// within a node the inbounds follow it, the unnamed families after them as they were.
+	ProtocolOrder []string
+	// MTProto is the MTProto proxies for Telegram itself (settings.KeyMTProto); empty: the
+	// button and the page block are not shown.
+	MTProto []MTProxy
 }
 
 // Binder hands devices their keys (domain.Devices).
@@ -183,6 +189,10 @@ var devicePath = regexp.MustCompile(`^devices/([0-9]{1,18})/(unbind|name)$`)
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	p := strings.TrimPrefix(path.Clean(r.URL.Path), "/")
 	token, rest, _ := strings.Cut(p, "/")
+	if token == "import" {
+		h.importRedirect(w, r)
+		return
+	}
 	if token == "tg" && h.tg != nil {
 		h.miniApp(w, r, rest)
 		return
@@ -330,6 +340,16 @@ func (h *Handler) serveProfile(w http.ResponseWriter, r *http.Request, u db.User
 	app := DetectApp(r.Header.Get("User-Agent"))
 	state := domain.State(u, grants.Main(u.ID), h.now())
 	prof.Inbounds = forApp(prof.Inbounds, app, state)
+	// A subscription that ran out says so in the profile itself: a banner of server entries
+	// that reach nowhere, on top of the list, with where to renew it. The page and the
+	// traffic headers say the same thing; this is the one place the apps read without the
+	// page. The servers left to it are the emergency node's alone — Telegram stays reachable
+	// while the buyer reads the banner. The admin's InactiveServer (inactiveNotice, above)
+	// takes precedence: one notice in place of everything.
+	if state == domain.StateExpired || state == domain.StateLimited {
+		prof.Notice = &Notice{Lines: h.noticeLines(r.Context(), u, state, cfg)}
+		prof.emergencyOnly()
+	}
 	// The block detector trusts a device only once it took a profile with an inbound's
 	// current port and target (see autotune.Detect).
 	_ = h.st.Q.RecordSubFetch(r.Context(), db.RecordSubFetchParams{UserID: u.ID, Ip: h.clientIP(r), FetchedAt: h.now().Unix()})
@@ -453,7 +473,7 @@ func (h *Handler) slotFor(r *http.Request, u db.User, cfg Config) (db.Slot, erro
 // profile lists what the user may use; slot is whose keys go in (zero for the page).
 // grants is what is left of the user's grants when the caller read it already; nil reads it.
 func (h *Handler) profile(ctx context.Context, u db.User, cfg Config, slot db.Slot, grants domain.GrantsLeft) (Profile, error) {
-	prof := Profile{Nodes: cfg.Nodes, Direct: cfg.Direct, Slot: slot, Fingerprint: cfg.Fingerprint, UserID: u.ID}
+	prof := Profile{Nodes: cfg.Nodes, Direct: cfg.Direct, Slot: slot, Fingerprint: cfg.Fingerprint, UserID: u.ID, ProtocolOrder: cfg.ProtocolOrder}
 	all, err := h.st.Q.ListInbounds(ctx)
 	if err != nil {
 		return prof, err
@@ -644,6 +664,9 @@ type Info struct {
 	// HappLink is the Happ button's crypt link: the app opens the subscription without
 	// showing its address. Absent: the plain happ://add/ link.
 	HappLink string `json:"happ_link,omitempty"`
+	// MTProto is the MTProto proxies for Telegram itself, with their links ready; absent:
+	// the admin set none.
+	MTProto []MTLink `json:"mtproto,omitempty"`
 }
 
 // DeviceItem is a bound device as the subscription page lists it.
@@ -749,6 +772,9 @@ func (h *Handler) info(ctx context.Context, w http.ResponseWriter, u db.User, pr
 		return
 	}
 	out.Pools = pools
+	if links := mtLinks(cfg.MTProto); len(links) > 0 {
+		out.MTProto = links
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
 	_ = json.NewEncoder(w).Encode(out)

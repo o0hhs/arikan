@@ -29,9 +29,9 @@ func TestNoticeText(t *testing.T) {
 		want  []string
 		not   []string
 	}{
-		{name: "expired ru", lang: "", state: "expired", want: []string{"Подписка закончилась", "продлите"}},
-		{name: "expired en", lang: "en", state: "expired", want: []string{"The subscription has ended", "renew"}},
-		{name: "limited ru", lang: "", state: "limited", want: []string{"Трафик закончился"}},
+		{name: "expired ru", lang: "", state: "expired", want: []string{"У вас закончился тариф", "Продлить тариф через бота"}},
+		{name: "expired en", lang: "en", state: "expired", want: []string{"Your plan has ended", "Renew the plan"}},
+		{name: "limited ru", lang: "", state: "limited", want: []string{"У вас закончился трафик"}},
 		{name: "limited en", lang: "en", state: "limited", want: []string{"traffic is used up"}},
 		{
 			name: "with the bot", lang: "en", state: "expired", tg: noticeTG{link: "https://t.me/example_bot?start=abc.def"},
@@ -42,7 +42,8 @@ func TestNoticeText(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			h.tg = tc.tg
-			got := h.noticeText(context.Background(), db.User{ID: 7}, tc.state, Config{Lang: tc.lang})
+			lines := h.noticeLines(context.Background(), db.User{ID: 7}, tc.state, Config{Lang: tc.lang})
+			got := strings.Join(lines, "\n")
 			for _, want := range tc.want {
 				if !strings.Contains(got, want) {
 					t.Errorf("notice %q does not hold %q", got, want)

@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -32,6 +33,7 @@ import (
 	"mikan/internal/panel/botpanel"
 	"mikan/internal/panel/campaigns"
 	"mikan/internal/panel/checkhost"
+	"mikan/internal/panel/discounts"
 	"mikan/internal/panel/dnscheck"
 	"mikan/internal/panel/domain"
 	"mikan/internal/panel/events"
@@ -44,6 +46,7 @@ import (
 	"mikan/internal/panel/nodesync"
 	"mikan/internal/panel/nodeupdate"
 	"mikan/internal/panel/panelimport"
+	"mikan/internal/panel/partners"
 	"mikan/internal/panel/promo"
 	"mikan/internal/panel/reach"
 	"mikan/internal/panel/referral"
@@ -316,6 +319,10 @@ func NewPanel(st *store.Store, o Options) (*Panel, error) {
 	deps.Logs, deps.Host = o.Logs, hostchan.New(o.DataDir)
 	promos := promo.New(st, o.Now)
 	promos.Changed = deps.Users.Changed
+	// The panel's own sales: while a discount stands, the price of some tariffs is lower
+	// and the panel takes the money off by itself. A discount carries its own mailing, and
+	// the bot reminds about the end of the sale.
+	sales := discounts.New(st, o.Now)
 	// The referral programme: what an invitee's payment brings the account that invited
 	// them, and what a balance pays of an invoice.
 	refs := referral.New(st, set, o.Log, o.Now)
@@ -329,11 +336,12 @@ func NewPanel(st *store.Store, o Options) (*Panel, error) {
 	// The advertising agents: their money is the campaigns' commissions, their panel its
 	// own page under its own secret path.
 	agts := agents.New(st, o.Log, o.Now)
+	parts := partners.New(st, func() int64 { return o.Now().Unix() })
 	p.agentAuth = agts
 	p.Billing = billing.New(billing.Deps{Store: st, Settings: set, Users: deps.Users, Log: o.Log, Now: o.Now, TrustProxy: o.TrustProxy,
 		MaxLinks: model.MaxLinks,
 		Addons:   deps.Addons, SubBase: subBase, Promo: promos, Events: hub,
-		Referral: refs, Campaigns: camps,
+		Referral: refs, Campaigns: camps, Discounts: sales, Partners: parts,
 		TopupWaiting: func(ctx context.Context, t db.Topup) { p.tellAdminOfTopup(ctx, t) }})
 	deps.Billing, deps.SubBase = p.Billing, subBase
 	// The bot may reach Telegram through a node when the panel's server cannot.
@@ -346,7 +354,7 @@ func NewPanel(st *store.Store, o Options) (*Panel, error) {
 	// run as an addon, in process in tests.
 	backend := &botpanel.Local{Store: st, Settings: set, Binder: deps.Devices, Users: deps.Users, Billing: p.Billing, Gateway: p.Gateway, SubBase: subBase, Now: o.Now,
 		// The fork's own programme and campaign tags: the screens reach them through the Backend.
-		ReferralProgram: refs, Campaigns: camps,
+		ReferralProgram: refs, Campaigns: camps, Partners: parts,
 		// Telegram apps refuse a Mini App on a self-signed certificate.
 		MiniApp: func() bool { return o.Certs != nil && o.Certs.Trusted() }}
 	// The panel's API for addons, with the Bot API proxy over the gateway for the addon that
@@ -364,11 +372,12 @@ func NewPanel(st *store.Store, o Options) (*Panel, error) {
 		}
 		return err
 	}
-	p.Telegram = botpanel.New(botpanel.Deps{Backend: backend, Outbox: p.Gateway.Outbox, Emit: emit, Log: o.Log, Now: o.Now})
+	p.Telegram = botpanel.New(botpanel.Deps{Backend: backend, Outbox: p.Gateway.Outbox, Emit: emit, Discounts: sales, Log: o.Log, Now: o.Now})
 	// What an invitee's payment brought the inviter is the panel's to tell, through the
 	// bot's outbox (the addon holds the sending when it runs as one).
 	refs.Reward = p.Telegram.Reward
 	deps.Referral, deps.Campaigns, deps.Agents = refs, camps, agts
+	deps.Discounts = sales
 	// The updates wait in the buffer for the addon that holds the bot.
 	p.Gateway.SetHandler(p.AddonsAPI.BotSlot())
 	deps.Telegram, deps.Gateway = p.Telegram, p.Gateway
@@ -545,6 +554,20 @@ func NewPanel(st *store.Store, o Options) (*Panel, error) {
 				cfg.App.LogoURL = cfg.SubBase + "/" + subpage.AssetPath(subpage.AssetLogo, a.Hash)
 			}
 		}
+		// The admin's order of protocol families in a subscription: none said keeps the
+		// order the inbounds were made in.
+		if raw, err := set.String(ctx, settings.KeyProtocolOrder); err == nil && raw != "" {
+			var order []string
+			if json.Unmarshal([]byte(raw), &order) == nil {
+				cfg.ProtocolOrder = order
+			}
+		}
+		if raw, err := set.String(ctx, settings.KeyMTProto); err == nil && raw != "" {
+			var ps []subs.MTProxy
+			if json.Unmarshal([]byte(raw), &ps) == nil {
+				cfg.MTProto = ps
+			}
+		}
 		nodes, err := st.Q.ListNodes(ctx)
 		if err != nil {
 			return subs.Config{}, err
@@ -554,6 +577,7 @@ func NewPanel(st *store.Store, o Options) (*Panel, error) {
 				continue
 			}
 			sn := subs.Node{ID: n.ID, Name: n.Name, Endpoint: subs.Endpoint{Host: ep.Host, SNI: domainName}}
+			sn.Emergency, sn.EmergencySpeed = n.Emergency, int(n.EmergencySpeed.Int32)
 			if n.Address != "" {
 				sn.Endpoint = subs.Endpoint{Host: domain.NodeHost(n), SNI: n.Domain}
 				cfg.Direct = append(cfg.Direct, n.PublicHost, n.Domain)

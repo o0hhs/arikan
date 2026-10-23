@@ -52,8 +52,11 @@ func TestShopTerms(t *testing.T) {
 	}
 	id := strconv.FormatInt(sale.ID, 10)
 	list := step("b")
-	if buttons(list)["Std · от ⭐ 50"] != "tn:"+id || !strings.Contains(text(list), "7 дн. – 90 дн.") {
+	if buttons(list)["Std · от ⭐ 50"] != "pk:tn:"+id || !strings.Contains(text(list), "7 дн. – 90 дн.") {
 		t.Fatalf("plans: %q %v", text(list), buttons(list))
+	}
+	if b := buttons(step("pk:tn:" + id)); b["Устройств: 3 · базово"] != "tn:"+id {
+		t.Fatalf("packs: %v", b)
 	}
 	plan := step("tn:" + id)
 	if b := buttons(plan); b["7 дн. · ⭐ 50"] != "tn:"+id+".7" || b["90 дн. · ⭐ 400"] != "tn:"+id+".90" || b["⬅️ Назад"] != "b" {

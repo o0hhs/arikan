@@ -5,6 +5,9 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"strconv"
+	"strings"
+	"time"
 
 	"mikan/internal/panel/events"
 	"mikan/internal/panel/model"
@@ -19,7 +22,7 @@ import (
 
 // EventTypes are the events HandleEvent acts on.
 var EventTypes = []string{events.PaymentPaid, events.PaymentRefunded, events.TrialNotGiven,
-	events.UserExpiring, events.UserExpired, events.Traffic90, events.Traffic100, events.BalanceTopup}
+	events.UserExpiring, events.UserExpired, events.Traffic90, events.Traffic100, events.DiscountEnding, events.BalanceTopup}
 
 // gone: the subscription of a payment is not there for the bot any more: deleted, or moved to
 // an account that is not talking to it. Retrying would not change that.
@@ -89,6 +92,59 @@ func (b *Bot) HandleEvent(ctx context.Context, e events.Event) error {
 			_, err := c.Send(ctx, chat, text, kb, silent)
 			return err
 		}, nil)
+	case events.DiscountEnding:
+		if e.TgID == 0 {
+			return nil
+		}
+		var d events.Discount
+		if err := json.Unmarshal(e.Data, &d); err != nil {
+			return nil
+		}
+		b.discountEnding(ctx, e.TgID, d)
 	}
 	return nil
+}
+
+// discountEnding tells the buyer that the sale ends soon: the admin's own wording of the
+// mailing, or the bot's own words.
+func (b *Bot) discountEnding(ctx context.Context, tgID int64, d events.Discount) {
+	cfg := b.config(ctx)
+	now := b.d.Now()
+	w := wordsFor(cfg.Lang)
+	text := pick(d.Text, w.discountEnding)
+	vars := map[string]string{
+		"brand":   b.brand(ctx),
+		"name":    d.Name,
+		"days":    w.days(d.Days),
+		"until":   w.date(time.Unix(d.EndsAt, 0).UTC()),
+		"value":   discountValue(w, d),
+		"tariffs": discountTariffs(w, d.Tariffs),
+	}
+	body := render(text, vars)
+	silent, chat := cfg.QuietNight && night(now), tgID
+	b.d.Outbox.Notice(chat, func(ctx context.Context, c *tgapi.Client) error {
+		_, err := c.Send(ctx, chat, body, nil, silent)
+		return err
+	}, nil)
+}
+
+// discountValue is what the sale is worth: a percent of the price, or a sum off it.
+func discountValue(w *words, d events.Discount) string {
+	if d.Type == "percent" {
+		return strconv.FormatInt(d.Value, 10) + "%"
+	}
+	return w.price(d.Value, d.Currency)
+}
+
+// discountTariffs are the tariffs the sale is about, as the bot names them; "" when the
+// sale is about every tariff.
+func discountTariffs(w *words, names string) string {
+	names = strings.TrimSpace(names)
+	if names == "" {
+		return ""
+	}
+	if w == &en {
+		return " Discounted tariffs: " + names + "."
+	}
+	return " Тарифы со скидкой: " + names + "."
 }

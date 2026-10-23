@@ -100,20 +100,10 @@ func TestPromoButtonInMenu(t *testing.T) {
 			}
 		}
 	}
-	// The other buttons stay as they were: sub + devices, connect, renew + support, the page.
-	if len(rows) != 4 || len(rows[0]) != 2 || len(rows[1]) != 1 || len(rows[2]) != 2 || len(rows[3]) != 1 {
+	// The other buttons stay as they were: the way in and the way to pay, the profile and
+	// the support.
+	if len(rows) != 3 || len(rows[0]) != 2 || len(rows[1]) != 1 || len(rows[2]) != 1 {
 		t.Fatalf("the rest of the menu is unchanged: %v", rows)
-	}
-	var page *tgapi.Button
-	for _, r := range kb.InlineKeyboard {
-		for i := range r {
-			if r[i].WebApp != nil {
-				page = &r[i]
-			}
-		}
-	}
-	if page == nil || page.WebApp.URL != "https://vpn.example.com:21355/sub/tg" {
-		t.Fatalf("the Mini App page button stays: %+v", page)
 	}
 
 	// Subscriptions switcher still comes last and the menu has no empty row.
@@ -140,13 +130,13 @@ func TestMenuRowsAfterHiding(t *testing.T) {
 	e.link(555)
 	cfg := tgbot.Default("ru")
 	for i := range cfg.Buttons {
-		if cfg.Buttons[i].Action == "sub" {
-			cfg.Buttons[i].On = false // devices keeps its «in one row» flag with nothing before it
+		if cfg.Buttons[i].Action == "connect" {
+			cfg.Buttons[i].On = false // renew keeps its «in one row» flag with nothing before it
 		}
 	}
 	cfg.PromoButton = false
 	rows := menuTexts(t, e.menuOf(cfg, 555))
-	if len(rows[0]) != 1 || !strings.Contains(rows[0][0], "Устройства") {
+	if len(rows[0]) != 1 || !strings.Contains(rows[0][0], "Тарифы и оплата") {
 		t.Fatalf("the first button starts a row of its own: %v", rows)
 	}
 }

@@ -398,7 +398,7 @@ func (q *Queries) InsertSlots(ctx context.Context, arg InsertSlotsParams) error 
 }
 
 const listNoticeSubscriptions = `-- name: ListNoticeSubscriptions :many
-SELECT users.id, users.name, users.contact, users.note, users.tags, users.status, users.tariff_id, users.traffic_limit, users.device_limit, users.reset_strategy, users.period_days, users.period_start, users.used_up, users.used_down, users.total_up, users.total_down, users.expires_at, users.inbounds, users.sub_token, users.slot_id, users.online_at, users.created_at, users.updated_at, users.billing_day, users.source, users.hidden, users.folder_id, users.speed_limit, users.device_mode, users.extra_devices, users.extra_devices_until, l.tg_id, CAST(COALESCE(g.left_bytes, 0) AS BIGINT) AS grants_left
+SELECT users.id, users.name, users.contact, users.note, users.tags, users.status, users.tariff_id, users.traffic_limit, users.device_limit, users.reset_strategy, users.period_days, users.period_start, users.used_up, users.used_down, users.total_up, users.total_down, users.expires_at, users.inbounds, users.sub_token, users.slot_id, users.online_at, users.created_at, users.updated_at, users.billing_day, users.source, users.hidden, users.folder_id, users.speed_limit, users.device_mode, users.extra_devices, users.extra_devices_until, users.device_pack_id, users.partner_bot_id, l.tg_id, CAST(COALESCE(g.left_bytes, 0) AS BIGINT) AS grants_left
 FROM tg_links l
 JOIN users ON users.id = l.user_id
 LEFT JOIN tg_chats c ON c.tg_id = l.tg_id
@@ -458,6 +458,8 @@ func (q *Queries) ListNoticeSubscriptions(ctx context.Context, now int64) ([]Lis
 			&i.User.DeviceMode,
 			&i.User.ExtraDevices,
 			&i.User.ExtraDevicesUntil,
+			&i.User.DevicePackID,
+			&i.User.PartnerBotID,
 			&i.TgID,
 			&i.GrantsLeft,
 		); err != nil {
@@ -564,7 +566,7 @@ func (q *Queries) LockTrafficPools(ctx context.Context, ids []int64) ([]int64, e
 }
 
 const lockUserRows = `-- name: LockUserRows :many
-SELECT id, name, contact, note, tags, status, tariff_id, traffic_limit, device_limit, reset_strategy, period_days, period_start, used_up, used_down, total_up, total_down, expires_at, inbounds, sub_token, slot_id, online_at, created_at, updated_at, billing_day, source, hidden, folder_id, speed_limit, device_mode, extra_devices, extra_devices_until FROM users WHERE id = ANY($1::bigint[]) ORDER BY id FOR NO KEY UPDATE
+SELECT id, name, contact, note, tags, status, tariff_id, traffic_limit, device_limit, reset_strategy, period_days, period_start, used_up, used_down, total_up, total_down, expires_at, inbounds, sub_token, slot_id, online_at, created_at, updated_at, billing_day, source, hidden, folder_id, speed_limit, device_mode, extra_devices, extra_devices_until, device_pack_id, partner_bot_id FROM users WHERE id = ANY($1::bigint[]) ORDER BY id FOR NO KEY UPDATE
 `
 
 // The users of ids that exist, locked in id order for a change.
@@ -609,6 +611,8 @@ func (q *Queries) LockUserRows(ctx context.Context, ids []int64) ([]User, error)
 			&i.DeviceMode,
 			&i.ExtraDevices,
 			&i.ExtraDevicesUntil,
+			&i.DevicePackID,
+			&i.PartnerBotID,
 		); err != nil {
 			return nil, err
 		}
@@ -624,7 +628,7 @@ func (q *Queries) LockUserRows(ctx context.Context, ids []int64) ([]User, error)
 }
 
 const lockUserRowsForDelete = `-- name: LockUserRowsForDelete :many
-SELECT id, name, contact, note, tags, status, tariff_id, traffic_limit, device_limit, reset_strategy, period_days, period_start, used_up, used_down, total_up, total_down, expires_at, inbounds, sub_token, slot_id, online_at, created_at, updated_at, billing_day, source, hidden, folder_id, speed_limit, device_mode, extra_devices, extra_devices_until FROM users WHERE id = ANY($1::bigint[]) ORDER BY id FOR UPDATE
+SELECT id, name, contact, note, tags, status, tariff_id, traffic_limit, device_limit, reset_strategy, period_days, period_start, used_up, used_down, total_up, total_down, expires_at, inbounds, sub_token, slot_id, online_at, created_at, updated_at, billing_day, source, hidden, folder_id, speed_limit, device_mode, extra_devices, extra_devices_until, device_pack_id, partner_bot_id FROM users WHERE id = ANY($1::bigint[]) ORDER BY id FOR UPDATE
 `
 
 func (q *Queries) LockUserRowsForDelete(ctx context.Context, ids []int64) ([]User, error) {
@@ -668,6 +672,8 @@ func (q *Queries) LockUserRowsForDelete(ctx context.Context, ids []int64) ([]Use
 			&i.DeviceMode,
 			&i.ExtraDevices,
 			&i.ExtraDevicesUntil,
+			&i.DevicePackID,
+			&i.PartnerBotID,
 		); err != nil {
 			return nil, err
 		}

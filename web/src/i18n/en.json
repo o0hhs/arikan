@@ -100,7 +100,10 @@
     "telegram": "Telegram",
     "addons": "Addons",
     "payments": "Payments",
-    "diagnostics": "Diagnostics"
+    "diagnostics": "Diagnostics",
+    "partners": "Partners",
+    "client": "Client",
+    "audit": "Log"
   },
   "navShort": {
     "outbounds": "Outbounds",
@@ -112,7 +115,8 @@
     "nodes": "Nodes",
     "addons": "Addons",
     "payments": "Payments",
-    "diagnostics": "Diagnostics"
+    "diagnostics": "Diagnostics",
+    "partners": "Partners"
   },
   "shell": {
     "update": "{v} is out",
@@ -723,7 +727,16 @@
       "required": "Fill in this field",
       "dashboard_card_unknown": "Unknown dashboard card",
       "dashboard_date_unknown": "Unknown date format",
-      "monitor_password_short": "The password is too short"
+      "monitor_password_short": "The password is too short",
+      "mtproto_invalid": "Check the MTProto lines: server:port:secret, the secret from mtg/mtproto-proxy",
+      "mtproto_server_invalid": "The MTProto server is a name or an IP",
+      "protocol_order_invalid": "Families are comma-separated latin names",
+      "role_forbidden": "Your role does not open this part",
+      "admin_exists": "Such an admin already exists",
+      "admin_self": "You cannot remove yourself",
+      "last_superadmin": "The last superadmin cannot be demoted or removed",
+      "bad_username": "At least 3 characters",
+      "bad_password": "At least 8 characters"
     },
     "acme": {
       "port80_busy": "Port 80 is held by another program, and the certificate authority checks the server through it. If it is nginx or Caddy, the command below lets the check through to mikan; otherwise free the port",
@@ -1271,7 +1284,8 @@
     "tabs": {
       "tariffs": "Plans",
       "pools": "Server groups",
-      "packages": "Traffic packages"
+      "packages": "Traffic packages",
+      "packs": "Device packs"
     },
     "sections": "Plan sections",
     "applyPools": "Apply the pool limits to subscriptions given out",
@@ -1318,7 +1332,11 @@
       "confirm": "Apply",
       "done": "Applied: {n, plural, one {# subscription} other {# subscriptions}}",
       "none": "No subscriptions on this plan yet"
-    }
+    },
+    "archivedPill": "Archived",
+    "restore": "Restore the tariff",
+    "restoreLabel": "Restore the tariff “{name}”",
+    "restored": "The tariff is on sale again"
   },
   "presets": {
     "vless_reality_xhttp": "Main one for Russia: looks like plain HTTPS and keeps few connections",
@@ -2566,7 +2584,13 @@
       },
       "open": "Open the panel's page"
     },
-    "routesLeaveText": "The routing changes are not saved yet and will be lost."
+    "routesLeaveText": "The routing changes are not saved yet and will be lost.",
+    "protocols": "Protocols and Telegram",
+    "protocolsSub": "The order of protocols in a subscription and the MTProto proxies for the messenger itself",
+    "protocolOrder": "Protocol order",
+    "protocolOrderHint": "Families comma-separated: vless, hysteria2, shadowsocks, trojan, tuic, anytls. Within a node the inbounds follow it; unnamed ones after them",
+    "mtproto": "MTProto proxies",
+    "mtprotoHint": "One per line: server:port:secret:name. The bot's button and the profile page block; the secret comes from mtg/mtproto-proxy"
   },
   "deviceMode": {
     "label": "How to count:",
@@ -2636,7 +2660,8 @@
       "tun": "Routing and TUN mode",
       "oneButton": "One button",
       "allProtocols": "Every protocol and routing",
-      "everything": "All of the subscription: protocols, routing, server groups"
+      "everything": "All of the subscription: protocols, routing, server groups",
+      "official": "the official client"
     },
     "howTo": "How to connect",
     "steps": {
@@ -2780,7 +2805,11 @@
     "groupIn": "included",
     "groupOwn": "{gb} of its own",
     "groupUnlimited": "unlimited",
-    "groupClosed": "not included"
+    "groupClosed": "not included",
+    "mtTitle": "An MTProto proxy for Telegram",
+    "shopPickPack": "How many devices",
+    "shopPackNone": "As in the plan",
+    "perMonthShort": "mo"
   },
   "nodes": {
     "subtitle": "Servers that run the VPN. The subscription includes the protocols of every enabled node, each in its own group.",
@@ -2906,7 +2935,12 @@
     "frontPageNone": "None",
     "frontPageMaintenance": "Maintenance",
     "frontPageCats": "Cat clicker",
-    "frontPageRouter": "With the shared port 443 the node's domain and a request with no name get it too: the node's real certificate, TLS 1.2 or later, HSTS. A domain a protocol on the shared 443 takes stays with the protocol and shows the page too if it is XHTTP, WebSocket or gRPC."
+    "frontPageRouter": "With the shared port 443 the node's domain and a request with no name get it too: the node's real certificate, TLS 1.2 or later, HSTS. A domain a protocol on the shared 443 takes stays with the protocol and shows the page too if it is XHTTP, WebSocket or gRPC.",
+    "emergency": "Emergency node",
+    "emergencyHint": "Ended subscriptions see its servers alone: Telegram keeps working while the buyer finds the bot",
+    "emergencySpeed": "Speed for ended",
+    "emergencySpeedHint": "Mbit/s on this node; empty — no cap",
+    "emergencySpeedErr": "1 to 10000 Mbit/s"
   },
   "telegram": {
     "subtitle": "A bot for subscription owners and a Mini App with the subscription page",
@@ -5314,6 +5348,102 @@
       "certificate": "certificate {id}",
       "users": "clients {id}",
       "sub_page_image": "subscription page image {id}"
+    },
+    "pageSub": "The admins' own log"
+  },
+  "devicePacks": {
+    "title": "Device packs",
+    "sub": "Extra places to buy: the price adds to every term, the slots widen the plan's device limit.",
+    "none": "No packs yet.",
+    "add": "Add a pack",
+    "new": "New device pack",
+    "edit": "Edit the pack",
+    "drawerMeta": "A pack adds places on top of the plan's device limit",
+    "name": "Title",
+    "namePlaceholder": "+2 devices",
+    "slots": "Places in the pack",
+    "slotsHint": "How many devices the pack adds to the plan's limit",
+    "slotsLine": "+{n} devices",
+    "perMonth": "the monthly price adds to the plan",
+    "saleSub": "The pack's price adds to the price of every term",
+    "errTitle": "Give the pack a title",
+    "errSlots": "1 to 47 places",
+    "created": "Pack created",
+    "saved": "Pack saved",
+    "archived": "The pack is off the shop",
+    "restored": "The pack is on sale again",
+    "archivedPill": "Archived",
+    "editLabel": "Edit the pack “{name}”",
+    "archiveLabel": "Take the pack “{name}” off the shop",
+    "restoreLabel": "Put the pack “{name}” back on sale",
+    "archiveTitle": "Take “{name}” off the shop?",
+    "archiveText": "It cannot be bought anymore; subscriptions that carry it keep working until they end."
+  },
+  "partners": {
+    "sub": "The franchise: partner bots, their sign-up code and the share of the subscribers' payments",
+    "name": "Name",
+    "namePlaceholder": "John Smith",
+    "note": "Note",
+    "add": "Add a partner",
+    "created": "Partner added",
+    "none": "No partners yet.",
+    "balance": "Balance",
+    "turnover": "Earned",
+    "botUsername": "The bot's @username",
+    "botToken": "The bot's token",
+    "botNoName": "a bot without a name",
+    "addBot": "Add a bot",
+    "botAdded": "Bot added; its code is in its line",
+    "remove": "Remove",
+    "enable": "Enable",
+    "disable": "Disable",
+    "on": "On",
+    "off": "Off"
+  },
+  "client": {
+    "title": "Client",
+    "sub": "The subscriber's card for support: find by id, @username or a payment's number",
+    "search": "Find a client",
+    "searchHint": "the subscription id, an @username or a payment's number",
+    "find": "Find",
+    "done": "Done",
+    "blocked": "Blocked",
+    "until": "Until",
+    "forever": "no end",
+    "traffic": "Traffic this period",
+    "devices": "Devices",
+    "contact": "Contact",
+    "addDays": "3 days",
+    "sessions": "Reset sessions",
+    "unblock": "Unblock",
+    "block": "Block",
+    "trafficNote": "Used {used}, {left} left",
+    "state": {
+      "active": "Active",
+      "expiring": "Expiring",
+      "limited": "Limit reached",
+      "expired": "Expired",
+      "disabled": "Disabled"
+    }
+  },
+  "admins": {
+    "title": "Panel admins",
+    "sub": "Who logs into the panel and what each may open: superadmin — everything, support — the client card, tech — the nodes, the protocols and the log",
+    "username": "Name",
+    "password": "Password",
+    "role": "Role",
+    "add": "Add",
+    "created": "Admin added",
+    "saved": "Role saved",
+    "removed": "Admin removed",
+    "removeLabel": "Remove the admin {name}",
+    "lastLogin": "last login: {at}",
+    "totp": "2FA",
+    "hint": "The last superadmin cannot be demoted or removed, and nobody removes themselves.",
+    "roles": {
+      "superadmin": "Superadmin",
+      "support": "Support",
+      "tech": "Tech"
     }
   }
 }

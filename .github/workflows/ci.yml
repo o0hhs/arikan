@@ -138,6 +138,60 @@ jobs:
           echo "$packages"
           go test -race -timeout 30m $packages
 
+  # The schema on its own: every migration applied in its numbered order to a fresh
+  # database, so a syntax slip or a number reused fails here with the file's name,
+  # before the Go tests that only see whatever the store's own runner reaches. Plain
+  # psql from the runner's apt runs the same files the app runs at startup, and sqlc
+  # (the version the generated store/db was made with) must regenerate nothing: a
+  # schema file whose queries were not regenerated fails instead of drifting.
+  migrations:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: mirror.gcr.io/library/postgres:18-alpine
+        env:
+          POSTGRES_USER: mikan_test
+          POSTGRES_PASSWORD: mikan_test
+          POSTGRES_DB: mikan_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U mikan_test -d mikan_test"
+          --health-interval 2s --health-timeout 5s --health-retries 30
+    env:
+      MIKAN_TEST_DATABASE_URL: postgres://mikan_test:mikan_test@localhost:5432/mikan_test?sslmode=disable
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.27"
+      # The server is 18; applying plain SQL needs no version-matched tools, so the
+      # runner's own apt client is enough (the pg_dump jobs install the PGDG one).
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends postgresql-client
+      - name: migration numbers are unique
+        run: |
+          dupes=$(ls internal/panel/store/postgres | sed -E 's/^([0-9]+)_.*/\1/' | sort | uniq -d)
+          if [ -n "$dupes" ]; then
+            echo "::error::duplicate migration numbers: $dupes"
+            exit 1
+          fi
+      # The app's own runner applies the files (goose, the version go.mod pins): a plain
+      # psql loop would run the -- +goose Down sections too and undo the schema.
+      - name: migrations apply in order
+        run: go run github.com/pressly/goose/v3/cmd/goose@v3.28.0 -dir internal/panel/store/postgres postgres "$MIKAN_TEST_DATABASE_URL" up
+      - name: sqlc regenerates nothing
+        run: |
+          # web/embed.go embeds web/dist, and `all:dist` needs at least one file there.
+          mkdir -p web/dist && touch web/dist/.build-placeholder
+          GOBIN="$(go env GOPATH)/bin" go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1
+          "$(go env GOPATH)/bin/sqlc" generate
+          if [ -n "$(git status --porcelain internal/panel/store/db)" ]; then
+            echo "::error::store/db is not what sqlc generate makes of the schema and queries"
+            git --no-pager diff --stat internal/panel/store/db
+            exit 1
+          fi
+
   # gofmt and vet need neither a database nor a server: they run beside the tests, not
   # before them.
   lint:

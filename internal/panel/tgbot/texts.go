@@ -13,6 +13,7 @@ import (
 // "admin" when set.
 type words struct {
 	welcome, main, renew, expiring, expired, traffic90, trafficEnd string // admin
+	discountEnding                                                 string // the mailing about the end of a sale
 	channel, freeButton                                            string // admin: the channel's screen, the free plan's button
 
 	back, yesUnbind, cancel, subscriptions, openPage, support, promo   string
@@ -25,7 +26,15 @@ type words struct {
 	unbindOff, returnNever, confirmNever                         string
 	perDay, perWeek, perMonth, perDays, hours                    string
 	connectText, linked, alreadyLinked, linkExpired, linkInvalid string
-	linkLimit, noSub, sharedPlace, device, justNow               string
+	tgProxy                                                      string // the Telegram-itself MTProto button
+	// Connecting in two steps: the platform, then its clients.
+	platformIOS, platformAndroid, platformDesktop                   string
+	appHapp, appIncy, appKabosu, appManual                          string
+	connectPlatforms                                                string
+	connectDownload, connectOneTap, connectOneTapAny, connectManual string
+	connectButton                                                   string
+	partnerHello                                                    string
+	linkLimit, noSub, sharedPlace, device, justNow                  string
 	// Taking a subscription off the Telegram account: it keeps working in the apps.
 	removeSub, confirmRemove, yesRemove, removed string
 	// A subscription already linked to another account is moved only if its owner agrees.
@@ -46,6 +55,7 @@ type words struct {
 	trialPaid, trialTitle                                                                                                                                                                                                                                                                                                   string // the priced trial: its button with the price, its title over the ways to pay
 	trialNotGiven                                                                                                                                                                                                                                                                                                           string // a paid trial not given, its money back by hand
 	pickTerm, priceFrom                                                                                                                                                                                                                                                                                                     string
+	packTitle, packBase, packSlots, packPerMonth                                                                                                                                                                                                                                                                            string
 	poolOut                                                                                                                                                                                                                                                                                                                 string // a traffic pool used up
 
 	// The channel a subscriber must join, and the free plan.
@@ -83,6 +93,8 @@ var ru = words{
 	expired:    "⛔️ Подписка «{name}» закончилась. Чтобы продлить, напишите в поддержку.",
 	traffic90:  "📦 Израсходовано 90% трафика подписки «{name}»: осталось {left}.",
 	trafficEnd: "📦 Трафик подписки «{name}» на этот период закончился. Обновится {reset}.",
+	discountEnding: "🔥 Скидка «{name}» заканчивается {until}: осталось {days}.\n\n" +
+		"До её конца тарифы стоят дешевле на {value}.{tariffs}",
 	channel:    "Чтобы пользоваться ботом {brand}, подпишитесь на наш канал. Потом нажмите «Проверить».",
 	freeButton: "🎁 Бесплатный тариф",
 
@@ -108,7 +120,22 @@ var ru = words{
 	yesRemove:         "✅ Да, убрать",
 	removed:           "✅ Подписка «%s» убрана из бота.",
 	wait:              "⏳ Следующее устройство можно отвязать %s.",
-	connectText:       "1. Установите приложение: Happ (iPhone, Android), ClashFest (Android), Koala Clash (Windows), SlothClash (Windows, Mac, Linux) или другое со страницы подписки.\n2. Добавьте в него ссылку:\n<code>%s</code>\n\nНа странице подписки — кнопки «Добавить» для всех приложений.",
+	tgProxy:           "⚡ Подключить Telegram-прокси",
+	platformIOS:       "📱 iOS",
+	platformAndroid:   "🤖 Android",
+	platformDesktop:   "💻 ПК / Mac / Linux",
+	appHapp:           "Happ",
+	appIncy:           "Incy",
+	appKabosu:         "Kabosu",
+	appManual:         "…или скопируйте ссылку вручную",
+	connectPlatforms:  "Выберите ваше устройство",
+	connectDownload:   "⬇️ Скачать %s",
+	connectOneTap:     "🔌 Подключить в 1 клик (%s)",
+	connectOneTapAny:  "🔌 Подключить в %s",
+	connectManual:     "%s",
+	connectButton:     "⚡ Подключить устройство",
+	partnerHello:      "🤝 Вы пришли от партнёра «%s»: спасибо! Подписка и оплата — как обычно.",
+	connectText:       "1. Установите приложение: Happ или Incy (iPhone, Android), Kabosu (Windows, Mac, Linux).\n2. Добавьте в него ссылку:\n<code>%s</code>\n\nНа странице подписки — кнопки «Добавить» для всех приложений.",
 	linked:            "✅ Подписка «%s» подключена.",
 	alreadyLinked:     "Подписка «%s» уже здесь.",
 	linkExpired:       "Ссылка устарела. Обновите страницу подписки и нажмите «Открыть в Telegram» ещё раз.",
@@ -139,6 +166,10 @@ var ru = words{
 	payRenew:        "подписка продлится",
 	notForSale:      "Этот тариф больше не продаётся.",
 	pickTerm:        "На какой срок?",
+	packTitle:       "Сколько устройств?",
+	packBase:        "базово",
+	packSlots:       "Устройств: %s",
+	packPerMonth:    "%s/мес",
 	priceFrom:       "от %s",
 	payUnavailable:  "Оплата сейчас недоступна. Попробуйте позже или напишите в поддержку.",
 	tooManyInvoices: "Слишком много счетов подряд. Попробуйте через час.",
@@ -228,6 +259,8 @@ var en = words{
 	expired:    "⛔️ Subscription “{name}” has ended. Message support to renew it.",
 	traffic90:  "📦 90% of the traffic of “{name}” is used: {left} left.",
 	trafficEnd: "📦 The traffic of “{name}” for this period is used up. It renews {reset}.",
+	discountEnding: "🔥 The discount “{name}” ends {until}: {days} left.\n\n" +
+		"Until then the tariffs cost {value} less.{tariffs}",
 	channel:    "To use the {brand} bot, join our channel, then tap “Check”.",
 	freeButton: "🎁 Free plan",
 
@@ -253,7 +286,22 @@ var en = words{
 	yesRemove:         "✅ Yes, remove",
 	removed:           "✅ The subscription “%s” is removed from the bot.",
 	wait:              "⏳ You can unbind the next device %s.",
-	connectText:       "1. Install an app: Happ (iPhone, Android), ClashFest (Android), Koala Clash (Windows), SlothClash (Windows, Mac, Linux) or another from the subscription page.\n2. Add this link to it:\n<code>%s</code>\n\nThe subscription page has “Add” buttons for every app.",
+	tgProxy:           "⚡ Connect a Telegram proxy",
+	platformIOS:       "📱 iOS",
+	platformAndroid:   "🤖 Android",
+	platformDesktop:   "💻 PC / Mac / Linux",
+	appHapp:           "Happ",
+	appIncy:           "Incy",
+	appKabosu:         "Kabosu",
+	appManual:         "…or copy the link by hand",
+	connectPlatforms:  "Choose your device",
+	connectDownload:   "⬇️ Download %s",
+	connectOneTap:     "🔌 Connect in one tap (%s)",
+	connectOneTapAny:  "🔌 Connect with %s",
+	connectManual:     "%s",
+	connectButton:     "⚡ Connect a device",
+	partnerHello:      "🤝 You are here from “%s”: thank you! The subscription and payment work as usual.",
+	connectText:       "1. Install an app: Happ or Incy (iPhone, Android), Kabosu (Windows, Mac, Linux).\n2. Add this link to it:\n<code>%s</code>\n\nThe subscription page has “Add” buttons for every app.",
 	linked:            "✅ Subscription “%s” is connected.",
 	alreadyLinked:     "Subscription “%s” is already here.",
 	linkExpired:       "The link has expired. Reload the subscription page and tap “Open in Telegram” again.",
@@ -284,6 +332,10 @@ var en = words{
 	payRenew:        "subscription is renewed",
 	notForSale:      "This plan is no longer sold.",
 	pickTerm:        "For how long?",
+	packTitle:       "How many devices?",
+	packBase:        "included",
+	packSlots:       "Devices: %s",
+	packPerMonth:    "%s/mo",
 	priceFrom:       "from %s",
 	payUnavailable:  "Payment is not available right now. Try later or message support.",
 	tooManyInvoices: "Too many invoices in a row. Try again in an hour.",

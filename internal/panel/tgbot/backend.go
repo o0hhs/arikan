@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"mikan/internal/panel/model"
+	"mikan/internal/panel/store/db"
 )
 
 // The bot's screens, which run as the bot addon, see the panel through Backend: its data
@@ -28,6 +29,9 @@ type Backend interface {
 	// MiniAppURL is where the Mini App opens; "" when Telegram could not load it (GET
 	// /tg/mini-app).
 	MiniAppURL(ctx context.Context) string
+	// MTProto is the panel's MTProto proxies for Telegram itself, links ready; empty: the
+	// admin set none and the button stays away.
+	MTProto(ctx context.Context) []MTLink
 	// Member says whether tgID is in the bot's channel chat (GET /tg/subscribed). The
 	// screens may ask about the bot's own channel only.
 	Member(ctx context.Context, chat string, tgID int64, fresh bool) (bool, error)
@@ -84,6 +88,20 @@ type Backend interface {
 	Shop() Shop
 	// Tariff is one tariff, for what a trial, a free plan or an invoice gives.
 	Tariff(ctx context.Context, id int64) (model.Tariff, error)
+	// The bot's admin side (admin_users): the role of an account, the support's card of one
+	// subscription, its gifts and the sleeping trials.
+	// PartnerCode binds the account to a partner's code and names the partner; ok false:
+	// no such code.
+	PartnerCode(ctx context.Context, tgID int64, code string) (string, bool, error)
+	AdminRole(ctx context.Context, tgID int64) (string, error)
+	AdminFindUser(ctx context.Context, query string) (model.User, bool, error)
+	AdminAddDays(ctx context.Context, userID int64, days int) (model.User, error)
+	AdminResetSessions(ctx context.Context, userID int64) error
+	AdminSetDisabled(ctx context.Context, userID int64, disabled bool) (model.User, error)
+	AdminSleepingTrials(ctx context.Context) ([]SleepingTrial, error)
+	AdminSetRole(ctx context.Context, tgID int64, role string, by int64) error
+	AdminDelRole(ctx context.Context, tgID int64) error
+	AdminList(ctx context.Context) ([]AdminUser, error)
 
 	// BotUsername is the bot's own @name, for the invite links; "" while it is unknown.
 	BotUsername(ctx context.Context) string
@@ -109,11 +127,38 @@ type Backend interface {
 	CampaignVisit(ctx context.Context, tgID int64, tag string) (CampaignGreeting, error)
 }
 
+// SleepingTrial is an account whose trial moved no traffic through it.
+type SleepingTrial struct {
+	TgID     int64
+	UserID   int64
+	Username string
+	Name     string
+}
+
+// AdminUser is one account of the bot's admin side.
+type AdminUser struct {
+	TgID     int64
+	Username string
+	Role     string
+}
+
+// MTLink is one MTProto proxy as the bot's buttons take it.
+type MTLink struct {
+	Name string
+	Link string // the t.me share link: any tap, the browser included
+	TG   string // the tg:// scheme, for a tap inside Telegram
+}
+
 // Shop is the panel's billing as the bot's screens use it.
 type Shop interface {
 	Config(ctx context.Context) model.Config
 	// tgID is the chat's account: a tariff an access code opened is offered too.
 	Offers(ctx context.Context, tgID int64) ([]model.Offer, model.Available, error)
+	// DevicePacks are the packs of extra device places a buyer may add to a tariff.
+	DevicePacks(ctx context.Context) ([]db.DevicePack, error)
+	// Renewable is the tariff the subscription itself is on — its own to renew, the shop's
+	// list apart.
+	Renewable(ctx context.Context, userID int64) (model.Offer, bool, error)
 	AddonName(ctx context.Context, id, lang string) string
 	Invoice(ctx context.Context, req model.InvoiceRequest) (model.Payment, error)
 	PackageOffers(ctx context.Context, userID int64) ([]model.PackageOffer, model.Available, error)

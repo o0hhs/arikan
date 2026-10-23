@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
+	"strings"
 	"sync"
 	"time"
 
@@ -29,6 +30,7 @@ import (
 	"mikan/internal/panel/campaigns"
 	"mikan/internal/panel/certcheck"
 	"mikan/internal/panel/checkhost"
+	"mikan/internal/panel/discounts"
 	"mikan/internal/panel/dnscheck"
 	"mikan/internal/panel/domain"
 	"mikan/internal/panel/geoip"
@@ -119,6 +121,8 @@ type Deps struct {
 	Referral *referral.Service
 	// Campaigns are the ad campaign tags; nil in tests.
 	Campaigns *campaigns.Service
+	// Discounts are the panel's own sales; nil in tests.
+	Discounts *discounts.Service
 	// Agents are the advertising agents the campaigns pay; nil in tests.
 	Agents *agents.Service
 	// Warp registers WARP accounts with Cloudflare.
@@ -333,10 +337,8 @@ func New(d Deps) (http.Handler, huma.API, error) {
 	h.registerRoutes()
 	h.registerCerts()
 	h.registerSubDomain()
-	h.registerCampaigns()
 	h.registerBalance()
 	h.registerWallet()
-	h.registerSites()
 	h.registerTelegram()
 	h.registerUpdates()
 	h.registerNodes()
@@ -344,6 +346,7 @@ func New(d Deps) (http.Handler, huma.API, error) {
 	h.registerGeo()
 	h.registerTorrent()
 	h.registerFilters()
+	h.registerSites()
 	h.registerDashboard()
 	h.registerMonitor()
 	h.registerExitDNS()
@@ -353,7 +356,13 @@ func New(d Deps) (http.Handler, huma.API, error) {
 	h.registerAPIKeys()
 	h.registerPayments()
 	h.registerPromocodes()
+	h.registerDiscounts()
+	h.registerDevicePacks()
 	h.registerReferrals()
+	h.registerCampaigns()
+	h.registerPartners()
+	h.registerSupportCard()
+	h.registerAdmins()
 	h.registerAgents()
 	h.registerAddons()
 	h.registerAddonSources()
@@ -426,6 +435,13 @@ func (h *handlers) middleware(ctx huma.Context, next func(huma.Context)) {
 		h.supportSession(ctx, next, mutating, sess)
 		return
 	}
+	// The admin's role: what the panel opens to it, the session's own account's.
+	role := h.adminRole(ctx.Context(), sess.AdminID)
+	if !roleAllows(role, ctx.Operation().Method, strings.TrimPrefix(ctx.URL().Path, "/api/v1")) {
+		roleRefusal(h, ctx)
+		return
+	}
+	ctx = huma.WithValue(ctx, keyRole, role)
 	next(huma.WithValue(ctx, keySession, sess))
 }
 

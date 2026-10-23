@@ -34,11 +34,35 @@ func (b *Bot) screen(ctx context.Context, cfg Config, chat int64, data, notice s
 	case !ungated[cmd] && !b.passes(ctx, cfg, chat, false):
 		return b.gateScreen(ctx, cfg, w, notice)
 	}
+	// The admin's screens: apart from the subscriber's menu and the channel gate.
+	if cmd == "ad" {
+		if arg == "" {
+			return b.adminMenu(ctx, w, chat)
+		}
+		return b.adminPress(ctx, w, chat, arg)
+	}
 	list, u, ok := b.subs(ctx, chat)
 	// The balance is the account's, with or without a subscription.
 	switch cmd {
 	case "bl", "bt", "ba", "bx":
 		return b.balanceScreen(ctx, w, chat, cmd, notice)
+	}
+	// pk:<flow>:<id> asks the devices of a tariff first; the flow (tn new, t renew) is
+	// where it goes next. A stale button — the shop closed, the subscription gone — is the
+	// main screen.
+	if cmd == "pk" {
+		flow, idArg, _ := strings.Cut(arg, ":")
+		switch flow {
+		case "tn":
+			if b.canBuyNew(ctx, chat) {
+				return b.packScreen(ctx, w, chat, nil, "tn", idArg, []tgapi.Button{{Text: w.back, CallbackData: "b"}})
+			}
+		case "t":
+			if ok {
+				return b.packScreen(ctx, w, chat, &u, "t", idArg, []tgapi.Button{{Text: w.back, CallbackData: "r"}})
+			}
+		}
+		return b.screen(ctx, cfg, chat, "m", notice)
 	}
 	// Buying a new subscription works with or without one.
 	// The referral programme works with or without a subscription.
@@ -49,7 +73,7 @@ func (b *Bot) screen(ctx context.Context, cfg Config, chat int64, data, notice s
 		home := []tgapi.Button{{Text: w.back, CallbackData: "m"}}
 		switch cmd {
 		case "b":
-			return b.shopList(ctx, w, chat, w.buyTitle, "tn", notice, home)
+			return b.shopList(ctx, w, chat, 0, w.buyTitle, "tn", notice, home)
 		case "tn":
 			return b.shopTariff(ctx, w, chat, arg, "tn", "pn", nil, shopBack(w, "tn", arg, "b"))
 		case "pn":
@@ -129,15 +153,13 @@ func (b *Bot) screen(ctx context.Context, cfg Config, chat int64, data, notice s
 		id, _ := strconv.ParseInt(arg, 10, 64)
 		return b.devices(ctx, w, u, cmd, id, notice, now)
 	case "c":
-		text := "<b>" + w.connectTitle + "</b>\n\n" + fmt.Sprintf(w.connectText, html.EscapeString(b.subURL(ctx, u)))
-		rows := [][]tgapi.Button{}
-		if btn, ok := b.pageButton(ctx, cfg, w, w.openPage); ok {
-			rows = append(rows, []tgapi.Button{btn})
-		}
-		return withNotice(text), &tgapi.Keyboard{InlineKeyboard: append(rows, back)}
+		// Two steps: the platform, then its clients with the one-tap import.
+		return b.connectPlatforms(ctx, w, notice, u)
+	case "c2":
+		return b.connectClients(ctx, cfg, w, u, arg, notice)
 	case "r":
 		if offers, _ := b.offers(ctx, chat); len(offers) > 0 {
-			text, kb := b.shopList(ctx, w, chat, fmt.Sprintf(w.renewTitle, u.Name), "t", notice, nil)
+			text, kb := b.shopList(ctx, w, chat, u.ID, fmt.Sprintf(w.renewTitle, u.Name), "t", notice, nil)
 			if sup := b.supportURL(ctx); sup != "" {
 				kb.InlineKeyboard = append(kb.InlineKeyboard, []tgapi.Button{dressed(cfg, "support", w.support, tgapi.Button{URL: sup})})
 			}

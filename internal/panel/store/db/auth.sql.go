@@ -41,9 +41,20 @@ func (q *Queries) CountAdmins(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+const countAdminsWithRole = `-- name: CountAdminsWithRole :one
+SELECT count(*) FROM admins WHERE role = $1
+`
+
+func (q *Queries) CountAdminsWithRole(ctx context.Context, role string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countAdminsWithRole, role)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createAdmin = `-- name: CreateAdmin :one
 INSERT INTO admins (username, password_hash, created_at) VALUES ($1, $2, $3)
-RETURNING id, username, password_hash, totp_secret, recovery_codes, created_at, last_login_at, totp_step
+RETURNING id, username, password_hash, totp_secret, recovery_codes, created_at, last_login_at, totp_step, role
 `
 
 type CreateAdminParams struct {
@@ -64,6 +75,41 @@ func (q *Queries) CreateAdmin(ctx context.Context, arg CreateAdminParams) (Admin
 		&i.CreatedAt,
 		&i.LastLoginAt,
 		&i.TotpStep,
+		&i.Role,
+	)
+	return i, err
+}
+
+const createAdminWithRole = `-- name: CreateAdminWithRole :one
+INSERT INTO admins (username, password_hash, role, created_at) VALUES ($1, $2, $3, $4)
+RETURNING id, username, password_hash, totp_secret, recovery_codes, created_at, last_login_at, totp_step, role
+`
+
+type CreateAdminWithRoleParams struct {
+	Username     string
+	PasswordHash string
+	Role         string
+	CreatedAt    int64
+}
+
+func (q *Queries) CreateAdminWithRole(ctx context.Context, arg CreateAdminWithRoleParams) (Admin, error) {
+	row := q.db.QueryRowContext(ctx, createAdminWithRole,
+		arg.Username,
+		arg.PasswordHash,
+		arg.Role,
+		arg.CreatedAt,
+	)
+	var i Admin
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.PasswordHash,
+		&i.TotpSecret,
+		&i.RecoveryCodes,
+		&i.CreatedAt,
+		&i.LastLoginAt,
+		&i.TotpStep,
+		&i.Role,
 	)
 	return i, err
 }
@@ -99,6 +145,18 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) er
 		arg.SupportGrantID,
 	)
 	return err
+}
+
+const deleteAdmin = `-- name: DeleteAdmin :execrows
+DELETE FROM admins WHERE id = $1
+`
+
+func (q *Queries) DeleteAdmin(ctx context.Context, id int64) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteAdmin, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const deleteAdminSessions = `-- name: DeleteAdminSessions :exec
@@ -148,7 +206,7 @@ func (q *Queries) DeleteStaleSessions(ctx context.Context, arg DeleteStaleSessio
 }
 
 const getAdmin = `-- name: GetAdmin :one
-SELECT id, username, password_hash, totp_secret, recovery_codes, created_at, last_login_at, totp_step FROM admins WHERE id = $1
+SELECT id, username, password_hash, totp_secret, recovery_codes, created_at, last_login_at, totp_step, role FROM admins WHERE id = $1
 `
 
 func (q *Queries) GetAdmin(ctx context.Context, id int64) (Admin, error) {
@@ -163,12 +221,13 @@ func (q *Queries) GetAdmin(ctx context.Context, id int64) (Admin, error) {
 		&i.CreatedAt,
 		&i.LastLoginAt,
 		&i.TotpStep,
+		&i.Role,
 	)
 	return i, err
 }
 
 const getAdminByUsername = `-- name: GetAdminByUsername :one
-SELECT id, username, password_hash, totp_secret, recovery_codes, created_at, last_login_at, totp_step FROM admins WHERE username = $1
+SELECT id, username, password_hash, totp_secret, recovery_codes, created_at, last_login_at, totp_step, role FROM admins WHERE username = $1
 `
 
 func (q *Queries) GetAdminByUsername(ctx context.Context, username string) (Admin, error) {
@@ -183,6 +242,7 @@ func (q *Queries) GetAdminByUsername(ctx context.Context, username string) (Admi
 		&i.CreatedAt,
 		&i.LastLoginAt,
 		&i.TotpStep,
+		&i.Role,
 	)
 	return i, err
 }
@@ -286,7 +346,7 @@ func (q *Queries) ListAdminSessions(ctx context.Context, adminID int64) ([]Sessi
 }
 
 const listAdmins = `-- name: ListAdmins :many
-SELECT id, username, password_hash, totp_secret, recovery_codes, created_at, last_login_at, totp_step FROM admins ORDER BY id
+SELECT id, username, password_hash, totp_secret, recovery_codes, created_at, last_login_at, totp_step, role FROM admins ORDER BY id
 `
 
 func (q *Queries) ListAdmins(ctx context.Context) ([]Admin, error) {
@@ -307,6 +367,7 @@ func (q *Queries) ListAdmins(ctx context.Context) ([]Admin, error) {
 			&i.CreatedAt,
 			&i.LastLoginAt,
 			&i.TotpStep,
+			&i.Role,
 		); err != nil {
 			return nil, err
 		}
@@ -400,6 +461,23 @@ type SetAdminPasswordParams struct {
 func (q *Queries) SetAdminPassword(ctx context.Context, arg SetAdminPasswordParams) error {
 	_, err := q.db.ExecContext(ctx, setAdminPassword, arg.PasswordHash, arg.ID)
 	return err
+}
+
+const setAdminRole = `-- name: SetAdminRole :execrows
+UPDATE admins SET role = $1 WHERE id = $2
+`
+
+type SetAdminRoleParams struct {
+	Role string
+	ID   int64
+}
+
+func (q *Queries) SetAdminRole(ctx context.Context, arg SetAdminRoleParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, setAdminRole, arg.Role, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const setAdminTOTP = `-- name: SetAdminTOTP :exec

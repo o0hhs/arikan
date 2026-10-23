@@ -155,14 +155,15 @@ func (h *Handler) miniAppSession(w http.ResponseWriter, r *http.Request) {
 // shopRequest is the body of "shop" and "pay".
 type shopRequest struct {
 	miniAuth
-	TariffID  int64  `json:"tariff_id"`
-	TermDays  *int64 `json:"term_days"` // the tariff's term; absent: its first
-	PackageID int64  `json:"package_id"`
-	Device    bool   `json:"device"` // one more device for the subscription
-	Trial     bool   `json:"trial"`  // the priced trial, for an account without a subscription
-	Provider  string `json:"provider"`
-	Token     string `json:"token"`
-	PromoCode string `json:"promo_code"`
+	TariffID     int64  `json:"tariff_id"`
+	TermDays     *int64 `json:"term_days"` // the tariff's term; absent: its first
+	PackageID    int64  `json:"package_id"`
+	Device       bool   `json:"device"`         // one more device for the subscription
+	DevicePackID int64  `json:"device_pack_id"` // the pack of extra device places beside the tariff
+	Trial        bool   `json:"trial"`          // the priced trial, for an account without a subscription
+	Provider     string `json:"provider"`
+	Token        string `json:"token"`
+	PromoCode    string `json:"promo_code"`
 	// Custom is a tariff the buyer put together themselves on the constructor's base tariff
 	// (custom.go); it goes with a pay of that very tariff.
 	Custom *billing.CustomPlan `json:"custom,omitempty"`
@@ -170,12 +171,12 @@ type shopRequest struct {
 
 // valid: the trial is bought for no subscription and at its own price, without a code; a
 // tariff put together by the buyer is bought for a subscription or as a new one, and never
-// together with a package or the trial.
+// together with a package, a device pack or the trial.
 func (in shopRequest) valid() bool {
 	if in.Trial && (in.Token != "" || strings.TrimSpace(in.PromoCode) != "") {
 		return false
 	}
-	if in.Custom != nil && (in.TariffID == 0 || in.PackageID != 0 || in.Trial) {
+	if in.Custom != nil && (in.TariffID == 0 || in.PackageID != 0 || in.DevicePackID != 0 || in.Trial) {
 		return false
 	}
 	return true
@@ -214,7 +215,7 @@ func (h *Handler) miniAppShop(w http.ResponseWriter, r *http.Request, rest strin
 	} else if in.PackageID != 0 {
 		p, err = h.shop.PackageInvoice(ctx, billing.PackageRequest{TgID: tgID, UserID: userID, PackageID: in.PackageID, Provider: billing.AdapterOf(in.Provider), PromoCode: in.PromoCode})
 	} else {
-		p, err = h.shop.Invoice(ctx, billing.InvoiceRequest{TgID: tgID, UserID: userID, TariffID: in.TariffID, TermDays: in.TermDays, Provider: billing.AdapterOf(in.Provider), PromoCode: in.PromoCode, Custom: in.Custom})
+		p, err = h.shop.Invoice(ctx, billing.InvoiceRequest{TgID: tgID, UserID: userID, TariffID: in.TariffID, TermDays: in.TermDays, Provider: billing.AdapterOf(in.Provider), PromoCode: in.PromoCode, Custom: in.Custom, DevicePackID: in.DevicePackID})
 	}
 	if err != nil {
 		if strings.TrimSpace(in.PromoCode) != "" && promoError(err) {
@@ -301,6 +302,10 @@ func (h *Handler) miniAppOffers(ctx context.Context, w http.ResponseWriter, tgID
 		Addons    []addon         `json:"addons"`
 		Offers    []offer         `json:"offers"`
 		Packages  []shopPackage   `json:"packages"`
+		// Packs are the packs of extra device places a buyer may add to a tariff; the
+		// subscription's own is DevicePack, what a renewal starts from.
+		Packs      []devicePackOffer `json:"packs"`
+		DevicePack int64             `json:"device_pack,omitempty"`
 		// Trial is the priced trial this account may buy now, if any.
 		Trial *offer `json:"trial,omitempty"`
 		// Free is the free plan this account may take now, if any.
@@ -312,8 +317,19 @@ func (h *Handler) miniAppOffers(ctx context.Context, w http.ResponseWriter, tgID
 		Access []accessItem `json:"access,omitempty"`
 		// Device is one more device for the subscription on screen, if it may buy one.
 		Device *offer `json:"device,omitempty"`
-	}{AllowNew: h.shop.Config(ctx).AllowNew, Offers: []offer{}, Packages: packages, Addons: []addon{},
+	}{AllowNew: h.shop.Config(ctx).AllowNew, Offers: []offer{}, Packages: packages, Packs: []devicePackOffer{}, Addons: []addon{},
 		Providers: map[string]bool{billing.Stars: av.Stars}}
+	if userID != 0 {
+		if u, err := h.st.Q.GetUser(ctx, userID); err == nil {
+			out.DevicePack = u.DevicePackID.Int64
+		}
+	}
+	if packs, err := h.shop.DevicePacks(ctx); err == nil {
+		for _, p := range packs {
+			v := devicePackOffer{ID: p.ID, Title: p.Title, Slots: int64(p.Slots), Stars: p.PriceStars.Int64, Rub: p.PriceRub}
+			out.Packs = append(out.Packs, v)
+		}
+	}
 	if fo, ok := h.shop.FreeOffer(ctx, tgID); ok {
 		out.Free = &freeOffer{Name: fo.Tariff.Name, Description: model.Describe(model.Tariff(fo.Tariff), fo.Tariff.DurationDays, cfg.Lang), Channel: fo.Channel}
 	}
@@ -360,6 +376,16 @@ type freeOffer struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	Channel     string `json:"channel,omitempty"`
+}
+
+// devicePackOffer is a pack of extra device places in "shop": its places and its price a
+// month, in either currency it is sold for.
+type devicePackOffer struct {
+	ID    int64  `json:"id"`
+	Title string `json:"title"`
+	Slots int64  `json:"slots"`
+	Stars int64  `json:"stars,omitempty"`
+	Rub   int64  `json:"rub,omitempty"`
 }
 
 // accessItem is an access code an account redeemed, as "shop" lists it: which tariff it opens

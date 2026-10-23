@@ -96,6 +96,10 @@ type NodeInfo struct {
 	APILockError string   `json:"api_lock_error,omitempty" doc:"Почему на сервере ноды нет правила файрвола для API"`
 	Capacity     *int64   `json:"capacity" doc:"Мест для клиентов в группе; null — без ограничения"`
 	ChannelMbps  *int64   `json:"channel_mbps" doc:"Ширина канала ноды, Мбит/с в каждую сторону; null — не задана"`
+	// The emergency node keeps Telegram reachable for ended subscriptions: their profiles
+	// list its servers alone, the sync lets them in here with EmergencySpeed.
+	Emergency      bool   `json:"emergency" doc:"Аварийная нода: закончившие подписку видят только её"`
+	EmergencySpeed *int64 `json:"emergency_speed,omitempty" doc:"Скорость закончивших подписку на этой ноде, Мбит/с; null — без ограничения"`
 }
 
 type nodesOutput struct{ Body []NodeInfo }
@@ -135,6 +139,10 @@ type patchNodeInput struct {
 		// The node's API for the panel alone, and the networks added to the panel's own.
 		APILockdown *bool     `json:"api_lockdown,omitempty" doc:"API ноды только с адресов панели; не для ноды панели"`
 		APIAllow    *[]string `json:"api_allow,omitempty" maxItems:"16" doc:"Ещё сети или адреса (203.0.113.5, 198.51.100.0/24), с которых панель ходит к ноде"`
+		// The emergency node: ended subscriptions keep its servers alone, Telegram stays
+		// reachable while they renew.
+		Emergency      *bool  `json:"emergency,omitempty" doc:"Аварийная нода: закончившие подписку видят только её"`
+		EmergencySpeed *int64 `json:"emergency_speed,omitempty" minimum:"1" maximum:"10000" doc:"Скорость закончивших подписку на этой ноде, Мбит/с"`
 	}
 }
 
@@ -187,7 +195,15 @@ func (h *handlers) viewNode(ctx context.Context, n db.Node, inbounds []db.Inboun
 	v := NodeInfo{ID: n.ID, Name: n.Name, PublicName: n.PublicName, Local: n.Address == "", Address: n.Address, Host: domain.NodeHost(n), ServerHost: n.PublicHost, Domain: n.Domain,
 		Enabled: n.Enabled != 0, Inbounds: len(domain.NodeInbounds(inbounds, n.ID)), Status: "unknown",
 		FairShare: n.FairShare != 0, ChannelMbps: store.Int64Ptr(n.ChannelMbps), BalanceGroup: n.BalanceGroup, Capacity: store.Int64Ptr(n.Capacity),
-		HTTPRedirect: n.HttpRedirect != 0, SNIRouter: n.SniRouter != 0, FrontPage: n.FrontPage, APILockdown: n.ApiLockdown != 0, APIAllow: n.ApiAllow}
+		HTTPRedirect: n.HttpRedirect != 0, SNIRouter: n.SniRouter != 0, FrontPage: n.FrontPage, APILockdown: n.ApiLockdown != 0, APIAllow: n.ApiAllow,
+		Emergency: n.Emergency,
+		EmergencySpeed: func() *int64 {
+			if n.EmergencySpeed.Valid {
+				v := int64(n.EmergencySpeed.Int32)
+				return &v
+			}
+			return nil
+		}()}
 	if v.APIAllow == nil {
 		v.APIAllow = []string{}
 	}
@@ -370,7 +386,8 @@ func (h *handlers) updateNode(ctx context.Context, in *patchNodeInput) (*nodeInf
 		return nil, err
 	}
 	n, err := domain.UpdateNode(ctx, h.d.Store, in.ID, domain.NodePatch{Name: b.Name, PublicName: b.PublicName, Host: b.Host, Domain: b.Domain,
-		Enabled: b.Enabled, FairShare: b.FairShare, ChannelMbps: b.ChannelMbps, HTTPRedirect: b.HTTPRedirect, SNIRouter: b.SNIRouter, FrontPage: b.FrontPage, APILockdown: b.APILockdown, APIAllow: b.APIAllow, Rules: rules}, h.d.Now())
+		Enabled: b.Enabled, FairShare: b.FairShare, ChannelMbps: b.ChannelMbps, HTTPRedirect: b.HTTPRedirect, SNIRouter: b.SNIRouter, FrontPage: b.FrontPage, APILockdown: b.APILockdown, APIAllow: b.APIAllow,
+		Emergency: b.Emergency, EmergencySpeed: b.EmergencySpeed, Rules: rules}, h.d.Now())
 	if err != nil {
 		return nil, h.nodeErr(err)
 	}

@@ -212,6 +212,14 @@ func (h *handlers) bearer(ctx huma.Context, next func(huma.Context), mutating bo
 		_ = huma.WriteErr(h.api, ctx, http.StatusForbidden, "read_only_key")
 		return
 	}
+	// The key's admin's role: a key of a support or tech account goes no further than the
+	// account itself does.
+	role := h.adminRole(ctx.Context(), key.AdminID)
+	if !roleAllows(role, ctx.Operation().Method, strings.TrimPrefix(ctx.URL().Path, "/api/v1")) {
+		roleRefusal(h, ctx)
+		return
+	}
+	ctx = huma.WithValue(ctx, keyRole, role)
 	if err := h.d.Store.Q.TouchAPIKey(ctx.Context(), db.TouchAPIKeyParams{LastUsedAt: sql.NullInt64{Int64: now.Unix(), Valid: true}, LastIp: c.IP,
 		ID: key.ID, LastUsedAt_2: sql.NullInt64{Int64: now.Unix() - apiKeyTouchSecs, Valid: true}}); err != nil {
 		h.d.Log.Warn("api key touch", "err", err)

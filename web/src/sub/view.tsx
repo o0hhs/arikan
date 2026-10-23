@@ -90,7 +90,24 @@ export function PageBlocks(p: BlocksProps) {
   return (
     <>
       {p.config.blocks.map((b) => (b.on && (p.tgMode || !MINI_APP_ONLY.includes(b.type)) ? <Fragment key={b.id}>{block(b, p)}</Fragment> : null))}
+      {p.info.mtproto?.length ? <MTProto links={p.info.mtproto} /> : null}
     </>
+  );
+}
+
+/** The MTProto proxies for Telegram itself: a tap adds the proxy to the app's settings. */
+function MTProto({ links }: { links: NonNullable<Info["mtproto"]> }) {
+  return (
+    <section className="glass sub-card p-4">
+      <Heading>{t("sub.mtTitle")}</Heading>
+      <div className="row-list">
+        {links.map((l, i) => (
+          <a key={i} className="btn btn-glass btn-block h-11 rounded-2xl" href={l.link} target="_blank" rel="noreferrer noopener">
+            <Send size={16} aria-hidden /> {l.name || t("sub.mtTitle")}
+          </a>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -289,7 +306,11 @@ function Apps({ block: b, config, subURL, brand, happ, tgMode, platform }: { blo
               {a.name[0]}
             </span>
             <div className="min-w-0">
-              <div className="text-sm font-semibold">{a.name}</div>
+              <div className="text-sm font-semibold">
+                <a href={a.site} target="_blank" rel="noreferrer" className="underline decoration-dotted underline-offset-4">
+                  {a.name}
+                </a>
+              </div>
               <div className="text-xs text-[var(--md-on-surface-variant)]">
                 {i === 0 ? <span className="font-medium text-[var(--md-primary)]">{t("sub.recommended")} · </span> : null}
                 {t(`sub.notes.${a.note}`)}

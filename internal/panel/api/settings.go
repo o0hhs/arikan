@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"errors"
+	"net"
 	"net/http"
 	"path/filepath"
 	"strconv"
@@ -54,14 +55,18 @@ type SettingsView struct {
 	SubRules       string       `json:"sub_rules" doc:"Свои правила Clash: по строке TYPE,VALUE,TARGET[,no-resolve]; # — комментарий"`
 	RuleTargets    []string     `json:"rule_targets" doc:"Куда правило может направить трафик: DIRECT, REJECT, REJECT-DROP, PROXY и группы"`
 	SubRouting     string       `json:"sub_routing" enum:"ru_direct,all,blocked" doc:"Маршруты в Clash-приложениях: ru_direct — российские сайты и IP напрямую по геобазам mihomo, all — всё через VPN, blocked — через VPN только заблокированное (списки privWL-clash), остальное напрямую"`
-	SubTemplate    string       `json:"sub_template" doc:"Свой профиль Clash (YAML) вместо встроенного для приложений на mihomo; пусто — встроенный. Серверы панель подставляет сама: в proxies и в группы с include-all-proxies или mikan: {nodes, types}"`
-	SubRoutes      subs.Routes  `json:"sub_routes" doc:"Куда идут сервисы (services: id → vpn, direct, block или node:<id>), какие приложения и сайты идут мимо VPN (direct) и свои DNS (dns). Каталог — GET /api/v1/settings/routes/catalog"`
-	Fingerprint    string       `json:"client_fingerprint" doc:"Отпечаток TLS (uTLS) у клиентов, если у подключения не задан свой: chrome, firefox, safari, ios, android, edge, 360, qq, random, randomized или своё значение"`
-	AutoPort       bool         `json:"auto_port" doc:"Переносить подключение на другой порт, если клиенты перестали до него доходить"`
-	AutoSNI        bool         `json:"auto_sni" doc:"Менять сайт маскировки REALITY, если он перестал подходить"`
-	WideScan       bool         `json:"wide_sni_scan" doc:"Искать сайты маскировки REALITY не только в /24 ноды, но и в соседних /24 её /16, до 20 найденных сайтов или 2 минут. Много подключений: хостер может принять это за сканирование сети"`
-	AnyPort        bool         `json:"any_port" doc:"Когда запасные порты (2053, 2083…) заняты, панель сама берёт любой свободный из 20000-32767: для нового подключения без порта и при автопереносе. Эти порты установщик в файрволе не открывает"`
-	SupportAccess  bool         `json:"support_access" doc:"Разрешить доступ для поддержки (Настройки → Безопасность). Выключено: новый доступ не выдать, действующий закрывается. MIKAN_SUPPORT_ACCESS=off в .env сервера выключает его независимо от этой настройки"`
+	// ProtocolOrder is the admin's order of protocol families in a subscription; MTProto
+	// the proxies for Telegram itself.
+	ProtocolOrder []string       `json:"protocol_order" doc:"Порядок семейств протоколов в подписке, например vless, hysteria2, shadowsocks: внутри ноды подключения идут в нём; не названные — после них, как были"`
+	MTProto       []subs.MTProxy `json:"mtproto" doc:"MTProto-прокси для Telegram: кнопка в боте и блок на странице подписки; пусто — нет"`
+	SubTemplate   string         `json:"sub_template" doc:"Свой профиль Clash (YAML) вместо встроенного для приложений на mihomo; пусто — встроенный. Серверы панель подставляет сама: в proxies и в группы с include-all-proxies или mikan: {nodes, types}"`
+	SubRoutes     subs.Routes    `json:"sub_routes" doc:"Куда идут сервисы (services: id → vpn, direct, block или node:<id>), какие приложения и сайты идут мимо VPN (direct) и свои DNS (dns). Каталог — GET /api/v1/settings/routes/catalog"`
+	Fingerprint   string         `json:"client_fingerprint" doc:"Отпечаток TLS (uTLS) у клиентов, если у подключения не задан свой: chrome, firefox, safari, ios, android, edge, 360, qq, random, randomized или своё значение"`
+	AutoPort      bool           `json:"auto_port" doc:"Переносить подключение на другой порт, если клиенты перестали до него доходить"`
+	AutoSNI       bool           `json:"auto_sni" doc:"Менять сайт маскировки REALITY, если он перестал подходить"`
+	WideScan      bool           `json:"wide_sni_scan" doc:"Искать сайты маскировки REALITY не только в /24 ноды, но и в соседних /24 её /16, до 20 найденных сайтов или 2 минут. Много подключений: хостер может принять это за сканирование сети"`
+	AnyPort       bool           `json:"any_port" doc:"Когда запасные порты (2053, 2083…) заняты, панель сама берёт любой свободный из 20000-32767: для нового подключения без порта и при автопереносе. Эти порты установщик в файрволе не открывает"`
+	SupportAccess bool           `json:"support_access" doc:"Разрешить доступ для поддержки (Настройки → Безопасность). Выключено: новый доступ не выдать, действующий закрывается. MIKAN_SUPPORT_ACCESS=off в .env сервера выключает его независимо от этой настройки"`
 	// Devices: see domain.Devices.
 	DeviceBinding bool `json:"device_binding" doc:"Привязывать подписку к устройствам: у каждого устройства свои ключи"`
 	RequireHWID   bool `json:"device_require_hwid" doc:"Не выдавать подписку приложениям без ID устройства (иначе они вместе занимают одно место)"`
@@ -118,6 +123,8 @@ type patchSettingsBody = struct {
 	SubGroupMain   *string              `json:"sub_group_main,omitempty" maxLength:"200"`
 	SubGroupAuto   *string              `json:"sub_group_auto,omitempty" maxLength:"200"`
 	SubRouting     *string              `json:"sub_routing,omitempty" enum:"ru_direct,all,blocked"`
+	ProtocolOrder  *[]string            `json:"protocol_order,omitempty" maxItems:"16" doc:"Порядок семейств протоколов в подписке; пусто — как были"`
+	MTProto        *[]subs.MTProxy      `json:"mtproto,omitempty" maxItems:"8" doc:"MTProto-прокси для Telegram"`
 	SubRoutes      *subs.Routes         `json:"sub_routes,omitempty"`
 	SubTemplate    *string              `json:"sub_template,omitempty" maxLength:"524288" doc:"Свой профиль Clash; пусто — вернуть встроенный"`
 	SubRules       *string              `json:"sub_rules,omitempty" maxLength:"65536" doc:"Свои правила Clash, до 500 строк; ошибка указывает номер строки"`
@@ -193,6 +200,12 @@ func (h *handlers) readSettings(ctx context.Context) (SettingsView, error) {
 	v.SubRouting = string(subs.ParseRouting(v.SubRouting))
 	if err == nil {
 		v.SubRoutes, _, err = settings.Get[subs.Routes](ctx, h.d.Settings, settings.KeyRoutes)
+	}
+	if err == nil {
+		v.ProtocolOrder, _, err = settings.Get[[]string](ctx, h.d.Settings, settings.KeyProtocolOrder)
+	}
+	if err == nil {
+		v.MTProto, _, err = settings.Get[[]subs.MTProxy](ctx, h.d.Settings, settings.KeyMTProto)
 	}
 	// An own profile may hold the admin's own proxies, a controller secret or DNS tokens.
 	if !hidesSecrets(ctx) {
@@ -361,6 +374,28 @@ func (h *handlers) updateSettings(ctx context.Context, in *patchSettingsInput) (
 	if b.SubDomain != nil {
 		if d := strings.TrimSpace(*b.SubDomain); d != "" && (!hostname.Name(d) || hostname.Reserved(d)) {
 			details = append(details, fieldDetail("body.sub_domain", "sub_domain_invalid", nil))
+		}
+	}
+	if b.ProtocolOrder != nil {
+		for _, f := range *b.ProtocolOrder {
+			name := strings.ToLower(strings.TrimSpace(f))
+			if name == "" || len(name) > 16 || strings.ContainsAny(name, " \t,;") {
+				details = append(details, fieldDetail("body.protocol_order", "protocol_order_invalid", nil))
+				break
+			}
+		}
+	}
+	if b.MTProto != nil {
+		for _, p := range *b.MTProto {
+			server := strings.TrimSpace(p.Server)
+			if server == "" || len(server) > 253 || p.Port < 1 || p.Port > 65535 || len(p.Secret) < 16 || len(p.Secret) > 256 || len(p.Name) > 60 {
+				details = append(details, fieldDetail("body.mtproto", "mtproto_invalid", nil))
+				break
+			}
+			if !hostname.Valid(server) && net.ParseIP(server) == nil {
+				details = append(details, fieldDetail("body.mtproto", "mtproto_server_invalid", nil))
+				break
+			}
 		}
 	}
 	if b.SupportURL != nil && strings.TrimSpace(*b.SupportURL) != "" && !textutil.ValidLink(strings.TrimSpace(*b.SupportURL), subs.AppLinks) {

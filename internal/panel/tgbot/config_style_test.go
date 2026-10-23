@@ -12,7 +12,7 @@ func TestButtonStyles(t *testing.T) {
 	for _, lang := range []string{"ru", "en"} {
 		def := Default(lang)
 		for _, d := range def.Buttons {
-			if d.Action == "sub" && d.Style != tgapi.StylePrimary || d.Action == "devices" && d.Style != tgapi.StylePrimary || d.Action == "renew" && d.Style != tgapi.StyleSuccess {
+			if d.Action == "connect" && d.Style != tgapi.StylePrimary || d.Action == "renew" && d.Style != tgapi.StyleSuccess {
 				t.Fatalf("%s: %s got style %q", lang, d.Action, d.Style)
 			}
 		}
@@ -24,7 +24,7 @@ func TestButtonStyles(t *testing.T) {
 		return &c
 	}
 	for style, ok := range map[string]bool{"": true, " primary": true, tgapi.StylePrimary: true, tgapi.StyleSuccess: true, tgapi.StyleDanger: true, "green": false} {
-		c := mutate(func(c *Config) { c.Buttons[4].Style = style })
+		c := mutate(func(c *Config) { c.Buttons[0].Style = style })
 		err := c.Validate()
 		if ok != (err == nil) {
 			t.Errorf("style %q: err %v", style, err)

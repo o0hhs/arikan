@@ -80,14 +80,14 @@ func defaults(lang string) []MenuButton {
 		}
 		return ru
 	}
+	// Four buttons, one row each of two: the way in, the way to pay, the subscription
+	// itself and the people to ask. The rest (devices, the referral programme, the page)
+	// stay behind the screens: the same actions, a shorter menu.
 	return []MenuButton{
-		{ID: "sub", Action: "sub", Label: l("👤 Подписка", "👤 Subscription"), Style: tgapi.StylePrimary, On: true},
-		{ID: "devices", Action: "devices", Label: l("🛠 Устройства", "🛠 Devices"), Style: tgapi.StylePrimary, On: true, Row: true},
-		{ID: "connect", Action: "connect", Label: l("🔗 Подключить устройство", "🔗 Connect a device"), On: true},
-		{ID: "renew", Action: "renew", Label: l("🛒 Продлить", "🛒 Renew"), Style: tgapi.StyleSuccess, On: true},
-		{ID: "referral", Action: "referral", Label: l("🤝 Пригласить друзей", "🤝 Invite friends"), On: true},
-		{ID: "support", Action: "support", Label: l("🎧 Поддержка", "🎧 Support"), On: true, Row: true},
-		{ID: "app", Action: "app", Label: l("📲 Открыть страницу подписки", "📲 Open the subscription page"), On: true},
+		{ID: "connect", Action: "connect", Label: l("⚡ Подключить VPN", "⚡ Connect VPN"), Style: tgapi.StylePrimary, On: true},
+		{ID: "renew", Action: "renew", Label: l("💳 Тарифы и оплата", "💳 Plans and payment"), Style: tgapi.StyleSuccess, On: true, Row: true},
+		{ID: "sub", Action: "sub", Label: l("👤 Мой профиль / Слоты", "👤 My profile / slots"), On: true},
+		{ID: "support", Action: "support", Label: l("💬 Поддержка", "💬 Support"), On: true},
 	}
 }
 

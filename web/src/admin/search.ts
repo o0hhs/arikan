@@ -33,7 +33,7 @@ export const SETTINGS_PARTS = {
 } as const;
 export type SettingsSearch = { tab: (typeof SETTINGS_TABS)[number]; part?: string };
 
-export const TARIFF_TABS = ["tariffs", "pools", "packages"] as const;
+export const TARIFF_TABS = ["tariffs", "pools", "packages", "packs"] as const;
 export type TariffsSearch = { tab: (typeof TARIFF_TABS)[number] };
 
 /** Payments open on their history; without a way to take payments yet, on setting one up. */

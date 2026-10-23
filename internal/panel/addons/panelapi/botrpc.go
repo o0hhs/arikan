@@ -41,6 +41,19 @@ var botRPC = map[string]rpcRule{
 	// premium emoji Telegram refused. An addon holding the bot sees that chat's messages
 	// anyway, and what it writes here is a line the panel's own page may show.
 	"AdminChat": rule("", nil, nil), "NoteEmojiRefused": rule("", nil, nil),
+	"MTProto": rule("", nil, nil),
+	// The bot's admin side: the role of the account talking, and what support does to a
+	// subscription — the addon asks as the account, the panel answers by its admin_users.
+	"PartnerCode":         rule("users:write", []int{0}, nil),
+	"AdminRole":           rule("", []int{0}, nil),
+	"AdminFindUser":       rule("users:read", nil, nil),
+	"AdminAddDays":        rule("users:write", nil, []int{0}),
+	"AdminResetSessions":  rule("users:write", nil, []int{0}),
+	"AdminSetDisabled":    rule("users:write", nil, []int{0}),
+	"AdminSleepingTrials": rule("users:read", nil, nil),
+	"AdminSetRole":        rule("users:write", nil, nil),
+	"AdminDelRole":        rule("users:write", nil, nil),
+	"AdminList":           rule("users:read", nil, nil),
 	// Accounts and their subscriptions.
 	"Context":       rule("users:read", []int{0}, nil),
 	"Chat":          rule("users:read", []int{0}, nil),
@@ -74,6 +87,8 @@ var botRPC = map[string]rpcRule{
 	"Reissue":       rule("users:write", nil, []int{0}),
 	// The shop: what is on offer, and what makes a payment or a subscription.
 	"Shop.Config": rule("", nil, nil), "Shop.Offers": rule("", nil, nil), "Shop.AddonName": rule("", nil, nil),
+	"Shop.DevicePacks":    rule("", nil, nil),
+	"Shop.Renewable":      rule("users:read", nil, []int{0}),
 	"Shop.TrialTariff":    rule("", nil, nil),
 	"Shop.PackageOffers":  rule("", nil, []int{0}),
 	"Shop.TrialOpen":      rule("", []int{0}, nil),

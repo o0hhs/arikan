@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Menu from "@radix-ui/react-dropdown-menu";
 import { Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
-import { Activity, ArrowUpCircle, LayoutDashboard, Link2, LogOut, MoreHorizontal, Network, PanelLeftClose, PanelLeftOpen, Puzzle, Server, SlidersHorizontal, Tag, Users, Wallet } from "lucide-react";
+import { Activity, ArrowUpCircle, LayoutDashboard, Link2, LogOut, MoreHorizontal, Network, PanelLeftClose, PanelLeftOpen, Puzzle, ScrollText, Search, Server, SlidersHorizontal, Tag, Users, Wallet, Handshake } from "lucide-react";
 import { useState } from "react";
 import { api, ApiError, errorText, unwrap } from "../api/client";
 import { meQuery, useNode, useOverview, useUpdates } from "../api/hooks";
@@ -11,21 +11,26 @@ import { LangSwitch } from "../components/lang";
 import { PerfSwitch } from "../components/perf";
 import { useToast } from "../components/toast";
 import { Avatar, Bar, Pill } from "../components/ui";
-import { t, useLocale } from "../i18n";
+import { t, useLocale, type Key } from "../i18n";
 import { num, uptime } from "../lib/format";
 import { SupportBar } from "./support-bar";
 
-const NAV = [
-  { to: "/", key: "overview", icon: LayoutDashboard },
-  { to: "/users", key: "users", icon: Users },
-  { to: "/tariffs", key: "tariffs", icon: Tag },
-  { to: "/inbounds", key: "inbounds", icon: Server },
-  { to: "/nodes", key: "nodes", icon: Network },
-  { to: "/outbounds", key: "outbounds", icon: Link2 },
-  { to: "/payments", key: "payments", icon: Wallet },
-  { to: "/addons", key: "addons", icon: Puzzle },
-  { to: "/diagnostics", key: "diagnostics", icon: Activity },
-  { to: "/settings", key: "settings", icon: SlidersHorizontal },
+type NavRoles = readonly ("superadmin" | "support" | "tech")[];
+type NavItem = { to: string; key: string; icon: typeof LayoutDashboard; roles?: NavRoles };
+const NAV: NavItem[] = [
+  { to: "/client", key: "client", icon: Search, roles: ["support"] as const },
+  { to: "/", key: "overview", icon: LayoutDashboard, roles: ["superadmin"] as const },
+  { to: "/users", key: "users", icon: Users, roles: ["superadmin"] as const },
+  { to: "/tariffs", key: "tariffs", icon: Tag, roles: ["superadmin"] as const },
+  { to: "/inbounds", key: "inbounds", icon: Server, roles: ["superadmin", "tech"] as const },
+  { to: "/nodes", key: "nodes", icon: Network, roles: ["superadmin", "tech"] as const },
+  { to: "/outbounds", key: "outbounds", icon: Link2, roles: ["superadmin", "tech"] as const },
+  { to: "/payments", key: "payments", icon: Wallet, roles: ["superadmin"] as const },
+  { to: "/addons", key: "addons", icon: Puzzle, roles: ["superadmin"] as const },
+  { to: "/partners", key: "partners", icon: Handshake, roles: ["superadmin"] as const },
+  { to: "/diagnostics", key: "diagnostics", icon: Activity, roles: ["superadmin"] as const },
+  { to: "/audit", key: "audit", icon: ScrollText, roles: ["superadmin", "tech"] as const },
+  { to: "/settings", key: "settings", icon: SlidersHorizontal, roles: ["superadmin"] as const },
 ] as const;
 
 // The sidebar folded to its icons on a wide screen, as the admin left it; per browser.
@@ -42,6 +47,10 @@ function readFolded(): boolean {
 export function Shell() {
   useLocale(); // the sidebar and the bar read their texts at render time
   const overview = useOverview({ poll: false });
+  // The role's menu: what the account may open is what it sees.
+  const meShell = useQuery({ ...meQuery });
+  const role = meShell.data?.admin.role ?? "superadmin";
+  const nav = NAV.filter((n) => !n.roles || n.roles.includes(role as "superadmin"));
   const [folded, setFolded] = useState(readFolded);
   const fold = () =>
     setFolded((f) => {
@@ -67,10 +76,10 @@ export function Shell() {
             </button>
           </div>
           <nav className="nav" aria-label={t("shell.sections")}>
-            {NAV.map((n) => (
-              <Link key={n.to} to={n.to} className="nav-item" activeProps={{ className: "active", "aria-current": "page" }} activeOptions={{ exact: n.to === "/" }} title={t(`nav.${n.key}`)}>
+            {nav.map((n) => (
+              <Link key={n.to} to={n.to} className="nav-item" activeProps={{ className: "active", "aria-current": "page" }} activeOptions={{ exact: n.to === "/" }} title={t(`nav.${n.key}` as Key)}>
                 <n.icon size={18} aria-hidden />
-                <span className="nav-label">{t(`nav.${n.key}`)}</span>
+                <span className="nav-label">{t(`nav.${n.key}` as Key)}</span>
                 {n.to === "/users" && overview.data ? <span className="nav-count num">{num(overview.data.users_total)}</span> : null}
               </Link>
             ))}
@@ -101,14 +110,17 @@ const isIn = (path: string, to: string) => path.endsWith(to) || path.includes(`$
 function MobileNav() {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
-  const more = NAV.slice(MOBILE_MAIN);
+  const meMobile = useQuery({ ...meQuery });
+  const role = meMobile.data?.admin.role ?? "superadmin";
+  const nav = NAV.filter((n) => !n.roles || n.roles.includes(role as "superadmin"));
+  const more = nav.slice(MOBILE_MAIN);
   const inMore = more.some((n) => isIn(path, n.to));
   return (
     <nav className="mnav glass" aria-label={t("shell.sections")}>
-      {NAV.slice(0, MOBILE_MAIN).map((n) => (
+      {nav.slice(0, MOBILE_MAIN).map((n) => (
         <Link key={n.to} to={n.to} activeProps={{ className: "active", "aria-current": "page" }} activeOptions={{ exact: n.to === "/" }}>
           <n.icon size={20} aria-hidden />
-          <span>{t(`navShort.${n.key}`)}</span>
+          <span>{t(`navShort.${n.key}` as Key)}</span>
         </Link>
       ))}
       <Menu.Root>
@@ -122,7 +134,7 @@ function MobileNav() {
           <Menu.Content className="menu glass-strong" side="top" align="end" sideOffset={12}>
             {more.map((n) => (
               <Menu.Item key={n.to} className="menu-item" onSelect={() => void navigate({ to: n.to })} aria-current={isIn(path, n.to) ? "page" : undefined}>
-                <n.icon size={16} aria-hidden /> {t(`nav.${n.key}`)}
+                <n.icon size={16} aria-hidden /> {t(`nav.${n.key}` as Key)}
               </Menu.Item>
             ))}
           </Menu.Content>

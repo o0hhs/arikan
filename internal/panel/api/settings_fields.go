@@ -63,6 +63,8 @@ var settingFields = []settingField{
 		return settings.Set(ctx, set, settings.KeyTemplate, v)
 	}),
 	text("sub_routing", settings.KeyRouting, true, func(b *patchSettingsBody) *string { return b.SubRouting }),
+	value("protocol_order", settings.KeyProtocolOrder, true, func(b *patchSettingsBody) *[]string { return b.ProtocolOrder }),
+	value("mtproto", settings.KeyMTProto, true, func(b *patchSettingsBody) *[]subs.MTProxy { return b.MTProto }),
 	text("support_url", settings.KeySupportURL, true, func(b *patchSettingsBody) *string { return b.SupportURL }),
 	// What every subscriber's app shows: text, links and the logo it downloads.
 	text("sub_title", settings.KeySubTitle, true, func(b *patchSettingsBody) *string { return b.SubTitle }),

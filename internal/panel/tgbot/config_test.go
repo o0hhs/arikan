@@ -9,8 +9,8 @@ func TestConfigValidate(t *testing.T) {
 	if err := c.Validate(); err != nil {
 		t.Fatal(err)
 	}
-	if c.Buttons[6].ID == "" || c.Buttons[7].ID == "" || c.Buttons[6].ID == c.Buttons[7].ID {
-		t.Fatalf("custom buttons get ids: %+v", c.Buttons[6:])
+	if c.Buttons[4].ID == "" || c.Buttons[5].ID == "" || c.Buttons[4].ID == c.Buttons[5].ID {
+		t.Fatalf("custom buttons get ids: %+v", c.Buttons[4:])
 	}
 	for name, bad := range map[string]MenuButton{
 		"javascript link": {Action: "url", Label: "x", URL: "javascript:alert(1)"},

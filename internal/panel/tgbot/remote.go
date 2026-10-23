@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"mikan/internal/panel/model"
+	"mikan/internal/panel/store/db"
 )
 
 // The methods of Remote, one call each (rpc.go). A method whose interface has no error to
@@ -170,6 +171,72 @@ func (r *Remote) Reissue(ctx context.Context, userID int64) error {
 
 func (r *Remote) Shop() Shop { return r.shop }
 
+func (r *Remote) PartnerCode(ctx context.Context, tgID int64, code string) (string, bool, error) {
+	var (
+		name string
+		ok   bool
+	)
+	err := r.call(ctx, "PartnerCode", []any{tgID, code}, &name, &ok)
+	return name, ok, err
+}
+
+func (r *Remote) AdminRole(ctx context.Context, tgID int64) (string, error) {
+	var role string
+	err := r.call(ctx, "AdminRole", []any{tgID}, &role)
+	return role, err
+}
+
+func (r *Remote) AdminFindUser(ctx context.Context, query string) (model.User, bool, error) {
+	var (
+		u  model.User
+		ok bool
+	)
+	err := r.call(ctx, "AdminFindUser", []any{query}, &u, &ok)
+	return u, ok, err
+}
+
+func (r *Remote) AdminAddDays(ctx context.Context, userID int64, days int) (model.User, error) {
+	var u model.User
+	err := r.call(ctx, "AdminAddDays", []any{userID, days}, &u)
+	return u, err
+}
+
+func (r *Remote) AdminResetSessions(ctx context.Context, userID int64) error {
+	return r.call(ctx, "AdminResetSessions", []any{userID})
+}
+
+func (r *Remote) AdminSetDisabled(ctx context.Context, userID int64, disabled bool) (model.User, error) {
+	var u model.User
+	err := r.call(ctx, "AdminSetDisabled", []any{userID, disabled}, &u)
+	return u, err
+}
+
+func (r *Remote) AdminSleepingTrials(ctx context.Context) ([]SleepingTrial, error) {
+	var out []SleepingTrial
+	err := r.call(ctx, "AdminSleepingTrials", nil, &out)
+	return out, err
+}
+
+func (r *Remote) AdminSetRole(ctx context.Context, tgID int64, role string, by int64) error {
+	return r.call(ctx, "AdminSetRole", []any{tgID, role, by})
+}
+
+func (r *Remote) AdminDelRole(ctx context.Context, tgID int64) error {
+	return r.call(ctx, "AdminDelRole", []any{tgID})
+}
+
+func (r *Remote) AdminList(ctx context.Context) ([]AdminUser, error) {
+	var out []AdminUser
+	err := r.call(ctx, "AdminList", nil, &out)
+	return out, err
+}
+
+func (r *Remote) MTProto(ctx context.Context) []MTLink {
+	var out []MTLink
+	_ = r.call(ctx, "MTProto", nil, &out)
+	return out
+}
+
 func (r *Remote) Tariff(ctx context.Context, id int64) (model.Tariff, error) {
 	var t model.Tariff
 	err := r.call(ctx, "Tariff", []any{id}, &t)
@@ -209,6 +276,21 @@ func (s remoteShop) AddonName(ctx context.Context, id, lang string) string {
 	var n string
 	_ = s.r.call(ctx, "Shop.AddonName", []any{id, lang}, &n)
 	return n
+}
+
+func (s remoteShop) DevicePacks(ctx context.Context) ([]db.DevicePack, error) {
+	var p []db.DevicePack
+	err := s.r.call(ctx, "Shop.DevicePacks", nil, &p)
+	return p, err
+}
+
+func (s remoteShop) Renewable(ctx context.Context, userID int64) (model.Offer, bool, error) {
+	var (
+		o  model.Offer
+		ok bool
+	)
+	err := s.r.call(ctx, "Shop.Renewable", []any{userID}, &o, &ok)
+	return o, ok, err
 }
 
 func (s remoteShop) Invoice(ctx context.Context, req model.InvoiceRequest) (model.Payment, error) {

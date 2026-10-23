@@ -125,7 +125,7 @@ export function KeyDrawer({ joined, onClose, actions }: { joined: Joined | null;
 export function EditNodeDrawer({ node, onClose }: { node: Node | null; onClose: () => void }) {
   const qc = useQueryClient();
   const toast = useToast();
-  const [form, setForm] = useState({ name: "", public_name: "", host: "", domain: "", enabled: true, fair_share: false, channel: "", group: "", capacity: "", http_redirect: false, sni_router: false, front_page: "", api_lockdown: false, api_allow: "" });
+  const [form, setForm] = useState({ name: "", public_name: "", host: "", domain: "", enabled: true, fair_share: false, channel: "", group: "", capacity: "", http_redirect: false, sni_router: false, front_page: "", api_lockdown: false, api_allow: "", emergency: false, emergency_speed: "" });
   const balance = useBalance();
   const [errors, setErrors] = useState<Record<string, string>>({});
   useEffect(() => {
@@ -133,7 +133,7 @@ export function EditNodeDrawer({ node, onClose }: { node: Node | null; onClose: 
       // The server as it was given, not the address for clients (its domain when it has one):
       // the field saves the server.
       setForm({ name: node.name, public_name: node.public_name, host: node.server_host, domain: node.domain, enabled: node.enabled, fair_share: node.fair_share, channel: node.channel_mbps != null ? String(node.channel_mbps) : "",
-        group: node.balance_group, capacity: node.capacity != null ? String(node.capacity) : "", http_redirect: node.http_redirect, sni_router: node.sni_router, front_page: node.front_page, api_lockdown: node.api_lockdown, api_allow: node.api_allow.join(", ") });
+        group: node.balance_group, capacity: node.capacity != null ? String(node.capacity) : "", http_redirect: node.http_redirect, sni_router: node.sni_router, front_page: node.front_page, api_lockdown: node.api_lockdown, api_allow: node.api_allow.join(", "), emergency: node.emergency, emergency_speed: node.emergency_speed != null ? String(node.emergency_speed) : "" });
       setErrors({});
     }
   }, [node]);
@@ -185,6 +185,17 @@ export function EditNodeDrawer({ node, onClose }: { node: Node | null; onClose: 
       }
       body.api_lockdown = form.api_lockdown;
       body.api_allow = allow;
+    }
+    body.emergency = form.emergency;
+    if (form.emergency) {
+      const speed = Number(form.emergency_speed);
+      if (form.emergency_speed.trim()) {
+        if (!Number.isInteger(speed) || speed < 1 || speed > 10000) {
+          setErrors({ emergency_speed: t("nodes.emergencySpeedErr") });
+          return;
+        }
+        body.emergency_speed = speed;
+      }
     }
     body.sni_router = form.sni_router;
     body.front_page = form.front_page as NonNullable<Schemas["PatchNodeInputBody"]["front_page"]>;
@@ -261,6 +272,27 @@ export function EditNodeDrawer({ node, onClose }: { node: Node | null; onClose: 
             </div>
           </Field>
           {form.fair_share && !node?.fair_share ? <p className="text-xs text-[var(--honey-600)]">{t("nodes.fairShareReconnect")}</p> : null}
+        </div>
+        <div className="dr-sec">
+          <SwitchRow className="pt-0" label={t("nodes.emergency")} sub={t("nodes.emergencyHint")} checked={form.emergency} onChange={(v) => setForm((f) => ({ ...f, emergency: v }))} />
+          {form.emergency ? (
+            <Field label={t("nodes.emergencySpeed")} htmlFor="e-emergency-speed" hint={t("nodes.emergencySpeedHint")} error={errors.emergency_speed}>
+              <label className="input-unit max-w-[180px]">
+                <input
+                  id="e-emergency-speed"
+                  className="input"
+                  inputMode="numeric"
+                  value={form.emergency_speed}
+                  onChange={(e) => {
+                    setForm((f) => ({ ...f, emergency_speed: e.target.value }));
+                    setErrors(({ emergency_speed: _, ...rest }) => rest);
+                  }}
+                  aria-invalid={!!errors.emergency_speed}
+                />
+                <span>{t("tariffs.mbps")}</span>
+              </label>
+            </Field>
+          ) : null}
         </div>
         {node && !node.local ? (
           <div className="dr-sec">

@@ -7,6 +7,7 @@ package botpanel
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"regexp"
 	"strings"
@@ -17,10 +18,12 @@ import (
 	"mikan/internal/panel/domain"
 	"mikan/internal/panel/model"
 	"mikan/internal/panel/panelimport"
+	"mikan/internal/panel/partners"
 	"mikan/internal/panel/referral"
 	"mikan/internal/panel/settings"
 	"mikan/internal/panel/store"
 	"mikan/internal/panel/store/db"
+	"mikan/internal/panel/subs"
 	"mikan/internal/panel/tgate"
 	"mikan/internal/panel/tgbot"
 )
@@ -52,6 +55,8 @@ type Local struct {
 	Users *domain.Users
 	// Billing sells tariffs in the menu.
 	Billing *billing.Service
+	// Partners binds an account to a partner's code.
+	Partners *partners.Service
 	// Gateway reads the link codes it signed and asks who is in the channel.
 	Gateway *tgate.Gateway
 	// SubBase is https://host:port/<sub path>, "" while the panel has no public address.
@@ -382,6 +387,25 @@ func (l *Local) Tariff(ctx context.Context, id int64) (model.Tariff, error) {
 	return model.Tariff(t), err
 }
 
+func (l *Local) MTProto(ctx context.Context) []tgbot.MTLink {
+	raw, err := l.Settings.String(ctx, settings.KeyMTProto)
+	if err != nil || raw == "" {
+		return nil
+	}
+	var ps []subs.MTProxy
+	if json.Unmarshal([]byte(raw), &ps) != nil {
+		return nil
+	}
+	var out []tgbot.MTLink
+	for _, p := range ps {
+		if p.Server == "" || p.Port <= 0 || p.Secret == "" {
+			continue
+		}
+		out = append(out, tgbot.MTLink{Name: p.Name, Link: p.Link(), TG: p.TGLink()})
+	}
+	return out
+}
+
 // ReferralOn: the programme is the admin's to turn on.
 func (l *Local) ReferralOn(ctx context.Context) bool {
 	return l.ReferralProgram != nil && l.ReferralProgram.Setup(ctx).Enabled
@@ -535,4 +559,13 @@ func (l *Local) NoteEmojiRefused(ctx context.Context, ids []string, errText stri
 		}
 		return out
 	}(ids), Error: errText, At: l.Now().Unix()})
+}
+
+// PartnerCode binds the account to the partner's code (the first code stays) and names the
+// partner for the greeting; ok false: no such code.
+func (l *Local) PartnerCode(ctx context.Context, tgID int64, code string) (string, bool, error) {
+	if l.Partners == nil {
+		return "", false, nil
+	}
+	return l.Partners.Code(ctx, tgID, code)
 }

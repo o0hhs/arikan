@@ -77,3 +77,16 @@ SELECT * FROM audit_log WHERE id < sqlc.arg(before_id) ORDER BY id DESC LIMIT CA
 
 -- name: PruneAudit :execrows
 DELETE FROM audit_log WHERE ts < $1;
+
+-- name: CreateAdminWithRole :one
+INSERT INTO admins (username, password_hash, role, created_at) VALUES ($1, $2, $3, $4)
+RETURNING *;
+
+-- name: SetAdminRole :execrows
+UPDATE admins SET role = $1 WHERE id = $2;
+
+-- name: DeleteAdmin :execrows
+DELETE FROM admins WHERE id = $1;
+
+-- name: CountAdminsWithRole :one
+SELECT count(*) FROM admins WHERE role = $1;

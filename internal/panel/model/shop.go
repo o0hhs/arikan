@@ -235,6 +235,8 @@ type InvoiceRequest struct {
 	TermDays  *int64 // the term's days; nil: the tariff's first term
 	Provider  string
 	PromoCode string
+	// DevicePackID is the pack of extra device places beside the tariff; 0: none.
+	DevicePackID int64
 }
 
 // PackageRequest: who buys which package for which subscription with what.

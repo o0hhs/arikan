@@ -514,9 +514,15 @@ func (s *Syncer) policiesFrom(snap *snapshot) (epoch string, out []nodeapi.Polic
 		}
 		names := slotsOf[u.ID]
 		sort.Strings(names)
+		// The emergency node of this syncer, if it is one: ended subscriptions get in
+		// here alone, shaped to the speed the node says.
+		emergency, emergencySpeed := false, 0
+		if speed, ok := snap.emergency[s.id]; ok {
+			emergency, emergencySpeed = true, speed
+		}
 		access := domain.AccessOf(u, domain.ServersOf(snap.servers, u.TariffID))
 		for _, name := range names {
-			p := userPolicy(u, grants.Main(u.ID), name, seq, now, here, access, shut[u.ID], others[name])
+			p := userPolicy(u, grants.Main(u.ID), name, seq, now, here, access, shut[u.ID], others[name], emergency, emergencySpeed)
 			p.Pools = userPoolQuotas(u.ID, rows[u.ID], groupsHere, p.QuotaRemaining, grants)
 			p.TorrentExempt = snap.torrent.IsExempt(u.ID)
 			if !p.TorrentExempt {
@@ -532,8 +538,9 @@ func (s *Syncer) policiesFrom(snap *snapshot) (epoch string, out []nodeapi.Polic
 // userPolicy is the user's rules for one of the user's slots; grants is what is left of
 // the user's main grants, added to the quota, here the node's inbounds by id, access what
 // the user may connect to (the card's protocols or the tariff's servers) and shut the
-// inbounds here the user's tariff leaves out (a closed group).
-func userPolicy(u db.User, grants int64, name string, seq int64, now time.Time, here []db.Inbound, access domain.Access, shut map[int64]bool, otherIPs []string) nodeapi.Policy {
+// inbounds here the user's tariff leaves out (a closed group). On the emergency node an
+// ended subscription gets in, shaped to emergencySpeed.
+func userPolicy(u db.User, grants int64, name string, seq int64, now time.Time, here []db.Inbound, access domain.Access, shut map[int64]bool, otherIPs []string, emergency bool, emergencySpeed int) nodeapi.Policy {
 	// A user whose main traffic ran out still gets in: the node turns away the inbounds that
 	// count to it (outside every group, or in one in the main traffic; QuotaRemaining 0) and
 	// keeps the groups with traffic of their own left.
@@ -545,6 +552,15 @@ func userPolicy(u db.User, grants int64, name string, seq int64, now time.Time, 
 	}
 	if u.SpeedLimit.Valid {
 		p.SpeedMbps = int(u.SpeedLimit.Int64)
+	}
+	if emergency && !p.Allowed {
+		// The emergency node keeps Telegram reachable for a subscription that ran out: it
+		// gets in here alone, endless in quota but shaped to the speed the node says.
+		p.Allowed = true
+		p.QuotaRemaining = -1
+		if emergencySpeed > 0 {
+			p.SpeedMbps = emergencySpeed
+		}
 	}
 	// The user's devices are slots of their own: they share the user's speed and the
 	// node's fair share as one.
