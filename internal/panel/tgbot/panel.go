@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"log/slog"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
+	"mikan/internal/panel/discounts"
 	"mikan/internal/panel/domain"
 	"mikan/internal/panel/events"
 	"mikan/internal/panel/referral"
@@ -24,8 +26,11 @@ type PanelDeps struct {
 	// Emit tells the bot addon of a notice it should send (the panel's feed of events,
 	// internal/panel/events).
 	Emit Emit
-	Log  *slog.Logger
-	Now  func() time.Time
+	// Discounts are the panel's own sales: their mailings remind about the end of a sale.
+	// nil: none.
+	Discounts *discounts.Service
+	Log       *slog.Logger
+	Now       func() time.Time
 }
 
 // Panel is the bot as the panel keeps it: the admin's setup, the notices it tells the bot
@@ -156,6 +161,38 @@ func (p *Panel) Notify(ctx context.Context) {
 	if now.Hour() == 3 && now.Minute() < 10 {
 		if err := p.d.Backend.PruneNotices(ctx, now.Add(-noticesKept)); err != nil {
 			p.d.Log.Error("telegram: prune notices", "err", err)
+		}
+	}
+	p.notifyDiscounts(ctx, now)
+}
+
+// notifyDiscounts tells the bot addon of the reminders about the end of a sale: the
+// admin's own mailing, with its own days and its own wording. Each reminder is told once
+// (discount_notices); once a day, in the small hours, the ones told long ago are forgotten.
+func (p *Panel) notifyDiscounts(ctx context.Context, now time.Time) {
+	if p.d.Discounts == nil {
+		return
+	}
+	notices, err := p.d.Discounts.Notices(ctx, now)
+	if err != nil {
+		p.d.Log.Error("telegram: discount notices", "err", err)
+		return
+	}
+	for _, n := range notices {
+		data := events.Discount{DiscountID: n.DiscountID, Name: n.Name, Days: n.Days, EndsAt: n.EndsAt,
+			Value: n.Value, Type: n.Type, Currency: n.Currency, Text: n.Text, Tariffs: strings.Join(n.Tariffs, ", ")}
+		dedupe := "discount:" + strconv.FormatInt(n.DiscountID, 10) + ":" + n.Kind + ":" + strconv.FormatInt(n.TgID, 10)
+		if err := p.d.Emit(ctx, events.DiscountEnding, 0, n.TgID, data, dedupe); err != nil {
+			p.d.Log.Error("telegram: discount event", "discount", n.DiscountID, "err", err)
+			continue
+		}
+		if err := p.d.Discounts.NoticeDelivered(ctx, n.DiscountID, n.TgID, n.Kind, now); err != nil {
+			p.d.Log.Error("telegram: discount notices", "err", err)
+		}
+	}
+	if now.Hour() == 3 && now.Minute() < 10 {
+		if err := p.d.Discounts.PruneNotices(ctx, now.Add(-noticesKept)); err != nil {
+			p.d.Log.Error("telegram: prune discount notices", "err", err)
 		}
 	}
 }

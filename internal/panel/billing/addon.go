@@ -429,8 +429,13 @@ func (s *Service) checkAddonPayment(ctx context.Context, pay db.Payment) error {
 		if err != nil {
 			return err
 		}
-		if s.d.Promo != nil && (pay.Status == PaymentPending || pay.Status == PaymentExpired || pay.Status == PaymentFailed) {
-			return s.d.Promo.ReleasePayment(ctx, pay.ID)
+		if pay.Status == PaymentPending || pay.Status == PaymentExpired || pay.Status == PaymentFailed {
+			if s.d.Promo != nil {
+				if err := s.d.Promo.ReleasePayment(ctx, pay.ID); err != nil {
+					return err
+				}
+			}
+			s.releaseSale(ctx, pay.ID)
 		}
 		return nil
 	}

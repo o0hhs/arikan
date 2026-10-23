@@ -69,6 +69,7 @@ func (s *Service) refundLateReferralPayment(ctx context.Context, paymentID int64
 			s.d.Log.Warn("billing: release promo of a late referral refund", "payment", paymentID, "err", err)
 		}
 	}
+	s.releaseSale(ctx, paymentID)
 	s.d.Log.Warn("billing: payment made after its referral hold was released was refunded", "payment", paymentID, "provider", pay.Provider)
 	return true, nil
 }

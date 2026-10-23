@@ -416,6 +416,7 @@ func (s *Service) RefundedByHand(ctx context.Context, id int64) error {
 			s.d.Log.Warn("billing: release promo of a payment refunded by hand", "payment", id, "err", err)
 		}
 	}
+	s.releaseSale(ctx, id)
 	s.d.Log.Info("billing: refunded by hand", "payment", id, "provider", p.Provider)
 	if n := s.notifier(); n != nil {
 		p.Status, p.RefundedAt, p.Error = PaymentRefunded, refundedAt, ""
