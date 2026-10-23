@@ -51,8 +51,10 @@ func TestInactiveServer(t *testing.T) {
 	if _, err := h.st.DB.ExecContext(ctx, "UPDATE users SET expires_at = $1 WHERE id = $2", h.now.Add(-time.Hour).Unix(), u.ID); err != nil {
 		t.Fatal(err)
 	}
-	if links := fetch(); strings.Contains(links, "127.0.0.1:1") || !strings.Contains(links, "vless://") {
-		t.Fatalf("off: the servers as before: %.200s", links)
+	// Off: the subscription keeps the servers it has — the node turns it away anyway — and
+	// carries the banner of dead entries on top: what happened and the two ways out.
+	if links := fetch(); strings.Count(links, "127.0.0.1:1") != 5 || !strings.Contains(links, "vless://") || !strings.Contains(links, "%D0%9F%D1%80%D0%BE%D0%B4%D0%BB%D0%B8%D1%82%D1%8C") {
+		t.Fatalf("off: the banner over the servers: %.300s", links)
 	}
 	if err := settings.Set(ctx, set, settings.KeyInactiveServer, true); err != nil {
 		t.Fatal(err)

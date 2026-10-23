@@ -21,7 +21,6 @@ import (
 	"mikan/internal/panel/settings"
 	"mikan/internal/panel/store/db"
 	"mikan/internal/panel/tgate"
-	"mikan/internal/release"
 )
 
 // The panel's own bot: a source every panel ships with (addons.BuiltinSourceURL) offers this
