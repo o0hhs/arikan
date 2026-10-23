@@ -46,6 +46,9 @@ func hidesSecrets(ctx context.Context) bool {
 	if k, ok := apiKeyOf(ctx); ok {
 		return k.Scope != "full"
 	}
+	if role, ok := roleOf(ctx); ok && role != RoleSuperadmin && role != "" {
+		return true // support and tech read the connection without its key material
+	}
 	_, ok := supportGrantOf(ctx)
 	return ok
 }

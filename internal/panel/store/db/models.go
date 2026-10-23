@@ -91,6 +91,7 @@ type Admin struct {
 	CreatedAt     int64
 	LastLoginAt   sql.NullInt64
 	TotpStep      int64
+	Role          string
 }
 
 type AdminUser struct {

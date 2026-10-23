@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
+	"strings"
 	"sync"
 	"time"
 
@@ -360,6 +361,8 @@ func New(d Deps) (http.Handler, huma.API, error) {
 	h.registerReferrals()
 	h.registerCampaigns()
 	h.registerPartners()
+	h.registerSupportCard()
+	h.registerAdmins()
 	h.registerAgents()
 	h.registerAddons()
 	h.registerAddonSources()
@@ -432,6 +435,13 @@ func (h *handlers) middleware(ctx huma.Context, next func(huma.Context)) {
 		h.supportSession(ctx, next, mutating, sess)
 		return
 	}
+	// The admin's role: what the panel opens to it, the session's own account's.
+	role := h.adminRole(ctx.Context(), sess.AdminID)
+	if !roleAllows(role, ctx.Operation().Method, strings.TrimPrefix(ctx.URL().Path, "/api/v1")) {
+		roleRefusal(h, ctx)
+		return
+	}
+	ctx = huma.WithValue(ctx, keyRole, role)
 	next(huma.WithValue(ctx, keySession, sess))
 }
 

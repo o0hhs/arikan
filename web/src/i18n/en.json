@@ -101,7 +101,9 @@
     "addons": "Addons",
     "payments": "Payments",
     "diagnostics": "Diagnostics",
-    "partners": "Partners"
+    "partners": "Partners",
+    "client": "Client",
+    "audit": "Log"
   },
   "navShort": {
     "outbounds": "Outbounds",
@@ -728,7 +730,13 @@
       "monitor_password_short": "The password is too short",
       "mtproto_invalid": "Check the MTProto lines: server:port:secret, the secret from mtg/mtproto-proxy",
       "mtproto_server_invalid": "The MTProto server is a name or an IP",
-      "protocol_order_invalid": "Families are comma-separated latin names"
+      "protocol_order_invalid": "Families are comma-separated latin names",
+      "role_forbidden": "Your role does not open this part",
+      "admin_exists": "Such an admin already exists",
+      "admin_self": "You cannot remove yourself",
+      "last_superadmin": "The last superadmin cannot be demoted or removed",
+      "bad_username": "At least 3 characters",
+      "bad_password": "At least 8 characters"
     },
     "acme": {
       "port80_busy": "Port 80 is held by another program, and the certificate authority checks the server through it. If it is nginx or Caddy, the command below lets the check through to mikan; otherwise free the port",
@@ -5340,7 +5348,8 @@
       "certificate": "certificate {id}",
       "users": "clients {id}",
       "sub_page_image": "subscription page image {id}"
-    }
+    },
+    "pageSub": "The admins' own log"
   },
   "devicePacks": {
     "title": "Device packs",
@@ -5390,5 +5399,51 @@
     "disable": "Disable",
     "on": "On",
     "off": "Off"
+  },
+  "client": {
+    "title": "Client",
+    "sub": "The subscriber's card for support: find by id, @username or a payment's number",
+    "search": "Find a client",
+    "searchHint": "the subscription id, an @username or a payment's number",
+    "find": "Find",
+    "done": "Done",
+    "blocked": "Blocked",
+    "until": "Until",
+    "forever": "no end",
+    "traffic": "Traffic this period",
+    "devices": "Devices",
+    "contact": "Contact",
+    "addDays": "3 days",
+    "sessions": "Reset sessions",
+    "unblock": "Unblock",
+    "block": "Block",
+    "trafficNote": "Used {used}, {left} left",
+    "state": {
+      "active": "Active",
+      "expiring": "Expiring",
+      "limited": "Limit reached",
+      "expired": "Expired",
+      "disabled": "Disabled"
+    }
+  },
+  "admins": {
+    "title": "Panel admins",
+    "sub": "Who logs into the panel and what each may open: superadmin — everything, support — the client card, tech — the nodes, the protocols and the log",
+    "username": "Name",
+    "password": "Password",
+    "role": "Role",
+    "add": "Add",
+    "created": "Admin added",
+    "saved": "Role saved",
+    "removed": "Admin removed",
+    "removeLabel": "Remove the admin {name}",
+    "lastLogin": "last login: {at}",
+    "totp": "2FA",
+    "hint": "The last superadmin cannot be demoted or removed, and nobody removes themselves.",
+    "roles": {
+      "superadmin": "Superadmin",
+      "support": "Support",
+      "tech": "Tech"
+    }
   }
 }

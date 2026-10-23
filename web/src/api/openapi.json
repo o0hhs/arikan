@@ -525,6 +525,85 @@
         ],
         "type": "object"
       },
+      "AdminCreateInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "password": {
+            "maxLength": 200,
+            "minLength": 8,
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "superadmin",
+              "support",
+              "tech"
+            ],
+            "type": "string"
+          },
+          "username": {
+            "maxLength": 64,
+            "minLength": 3,
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "password",
+          "role"
+        ],
+        "type": "object"
+      },
+      "AdminRoleInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "role": {
+            "enum": [
+              "superadmin",
+              "support",
+              "tech"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "role"
+        ],
+        "type": "object"
+      },
+      "AdminRowView": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "last_login_at": {
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "superadmin",
+              "support",
+              "tech"
+            ],
+            "type": "string"
+          },
+          "totp_enabled": {
+            "type": "boolean"
+          },
+          "username": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "role",
+          "totp_enabled"
+        ],
+        "type": "object"
+      },
       "AdminStats": {
         "additionalProperties": false,
         "properties": {
@@ -589,6 +668,14 @@
             "format": "date-time",
             "type": "string"
           },
+          "role": {
+            "enum": [
+              "superadmin",
+              "support",
+              "tech"
+            ],
+            "type": "string"
+          },
           "totp_enabled": {
             "type": "boolean"
           },
@@ -599,6 +686,7 @@
         "required": [
           "id",
           "username",
+          "role",
           "totp_enabled"
         ],
         "type": "object"
@@ -11206,6 +11294,97 @@
         ],
         "type": "object"
       },
+      "SupportBlockedInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "blocked": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "blocked"
+        ],
+        "type": "object"
+      },
+      "SupportCard": {
+        "additionalProperties": false,
+        "properties": {
+          "blocked": {
+            "type": "boolean"
+          },
+          "contact": {
+            "type": "string"
+          },
+          "device_limit": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "devices": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "expires_at": {
+            "description": "null — бессрочно",
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "state": {
+            "description": "active, expiring, limited, expired, disabled",
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "tariff": {
+            "type": "string"
+          },
+          "tg_username": {
+            "type": "string"
+          },
+          "traffic_limit": {
+            "description": "null — без лимита",
+            "format": "int64",
+            "type": "integer"
+          },
+          "traffic_used": {
+            "description": "Байты за период",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "status",
+          "state",
+          "traffic_used",
+          "devices",
+          "blocked"
+        ],
+        "type": "object"
+      },
+      "SupportDaysInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "days": {
+            "format": "int64",
+            "maximum": 365,
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "days"
+        ],
+        "type": "object"
+      },
       "SupportEnterInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -14277,6 +14456,169 @@
         "summary": "Вызов страницы аддона: панель передаёт его аддону",
         "tags": [
           "addons"
+        ],
+        "x-session-only": true
+      }
+    },
+    "/api/v1/admins": {
+      "get": {
+        "operationId": "list-admins",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AdminRowView"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Администраторы панели",
+        "tags": [
+          "admins"
+        ],
+        "x-session-only": true
+      },
+      "post": {
+        "operationId": "create-admin",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminCreateInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRowView"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Добавить администратора",
+        "tags": [
+          "admins"
+        ],
+        "x-session-only": true
+      }
+    },
+    "/api/v1/admins/{id}": {
+      "delete": {
+        "operationId": "delete-admin",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Удалить администратора",
+        "tags": [
+          "admins"
+        ],
+        "x-session-only": true
+      },
+      "put": {
+        "operationId": "set-admin-role",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminRoleInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRowView"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Сменить роль администратора",
+        "tags": [
+          "admins"
         ],
         "x-session-only": true
       }
@@ -21994,6 +22336,241 @@
           "sub-page"
         ],
         "x-session-only": true
+      }
+    },
+    "/api/v1/support/card": {
+      "get": {
+        "operationId": "support-find",
+        "parameters": [
+          {
+            "description": "id подписки, @username или номер платежа",
+            "explode": false,
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "description": "id подписки, @username или номер платежа",
+              "maxLength": 128,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportCard"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Карточка клиента для поддержки",
+        "tags": [
+          "support"
+        ]
+      }
+    },
+    "/api/v1/support/card/{id}": {
+      "get": {
+        "operationId": "support-card-get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportCard"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Карточка клиента по id",
+        "tags": [
+          "support"
+        ]
+      }
+    },
+    "/api/v1/support/card/{id}/blocked": {
+      "post": {
+        "operationId": "support-block",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SupportBlockedInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportCard"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Заблокировать или разблокировать",
+        "tags": [
+          "support"
+        ]
+      }
+    },
+    "/api/v1/support/card/{id}/days": {
+      "post": {
+        "operationId": "support-add-days",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SupportDaysInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportCard"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Начислить дни поддержкой",
+        "tags": [
+          "support"
+        ]
+      }
+    },
+    "/api/v1/support/card/{id}/sessions": {
+      "post": {
+        "operationId": "support-reset-sessions",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportCard"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Сбросить сессии: новая ссылка, устройства отвязаны",
+        "tags": [
+          "support"
+        ]
       }
     },
     "/api/v1/support/enter": {

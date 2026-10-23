@@ -6,6 +6,7 @@ import { whoamiQuery } from "../api/support";
 import { useLocale } from "../i18n";
 import { NotFoundPage, PageLoading, RouteError } from "./route-states";
 import { ADDON_KINDS, ADDON_TABS, ADS_TABS, PAYMENT_TABS, PROMO_TABS, DIAG_TABS, SETTINGS_PARTS, SETTINGS_TABS, TARIFF_TABS, TELEGRAM_TABS, USER_SORTS, USER_SOURCES, USER_STATES, type AddonsSearch, type DiagSearch, type PaymentsSearch, type SettingsSearch, type SupportSearch, type TariffsSearch, type TelegramSearch, type UsersSearch } from "./search";
+import { roleAllows, roleHome } from "./roles";
 import { Shell } from "./shell";
 
 /**
@@ -52,6 +53,10 @@ export function createAppRouter(queryClient: QueryClient) {
       try {
         const me =await context.queryClient.ensureQueryData(meQuery);
         setCsrf(me.csrf_token);
+        // The role's own pages: support keeps the client card alone, tech the nodes, the
+        // protocols and the log; anything else lands where the role may be.
+        const role = me.admin.role;
+        if (!roleAllows(role, location.pathname)) throw redirect({ to: roleHome(role) });
       } catch (e) {
         if (e instanceof ApiError && e.status === 401) {
           throw redirect({ to: "/login", search: { next: location.href } });
@@ -133,6 +138,8 @@ export function createAppRouter(queryClient: QueryClient) {
   // The addons: what is installed (the bot, payment methods, pages, the built-in tools) and
   // the catalog of the marketplace.
   const partners = createRoute({ getParentRoute: () => app, path: "/partners", component: page(() => import("./pages/partners"), "PartnersPage") });
+  const client = createRoute({ getParentRoute: () => app, path: "/client", component: page(() => import("./pages/client"), "ClientPage") });
+  const audit = createRoute({ getParentRoute: () => app, path: "/audit", component: page(() => import("./pages/client-audit"), "AuditPage") });
   const addons = createRoute({
     getParentRoute: () => app,
     path: "/addons",
@@ -211,7 +218,7 @@ export function createAppRouter(queryClient: QueryClient) {
   // The API section lived in the sidebar until 0.4.2: old links land on its new place.
   const apiDocsOld = createRoute({ getParentRoute: () => app, path: "/api-docs", beforeLoad: () => { throw redirect({ to: "/settings/api" }); } });
 
-  const routeTree = root.addChildren([login, supportEnter, app.addChildren([dashboard, users, tariffs, inbounds, nodes, outbounds, diagnostics, promocodes, payments, addons, partners, telegram, torrent, filters, market, addonApp, telegramOld, apiDocs, apiDocsOld, settings])]);
+  const routeTree = root.addChildren([login, supportEnter, app.addChildren([dashboard, users, tariffs, inbounds, nodes, outbounds, diagnostics, promocodes, payments, addons, partners, client, audit, telegram, torrent, filters, market, addonApp, telegramOld, apiDocs, apiDocsOld, settings])]);
   return createRouter({
     routeTree,
     basepath: basePath || "/",

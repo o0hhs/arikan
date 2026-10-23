@@ -25,6 +25,7 @@ import { ROUTING_PARTS, RoutingSection, type RoutingPart } from "./routing";
 import { AccessCard, ApiCard, CertificateCard, PasswordCard, SessionsCard, TwoFactorCard } from "./security";
 import { SupportCard } from "./support";
 import { AppsCard, DevicesCard, InactiveCard, ProtocolsCard, SubDomainCard, SubPortCard, SubscriptionCard } from "./subscription";
+import { AdminsCard } from "./admins";
 import { SiteCard } from "./site";
 import { HappCard } from "./happ";
 import { SubPageSettings, type SubPagePart } from "./sub-page";
@@ -122,6 +123,7 @@ export function SettingsPage() {
                     <PasswordCard />
                     <TwoFactorCard />
                     <SessionsCard />
+                    <AdminsCard />
                     <AuditCard />
                     <AccessCard s={s} />
                     <SiteCard s={s} />
