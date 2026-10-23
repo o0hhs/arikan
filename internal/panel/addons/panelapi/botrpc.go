@@ -44,6 +44,7 @@ var botRPC = map[string]rpcRule{
 	"MTProto": rule("", nil, nil),
 	// The bot's admin side: the role of the account talking, and what support does to a
 	// subscription — the addon asks as the account, the panel answers by its admin_users.
+	"PartnerCode":         rule("users:write", []int{0}, nil),
 	"AdminRole":           rule("", []int{0}, nil),
 	"AdminFindUser":       rule("users:read", nil, nil),
 	"AdminAddDays":        rule("users:write", nil, []int{0}),

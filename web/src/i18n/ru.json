@@ -725,7 +725,10 @@
       "required": "Заполните это поле",
       "dashboard_card_unknown": "Неизвестная карточка дашборда",
       "dashboard_date_unknown": "Неизвестный формат даты",
-      "monitor_password_short": "Слишком короткий пароль"
+      "monitor_password_short": "Слишком короткий пароль",
+      "mtproto_invalid": "Проверьте строки MTProto: сервер:порт:секрет, секрет от mtg/mtproto-proxy",
+      "mtproto_server_invalid": "Сервер MTProto — имя или IP",
+      "protocol_order_invalid": "Семейства — латиницей через запятую, без пробелов внутри"
     },
     "acme": {
       "port80_busy": "Порт 80 занят другой программой, а центр сертификации проверяет сервер через него. Если это nginx или Caddy, команда ниже пропустит проверку к mikan; иначе освободите порт",

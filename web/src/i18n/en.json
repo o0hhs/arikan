@@ -725,7 +725,10 @@
       "required": "Fill in this field",
       "dashboard_card_unknown": "Unknown dashboard card",
       "dashboard_date_unknown": "Unknown date format",
-      "monitor_password_short": "The password is too short"
+      "monitor_password_short": "The password is too short",
+      "mtproto_invalid": "Check the MTProto lines: server:port:secret, the secret from mtg/mtproto-proxy",
+      "mtproto_server_invalid": "The MTProto server is a name or an IP",
+      "protocol_order_invalid": "Families are comma-separated latin names"
     },
     "acme": {
       "port80_busy": "Port 80 is held by another program, and the certificate authority checks the server through it. If it is nginx or Caddy, the command below lets the check through to mikan; otherwise free the port",
