@@ -8,10 +8,10 @@ import (
 	"strings"
 
 	"mikan/internal/panel/domain"
+	"mikan/internal/panel/exitdns"
 	"mikan/internal/panel/filters"
 	"mikan/internal/panel/settings"
 	"mikan/internal/panel/store/db"
-	"mikan/internal/panel/subs"
 	"mikan/internal/panel/torrent"
 )
 
@@ -32,11 +32,12 @@ type snapshot struct {
 	// closed is what every tariff keeps out of its users' subscriptions (the tariff's
 	// own "protocols off"), by the tariff's id.
 	closed   map[int64][]int64
+	servers  map[int64]domain.Servers // the tariffs that include only chosen servers
 	counters map[int64]counterPos
 	torrent  torrent.Config
 	bans     map[int64]int64 // user → when the torrent blocker's ban ends (unix)
 	filters  filters.Config
-	routes   subs.Routes
+	exitDNS  exitdns.Config
 	detail   bool // the nodes sum the bytes by site
 }
 
@@ -102,13 +103,16 @@ func (m *Manager) readSnapshot(ctx context.Context) (s *snapshot, err error) {
 			}
 		}
 	}
+	if s.servers, err = domain.AllTariffServers(ctx, q); err != nil {
+		return nil, err
+	}
 	if s.torrent, err = torrent.Load(ctx, settings.New(q)); err != nil {
 		return nil, err
 	}
 	if s.filters, err = filters.Load(ctx, settings.New(q)); err != nil {
 		return nil, err
 	}
-	if s.routes, _, err = settings.Get[subs.Routes](ctx, settings.New(q), settings.KeyRoutes); err != nil {
+	if s.exitDNS, err = exitdns.Load(ctx, settings.New(q)); err != nil {
 		return nil, err
 	}
 	if s.detail, err = settings.New(q).On(ctx, settings.TrafficDetail); err != nil {

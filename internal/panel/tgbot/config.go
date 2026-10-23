@@ -7,7 +7,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"mikan/internal/panel/tgate"
+	"mikan/internal/tgapi"
 )
 
 // Config is what the admin sets up in the panel: the menu, the texts and which
@@ -25,8 +25,8 @@ type Config struct {
 	// It needs the Mini App. A bot saved before this option has it on.
 	PromoButton bool `json:"promo_button" doc:"Кнопка «Промокоды» в главном меню (нужен Mini App)"`
 	// Channel is the channel a subscriber must join before the bot shows its menu, and the
-	// one the free plan may ask for (billing.FreeChannel). Off by default.
-	Channel tgate.Channel `json:"channel"`
+	// one the free plan may ask for (model.FreeChannel). Off by default.
+	Channel tgapi.Channel `json:"channel"`
 }
 
 // MenuButton of the main menu. Built-in actions open screens; "url" opens a link, "page"
@@ -81,10 +81,10 @@ func defaults(lang string) []MenuButton {
 		return ru
 	}
 	return []MenuButton{
-		{ID: "sub", Action: "sub", Label: l("👤 Подписка", "👤 Subscription"), Style: tgate.StylePrimary, On: true},
-		{ID: "devices", Action: "devices", Label: l("🛠 Устройства", "🛠 Devices"), Style: tgate.StylePrimary, On: true, Row: true},
+		{ID: "sub", Action: "sub", Label: l("👤 Подписка", "👤 Subscription"), Style: tgapi.StylePrimary, On: true},
+		{ID: "devices", Action: "devices", Label: l("🛠 Устройства", "🛠 Devices"), Style: tgapi.StylePrimary, On: true, Row: true},
 		{ID: "connect", Action: "connect", Label: l("🔗 Подключить устройство", "🔗 Connect a device"), On: true},
-		{ID: "renew", Action: "renew", Label: l("🛒 Продлить", "🛒 Renew"), Style: tgate.StyleSuccess, On: true},
+		{ID: "renew", Action: "renew", Label: l("🛒 Продлить", "🛒 Renew"), Style: tgapi.StyleSuccess, On: true},
 		{ID: "referral", Action: "referral", Label: l("🤝 Пригласить друзей", "🤝 Invite friends"), On: true},
 		{ID: "support", Action: "support", Label: l("🎧 Поддержка", "🎧 Support"), On: true, Row: true},
 		{ID: "app", Action: "app", Label: l("📲 Открыть страницу подписки", "📲 Open the subscription page"), On: true},
@@ -153,16 +153,16 @@ func (c *Config) Validate() error {
 			return ErrButtonLabel
 		}
 		b.Style = strings.TrimSpace(b.Style)
-		if !tgate.ValidStyle(b.Style) {
+		if !tgapi.ValidStyle(b.Style) {
 			return ErrButtonStyle
 		}
 		b.EmojiID = strings.TrimSpace(b.EmojiID)
-		if !tgate.ValidEmojiID(b.EmojiID) {
+		if !tgapi.ValidEmojiID(b.EmojiID) {
 			return ErrButtonEmoji
 		}
 		switch b.Action {
 		case "url":
-			if !tgate.SafeURL(b.URL) {
+			if !tgapi.SafeURL(b.URL) {
 				return ErrButtonURL
 			}
 		case "page":

@@ -6,6 +6,7 @@ import (
 	"slices"
 	"time"
 
+	"mikan/internal/pace"
 	"mikan/internal/panel/addons"
 	"mikan/internal/panel/addons/panelapi"
 	"mikan/internal/panel/settings"
@@ -51,7 +52,7 @@ func (b *botAddon) Run(ctx context.Context) {
 		b.p.log.Warn("bot addon: the fork's own source", "err", err)
 	}
 	b.check(ctx)
-	every(ctx, time.Minute, func() { b.check(ctx) })
+	pace.Tick(ctx, time.Minute, b.check)
 }
 
 func (b *botAddon) check(ctx context.Context) {

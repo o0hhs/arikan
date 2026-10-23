@@ -2,7 +2,8 @@
 // /.well-known/acme-challenge/<token>, on port 80 (or MIKAN_ACME_LISTEN). The port is taken
 // only while a challenge is pending and given back after it, so a web server of the admin's
 // may use it the rest of the time. The panel answers its own challenges with it; a node
-// answers the ones the panel orders for the node's address.
+// answers the ones the panel orders for the node's address. A node told to redirect plain
+// HTTP (SetRedirect) holds the port all the time and sends every other request to https.
 package acmechallenge
 
 import (
@@ -141,17 +142,6 @@ func New(addr string) *Server {
 // Addr is where challenges are answered.
 func (s *Server) Addr() string { return s.addr }
 
-// SetRedirect makes the server answer every request that is not a challenge with a 301 to
-// https://<host><path>: a browser reaching this server over http is sent to the site on
-// HTTPS, and the certificate authority's HTTP-01 check still passes, since it follows
-// redirects. Off, as a panel leaves it, the port is free for a web server of the admin's
-// while no challenge is pending. Start takes the port before any is.
-func (s *Server) SetRedirect(on bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.redirect = on
-}
-
 // Start takes the port now, whatever is pending: a server that redirects holds it from here
 // on. A *BusyError when another program holds the address; the server is then as before, and
 // Present/CleanUp still work while a challenge is pending.
@@ -212,9 +202,35 @@ func (s *Server) Bound() string {
 	return s.ln.Addr().String()
 }
 
-// expire drops the tokens past their time and stops the server without any. Under s.mu. A
-// server that redirects keeps the port: it answers the next challenge and sends everything
-// else to HTTPS, so there is nobody to give it back to.
+// SetRedirect holds the port for good and answers what is not a challenge with 301 to the
+// same host and path over https; off, the port is held only for challenges again. A
+// *BusyError when another program holds the port: the redirect is then off.
+func (s *Server) SetRedirect(on bool) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if on == s.redirect && (!on || s.srv != nil) {
+		return nil
+	}
+	s.redirect = on
+	if on && s.srv == nil {
+		if err := s.start(); err != nil {
+			s.redirect = false
+			return err
+		}
+	}
+	s.expire()
+	return nil
+}
+
+// Redirecting says whether plain HTTP is sent to https now.
+func (s *Server) Redirecting() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.redirect && s.srv != nil
+}
+
+// expire drops the tokens past their time and stops the server without any (and without
+// the redirect). Under s.mu.
 func (s *Server) expire() {
 	now := s.now()
 	for t, e := range s.tokens {
@@ -222,8 +238,16 @@ func (s *Server) expire() {
 			delete(s.tokens, t)
 		}
 	}
-	if len(s.tokens) == 0 && !s.redirect {
-		s.stop()
+	if len(s.tokens) == 0 && !s.redirect && s.srv != nil {
+		srv := s.srv
+		s.srv, s.ln = nil, nil
+		if s.timer != nil {
+			s.timer.Stop()
+			s.timer = nil
+		}
+		// Close, not Shutdown: a CA's request in flight is over by now, and the port must be
+		// free when this returns.
+		_ = srv.Close()
 	}
 }
 
@@ -289,48 +313,72 @@ func (s *Server) start() error {
 func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 	token, ok := strings.CutPrefix(r.URL.Path, Prefix)
 	s.mu.Lock()
+	e, found := s.tokens[token]
+	live := ok && found && s.now().Before(e.expires)
 	redirect := s.redirect
-	var e entry
-	found := false
-	if ok {
-		e, found = s.tokens[token]
-	}
-	live := found && s.now().Before(e.expires)
 	s.mu.Unlock()
-	if live && (r.Method == http.MethodGet || r.Method == http.MethodHead) {
-		w.Header().Set("Content-Type", "text/plain")
-		_, _ = w.Write([]byte(e.keyAuth))
+	if !live && redirect {
+		toHTTPS(w, r)
 		return
 	}
-	// Everything that is not a challenge goes on to HTTPS. No host to send anybody to (an
-	// HTTP/1.0 request without Host): nothing to answer with but the 404.
-	if redirect && r.Host != "" {
-		http.Redirect(w, r, httpsURL(r.Host, r.URL.RequestURI()), http.StatusMovedPermanently)
+	if !ok || (r.Method != http.MethodGet && r.Method != http.MethodHead) {
+		http.NotFound(w, r)
 		return
 	}
-	http.NotFound(w, r)
+	if !live {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", "text/plain")
+	_, _ = w.Write([]byte(e.keyAuth))
 }
 
-// httpsURL is where a request over http goes: the same host and path over https. The port of
-// the request (80, or none at all) is left out: https has its own.
-func httpsURL(host, uri string) string {
-	if h, port, err := net.SplitHostPort(host); err == nil {
-		if port == "80" {
-			host = h
-			if strings.Contains(h, ":") {
-				host = "[" + h + "]" // an IPv6 address needs its brackets back
-			}
+// toHTTPS answers 301 to the same host (without its port: https is 443) and path. The
+// host is the request's own: a name or an address, nothing that could lead elsewhere.
+func toHTTPS(w http.ResponseWriter, r *http.Request) {
+	host := r.Host
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		host = h
+	}
+	if !plainHost(host) || r.URL.Path == "" || r.URL.Path[0] != '/' || strings.HasPrefix(r.URL.Path, "//") {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+	if strings.Contains(host, ":") {
+		host = "[" + host + "]"
+	}
+	to := "https://" + host + r.URL.EscapedPath()
+	if r.URL.RawQuery != "" {
+		to += "?" + r.URL.RawQuery
+	}
+	w.Header().Set("Location", to)
+	w.WriteHeader(http.StatusMovedPermanently)
+}
+
+// plainHost: a DNS name or an IP address, nothing else.
+func plainHost(h string) bool {
+	h = strings.Trim(h, "[]")
+	if net.ParseIP(h) != nil {
+		return true
+	}
+	if h == "" || len(h) > 253 {
+		return false
+	}
+	for _, c := range []byte(h) {
+		if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '-' || c == '.') {
+			return false
 		}
 	}
-	return "https://" + host + uri
+	return true
 }
 
-// Close gives the port back and forgets every token, redirect or not.
+// Close gives the port back and forgets every token and the redirect.
 func (s *Server) Close() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	clear(s.tokens)
-	s.stop()
+	s.redirect = false
+	s.expire()
 }
 
 // Fetch asks url for the key authorization as a CA would: a plain GET, redirects followed

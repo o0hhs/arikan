@@ -15,6 +15,7 @@ import { hostPort, listenerError } from "./inbound/shared";
 import { AddDrawer } from "./inbound/add";
 import { CopyDrawer } from "./inbound/copy";
 import { EditDrawer } from "./inbound/edit";
+import { ExitBar } from "./inbound/exit-bar";
 import { TurnDrawer } from "./node-turn";
 
 export function InboundsPage() {
@@ -36,6 +37,16 @@ export function InboundsPage() {
   // VK TURN ("WL") is set up on a node, not on one inbound, so it acts on the node this
   // page shows: the same one the list above is filtered by.
   const [turning, setTurning] = useState(false);
+  // Ticked inbounds of the node on screen, for setting their exit at once.
+  const [selected, setSelected] = useState<ReadonlySet<number>>(new Set());
+  const chosen = useMemo(() => inbounds.filter((i) => selected.has(i.id)), [inbounds, selected]);
+  const toggle = (id: number) =>
+    setSelected((s) => {
+      const next = new Set(s);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+  const allTicked = inbounds.length > 0 && chosen.length === inbounds.length;
   const patch = useMutation({
     mutationFn: ({ id, body }: { id: number; body: Schemas["PatchInboundInputBody"] }) => unwrap(api.PATCH("/api/v1/inbounds/{id}", { params: { path: { id } }, body })),
     onSettled: () => void qc.invalidateQueries({ queryKey: qk.inbounds }),
@@ -72,14 +83,20 @@ export function InboundsPage() {
       {multi && nodes.data ? (
         nodes.data.length <= 4 ? (
           <div className="max-w-full overflow-x-auto">
-            <Segmented value={String(nodeId)} label={t("inbounds.node")} options={nodes.data.map((n) => ({ value: String(n.id), label: nodeLabel(n) }))} onChange={(v) => setNodeId(Number(v))} />
+            <Segmented value={String(nodeId)} label={t("inbounds.node")} options={nodes.data.map((n) => ({ value: String(n.id), label: nodeLabel(n) }))} onChange={(v) => {
+                setNodeId(Number(v));
+                setSelected(new Set());
+              }} />
           </div>
         ) : (
           <div className="flex flex-wrap items-center gap-3">
             <label htmlFor="inbounds-node" className="text-[13px] font-medium text-[var(--md-on-surface-variant)]">
               {t("inbounds.node")}
             </label>
-            <select id="inbounds-node" className="input max-w-[320px]" value={nodeId} onChange={(e) => setNodeId(Number(e.target.value))}>
+            <select id="inbounds-node" className="input max-w-[320px]" value={nodeId} onChange={(e) => {
+                setNodeId(Number(e.target.value));
+                setSelected(new Set());
+              }}>
               {nodes.data.map((n) => (
                 <option key={n.id} value={n.id}>
                   {nodeLabel(n)}
@@ -110,11 +127,19 @@ export function InboundsPage() {
               </EmptyState>
             </section>
           ) : (
+            <>
+            {inbounds.length > 1 ? (
+              <label className="-mb-1 flex w-fit cursor-pointer items-center gap-2 text-[13px] text-[var(--ink-700)]">
+                <input type="checkbox" className="check" checked={allTicked} onChange={() => setSelected(allTicked ? new Set() : new Set(inbounds.map((i) => i.id)))} />
+                {t("inbounds.exitBulk.all")}
+              </label>
+            ) : null}
             <div className="grid gap-4 lg:grid-cols-2">
               {inbounds.map((i, idx) => (
-                <section key={i.id} className="card glass reveal flex flex-col" style={{ "--i": idx } as React.CSSProperties}>
+                <section key={i.id} className={`card glass reveal flex flex-col${selected.has(i.id) ? " sel" : ""}`} style={{ "--i": idx } as React.CSSProperties}>
                   <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
+                    <input type="checkbox" className="check mt-1 shrink-0" checked={selected.has(i.id)} onChange={() => toggle(i.id)} aria-label={t("inbounds.exitBulk.pick", { name: i.sub_name })} />
+                    <div className="min-w-0 flex-1">
                       <h2 className="font-display truncate text-lg font-medium tracking-tight">{i.sub_name}</h2>
                       <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[var(--md-on-surface-variant)]">
                         <span>{i.preset === "custom" ? t("inbounds.customOf", { type: i.type }) : i.title}</span>
@@ -166,7 +191,7 @@ export function InboundsPage() {
                       <Pencil size={16} aria-hidden /> {t("inbounds.configure")}
                     </Button>
                     <Button size="sm" onClick={() => setCopying(i)}>
-                      <Copy size={16} aria-hidden /> <span className="max-[900px]:hidden">{t("inbounds.copy")}</span>
+                      <Copy size={16} aria-hidden /> <span className="max-[900px]:hidden">{t("inbounds.copy.button")}</span>
                     </Button>
                     <Button size="sm" variant="danger" onClick={() => setRemoving(i)}>
                       <Trash2 size={16} aria-hidden /> {t("common.delete")}
@@ -175,6 +200,7 @@ export function InboundsPage() {
                 </section>
               ))}
             </div>
+            </>
           )
         }
       </QueryBoundary>
@@ -182,6 +208,7 @@ export function InboundsPage() {
       <TurnDrawer node={turning && node ? { id: node.id, name: nodeLabel(node) } : null} onClose={() => setTurning(false)} />
       <EditDrawer inbound={editing} onClose={() => setEditing(null)} />
       <CopyDrawer inbound={copying} onClose={() => setCopying(null)} />
+      <ExitBar chosen={chosen} nodes={nodes.data ?? []} clear={() => setSelected(new Set())} />
       <Confirm
         open={!!removing}
         onOpenChange={(v) => !v && setRemoving(null)}

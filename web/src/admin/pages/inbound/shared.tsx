@@ -36,19 +36,20 @@ export function Editor(props: { value: string; onChange: (v: string) => void; in
 }
 
 /** Badges of a preset that not every app or feature works with. */
-export function LimitBadges({ clashOnly, shared }: { clashOnly: boolean; shared: boolean }) {
-  if (!clashOnly && !shared) return null;
+export function LimitBadges({ clashOnly, shared, nestedTLS = false }: { clashOnly: boolean; shared: boolean; nestedTLS?: boolean }) {
+  if (!clashOnly && !shared && !nestedTLS) return null;
   return (
     <span className="mt-1 flex flex-wrap gap-1.5">
       {clashOnly ? <Pill tone="off">{t("inbounds.clashOnly")}</Pill> : null}
       {shared ? <Pill tone="warn">{t("inbounds.sharedKey")}</Pill> : null}
+      {nestedTLS ? <Pill tone="off">{t("inbounds.nestedTLS")}</Pill> : null}
     </span>
   );
 }
 
 /** What the admin gives up with the chosen preset, said before it is added. */
-export function LimitNotes({ clashOnly, shared, domainCert = false, warning = "" }: { clashOnly: boolean; shared: boolean; domainCert?: boolean; warning?: string }) {
-  if (!clashOnly && !shared && !domainCert && !warning) return null;
+export function LimitNotes({ clashOnly, shared, domainCert = false, nestedTLS = false, warning = "" }: { clashOnly: boolean; shared: boolean; domainCert?: boolean; nestedTLS?: boolean; warning?: string }) {
+  if (!clashOnly && !shared && !domainCert && !nestedTLS && !warning) return null;
   return (
     <div className="mb-4 flex flex-col gap-2" role="note">
       {warning ? (
@@ -69,6 +70,7 @@ export function LimitNotes({ clashOnly, shared, domainCert = false, warning = ""
       ) : null}
       {clashOnly ? <p className="text-xs text-[var(--md-on-surface-variant)]">{t("inbounds.clashOnlyNote")}</p> : null}
       {domainCert ? <p className="text-xs text-[var(--md-on-surface-variant)]">{t("inbounds.domainCertNote")}</p> : null}
+      {nestedTLS ? <p className="text-xs text-[var(--md-on-surface-variant)]">{t("inbounds.nestedTLSNote")}</p> : null}
     </div>
   );
 }

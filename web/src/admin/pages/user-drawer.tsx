@@ -168,6 +168,7 @@ function UserBody({ u, onDeleted, onRename }: { u: User; onDeleted: () => void; 
       <SitesSection u={u} />
       <NodesSection u={u} />
       <DevicesSection u={u} />
+      <SitesSection u={u} />
       <TariffSection u={u} />
       <NoteSection u={u} />
       <Disclosure title={t("userDrawer.advanced")} sub={t("userDrawer.advancedSub")}>

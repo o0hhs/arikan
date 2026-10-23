@@ -66,6 +66,9 @@ var settingFields = []settingField{
 	text("support_url", settings.KeySupportURL, true, func(b *patchSettingsBody) *string { return b.SupportURL }),
 	// What every subscriber's app shows: text, links and the logo it downloads.
 	text("sub_title", settings.KeySubTitle, true, func(b *patchSettingsBody) *string { return b.SubTitle }),
+	value("sub_inactive_server", settings.KeyInactiveServer, true, func(b *patchSettingsBody) *bool { return b.InactiveServer }),
+	text("sub_inactive_text", settings.KeyInactiveText, true, func(b *patchSettingsBody) *string { return b.InactiveText }),
+	text("site_template", settings.KeySiteTemplate, true, func(b *patchSettingsBody) *string { return b.SiteTemplate }),
 	text("sub_announce", settings.KeyAnnounce, true, func(b *patchSettingsBody) *string { return b.Announce }),
 	text("sub_announce_url", settings.KeyAnnounceURL, true, func(b *patchSettingsBody) *string { return b.AnnounceURL }),
 	value("app_branding", settings.KeyAppBranding, true, func(b *patchSettingsBody) *bool { return b.AppBranding }),
@@ -101,6 +104,7 @@ var settingFields = []settingField{
 	text("acme_eab_hmac", settings.KeyACMEEABHMAC, true, func(b *patchSettingsBody) *string { return b.ACMEEABHMAC }),
 	// What a key may change: names, the default language, quiet hours, the automatic tuning.
 	text("brand", settings.KeyBrand, false, func(b *patchSettingsBody) *string { return b.Brand }),
+	text("panel_app_name", settings.KeyPanelAppName, false, func(b *patchSettingsBody) *string { return b.PanelAppName }),
 	text("sub_group_main", settings.KeyGroupMain, false, func(b *patchSettingsBody) *string { return b.SubGroupMain }),
 	text("sub_group_auto", settings.KeyGroupAuto, false, func(b *patchSettingsBody) *string { return b.SubGroupAuto }),
 	text("client_fingerprint", settings.KeyFingerprint, false, func(b *patchSettingsBody) *string { return b.Fingerprint }),
@@ -110,6 +114,8 @@ var settingFields = []settingField{
 	value("auto_sni", settings.KeyAutoSNI, false, func(b *patchSettingsBody) *bool { return b.AutoSNI }),
 	// Ports past the pool are not opened in the firewall: the panel's admin decides, not a key.
 	value("any_port", settings.KeyAnyPort, true, func(b *patchSettingsBody) *bool { return b.AnyPort }),
+	// Who may open the panel to an outsider is the admin's call alone.
+	value("support_access", settings.KeySupportAccess, true, func(b *patchSettingsBody) *bool { return b.SupportAccess }),
 	// Thousands of connections from the server, which a hoster may take for a scan.
 	value("wide_sni_scan", settings.KeyWideScan, true, func(b *patchSettingsBody) *bool { return b.WideScan }),
 }

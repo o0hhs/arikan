@@ -37,11 +37,11 @@ cp "$file" "$out"
 CURL
 chmod +x "$tmp/bin/curl"
 
-# The release key of this test, in the script instead of the real one.
+# The release key of this test, in the script instead of the real ones.
 openssl genpkey -algorithm ed25519 -out "$tmp/key.pem" 2>/dev/null
 pub=$(openssl pkey -in "$tmp/key.pem" -pubout | sed -n 2p)
-sed "s|^MCowBQYDK2VwAyEAayuo0yLe0M0N5QQPaxkjAA0ltZcXSG7LRANrgyFAhUg=\$|$pub|" "$here/install.sh" >"$tmp/install.sh"
-grep -q "^$pub\$" "$tmp/install.sh"
+sed "s|^PUBKEYS='MCowBQYDK2VwAyEAayuo0yLe0M0N5QQPaxkjAA0ltZcXSG7LRANrgyFAhUg='\$|PUBKEYS='$pub'|" "$here/install.sh" >"$tmp/install.sh"
+grep -q "^PUBKEYS='$pub'\$" "$tmp/install.sh"
 
 releases="$tmp/www/github.com/o0hhs/arikan/releases"
 sign() { openssl pkeyutl -sign -inkey "$tmp/key.pem" -rawin -in "$1" | base64 | tr -d '\n' >"$1.sig"; }

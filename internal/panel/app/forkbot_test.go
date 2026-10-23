@@ -72,7 +72,7 @@ func TestForkBotIsPreferred(t *testing.T) {
 
 	dir := t.TempDir()
 	h := newHarness(t, func(o *Options) { o.DataDir, o.AddonsCatalog, o.Dev = dir, catalog.URL+"/index.json", true })
-	h.p.Addons.SetKey(catPub)
+	h.p.Addons.SetKeys(catPub, catPub)
 	ctx := context.Background()
 	host := func(st addons.State) {
 		t.Helper()

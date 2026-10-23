@@ -74,13 +74,15 @@ jobs:
           echo /usr/lib/postgresql/18/bin >> "$GITHUB_PATH"
       # The group's packages, with the race detector: the panel's background writers, sync
       # and bot share state across goroutines. -race needs cgo, and the runner has gcc.
+      # -timeout 30m: the app package alone takes 8 to 10 minutes under -race, past go
+      # test's 10 by default.
       - name: go test
         env:
           CGO_ENABLED: "1"
         run: |
           packages=$(grep -v '^#' .github/test-groups | sed -n "${{ matrix.group }}p")
           echo "group ${{ matrix.group }}: $packages"
-          go test -race $packages
+          go test -race -timeout 30m $packages
 
   # Everything the named groups do not take, so that a package added later never goes
   # untested with nobody touching this file.
@@ -134,7 +136,7 @@ jobs:
             exit 0
           fi
           echo "$packages"
-          go test -race $packages
+          go test -race -timeout 30m $packages
 
   # gofmt and vet need neither a database nor a server: they run beside the tests, not
   # before them.

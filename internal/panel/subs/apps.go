@@ -16,7 +16,7 @@ import (
 type Family string
 
 const (
-	FamilyMihomo  Family = "mihomo"  // Koala Clash, SlothClash, FlClash, Clash Verge, Clash Meta for Android, ClashFest…
+	FamilyMihomo  Family = "mihomo"  // Mikan, Kabosu, Koala Clash, SlothClash, FlClash, Clash Verge, Clash Meta for Android, ClashFest…
 	FamilyXray    Family = "xray"    // Happ, v2RayTun, INCY, v2rayNG, v2rayN…
 	FamilySingBox Family = "singbox" // Hiddify, Karing, NekoBox, sing-box…
 	FamilyStash   Family = "stash"
@@ -111,7 +111,7 @@ func DetectApp(userAgent string) App {
 			a.Core = versionOf(m)
 		}
 		return a
-	case has("mihomo", "clash", "koala", "verge", "prizrak", "flowvy", "murge", "rabbit"):
+	case has("mihomo", "clash", "koala", "kabosu", "verge", "prizrak", "flowvy", "murge", "rabbit"):
 		a := App{Family: FamilyMihomo}
 		if m := mihomoVersion.FindStringSubmatch(ua); m != nil {
 			a.Core = versionOf(m)
@@ -138,11 +138,8 @@ var mihomoNewTypes = map[string]bool{"mieru": true, "sudoku": true, "trusttunnel
 // their core get a Gecko inbound.
 var geckoSince = Version{1, 19, 26}
 
-// xhttpGetSince is the first mihomo whose client sends a packet-up uplink by GET, with
-// the payload in the header or named cookie — the scheme a GET-only CDN carries, which
-// the fork's patched server accepts. Xray apps speak it since Xray 26.3.27 on the core
-// inside them, and none of their user agents name a core, so Xray is a family decision.
-var xhttpGetSince = Version{1, 19, 32}
+// getUplinkSince is the first mihomo client that uploads over XHTTP with GET.
+var getUplinkSince = Version{1, 19, 32}
 
 // Supports says whether the app can use an inbound.
 func (a App) Supports(n proto.Needs) bool {
@@ -162,7 +159,9 @@ func (a App) Supports(n proto.Needs) bool {
 		if n.Gecko && !(known && a.Core.AtLeast(geckoSince)) {
 			return false
 		}
-		if n.GetUplink && !(known && a.Core.AtLeast(xhttpGetSince)) {
+		// Uploading with GET came in 1.19.32; an older client sends POST and the CDN
+		// in front, the reason for GET, drops it.
+		if n.GetUplink && !(known && a.Core.AtLeast(getUplinkSince)) {
 			return false
 		}
 		return true
@@ -171,7 +170,7 @@ func (a App) Supports(n proto.Needs) bool {
 			return false
 		}
 		switch n.Type {
-		case "vless", "vmess", "trojan", "hysteria2", "shadowsocks":
+		case "vless", "trojan", "hysteria2", "shadowsocks":
 			return true
 		}
 	case FamilySingBox: // no XHTTP, VLESS Encryption or Gecko in sing-box
@@ -179,7 +178,7 @@ func (a App) Supports(n proto.Needs) bool {
 			return false
 		}
 		switch n.Type {
-		case "vless", "vmess", "trojan", "hysteria2", "tuic", "shadowsocks":
+		case "vless", "trojan", "hysteria2", "tuic", "shadowsocks":
 			return true
 		case "anytls":
 			return !a.Legacy
@@ -189,7 +188,7 @@ func (a App) Supports(n proto.Needs) bool {
 			return false
 		}
 		switch n.Type {
-		case "vless", "vmess", "trojan", "hysteria2", "tuic", "anytls", "shadowsocks", "snell":
+		case "vless", "trojan", "hysteria2", "tuic", "anytls", "shadowsocks", "snell":
 			return true
 		}
 	default: // what a share link can carry
@@ -197,7 +196,7 @@ func (a App) Supports(n proto.Needs) bool {
 			return false
 		}
 		switch n.Type {
-		case "vless", "vmess", "trojan", "hysteria2", "tuic", "anytls", "shadowsocks":
+		case "vless", "trojan", "hysteria2", "tuic", "anytls", "shadowsocks":
 			return true
 		}
 	}
