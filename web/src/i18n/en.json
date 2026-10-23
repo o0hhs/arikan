@@ -100,7 +100,8 @@
     "telegram": "Telegram",
     "addons": "Addons",
     "payments": "Payments",
-    "diagnostics": "Diagnostics"
+    "diagnostics": "Diagnostics",
+    "partners": "Partners"
   },
   "navShort": {
     "outbounds": "Outbounds",
@@ -112,7 +113,8 @@
     "nodes": "Nodes",
     "addons": "Addons",
     "payments": "Payments",
-    "diagnostics": "Diagnostics"
+    "diagnostics": "Diagnostics",
+    "partners": "Partners"
   },
   "shell": {
     "update": "{v} is out",
@@ -5364,5 +5366,26 @@
     "restoreLabel": "Put the pack “{name}” back on sale",
     "archiveTitle": "Take “{name}” off the shop?",
     "archiveText": "It cannot be bought anymore; subscriptions that carry it keep working until they end."
+  },
+  "partners": {
+    "sub": "The franchise: partner bots, their sign-up code and the share of the subscribers' payments",
+    "name": "Name",
+    "namePlaceholder": "John Smith",
+    "note": "Note",
+    "add": "Add a partner",
+    "created": "Partner added",
+    "none": "No partners yet.",
+    "balance": "Balance",
+    "turnover": "Earned",
+    "botUsername": "The bot's @username",
+    "botToken": "The bot's token",
+    "botNoName": "a bot without a name",
+    "addBot": "Add a bot",
+    "botAdded": "Bot added; its code is in its line",
+    "remove": "Remove",
+    "enable": "Enable",
+    "disable": "Disable",
+    "on": "On",
+    "off": "Off"
   }
 }

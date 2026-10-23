@@ -33,6 +33,7 @@ type words struct {
 	connectPlatforms                                                string
 	connectDownload, connectOneTap, connectOneTapAny, connectManual string
 	connectButton                                                   string
+	partnerHello                                                    string
 	linkLimit, noSub, sharedPlace, device, justNow                  string
 	// Taking a subscription off the Telegram account: it keeps working in the apps.
 	removeSub, confirmRemove, yesRemove, removed string
@@ -133,6 +134,7 @@ var ru = words{
 	connectOneTapAny:  "🔌 Подключить в %s",
 	connectManual:     "%s",
 	connectButton:     "⚡ Подключить устройство",
+	partnerHello:      "🤝 Вы пришли от партнёра «%s»: спасибо! Подписка и оплата — как обычно.",
 	connectText:       "1. Установите приложение: Happ или Incy (iPhone, Android), Kabosu (Windows, Mac, Linux).\n2. Добавьте в него ссылку:\n<code>%s</code>\n\nНа странице подписки — кнопки «Добавить» для всех приложений.",
 	linked:            "✅ Подписка «%s» подключена.",
 	alreadyLinked:     "Подписка «%s» уже здесь.",
@@ -298,6 +300,7 @@ var en = words{
 	connectOneTapAny:  "🔌 Connect with %s",
 	connectManual:     "%s",
 	connectButton:     "⚡ Connect a device",
+	partnerHello:      "🤝 You are here from “%s”: thank you! The subscription and payment work as usual.",
 	connectText:       "1. Install an app: Happ or Incy (iPhone, Android), Kabosu (Windows, Mac, Linux).\n2. Add this link to it:\n<code>%s</code>\n\nThe subscription page has “Add” buttons for every app.",
 	linked:            "✅ Subscription “%s” is connected.",
 	alreadyLinked:     "Subscription “%s” is already here.",

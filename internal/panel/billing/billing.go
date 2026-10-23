@@ -30,6 +30,7 @@ import (
 	"mikan/internal/panel/domain"
 	"mikan/internal/panel/events"
 	"mikan/internal/panel/model"
+	"mikan/internal/panel/partners"
 	"mikan/internal/panel/promo"
 	"mikan/internal/panel/referral"
 	"mikan/internal/panel/secure"
@@ -142,6 +143,9 @@ type Deps struct {
 	// Campaigns are the ad campaign tags: which tagged link a buyer arrived through, so a
 	// campaign's first purchases and renewals are counted. nil: none.
 	Campaigns *campaigns.Service
+	// Partners are the franchise's books: the partner's code binds an account and a paid
+	// order credits their share.
+	Partners *partners.Service
 	// Events wakes the addons reading the feed after a payment, a trial or a refund; nil: no
 	// one waits (the events are written all the same).
 	Events *events.Hub
@@ -724,6 +728,13 @@ func (s *Service) Invoice(ctx context.Context, req InvoiceRequest) (db.Payment, 
 			// against the price of the tariff, and the sale takes its share of what is left.
 			if err := s.sale(ctx, q, &p, req.UserID, t.ID); err != nil {
 				return db.Payment{}, err
+			}
+			// The buyer's partner, when an account came with their code: the order is
+			// theirs to credit.
+			if s.d.Partners != nil {
+				if err := s.d.Partners.TouchPayment(ctx, q, req.TgID, p.ID); err != nil {
+					return db.Payment{}, err
+				}
 			}
 			return p, nil
 		})
@@ -1352,6 +1363,14 @@ func (s *Service) Apply(ctx context.Context, id int64) error {
 		}
 		if s.d.Campaigns != nil {
 			if err := s.d.Campaigns.Attribute(ctx, q, pay); err != nil {
+				return err
+			}
+		}
+		if s.d.Partners != nil {
+			if err := s.d.Partners.TouchUser(ctx, q, u.ID, pay.TgID); err != nil {
+				return err
+			}
+			if err := s.d.Partners.Credit(ctx, q, pay); err != nil {
 				return err
 			}
 		}

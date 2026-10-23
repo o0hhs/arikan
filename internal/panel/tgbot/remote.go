@@ -171,6 +171,15 @@ func (r *Remote) Reissue(ctx context.Context, userID int64) error {
 
 func (r *Remote) Shop() Shop { return r.shop }
 
+func (r *Remote) PartnerCode(ctx context.Context, tgID int64, code string) (string, bool, error) {
+	var (
+		name string
+		ok   bool
+	)
+	err := r.call(ctx, "PartnerCode", []any{tgID, code}, &name, &ok)
+	return name, ok, err
+}
+
 func (r *Remote) AdminRole(ctx context.Context, tgID int64) (string, error) {
 	var role string
 	err := r.call(ctx, "AdminRole", []any{tgID}, &role)

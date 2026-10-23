@@ -532,6 +532,34 @@ type PackageTariff struct {
 	TariffID  int64
 }
 
+type Partner struct {
+	ID        int64
+	Name      string
+	Note      string
+	CreatedAt int64
+}
+
+type PartnerBot struct {
+	ID                int64
+	PartnerID         int64
+	Code              string
+	BotUsername       string
+	BotToken          string
+	CommissionPercent int32
+	BalanceKop        int64
+	Enabled           bool
+	CreatedAt         int64
+}
+
+type PartnerTransaction struct {
+	ID           int64
+	PartnerBotID int64
+	PaymentID    int64
+	Kind         string
+	AmountKop    int64
+	CreatedAt    int64
+}
+
 type Payment struct {
 	ID           int64
 	Provider     string
@@ -557,6 +585,7 @@ type Payment struct {
 	Custom       string
 	CustomBaseID sql.NullInt64
 	DevicePackID sql.NullInt64
+	PartnerBotID sql.NullInt64
 }
 
 type PromoAccess struct {
@@ -840,14 +869,15 @@ type TariffTerm struct {
 }
 
 type TgChat struct {
-	TgID      int64
-	Username  string
-	FirstName string
-	MenuMsgID int64
-	Current   int64
-	Blocked   int64
-	CreatedAt int64
-	UpdatedAt int64
+	TgID         int64
+	Username     string
+	FirstName    string
+	MenuMsgID    int64
+	Current      int64
+	Blocked      int64
+	CreatedAt    int64
+	UpdatedAt    int64
+	PartnerBotID sql.NullInt64
 }
 
 type TgClient struct {
@@ -986,6 +1016,7 @@ type User struct {
 	ExtraDevices      int64
 	ExtraDevicesUntil sql.NullInt64
 	DevicePackID      sql.NullInt64
+	PartnerBotID      sql.NullInt64
 }
 
 type UserFolder struct {

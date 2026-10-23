@@ -116,6 +116,12 @@ func (b *Bot) onMessage(ctx context.Context, m *tgapi.Message) {
 	switch {
 	case strings.HasPrefix(text, "/start "+RefPrefix):
 		notice = b.Referral(ctx, w, chat, strings.TrimSpace(strings.TrimPrefix(text, "/start "+RefPrefix)))
+	case strings.HasPrefix(text, "/start partner_"):
+		// The franchise's code: the account is the partner's from now on (the first code
+		// stays), and every order it pays credits them their share.
+		if name, ok, err := b.d.Backend.PartnerCode(ctx, chat, strings.TrimPrefix(text, "/start partner_")); err == nil && ok {
+			notice = fmt.Sprintf(w.partnerHello, name)
+		}
 	case strings.HasPrefix(text, "/start "+campaigns.Prefix):
 		notice = b.CampaignVisit(ctx, w, chat, strings.TrimSpace(strings.TrimPrefix(text, "/start "+campaigns.Prefix)))
 	case strings.HasPrefix(text, "/start "):

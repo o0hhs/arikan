@@ -7276,6 +7276,146 @@
         ],
         "type": "object"
       },
+      "PartnerBody": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "type": "string"
+          },
+          "note": {
+            "maxLength": 500,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "note"
+        ],
+        "type": "object"
+      },
+      "PartnerBotBody": {
+        "additionalProperties": false,
+        "properties": {
+          "bot_token": {
+            "description": "Токен бота партнёра; пусто — оставить прежний",
+            "maxLength": 200,
+            "type": "string"
+          },
+          "bot_username": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "code": {
+            "description": "Свой код; пусто — выданный панелью",
+            "type": "string"
+          },
+          "commission_percent": {
+            "format": "int64",
+            "maximum": 100,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "enabled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "bot_username",
+          "bot_token",
+          "commission_percent",
+          "enabled"
+        ],
+        "type": "object"
+      },
+      "PartnerBotView": {
+        "additionalProperties": false,
+        "properties": {
+          "balance_kop": {
+            "description": "Баланс партнёра, копейки",
+            "format": "int64",
+            "type": "integer"
+          },
+          "bot_token": {
+            "description": "Токен бота партнёра; пусто у read-ключа",
+            "type": "string"
+          },
+          "bot_username": {
+            "type": "string"
+          },
+          "code": {
+            "description": "Код в /start partner_\u003ccode\u003e, с которым приходят подписчики",
+            "type": "string"
+          },
+          "commission_percent": {
+            "description": "Процент с оплат подписчиков",
+            "format": "int64",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "turnover_kop": {
+            "description": "Начислено всего, копейки",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "bot_username",
+          "commission_percent",
+          "balance_kop",
+          "turnover_kop",
+          "enabled",
+          "created_at"
+        ],
+        "type": "object"
+      },
+      "PartnerView": {
+        "additionalProperties": false,
+        "properties": {
+          "balance_kop": {
+            "description": "Сумма балансов ботов, копейки",
+            "format": "int64",
+            "type": "integer"
+          },
+          "bots": {
+            "items": {
+              "$ref": "#/components/schemas/PartnerBotView"
+            },
+            "type": "array"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "note",
+          "bots",
+          "balance_kop"
+        ],
+        "type": "object"
+      },
       "PasswordInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -19540,6 +19680,302 @@
         "summary": "Изменить пакет трафика",
         "tags": [
           "tariffs"
+        ]
+      }
+    },
+    "/api/v1/partners": {
+      "get": {
+        "operationId": "list-partners",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PartnerView"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Партнёры",
+        "tags": [
+          "partners"
+        ]
+      },
+      "post": {
+        "operationId": "create-partner",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PartnerBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartnerView"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Добавить партнёра",
+        "tags": [
+          "partners"
+        ]
+      }
+    },
+    "/api/v1/partners/bots/{bot}": {
+      "delete": {
+        "operationId": "delete-partner-bot",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "bot",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Удалить бота партнёра",
+        "tags": [
+          "partners"
+        ]
+      },
+      "put": {
+        "operationId": "update-partner-bot",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "bot",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PartnerBotBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartnerView"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Изменить бота партнёра",
+        "tags": [
+          "partners"
+        ]
+      }
+    },
+    "/api/v1/partners/{id}": {
+      "delete": {
+        "operationId": "delete-partner",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Удалить партнёра",
+        "tags": [
+          "partners"
+        ]
+      },
+      "put": {
+        "operationId": "update-partner",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PartnerBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartnerView"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Изменить партнёра",
+        "tags": [
+          "partners"
+        ]
+      }
+    },
+    "/api/v1/partners/{id}/bots": {
+      "post": {
+        "operationId": "create-partner-bot",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PartnerBotBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartnerView"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Добавить бота партнёра",
+        "tags": [
+          "partners"
         ]
       }
     },

@@ -359,6 +359,7 @@ func New(d Deps) (http.Handler, huma.API, error) {
 	h.registerDevicePacks()
 	h.registerReferrals()
 	h.registerCampaigns()
+	h.registerPartners()
 	h.registerAgents()
 	h.registerAddons()
 	h.registerAddonSources()

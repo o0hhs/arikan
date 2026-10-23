@@ -90,6 +90,9 @@ type Backend interface {
 	Tariff(ctx context.Context, id int64) (model.Tariff, error)
 	// The bot's admin side (admin_users): the role of an account, the support's card of one
 	// subscription, its gifts and the sleeping trials.
+	// PartnerCode binds the account to a partner's code and names the partner; ok false:
+	// no such code.
+	PartnerCode(ctx context.Context, tgID int64, code string) (string, bool, error)
 	AdminRole(ctx context.Context, tgID int64) (string, error)
 	AdminFindUser(ctx context.Context, query string) (model.User, bool, error)
 	AdminAddDays(ctx context.Context, userID int64, days int) (model.User, error)

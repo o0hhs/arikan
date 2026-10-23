@@ -39,7 +39,7 @@ UPDATE users
 SET expires_at = CASE WHEN expires_at IS NULL THEN NULL ELSE GREATEST(expires_at, $1::BIGINT) + $2::BIGINT * 86400 END,
     updated_at = $1
 WHERE id = $3
-RETURNING id, name, contact, note, tags, status, tariff_id, traffic_limit, device_limit, reset_strategy, period_days, period_start, used_up, used_down, total_up, total_down, expires_at, inbounds, sub_token, slot_id, online_at, created_at, updated_at, billing_day, source, hidden, folder_id, speed_limit, device_mode, extra_devices, extra_devices_until, device_pack_id
+RETURNING id, name, contact, note, tags, status, tariff_id, traffic_limit, device_limit, reset_strategy, period_days, period_start, used_up, used_down, total_up, total_down, expires_at, inbounds, sub_token, slot_id, online_at, created_at, updated_at, billing_day, source, hidden, folder_id, speed_limit, device_mode, extra_devices, extra_devices_until, device_pack_id, partner_bot_id
 `
 
 type ExtendUserParams struct {
@@ -86,12 +86,13 @@ func (q *Queries) ExtendUser(ctx context.Context, arg ExtendUserParams) (User, e
 		&i.ExtraDevices,
 		&i.ExtraDevicesUntil,
 		&i.DevicePackID,
+		&i.PartnerBotID,
 	)
 	return i, err
 }
 
 const findUserByPayment = `-- name: FindUserByPayment :one
-SELECT u.id, u.name, u.contact, u.note, u.tags, u.status, u.tariff_id, u.traffic_limit, u.device_limit, u.reset_strategy, u.period_days, u.period_start, u.used_up, u.used_down, u.total_up, u.total_down, u.expires_at, u.inbounds, u.sub_token, u.slot_id, u.online_at, u.created_at, u.updated_at, u.billing_day, u.source, u.hidden, u.folder_id, u.speed_limit, u.device_mode, u.extra_devices, u.extra_devices_until, u.device_pack_id FROM users u JOIN payments p ON p.user_id = u.id WHERE p.id = $1 ORDER BY u.id LIMIT 1
+SELECT u.id, u.name, u.contact, u.note, u.tags, u.status, u.tariff_id, u.traffic_limit, u.device_limit, u.reset_strategy, u.period_days, u.period_start, u.used_up, u.used_down, u.total_up, u.total_down, u.expires_at, u.inbounds, u.sub_token, u.slot_id, u.online_at, u.created_at, u.updated_at, u.billing_day, u.source, u.hidden, u.folder_id, u.speed_limit, u.device_mode, u.extra_devices, u.extra_devices_until, u.device_pack_id, u.partner_bot_id FROM users u JOIN payments p ON p.user_id = u.id WHERE p.id = $1 ORDER BY u.id LIMIT 1
 `
 
 func (q *Queries) FindUserByPayment(ctx context.Context, paymentID int64) (User, error) {
@@ -130,12 +131,13 @@ func (q *Queries) FindUserByPayment(ctx context.Context, paymentID int64) (User,
 		&i.ExtraDevices,
 		&i.ExtraDevicesUntil,
 		&i.DevicePackID,
+		&i.PartnerBotID,
 	)
 	return i, err
 }
 
 const findUserByTgUsername = `-- name: FindUserByTgUsername :one
-SELECT u.id, u.name, u.contact, u.note, u.tags, u.status, u.tariff_id, u.traffic_limit, u.device_limit, u.reset_strategy, u.period_days, u.period_start, u.used_up, u.used_down, u.total_up, u.total_down, u.expires_at, u.inbounds, u.sub_token, u.slot_id, u.online_at, u.created_at, u.updated_at, u.billing_day, u.source, u.hidden, u.folder_id, u.speed_limit, u.device_mode, u.extra_devices, u.extra_devices_until, u.device_pack_id FROM users u
+SELECT u.id, u.name, u.contact, u.note, u.tags, u.status, u.tariff_id, u.traffic_limit, u.device_limit, u.reset_strategy, u.period_days, u.period_start, u.used_up, u.used_down, u.total_up, u.total_down, u.expires_at, u.inbounds, u.sub_token, u.slot_id, u.online_at, u.created_at, u.updated_at, u.billing_day, u.source, u.hidden, u.folder_id, u.speed_limit, u.device_mode, u.extra_devices, u.extra_devices_until, u.device_pack_id, u.partner_bot_id FROM users u
 JOIN tg_links l ON l.user_id = u.id
 JOIN tg_chats c ON c.tg_id = l.tg_id
 WHERE lower(c.username) = lower($1) OR lower(c.first_name) = lower($1)
@@ -178,6 +180,7 @@ func (q *Queries) FindUserByTgUsername(ctx context.Context, username string) (Us
 		&i.ExtraDevices,
 		&i.ExtraDevicesUntil,
 		&i.DevicePackID,
+		&i.PartnerBotID,
 	)
 	return i, err
 }
@@ -233,7 +236,7 @@ func (q *Queries) ListAdminUsers(ctx context.Context) ([]AdminUser, error) {
 }
 
 const setUserDisabled = `-- name: SetUserDisabled :one
-UPDATE users SET status = $1, updated_at = $2 WHERE id = $3 RETURNING id, name, contact, note, tags, status, tariff_id, traffic_limit, device_limit, reset_strategy, period_days, period_start, used_up, used_down, total_up, total_down, expires_at, inbounds, sub_token, slot_id, online_at, created_at, updated_at, billing_day, source, hidden, folder_id, speed_limit, device_mode, extra_devices, extra_devices_until, device_pack_id
+UPDATE users SET status = $1, updated_at = $2 WHERE id = $3 RETURNING id, name, contact, note, tags, status, tariff_id, traffic_limit, device_limit, reset_strategy, period_days, period_start, used_up, used_down, total_up, total_down, expires_at, inbounds, sub_token, slot_id, online_at, created_at, updated_at, billing_day, source, hidden, folder_id, speed_limit, device_mode, extra_devices, extra_devices_until, device_pack_id, partner_bot_id
 `
 
 type SetUserDisabledParams struct {
@@ -278,6 +281,7 @@ func (q *Queries) SetUserDisabled(ctx context.Context, arg SetUserDisabledParams
 		&i.ExtraDevices,
 		&i.ExtraDevicesUntil,
 		&i.DevicePackID,
+		&i.PartnerBotID,
 	)
 	return i, err
 }

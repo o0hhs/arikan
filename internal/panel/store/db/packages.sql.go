@@ -27,7 +27,7 @@ func (q *Queries) ArchiveTrafficPackage(ctx context.Context, id int64) (int64, e
 const createPackagePayment = `-- name: CreatePackagePayment :one
 INSERT INTO payments (provider, payload, tg_id, kind, user_id, package_id, tariff_name, amount, currency, status, created_at)
 VALUES ($1, $2, $3, 'package', $4, $5, $6, $7, $8, 'pending', $9)
-RETURNING id, provider, payload, external_id, tg_id, kind, user_id, tariff_id, package_id, tariff_name, amount, currency, status, error, pay_url, created_at, paid_at, applied_at, refunded_at, term_days, revert, custom, custom_base_id, device_pack_id
+RETURNING id, provider, payload, external_id, tg_id, kind, user_id, tariff_id, package_id, tariff_name, amount, currency, status, error, pay_url, created_at, paid_at, applied_at, refunded_at, term_days, revert, custom, custom_base_id, device_pack_id, partner_bot_id
 `
 
 type CreatePackagePaymentParams struct {
@@ -80,6 +80,7 @@ func (q *Queries) CreatePackagePayment(ctx context.Context, arg CreatePackagePay
 		&i.Custom,
 		&i.CustomBaseID,
 		&i.DevicePackID,
+		&i.PartnerBotID,
 	)
 	return i, err
 }
@@ -216,7 +217,7 @@ func (q *Queries) EndPeriodGrants(ctx context.Context, arg EndPeriodGrantsParams
 }
 
 const findOpenPackagePayments = `-- name: FindOpenPackagePayments :many
-SELECT id, provider, payload, external_id, tg_id, kind, user_id, tariff_id, package_id, tariff_name, amount, currency, status, error, pay_url, created_at, paid_at, applied_at, refunded_at, term_days, revert, custom, custom_base_id, device_pack_id FROM payments
+SELECT id, provider, payload, external_id, tg_id, kind, user_id, tariff_id, package_id, tariff_name, amount, currency, status, error, pay_url, created_at, paid_at, applied_at, refunded_at, term_days, revert, custom, custom_base_id, device_pack_id, partner_bot_id FROM payments
 WHERE tg_id = $1 AND package_id = $2 AND provider = $3 AND kind = 'package' AND user_id = $4
   AND (status = 'pending' AND pay_url <> '' AND created_at > $5
     OR provider = 'balance' AND status IN ('paid', 'applied') AND created_at > $6)
@@ -274,6 +275,7 @@ func (q *Queries) FindOpenPackagePayments(ctx context.Context, arg FindOpenPacka
 			&i.Custom,
 			&i.CustomBaseID,
 			&i.DevicePackID,
+			&i.PartnerBotID,
 		); err != nil {
 			return nil, err
 		}

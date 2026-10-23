@@ -59,18 +59,20 @@ type User struct {
 	ExtraDevices      int64          `json:"ExtraDevices"`
 	ExtraDevicesUntil sql.NullInt64  `json:"ExtraDevicesUntil"`
 	DevicePackID      sql.NullInt64  `json:"DevicePackID"`
+	PartnerBotID      sql.NullInt64  `json:"PartnerBotID"`
 }
 
 // TgChat is a Telegram account's chat with the bot.
 type TgChat struct {
-	TgID      int64
-	Username  string
-	FirstName string
-	MenuMsgID int64
-	Current   int64
-	Blocked   int64
-	CreatedAt int64
-	UpdatedAt int64
+	TgID         int64
+	Username     string
+	FirstName    string
+	MenuMsgID    int64
+	Current      int64
+	Blocked      int64
+	CreatedAt    int64
+	UpdatedAt    int64
+	PartnerBotID sql.NullInt64 `json:"PartnerBotID"`
 }
 
 // BoundDevice is a device bound to a subscription.
@@ -142,6 +144,7 @@ type Payment struct {
 	Custom       string
 	CustomBaseID sql.NullInt64
 	DevicePackID sql.NullInt64
+	PartnerBotID sql.NullInt64
 }
 
 // Topup is a request to top up an account's balance by hand.

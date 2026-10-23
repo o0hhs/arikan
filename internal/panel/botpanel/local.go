@@ -18,6 +18,7 @@ import (
 	"mikan/internal/panel/domain"
 	"mikan/internal/panel/model"
 	"mikan/internal/panel/panelimport"
+	"mikan/internal/panel/partners"
 	"mikan/internal/panel/referral"
 	"mikan/internal/panel/settings"
 	"mikan/internal/panel/store"
@@ -54,6 +55,8 @@ type Local struct {
 	Users *domain.Users
 	// Billing sells tariffs in the menu.
 	Billing *billing.Service
+	// Partners binds an account to a partner's code.
+	Partners *partners.Service
 	// Gateway reads the link codes it signed and asks who is in the channel.
 	Gateway *tgate.Gateway
 	// SubBase is https://host:port/<sub path>, "" while the panel has no public address.
@@ -556,4 +559,13 @@ func (l *Local) NoteEmojiRefused(ctx context.Context, ids []string, errText stri
 		}
 		return out
 	}(ids), Error: errText, At: l.Now().Unix()})
+}
+
+// PartnerCode binds the account to the partner's code (the first code stays) and names the
+// partner for the greeting; ok false: no such code.
+func (l *Local) PartnerCode(ctx context.Context, tgID int64, code string) (string, bool, error) {
+	if l.Partners == nil {
+		return "", false, nil
+	}
+	return l.Partners.Code(ctx, tgID, code)
 }

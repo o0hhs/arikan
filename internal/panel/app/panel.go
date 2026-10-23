@@ -46,6 +46,7 @@ import (
 	"mikan/internal/panel/nodesync"
 	"mikan/internal/panel/nodeupdate"
 	"mikan/internal/panel/panelimport"
+	"mikan/internal/panel/partners"
 	"mikan/internal/panel/promo"
 	"mikan/internal/panel/reach"
 	"mikan/internal/panel/referral"
@@ -335,11 +336,12 @@ func NewPanel(st *store.Store, o Options) (*Panel, error) {
 	// The advertising agents: their money is the campaigns' commissions, their panel its
 	// own page under its own secret path.
 	agts := agents.New(st, o.Log, o.Now)
+	parts := partners.New(st, func() int64 { return o.Now().Unix() })
 	p.agentAuth = agts
 	p.Billing = billing.New(billing.Deps{Store: st, Settings: set, Users: deps.Users, Log: o.Log, Now: o.Now, TrustProxy: o.TrustProxy,
 		MaxLinks: model.MaxLinks,
 		Addons:   deps.Addons, SubBase: subBase, Promo: promos, Events: hub,
-		Referral: refs, Campaigns: camps, Discounts: sales,
+		Referral: refs, Campaigns: camps, Discounts: sales, Partners: parts,
 		TopupWaiting: func(ctx context.Context, t db.Topup) { p.tellAdminOfTopup(ctx, t) }})
 	deps.Billing, deps.SubBase = p.Billing, subBase
 	// The bot may reach Telegram through a node when the panel's server cannot.
@@ -352,7 +354,7 @@ func NewPanel(st *store.Store, o Options) (*Panel, error) {
 	// run as an addon, in process in tests.
 	backend := &botpanel.Local{Store: st, Settings: set, Binder: deps.Devices, Users: deps.Users, Billing: p.Billing, Gateway: p.Gateway, SubBase: subBase, Now: o.Now,
 		// The fork's own programme and campaign tags: the screens reach them through the Backend.
-		ReferralProgram: refs, Campaigns: camps,
+		ReferralProgram: refs, Campaigns: camps, Partners: parts,
 		// Telegram apps refuse a Mini App on a self-signed certificate.
 		MiniApp: func() bool { return o.Certs != nil && o.Certs.Trusted() }}
 	// The panel's API for addons, with the Bot API proxy over the gateway for the addon that
