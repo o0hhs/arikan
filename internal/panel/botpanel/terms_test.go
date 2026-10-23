@@ -55,7 +55,7 @@ func TestShopTerms(t *testing.T) {
 	if buttons(list)["Std · от ⭐ 50"] != "pk:tn:"+id || !strings.Contains(text(list), "7 дн. – 90 дн.") {
 		t.Fatalf("plans: %q %v", text(list), buttons(list))
 	}
-	if b := buttons(step("pk:tn:"+id)); b["Устройств: 3 · базово"] != "tn:"+id {
+	if b := buttons(step("pk:tn:" + id)); b["Устройств: 3 · базово"] != "tn:"+id {
 		t.Fatalf("packs: %v", b)
 	}
 	plan := step("tn:" + id)

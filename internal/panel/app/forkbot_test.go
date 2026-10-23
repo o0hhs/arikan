@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"io"
+	"mikan/internal/release"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -16,11 +17,11 @@ import (
 	"testing"
 
 	"mikan/internal/panel/addons"
-	"mikan/internal/release"
 	"mikan/internal/panel/addons/panelapi"
 	"mikan/internal/panel/settings"
 	"mikan/internal/panel/store/db"
 	"mikan/internal/panel/tgate"
+	"mikan/internal/release"
 )
 
 // The panel's own bot: a source every panel ships with (addons.BuiltinSourceURL) offers this

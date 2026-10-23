@@ -343,8 +343,9 @@ func (h *Handler) serveProfile(w http.ResponseWriter, r *http.Request, u db.User
 	// A subscription that ran out says so in the profile itself: a banner of server entries
 	// that reach nowhere, on top of the list, with where to renew it. The page and the
 	// traffic headers say the same thing; this is the one place the apps read without the
-	// page. The working servers left to it are the emergency node's alone — Telegram stays
-	// reachable while the buyer reads the banner.
+	// page. The servers left to it are the emergency node's alone — Telegram stays reachable
+	// while the buyer reads the banner. The admin's InactiveServer (inactiveNotice, above)
+	// takes precedence: one notice in place of everything.
 	if state == domain.StateExpired || state == domain.StateLimited {
 		prof.Notice = &Notice{Lines: h.noticeLines(r.Context(), u, state, cfg)}
 		prof.emergencyOnly()
