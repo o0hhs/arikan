@@ -183,7 +183,7 @@ var goldenVariants = []struct {
 
 // goldenNotice is what the handler puts in place of a working subscription when it ended.
 func goldenNotice() *Notice {
-	return &Notice{Name: "⛔ The subscription has ended — renew it in the bot: https://t.me/example_bot"}
+	return &Notice{Lines: []string{"⛔ The subscription has ended — renew it in the bot: https://t.me/example_bot"}}
 }
 
 // goldenExpired is the one-node user with the notice of an ended subscription.

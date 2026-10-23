@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -485,6 +486,20 @@ func NewPanel(st *store.Store, o Options) (*Panel, error) {
 				cfg.App.LogoURL = cfg.SubBase + "/" + subpage.AssetPath(subpage.AssetLogo, a.Hash)
 			}
 		}
+		// The admin's order of protocol families in a subscription: none said keeps the
+		// order the inbounds were made in.
+		if raw, err := set.String(ctx, settings.KeyProtocolOrder); err == nil && raw != "" {
+			var order []string
+			if json.Unmarshal([]byte(raw), &order) == nil {
+				cfg.ProtocolOrder = order
+			}
+		}
+		if raw, err := set.String(ctx, settings.KeyMTProto); err == nil && raw != "" {
+			var ps []subs.MTProxy
+			if json.Unmarshal([]byte(raw), &ps) == nil {
+				cfg.MTProto = ps
+			}
+		}
 		nodes, err := st.Q.ListNodes(ctx)
 		if err != nil {
 			return subs.Config{}, err
@@ -494,6 +509,7 @@ func NewPanel(st *store.Store, o Options) (*Panel, error) {
 				continue
 			}
 			sn := subs.Node{ID: n.ID, Name: n.Name, Endpoint: subs.Endpoint{Host: ep.Host, SNI: domainName}}
+			sn.Emergency, sn.EmergencySpeed = n.Emergency, int(n.EmergencySpeed.Int32)
 			if n.Address != "" {
 				sn.Endpoint = subs.Endpoint{Host: domain.NodeHost(n), SNI: n.Domain}
 				cfg.Direct = append(cfg.Direct, n.PublicHost, n.Domain)

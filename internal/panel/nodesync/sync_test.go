@@ -486,12 +486,12 @@ func TestHealthCarriesAppliedPorts(t *testing.T) {
 func TestPolicyCarriesSpeedCap(t *testing.T) {
 	now := time.Unix(1_800_000_000, 0)
 	u := db.User{ID: 42, Status: "active", SpeedLimit: sql.NullInt64{Int64: 30, Valid: true}}
-	p := userPolicy(u, 0, "s1", 1, now, nil, nil, nil)
+	p := userPolicy(u, 0, "s1", 1, now, nil, nil, nil, false, 0)
 	if p.SpeedMbps != 30 || p.Group != "42" {
 		t.Fatalf("cap and group: %+v", p)
 	}
 	u.SpeedLimit = sql.NullInt64{}
-	if p := userPolicy(u, 0, "s2", 1, now, nil, nil, nil); p.SpeedMbps != 0 || p.Group != "42" {
+	if p := userPolicy(u, 0, "s2", 1, now, nil, nil, nil, false, 0); p.SpeedMbps != 0 || p.Group != "42" {
 		t.Fatalf("no cap: %+v", p)
 	}
 	a := policyKey([]nodeapi.Policy{{Slot: "s1", SpeedMbps: 30}})

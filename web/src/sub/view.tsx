@@ -276,7 +276,11 @@ function Apps({ block: b, config, subURL, brand, happ, tgMode, platform }: { blo
               {a.name[0]}
             </span>
             <div className="min-w-0">
-              <div className="text-sm font-semibold">{a.name}</div>
+              <div className="text-sm font-semibold">
+                <a href={a.site} target="_blank" rel="noreferrer" className="underline decoration-dotted underline-offset-4">
+                  {a.name}
+                </a>
+              </div>
               <div className="text-xs text-[var(--md-on-surface-variant)]">
                 {i === 0 ? <span className="font-medium text-[var(--md-primary)]">{t("sub.recommended")} · </span> : null}
                 {t(`sub.notes.${a.note}`)}

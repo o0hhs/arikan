@@ -30,6 +30,9 @@ type Backend interface {
 	// MiniAppURL is where the Mini App opens; "" when Telegram could not load it (GET
 	// /tg/mini-app).
 	MiniAppURL(ctx context.Context) string
+	// MTProto is the panel's MTProto proxies for Telegram itself, links ready; empty: the
+	// admin set none and the button stays away.
+	MTProto(ctx context.Context) []MTLink
 	// Member says whether tgID is in the bot's channel chat (GET /tg/subscribed). The
 	// screens may ask about the bot's own channel only.
 	Member(ctx context.Context, chat string, tgID int64, fresh bool) (bool, error)
@@ -124,6 +127,13 @@ type PanelBackend interface {
 	PruneNotices(ctx context.Context, before time.Time) error
 	// BroadcastTargets are the accounts a broadcast goes to.
 	BroadcastTargets(ctx context.Context) ([]int64, error)
+}
+
+// MTLink is one MTProto proxy as the bot's buttons take it.
+type MTLink struct {
+	Name string
+	Link string // the t.me share link: any tap, the browser included
+	TG   string // the tg:// scheme, for a tap inside Telegram
 }
 
 // Shop is the panel's billing as the bot's screens use it (*billing.Service).

@@ -42,7 +42,8 @@ func TestNoticeText(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			h.tg = tc.tg
-			got := h.noticeText(context.Background(), db.User{ID: 7}, tc.state, Config{Lang: tc.lang})
+			lines := h.noticeLines(context.Background(), db.User{ID: 7}, tc.state, Config{Lang: tc.lang})
+			got := strings.Join(lines, "\n")
 			for _, want := range tc.want {
 				if !strings.Contains(got, want) {
 					t.Errorf("notice %q does not hold %q", got, want)

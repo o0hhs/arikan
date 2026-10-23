@@ -2308,7 +2308,8 @@
       "bestWindows": "Лучший для Windows: весь трафик и маршруты",
       "tun": "Маршруты и режим TUN",
       "oneButton": "Одна кнопка",
-      "allProtocols": "Все протоколы и маршруты"
+      "allProtocols": "Все протоколы и маршруты",
+      "official": "официальный клиент"
     },
     "howTo": "Как подключиться",
     "steps": {
@@ -2443,7 +2444,8 @@
     "reissueLimit": "Можно не чаще {n, plural, one {# раза} other {# раз}} за {period}.",
     "shopPickPack": "Сколько устройств",
     "shopPackNone": "Как в тарифе",
-    "perMonthShort": "мес"
+    "perMonthShort": "мес",
+    "mtTitle": "MTProto-прокси для Telegram"
   },
   "nodes": {
     "subtitle": "Серверы, на которых работает VPN. В подписке протоколы всех включённых нод, у каждой своя группа.",

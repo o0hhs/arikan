@@ -31,13 +31,16 @@ type snapshot struct {
 	pools    []db.UserPool
 	// closed is what every tariff keeps out of its users' subscriptions (the tariff's
 	// own "protocols off"), by the tariff's id.
-	closed   map[int64][]int64
-	counters map[int64]counterPos
-	torrent  torrent.Config
-	bans     map[int64]int64 // user → when the torrent blocker's ban ends (unix)
-	filters  filters.Config
-	routes   subs.Routes
-	detail   bool // the nodes sum the bytes by site
+	closed map[int64][]int64
+	// emergency is the node id → the Mbit/s an ended subscription is shaped to on it (0:
+	// none said); a node in it keeps Telegram reachable for subscriptions that ran out.
+	emergency map[int64]int
+	counters  map[int64]counterPos
+	torrent   torrent.Config
+	bans      map[int64]int64 // user → when the torrent blocker's ban ends (unix)
+	filters   filters.Config
+	routes    subs.Routes
+	detail    bool // the nodes sum the bytes by site
 }
 
 type counterPos struct {
@@ -79,6 +82,16 @@ func (m *Manager) readSnapshot(ctx context.Context) (s *snapshot, err error) {
 	}
 	if s.owners, err = q.ListSlotUsers(ctx); err != nil {
 		return nil, err
+	}
+	if ns, err := q.ListNodes(ctx); err == nil {
+		for _, n := range ns {
+			if n.Emergency {
+				if s.emergency == nil {
+					s.emergency = map[int64]int{}
+				}
+				s.emergency[n.ID] = int(n.EmergencySpeed.Int32)
+			}
+		}
 	}
 	if s.inbounds, err = q.ListInbounds(ctx); err != nil {
 		return nil, err

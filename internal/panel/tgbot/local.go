@@ -3,6 +3,7 @@ package tgbot
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"strings"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"mikan/internal/panel/settings"
 	"mikan/internal/panel/store"
 	"mikan/internal/panel/store/db"
+	"mikan/internal/panel/subs"
 	"mikan/internal/panel/tgate"
 )
 
@@ -309,6 +311,25 @@ func (l *Local) Shop() Shop { return l.Billing }
 
 func (l *Local) Tariff(ctx context.Context, id int64) (db.Tariff, error) {
 	return l.Store.Q.GetTariff(ctx, id)
+}
+
+func (l *Local) MTProto(ctx context.Context) []MTLink {
+	raw, err := l.Settings.String(ctx, settings.KeyMTProto)
+	if err != nil || raw == "" {
+		return nil
+	}
+	var ps []subs.MTProxy
+	if json.Unmarshal([]byte(raw), &ps) != nil {
+		return nil
+	}
+	var out []MTLink
+	for _, p := range ps {
+		if p.Server == "" || p.Port <= 0 || p.Secret == "" {
+			continue
+		}
+		out = append(out, MTLink{Name: p.Name, Link: p.Link(), TG: p.TGLink()})
+	}
+	return out
 }
 
 // ReferralOn: the programme is the admin's to turn on.

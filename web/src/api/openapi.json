@@ -4987,6 +4987,15 @@
           "domain": {
             "type": "string"
           },
+          "emergency": {
+            "description": "Аварийная нода: закончившие подписку видят только её",
+            "type": "boolean"
+          },
+          "emergency_speed": {
+            "description": "Скорость закончивших подписку на этой ноде, Мбит/с; null — без ограничения",
+            "format": "int64",
+            "type": "integer"
+          },
           "enabled": {
             "type": "boolean"
           },
@@ -5125,7 +5134,8 @@
           "behind",
           "can_update",
           "fair_share",
-          "channel_mbps"
+          "channel_mbps",
+          "emergency"
         ],
         "type": "object"
       },
@@ -6458,6 +6468,17 @@
           "domain": {
             "maxLength": 253,
             "type": "string"
+          },
+          "emergency": {
+            "description": "Аварийная нода: закончившие подписку видят только её",
+            "type": "boolean"
+          },
+          "emergency_speed": {
+            "description": "Скорость закончивших подписку на этой ноде, Мбит/с",
+            "format": "int64",
+            "maximum": 10000,
+            "minimum": 1,
+            "type": "integer"
           },
           "enabled": {
             "type": "boolean"

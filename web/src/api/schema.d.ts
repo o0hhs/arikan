@@ -4716,6 +4716,13 @@ export interface components {
              */
             cpu_percent: number;
             domain: string;
+            /** @description Аварийная нода: закончившие подписку видят только её */
+            emergency: boolean;
+            /**
+             * Format: int64
+             * @description Скорость закончивших подписку на этой ноде, Мбит/с; null — без ограничения
+             */
+            emergency_speed?: number;
             enabled: boolean;
             /** @description Слова ошибки связи как есть, для «подробнее» */
             error?: string;
@@ -5248,6 +5255,13 @@ export interface components {
              */
             channel_mbps?: number;
             domain?: string;
+            /** @description Аварийная нода: закончившие подписку видят только её */
+            emergency?: boolean;
+            /**
+             * Format: int64
+             * @description Скорость закончивших подписку на этой ноде, Мбит/с
+             */
+            emergency_speed?: number;
             enabled?: boolean;
             /** @description Делить канал ноды поровну между теми, кто сейчас качает; нужен channel_mbps */
             fair_share?: boolean;

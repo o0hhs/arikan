@@ -42,10 +42,18 @@ const (
 	KeyACMEEABHMAC = "acme_eab_hmac"
 	KeyGroupMain   = "sub_group_main" // subscription group names, see subs.Groups
 	KeyGroupAuto   = "sub_group_auto"
-	KeyRouting     = "sub_routing"  // subs.Routing
-	KeyRules       = "sub_rules"    // the admin's own Clash rules, as typed (subs.ParseRules)
-	KeyRoutes      = "sub_routes"   // services, direct apps and DNS of the profiles (subs.Routes)
-	KeyTemplate    = "sub_template" // the admin's own Clash profile (subs.Template); empty: none
+	// KeyProtocolOrder is the admin's order of protocol families in a subscription (a JSON
+	// array, e.g. ["vless","hysteria2","shadowsocks"]): within a node the inbounds follow it,
+	// the unnamed families after them as they were.
+	KeyProtocolOrder = "protocol_order"
+	// KeyMTProto is the MTProto proxies for Telegram itself (a JSON array of {server, port,
+	// secret, name}): the bot's button and the subscription page hand their links out. Empty:
+	// the button and the block are not shown.
+	KeyMTProto  = "mtproto"
+	KeyRouting  = "sub_routing"  // subs.Routing
+	KeyRules    = "sub_rules"    // the admin's own Clash rules, as typed (subs.ParseRules)
+	KeyRoutes   = "sub_routes"   // services, direct apps and DNS of the profiles (subs.Routes)
+	KeyTemplate = "sub_template" // the admin's own Clash profile (subs.Template); empty: none
 	// KeyFingerprint is the uTLS profile clients get where an inbound sets none
 	// (proto.Fingerprints); unset means proto.DefaultFingerprint.
 	KeyFingerprint = "client_fingerprint"

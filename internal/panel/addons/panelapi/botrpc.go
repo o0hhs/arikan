@@ -38,6 +38,7 @@ var botRPC = map[string]rpcRule{
 	// premium emoji Telegram refused. An addon holding the bot sees that chat's messages
 	// anyway, and what it writes here is a line the panel's own page may show.
 	"AdminChat": rule("", nil, nil), "NoteEmojiRefused": rule("", nil, nil),
+	"MTProto": rule("", nil, nil),
 	// Accounts and their subscriptions.
 	"Context":       rule("users:read", []int{0}, nil),
 	"Chat":          rule("users:read", []int{0}, nil),

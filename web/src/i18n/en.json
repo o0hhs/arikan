@@ -2308,7 +2308,8 @@
       "bestWindows": "Best for Windows: all traffic and routing",
       "tun": "Routing and TUN mode",
       "oneButton": "One button",
-      "allProtocols": "Every protocol and routing"
+      "allProtocols": "Every protocol and routing",
+      "official": "the official client"
     },
     "howTo": "How to connect",
     "steps": {
@@ -2443,7 +2444,8 @@
     "reissueLimit": "At most {n, plural, one {# time} other {# times}} per {period}.",
     "shopPickPack": "How many devices",
     "shopPackNone": "As in the plan",
-    "perMonthShort": "mo"
+    "perMonthShort": "mo",
+    "mtTitle": "An MTProto proxy for Telegram"
   },
   "nodes": {
     "subtitle": "Servers that run the VPN. The subscription includes the protocols of every enabled node, each in its own group.",

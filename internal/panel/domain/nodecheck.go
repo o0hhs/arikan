@@ -139,7 +139,11 @@ type NodePatch struct {
 	Enabled     *bool
 	FairShare   *bool
 	ChannelMbps *int64
-	Rules       NodeRules
+	// Emergency marks the node that keeps Telegram reachable for ended subscriptions;
+	// EmergencySpeed is the Mbit/s they are shaped to there (nil: as fast as the node).
+	Emergency      *bool
+	EmergencySpeed *int64
+	Rules          NodeRules
 }
 
 // UpdateNode changes the fields p names and returns the node. Errors: ErrUnknownNode,
@@ -234,6 +238,19 @@ func UpdateNode(ctx context.Context, st *store.Store, id int64, p NodePatch, now
 				return ErrChannelRequired
 			}
 			if err := q.SetNodeShaping(ctx, db.SetNodeShapingParams{FairShare: cur.FairShare, ChannelMbps: cur.ChannelMbps, UpdatedAt: now.Unix(), ID: cur.ID}); err != nil {
+				return err
+			}
+		}
+		if p.Emergency != nil || p.EmergencySpeed != nil {
+			speed := cur.EmergencySpeed
+			if p.EmergencySpeed != nil {
+				speed = sql.NullInt32{Int32: int32(*p.EmergencySpeed), Valid: true}
+			}
+			on := cur.Emergency
+			if p.Emergency != nil {
+				on = *p.Emergency
+			}
+			if err := q.SetNodeEmergency(ctx, db.SetNodeEmergencyParams{Emergency: on, EmergencySpeed: speed, UpdatedAt: now.Unix(), ID: cur.ID}); err != nil {
 				return err
 			}
 		}

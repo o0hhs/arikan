@@ -69,6 +69,10 @@ type NodeInfo struct {
 	// FairShare splits ChannelMbps evenly between the users moving traffic through the node.
 	FairShare   bool   `json:"fair_share" doc:"Канал ноды делится поровну между теми, кто сейчас качает"`
 	ChannelMbps *int64 `json:"channel_mbps" doc:"Ширина канала ноды, Мбит/с в каждую сторону; null — не задана"`
+	// The emergency node keeps Telegram reachable for ended subscriptions: their profiles
+	// list its servers alone, the sync lets them in here with EmergencySpeed.
+	Emergency      bool   `json:"emergency" doc:"Аварийная нода: закончившие подписку видят только её"`
+	EmergencySpeed *int64 `json:"emergency_speed,omitempty" doc:"Скорость закончивших подписку на этой ноде, Мбит/с; null — без ограничения"`
 }
 
 type nodesOutput struct{ Body []NodeInfo }
@@ -102,6 +106,10 @@ type patchNodeInput struct {
 		FairShare  *bool   `json:"fair_share,omitempty" doc:"Делить канал ноды поровну между теми, кто сейчас качает; нужен channel_mbps"`
 		// The node's channel each way, which the fair share splits.
 		ChannelMbps *int64 `json:"channel_mbps,omitempty" minimum:"1" maximum:"100000" doc:"Ширина канала ноды, Мбит/с в каждую сторону"`
+		// The emergency node: ended subscriptions keep its servers alone, Telegram stays
+		// reachable while they renew.
+		Emergency      *bool  `json:"emergency,omitempty" doc:"Аварийная нода: закончившие подписку видят только её"`
+		EmergencySpeed *int64 `json:"emergency_speed,omitempty" minimum:"1" maximum:"10000" doc:"Скорость закончивших подписку на этой ноде, Мбит/с"`
 	}
 }
 
@@ -166,7 +174,14 @@ func (h *handlers) orderNodes(ctx context.Context, in *orderNodesInput) (*struct
 func (h *handlers) viewNode(ctx context.Context, n db.Node, inbounds []db.Inbound) NodeInfo {
 	v := NodeInfo{ID: n.ID, Name: n.Name, PublicName: n.PublicName, Local: n.Address == "", Address: n.Address, Host: domain.NodeHost(n), Domain: n.Domain,
 		Enabled: n.Enabled != 0, Inbounds: len(domain.NodeInbounds(inbounds, n.ID)), Status: "unknown",
-		FairShare: n.FairShare != 0, ChannelMbps: store.Int64Ptr(n.ChannelMbps)}
+		FairShare: n.FairShare != 0, ChannelMbps: store.Int64Ptr(n.ChannelMbps), Emergency: n.Emergency,
+		EmergencySpeed: func() *int64 {
+			if n.EmergencySpeed.Valid {
+				v := int64(n.EmergencySpeed.Int32)
+				return &v
+			}
+			return nil
+		}()}
 	if v.Local {
 		// The panel's own node is reached at the panel's address.
 		ep, _ := h.d.Settings.Endpoint(ctx)
@@ -294,7 +309,7 @@ func (h *handlers) updateNode(ctx context.Context, in *patchNodeInput) (*nodeInf
 		return nil, err
 	}
 	n, err := domain.UpdateNode(ctx, h.d.Store, in.ID, domain.NodePatch{Name: b.Name, PublicName: b.PublicName, Host: b.Host, Domain: b.Domain,
-		Enabled: b.Enabled, FairShare: b.FairShare, ChannelMbps: b.ChannelMbps, Rules: rules}, h.d.Now())
+		Enabled: b.Enabled, FairShare: b.FairShare, ChannelMbps: b.ChannelMbps, Emergency: b.Emergency, EmergencySpeed: b.EmergencySpeed, Rules: rules}, h.d.Now())
 	if err != nil {
 		return nil, h.nodeErr(err)
 	}

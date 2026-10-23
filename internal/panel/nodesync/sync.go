@@ -500,8 +500,14 @@ func (s *Syncer) policiesFrom(snap *snapshot) (epoch string, out []nodeapi.Polic
 		}
 		names := slotsOf[u.ID]
 		sort.Strings(names)
+		// The emergency node of this syncer, if it is one: ended subscriptions get in
+		// here alone, shaped to the speed the node says.
+		emergency, emergencySpeed := false, 0
+		if speed, ok := snap.emergency[s.id]; ok {
+			emergency, emergencySpeed = true, speed
+		}
 		for _, name := range names {
-			p := userPolicy(u, grants.Main(u.ID), name, seq, now, here, shut[u.ID], others[name])
+			p := userPolicy(u, grants.Main(u.ID), name, seq, now, here, shut[u.ID], others[name], emergency, emergencySpeed)
 			p.Pools = pools[u.ID]
 			p.TorrentExempt = snap.torrent.IsExempt(u.ID)
 			if !p.TorrentExempt {
@@ -517,7 +523,7 @@ func (s *Syncer) policiesFrom(snap *snapshot) (epoch string, out []nodeapi.Polic
 // userPolicy is the user's rules for one of the user's slots; grants is what is left of
 // the user's main grants, added to the quota, and shut the inbounds here the user's tariff
 // leaves out (an excluded pool, or a protocol the tariff closes).
-func userPolicy(u db.User, grants int64, name string, seq int64, now time.Time, here map[int64]string, shut map[int64]bool, otherIPs []string) nodeapi.Policy {
+func userPolicy(u db.User, grants int64, name string, seq int64, now time.Time, here map[int64]string, shut map[int64]bool, otherIPs []string, emergency bool, emergencySpeed int) nodeapi.Policy {
 	// A user whose main traffic ran out still gets in: the node turns away the inbounds
 	// outside every pool (QuotaRemaining 0) and keeps the pools that have traffic left.
 	state := domain.State(u, grants, now)
@@ -528,6 +534,15 @@ func userPolicy(u db.User, grants int64, name string, seq int64, now time.Time, 
 	}
 	if u.SpeedLimit.Valid {
 		p.SpeedMbps = int(u.SpeedLimit.Int64)
+	}
+	if emergency && !p.Allowed {
+		// The emergency node keeps Telegram reachable for a subscription that ran out: it
+		// gets in here alone, endless in quota but shaped to the speed the node says.
+		p.Allowed = true
+		p.QuotaRemaining = -1
+		if emergencySpeed > 0 {
+			p.SpeedMbps = emergencySpeed
+		}
 	}
 	// The user's devices are slots of their own: they share the user's speed and the
 	// node's fair share as one.

@@ -3,6 +3,7 @@
 package subs
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"net/netip"
@@ -33,6 +34,11 @@ type Node struct {
 	// leading flag (or the whole name) prefixes proxy names.
 	Name     string
 	Endpoint Endpoint
+	// Emergency marks the node that keeps Telegram reachable for subscriptions that have
+	// ended: their profiles list its inbounds alone. EmergencySpeed is the Mbit/s they are
+	// shaped to there (0: none said).
+	Emergency      bool
+	EmergencySpeed int
 }
 
 // Groups are the proxy-group names Clash-family apps show; the admin can rename them.
@@ -134,11 +140,12 @@ type Profile struct {
 	Inbounds []db.Inbound // enabled and allowed for this user, in display order
 	Nodes    []Node       // enabled nodes in display order; inbounds of other nodes are skipped
 	Direct   []string     // hosts that bypass the tunnel: the panel and every node
-	// Notice, when set, is a server entry of its own and goes first in the profile: it
-	// reaches nowhere and says why (an ended subscription, where to renew). An entry rather
-	// than a profile of its own, so the apps keep showing the servers they have, with the
-	// notice on top of the list.
+	// Notice, when set, is the banner of an ended subscription: dead server entries that
+	// say why nothing works and where to renew (see Notice).
 	Notice *Notice
+	// ProtocolOrder is the admin's order of protocol families (settings.KeyProtocolOrder);
+	// within a node the inbounds follow it, the unnamed families after them as they were.
+	ProtocolOrder []string
 	// Fingerprint is the panel's default uTLS profile (proto.ClientInput.Fingerprint).
 	Fingerprint string
 	// Rules are the admin's own Clash rules (ServedRules), before the built-in routing.
@@ -155,11 +162,13 @@ type Profile struct {
 	Lang   string
 }
 
-// Notice is the entry a profile carries when the subscription cannot be used: the whole
-// message is its name (the apps show it as a server's name), and it is the first entry, so it
-// is what the app shows and picks first.
+// Notice is the banner a profile carries when the subscription cannot be used: each line
+// is a server entry of its own (the apps show the name where the servers are), and together
+// they say why nothing works and where to fix it. With a working emergency server the
+// banner follows it; without one it is the first entries, so they are what the app picks.
 type Notice struct {
-	Name string
+	Lines        []string
+	AfterEntries bool
 }
 
 type proxy struct {
@@ -181,31 +190,37 @@ func NodePrefix(name string) string {
 
 func isRegional(r rune) bool { return r >= 0x1F1E6 && r <= 0x1F1FF }
 
-// noticeProxy is the Notice as a proxy entry: an address that answers nothing (127.0.0.1:1,
-// the port reserved for nothing), named with the whole message. Every format carries it — mihomo
-// and sing-box take a SOCKS server with no keys, the share links a vless one — so an ended
-// subscription looks the same in every app.
-func noticeProxy(n Notice) proxy {
+// noticeProxy is one line of the banner as a proxy entry: an address that answers nothing
+// (127.0.0.1:1, the port reserved for nothing), named with the whole line. Every format
+// carries it — mihomo and sing-box take a SOCKS server with no keys, the share links a
+// vless one — so an ended subscription looks the same in every app.
+func noticeProxy(line string) proxy {
 	return proxy{
-		name: n.Name,
-		yaml: map[string]any{"name": n.Name, "type": "socks5", "server": "127.0.0.1", "port": 1},
-		uri:  "vless://00000000-0000-0000-0000-000000000000@127.0.0.1:1?encryption=none&type=tcp#" + url.PathEscape(n.Name),
+		name: line,
+		yaml: map[string]any{"name": line, "type": "socks5", "server": "127.0.0.1", "port": 1},
+		uri:  "vless://00000000-0000-0000-0000-000000000000@127.0.0.1:1?encryption=none&type=tcp#" + url.PathEscape(line),
 	}
 }
 
-// build renders the user's proxies node by node, in the nodes' order. A profile's Notice goes
-// first: it is the entry that tells why nothing works, and the apps pick the first server.
+// build renders the user's proxies node by node, in the nodes' order, the protocols within
+// a node in the admin's order (settings.KeyProtocolOrder; the unnamed families keep their
+// own). The banner of an ended subscription goes first — it is what tells why nothing
+// works, and the apps pick the first server — unless a working emergency server stands
+// before it, so Telegram stays reachable while the buyer reads.
 func build(p Profile) ([]proxy, error) {
-	var out []proxy
+	var out, banner []proxy
 	used := map[string]bool{}
 	if p.Notice != nil {
-		out = append(out, noticeProxy(*p.Notice))
-		used[p.Notice.Name] = true
+		for _, line := range p.Notice.Lines {
+			banner = append(banner, noticeProxy(line))
+			used[line] = true
+		}
 	}
 	slot := proto.Slot{Name: p.Slot.Name, UUID: p.Slot.Uuid, Secret: p.Slot.Secret}
 	multi := len(p.Nodes) > 1
+	inbounds := orderInbounds(p.Inbounds, p.ProtocolOrder)
 	for _, n := range p.Nodes {
-		for _, in := range p.Inbounds {
+		for _, in := range inbounds {
 			if in.NodeID != n.ID {
 				continue
 			}
@@ -241,7 +256,69 @@ func build(p Profile) ([]proxy, error) {
 			out = append(out, turnCopies(p, n, in, t, base, used, slot)...)
 		}
 	}
-	return out, nil
+	if banner == nil {
+		return out, nil
+	}
+	if p.Notice.AfterEntries {
+		return append(out, banner...), nil
+	}
+	return append(banner, out...), nil
+}
+
+// orderInbounds sorts the inbounds by the admin's order of protocol families: the families
+// named come first, in that order, the rest after them as they were (their nodes' order and
+// their own). A template that does not read keeps its place.
+func orderInbounds(ins []db.Inbound, families []string) []db.Inbound {
+	if len(families) == 0 {
+		return ins
+	}
+	rank := make(map[string]int, len(families))
+	for i, f := range families {
+		rank[strings.ToLower(strings.TrimSpace(f))] = i
+	}
+	weight := func(in db.Inbound) int {
+		t, err := parseTemplate(in.Config)
+		if err != nil {
+			return len(families)
+		}
+		if r, ok := rank[t.Type()]; ok {
+			return r
+		}
+		return len(families)
+	}
+	out := slices.Clone(ins)
+	slices.SortStableFunc(out, func(a, b db.Inbound) int { return cmp.Compare(weight(a), weight(b)) })
+	return out
+}
+
+// emergencyOnly leaves the emergency nodes' inbounds and nodes alone in the profile: what an
+// ended subscription may still use, so Telegram keeps working while the buyer finds the bot.
+// Without an emergency node the profile keeps everything it had — the node turns the
+// subscription away anyway, and the banner says the rest.
+func (p *Profile) emergencyOnly() {
+	keep := map[int64]bool{}
+	for _, n := range p.Nodes {
+		if n.Emergency {
+			keep[n.ID] = true
+		}
+	}
+	if len(keep) == 0 {
+		return
+	}
+	ins := make([]db.Inbound, 0, len(p.Inbounds))
+	for _, in := range p.Inbounds {
+		if keep[in.NodeID] {
+			ins = append(ins, in)
+		}
+	}
+	nodes := make([]Node, 0, len(p.Nodes))
+	for _, n := range p.Nodes {
+		if n.Emergency {
+			nodes = append(nodes, n)
+		}
+	}
+	p.Inbounds, p.Nodes = ins, nodes
+	p.Notice.AfterEntries = true
 }
 
 // turnCopies are the WL entries of an inbound: the same server, reached through the TURN

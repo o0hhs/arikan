@@ -9,6 +9,8 @@ export type Info = {
   support_url?: string;
   /** Happ's crypt link: the Happ button opens it, hiding the subscription address. */
   happ_link?: string;
+  /** The MTProto proxies for Telegram itself, links ready; absent: the admin set none. */
+  mtproto?: { name?: string; link: string; tg: string }[];
   state: "active" | "expiring" | "limited" | "expired" | "disabled";
   used_up: number;
   used_down: number;

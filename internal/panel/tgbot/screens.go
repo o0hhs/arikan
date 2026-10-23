@@ -143,6 +143,16 @@ func (b *Bot) screen(ctx context.Context, cfg Config, chat int64, data, notice s
 		if btn, ok := b.pageButton(ctx, cfg, w, w.openPage); ok {
 			rows = append(rows, []tgate.Button{btn})
 		}
+		// The messenger itself needs no subscription: the MTProto proxy is a button of
+		// its own, the first proxy the panel has.
+		if mts := b.d.Backend.MTProto(ctx); len(mts) > 0 {
+			name := mts[0].Name
+			if name == "" {
+				name = w.tgProxy
+			}
+			rows = append(rows, []tgate.Button{{Text: w.tgProxy, URL: mts[0].Link}})
+			_ = name
+		}
 		return withNotice(text), &tgate.Keyboard{InlineKeyboard: append(rows, back)}
 	case "r":
 		if offers, _ := b.offers(ctx, chat); len(offers) > 0 {

@@ -172,6 +172,12 @@ func (r *Remote) Reissue(ctx context.Context, userID int64) error {
 
 func (r *Remote) Shop() Shop { return r.shop }
 
+func (r *Remote) MTProto(ctx context.Context) []MTLink {
+	var out []MTLink
+	_ = r.call(ctx, "MTProto", nil, &out)
+	return out
+}
+
 func (r *Remote) Tariff(ctx context.Context, id int64) (db.Tariff, error) {
 	var t db.Tariff
 	err := r.call(ctx, "Tariff", []any{id}, &t)

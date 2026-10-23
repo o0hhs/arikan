@@ -24,6 +24,7 @@ type words struct {
 	unbindOff, returnNever, confirmNever                         string
 	perDay, perWeek, perMonth, perDays, hours                    string
 	connectText, linked, alreadyLinked, linkExpired, linkInvalid string
+	tgProxy                                                      string // the Telegram-itself MTProto button
 	linkLimit, noSub, sharedPlace, device, justNow               string
 	// Taking a subscription off the Telegram account: it keeps working in the apps.
 	removeSub, confirmRemove, yesRemove, removed string
@@ -107,7 +108,8 @@ var ru = words{
 	yesRemove:         "✅ Да, убрать",
 	removed:           "✅ Подписка «%s» убрана из бота.",
 	wait:              "⏳ Следующее устройство можно отвязать %s.",
-	connectText:       "1. Установите приложение: Happ (iPhone, Android), ClashFest (Android), Koala Clash (Windows), SlothClash (Windows, Mac, Linux) или другое со страницы подписки.\n2. Добавьте в него ссылку:\n<code>%s</code>\n\nНа странице подписки — кнопки «Добавить» для всех приложений.",
+	tgProxy:           "⚡ Подключить Telegram-прокси",
+	connectText:       "1. Установите приложение: Happ или Incy (iPhone, Android), Kabosu (Windows, Mac, Linux).\n2. Добавьте в него ссылку:\n<code>%s</code>\n\nНа странице подписки — кнопки «Добавить» для всех приложений.",
 	linked:            "✅ Подписка «%s» подключена.",
 	alreadyLinked:     "Подписка «%s» уже здесь.",
 	linkExpired:       "Ссылка устарела. Обновите страницу подписки и нажмите «Открыть в Telegram» ещё раз.",
@@ -247,7 +249,8 @@ var en = words{
 	yesRemove:         "✅ Yes, remove",
 	removed:           "✅ The subscription “%s” is removed from the bot.",
 	wait:              "⏳ You can unbind the next device %s.",
-	connectText:       "1. Install an app: Happ (iPhone, Android), ClashFest (Android), Koala Clash (Windows), SlothClash (Windows, Mac, Linux) or another from the subscription page.\n2. Add this link to it:\n<code>%s</code>\n\nThe subscription page has “Add” buttons for every app.",
+	tgProxy:           "⚡ Connect a Telegram proxy",
+	connectText:       "1. Install an app: Happ or Incy (iPhone, Android), Kabosu (Windows, Mac, Linux).\n2. Add this link to it:\n<code>%s</code>\n\nThe subscription page has “Add” buttons for every app.",
 	linked:            "✅ Subscription “%s” is connected.",
 	alreadyLinked:     "Subscription “%s” is already here.",
 	linkExpired:       "The link has expired. Reload the subscription page and tap “Open in Telegram” again.",
