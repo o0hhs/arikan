@@ -176,6 +176,128 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/agents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Рекламные агенты */
+        get: operations["list-agents"];
+        put?: never;
+        /** Создать рекламного агента */
+        post: operations["create-agent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agents/panel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Адрес панели агентов */
+        get: operations["agent-panel"];
+        /** Задать путь панели агентов */
+        put: operations["set-agent-panel"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agents/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Изменить агента */
+        put: operations["update-agent"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agents/{id}/campaigns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ссылки агента */
+        get: operations["list-agent-campaigns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agents/{id}/payouts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Выплаты агенту */
+        get: operations["list-agent-payouts"];
+        put?: never;
+        /** Отметить выплату агенту */
+        post: operations["record-agent-payout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agents/{id}/referrals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Кто пришёл по ссылкам агента */
+        get: operations["list-agent-referrals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agents/{id}/referrals/{chat_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Убрать человека из пришедших */
+        delete: operations["delete-agent-referral"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/api-keys": {
         parameters: {
             query?: never;
@@ -480,6 +602,129 @@ export interface paths {
         get: operations["download-database-backup"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/device-packs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Пакеты устройств */
+        get: operations["list-device-packs"];
+        put?: never;
+        /** Создать пакет устройств */
+        post: operations["create-device-pack"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/device-packs/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Изменить пакет устройств */
+        put: operations["update-device-pack"];
+        post?: never;
+        /** Убрать пакет устройств из продажи (в архив) */
+        delete: operations["delete-device-pack"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/device-packs/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Вернуть пакет устройств из архива */
+        post: operations["restore-device-pack"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/discounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Скидки */
+        get: operations["list-discounts"];
+        put?: never;
+        /** Создать скидку */
+        post: operations["create-discount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/discounts/redemptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** История скидок */
+        get: operations["list-discount-redemptions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/discounts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Изменить скидку */
+        put: operations["update-discount"];
+        post?: never;
+        /** Удалить скидку */
+        delete: operations["delete-discount"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/discounts/{id}/enabled": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Включить или выключить скидку */
+        post: operations["enable-discount"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1081,6 +1326,46 @@ export interface paths {
         get: operations["node-clients"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nodes/{id}/disk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Диск ноды
+         * @description Файловая система каталога данных ноды и что в ней занимает место; мусор, который уберёт очистка.
+         */
+        get: operations["node-disk"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nodes/{id}/disk/clean": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Почистить диск ноды
+         * @description Убирает остатки обновлений и временные файлы в каталоге данных ноды. Старые образы релизов чистит сам установщик после успешного обновления.
+         */
+        post: operations["clean-node-disk"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1938,6 +2223,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tariffs/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Вернуть тариф из архива */
+        post: operations["restore-tariff"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/telegram": {
         parameters: {
             query?: never;
@@ -2767,6 +3069,156 @@ export interface components {
             totp_enabled: boolean;
             username: string;
         };
+        AgentCampaignsOutputBody: {
+            items: components["schemas"]["AgentLinkView"][];
+            /** Format: int64 */
+            total: number;
+        };
+        AgentLinkView: {
+            /** Format: int64 */
+            bought: number;
+            /** Format: date-time */
+            created_at: string;
+            /**
+             * Format: int64
+             * @description Сколько агент заработал на этой ссылке, в копейках
+             */
+            earned: number;
+            enabled: boolean;
+            /** Format: int64 */
+            id: number;
+            name: string;
+            /**
+             * Format: int64
+             * @description Процент агента с продаж этой ссылки
+             */
+            percent: number;
+            /** Format: int64 */
+            renewed: number;
+            /**
+             * Format: int64
+             * @description Сумма оплаченного через ссылку, в копейках
+             */
+            rub: number;
+            tag: string;
+            /** @description Ссылка для раздачи; пусто, пока бот без имени */
+            url?: string;
+            /** Format: int64 */
+            visits: number;
+        };
+        AgentPanelOutputBody: {
+            /** @description Секретный путь панели агентов; пусто — панель выключена */
+            path: string;
+            /** @description Полный адрес панели; тоже пустой, пока пути нет */
+            url?: string;
+        };
+        AgentReferralView: {
+            /** Format: int64 */
+            bought: number;
+            /** Format: int64 */
+            chat_id: number;
+            /** Format: date-time */
+            first_seen: string;
+            name: string;
+            /** Format: int64 */
+            renewed: number;
+            /** Format: int64 */
+            rub: number;
+            /** @description Ссылка, по которой человек пришёл */
+            tag: string;
+        };
+        AgentReferralsOutputBody: {
+            items: components["schemas"]["AgentReferralView"][];
+            /** Format: int64 */
+            total: number;
+        };
+        AgentView: {
+            /**
+             * Format: int64
+             * @description Сколько из них купили подписку впервые
+             */
+            bought: number;
+            /** Format: date-time */
+            created_at: string;
+            /** @enum {string} */
+            currency: "RUB";
+            disabled: boolean;
+            /**
+             * Format: int64
+             * @description Сколько агент заработал процентом с продаж, в копейках
+             */
+            earned: number;
+            /** Format: int64 */
+            id: number;
+            /**
+             * Format: int64
+             * @description Сколько ссылок-кампаний закреплено за агентом
+             */
+            links: number;
+            login: string;
+            note?: string;
+            /**
+             * Format: int64
+             * @description Сколько агенту осталось выдать, в копейках
+             */
+            owed: number;
+            /**
+             * Format: int64
+             * @description Сколько агенту уже выдано, в копейках
+             */
+            paid: number;
+            /**
+             * Format: int64
+             * @description Сколько оплат было продлениями
+             */
+            renewed: number;
+            /**
+             * Format: int64
+             * @description Сумма оплаченного через ссылки агента, в копейках
+             */
+            revenue: number;
+            /**
+             * Format: int64
+             * @description Телеграм-аккаунт самого агента; null — не указан. Его переходы по своим ссылкам считаются его юзом, а не пришедшими
+             */
+            tg_id: number | null;
+            /**
+             * Format: int64
+             * @description Сколько раз сам агент заходил по своим ссылкам; к пришедшим не относится
+             */
+            usages: number;
+            /**
+             * Format: int64
+             * @description Сколько людей пришло по ссылкам агента
+             */
+            visits: number;
+        };
+        AgentsOutputBody: {
+            items: components["schemas"]["AgentView"][];
+            stats: components["schemas"]["AgentsStatsView"];
+            /** Format: int64 */
+            total: number;
+        };
+        AgentsStatsView: {
+            /** Format: int64 */
+            agents: number;
+            /** Format: int64 */
+            bought: number;
+            /** Format: int64 */
+            earned: number;
+            /** Format: int64 */
+            owed: number;
+            /** Format: int64 */
+            paid: number;
+            /** Format: int64 */
+            renewed: number;
+            /** Format: int64 */
+            revenue: number;
+            /** Format: int64 */
+            usages: number;
+            /** Format: int64 */
+            visits: number;
+        };
         AlertsConfig: {
             admin_enabled: boolean;
             events: components["schemas"]["Events"];
@@ -2975,6 +3427,16 @@ export interface components {
             visits: number;
         };
         CampaignView: {
+            /**
+             * Format: int64
+             * @description Рекламный агент, которому платит кампания; 0 — своя
+             */
+            agent_id?: number;
+            /**
+             * Format: int64
+             * @description Процент с продаж, который получает агент этой кампании
+             */
+            agent_percent?: number;
             /**
              * Format: int64
              * @description Сумма применённых оплат в копейках (только RUB)
@@ -3274,7 +3736,23 @@ export interface components {
             /** @enum {string} */
             scope: "read" | "full";
         };
+        CreateAgentInputBody: {
+            /** @description Латиница, цифры, точка, дефис и подчёркивание; регистр не важен */
+            login: string;
+            note: string;
+            /** @description Выдадите агенту вместе со ссылкой на его панель; не короче 12 символов */
+            password: string;
+            /**
+             * Format: int64
+             * @description Телеграм-аккаунт самого агента: его входы по своим ссылкам не считаются пришедшими
+             */
+            tg_id?: number;
+        };
         CreateCampaignInputBody: {
+            /** Format: int64 */
+            agent_id?: number;
+            /** Format: int64 */
+            agent_percent?: number;
             name: string;
             note: string;
             /** @description Метка в ссылке: латиница, цифры, дефис и подчёркивание */
@@ -3358,6 +3836,50 @@ export interface components {
              */
             until?: string;
         };
+        DevicePackBody: {
+            on_sale: boolean;
+            /**
+             * Format: int64
+             * @description Цена за месяц, в копейках
+             */
+            price_rub: number;
+            /** Format: int64 */
+            price_stars?: number;
+            /**
+             * Format: int64
+             * @description Сколько мест пакет добавляет (панель держит до 50 устройств)
+             */
+            slots: number;
+            /** Format: int64 */
+            sort: number;
+            title: string;
+        };
+        DevicePackView: {
+            archived: boolean;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: int64 */
+            id: number;
+            on_sale: boolean;
+            /**
+             * Format: int64
+             * @description Цена за месяц, в копейках
+             */
+            price_rub: number;
+            /**
+             * Format: int64
+             * @description Цена за месяц в Stars; без значения — только рубли
+             */
+            price_stars?: number;
+            /**
+             * Format: int64
+             * @description Сколько мест пакет добавляет к лимиту устройств тарифа
+             */
+            slots: number;
+            /** Format: int64 */
+            sort: number;
+            title: string;
+        };
         DeviceView: {
             /** Format: date-time */
             first_seen: string;
@@ -3365,6 +3887,169 @@ export interface components {
             /** Format: date-time */
             last_seen: string;
             online: boolean;
+        };
+        DiscountBody: {
+            /** @description Для fixed: RUB или XTR. Для percent: пусто — любая валюта */
+            currency: string;
+            description: string;
+            enabled: boolean;
+            /**
+             * Format: int64
+             * @description Unix time в секундах; значение не может быть в прошлом
+             */
+            ends_at: number;
+            /** Format: int64 */
+            max_discount: number;
+            /** Format: int64 */
+            max_uses?: number;
+            /** Format: int64 */
+            min_order: number;
+            name: string;
+            /** @enum {string} */
+            notify_audience: "buyers" | "subscribers";
+            /** @description За сколько дней до конца скидки напоминать; по умолчанию за 3 дня и за день */
+            notify_days: number[];
+            /** @description Напоминать ли о конце скидки */
+            notify_enabled: boolean;
+            notify_text: string;
+            /**
+             * Format: int64
+             * @description Unix time в секундах
+             */
+            starts_at: number;
+            tariff_ids: number[];
+            /** @enum {string} */
+            type: "percent" | "fixed";
+            /**
+             * Format: int64
+             * @description percent — проценты 1-100; fixed — сумма в минимальных единицах оплаты
+             */
+            value: number;
+        };
+        DiscountListOutputBody: {
+            items: components["schemas"]["DiscountView"][];
+            /** Format: int64 */
+            total: number;
+        };
+        DiscountRedemptionView: {
+            currency: string;
+            /** Format: int64 */
+            discount_amount: number;
+            /** Format: int64 */
+            discount_id: number;
+            discount_name: string;
+            /** Format: int64 */
+            final_amount: number;
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            original_amount: number;
+            /** Format: int64 */
+            payment_id?: number;
+            /** Format: date-time */
+            redeemed_at: string;
+            status: string;
+            /** Format: int64 */
+            tg_id: number;
+            /** Format: int64 */
+            user_id?: number;
+        };
+        DiscountRedemptionsOutputBody: {
+            items: components["schemas"]["DiscountRedemptionView"][];
+            /** Format: int64 */
+            total: number;
+        };
+        DiscountView: {
+            /** Format: date-time */
+            created_at: string;
+            /** Format: int64 */
+            created_by?: number;
+            /** @description Для fixed: RUB (копейки) или XTR (Stars). Для percent: пусто — любая валюта */
+            currency: string;
+            description: string;
+            enabled: boolean;
+            /** Format: date-time */
+            ends_at: string;
+            /** Format: int64 */
+            id: number;
+            /**
+             * Format: int64
+             * @description Максимальная скидка, в минимальных единицах оплаты
+             */
+            max_discount: number;
+            /**
+             * Format: int64
+             * @description Сколько раз скидку можно применить; без значения — без ограничения
+             */
+            max_uses?: number;
+            /**
+             * Format: int64
+             * @description Минимальная сумма заказа, в минимальных единицах оплаты
+             */
+            min_order: number;
+            name: string;
+            /**
+             * @description buyers — тем, кто купил по скидке; subscribers — всем подписчикам тарифов скидки
+             * @enum {string}
+             */
+            notify_audience: "buyers" | "subscribers";
+            /** @description За сколько дней до конца скидки бот напоминает */
+            notify_days: number[];
+            notify_enabled: boolean;
+            /** @description Свой текст рассылки; пусто — текст бота */
+            notify_text: string;
+            /** Format: int64 */
+            recipients: number;
+            /** Format: date-time */
+            starts_at: string;
+            status: string;
+            /** @description Тарифы, к которым applies скидка; пусто — ко всем тарифам в продаже */
+            tariff_ids: number[];
+            /**
+             * @description percent — процент от цены, fixed — сумма скидки
+             * @enum {string}
+             */
+            type: "percent" | "fixed";
+            /** Format: int64 */
+            used_count: number;
+            /** Format: int64 */
+            value: number;
+        };
+        DiskDirView: {
+            /** Format: int64 */
+            bytes: number;
+            /** @description Относительно каталога данных ноды: mihomo, update, … */
+            path: string;
+        };
+        DiskView: {
+            dirs: components["schemas"]["DiskDirView"][];
+            /** @description Эти файлы уберёт очистка */
+            files: string[];
+            /**
+             * Format: int64
+             * @description Свободно, байт
+             */
+            free: number;
+            /**
+             * Format: int64
+             * @description Сколько убрала последняя очистка, байт; 0 если её не было
+             */
+            freed: number;
+            /**
+             * Format: int64
+             * @description Мусор, который уберёт очистка: остатки обновлений и временные файлы, байт
+             */
+            junk: number;
+            /**
+             * Format: int64
+             * @description Размер файловой системы каталога данных, байт
+             */
+            total: number;
+            /**
+             * Format: int64
+             * @description Занято, байт
+             */
+            used: number;
         };
         EgressFilter: {
             /** @description Домены вместе с поддоменами: example.com */
@@ -3383,6 +4068,9 @@ export interface components {
             at: number;
             error?: string;
             ids: string[];
+        };
+        "Enable-discountRequest": {
+            enabled: boolean;
         };
         "Enable-promocodeRequest": {
             enabled: boolean;
@@ -4863,6 +5551,23 @@ export interface components {
             /** @description Применённые платежи за 30 дней */
             totals: components["schemas"]["PaymentTotal"][];
         };
+        PayoutView: {
+            /**
+             * Format: int64
+             * @description Выдано, в копейках
+             */
+            amount: number;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: int64 */
+            id: number;
+            note?: string;
+        };
+        PayoutsBody: {
+            items: components["schemas"]["PayoutView"][];
+            /** Format: int64 */
+            total: number;
+        };
         PoolInputBody: {
             name: string;
         };
@@ -5128,6 +5833,15 @@ export interface components {
             days: number;
             enabled: boolean;
         };
+        RecordPayoutInputBody: {
+            /**
+             * Format: int64
+             * @description Сколько выдано, в копейках
+             */
+            amount: number;
+            /** @description Как и когда передано: «наличными 19.10», скажем */
+            note: string;
+        };
         RecoveryOutputBody: {
             /** @description Показываются один раз */
             recovery_codes: string[];
@@ -5380,6 +6094,10 @@ export interface components {
             /** Format: date-time */
             last_seen_at: string;
             user_agent: string;
+        };
+        SetAgentPanelInputBody: {
+            /** @description От 8 знаков: латиница, цифры, дефис и подчёркивание; пусто — панель выключена */
+            path: string;
         };
         SetMonitorPasswordInputBody: {
             /** @description Пароль страницы; старый и все его сессии перестают работать */
@@ -5665,7 +6383,7 @@ export interface components {
              * @description Срок до этого числа месяца: месяц = от дня оплаты до дня оплаты
              */
             billing_day?: number;
-            /** @description Отключённые протоколы тарифа (id подключений); не передан — без изменений */
+            /** @description Отключённые протоколы тарифа (id подключений); пусто или нет в теле — все открыты. PUT заменяет тариф, так что закрыто ровно то, что в списке */
             closed?: number[];
             /** @description Текст для покупателей, виден в боте и Mini App рядом со строкой из лимитов: чем тариф отличается, когда лимиты этого не показывают («с белыми списками»). Простой текст до 300 символов и до 5 строк; не передан или пустой — только строка из лимитов */
             description?: string;
@@ -5712,6 +6430,8 @@ export interface components {
             traffic_limit?: number;
         };
         TariffView: {
+            /** @description Убран из продажи; продлить на него можно, купить новую подписку — нет */
+            archived: boolean;
             /**
              * Format: int64
              * @description День месяца, в который заканчивается срок; null — срок в днях
@@ -6115,7 +6835,23 @@ export interface components {
              */
             return_hours: number;
         };
+        UpdateAgentInputBody: {
+            /** @description Выключенный агент не может войти, его числа остаются */
+            disabled: boolean;
+            login: string;
+            note: string;
+            password?: string;
+            /**
+             * Format: int64
+             * @description Телеграм-аккаунт самого агента; null — убрать
+             */
+            tg_id?: number;
+        };
         UpdateCampaignInputBody: {
+            /** Format: int64 */
+            agent_id?: number;
+            /** Format: int64 */
+            agent_percent?: number;
             enabled: boolean;
             name: string;
             note: string;
@@ -6259,13 +6995,13 @@ export interface components {
              * @description День месяца, в который заканчивается срок (1–31); null — продление днями
              */
             billing_day: number | null;
-            /** @description Отключённые тарифом протоколы (id подключений); только в карточке */
-            closed_inbounds?: number[];
             /**
              * Format: int64
              * @description Привязанные устройства: с привязкой это занятые места
              */
             bound_devices: number;
+            /** @description Отключённые тарифом протоколы (id подключений); только в карточке */
+            closed_inbounds?: number[];
             contact: string;
             /** Format: date-time */
             created_at: string;
@@ -6851,6 +7587,332 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["AddonRPCResult"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-agents": {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentsOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "create-agent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateAgentInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "agent-panel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentPanelOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "set-agent-panel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetAgentPanelInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentPanelOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "update-agent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateAgentInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-agent-campaigns": {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentCampaignsOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-agent-payouts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PayoutsBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "record-agent-payout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecordPayoutInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PayoutView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-agent-referrals": {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentReferralsOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "delete-agent-referral": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                chat_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {
@@ -7540,6 +8602,359 @@ export interface operations {
                 };
                 content: {
                     "application/octet-stream": unknown;
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-device-packs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DevicePackView"][];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "create-device-pack": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DevicePackBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DevicePackView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "update-device-pack": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DevicePackBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DevicePackView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "delete-device-pack": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "restore-device-pack": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DevicePackView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-discounts": {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscountListOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "create-discount": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DiscountBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscountView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-discount-redemptions": {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscountRedemptionsOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "update-discount": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DiscountBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscountView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "delete-discount": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "enable-discount": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Enable-discountRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscountView"];
                 };
             };
             /** @description Error */
@@ -8992,6 +10407,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NodeClientsOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "node-disk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiskView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "clean-node-disk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiskView"];
                 };
             };
             /** @description Error */
@@ -11090,7 +12567,10 @@ export interface operations {
     };
     "list-tariffs": {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Показать и архивные */
+                archived?: boolean;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -11232,6 +12712,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApplyPoolsOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "restore-tariff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TariffView"];
                 };
             };
             /** @description Error */
@@ -11902,8 +13413,8 @@ export interface operations {
                 source?: "all" | "admin" | "bot" | "trial" | "free" | "import";
                 /** @description show — вместе со скрытыми (по умолчанию: скрытие касается только списка в панели); hide — без скрытых; only — только скрытые */
                 hidden?: "hide" | "show" | "only";
-                /** @description Порядок списка: new — новые сверху (как без сортировки); traffic — по израсходованному трафику, большие сверху; traffic_least — наоборот; expires — по сроку, истекающие сверху, бессрочные внизу; name — по имени, безымянные внизу */
-                sort?: "expires" | "name" | "new" | "traffic" | "traffic_least";
+                /** @description Порядок списка: new — новые сверху; traffic — по израсходованному трафику, большие сверху; traffic_least — наоборот; expires — по сроку, истекающие сверху, бессрочные внизу; name — по имени, безымянные внизу */
+                sort?: "new" | "traffic" | "traffic_least" | "expires" | "name";
                 limit?: number;
                 offset?: number;
             };

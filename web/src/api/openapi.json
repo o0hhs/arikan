@@ -580,6 +580,348 @@
         ],
         "type": "object"
       },
+      "AgentCampaignsOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AgentLinkView"
+            },
+            "type": "array"
+          },
+          "total": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "type": "object"
+      },
+      "AgentLinkView": {
+        "additionalProperties": false,
+        "properties": {
+          "bought": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "earned": {
+            "description": "Сколько агент заработал на этой ссылке, в копейках",
+            "format": "int64",
+            "type": "integer"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "percent": {
+            "description": "Процент агента с продаж этой ссылки",
+            "format": "int64",
+            "type": "integer"
+          },
+          "renewed": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "rub": {
+            "description": "Сумма оплаченного через ссылку, в копейках",
+            "format": "int64",
+            "type": "integer"
+          },
+          "tag": {
+            "type": "string"
+          },
+          "url": {
+            "description": "Ссылка для раздачи; пусто, пока бот без имени",
+            "type": "string"
+          },
+          "visits": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "tag",
+          "name",
+          "enabled",
+          "percent",
+          "created_at",
+          "visits",
+          "bought",
+          "renewed",
+          "rub",
+          "earned"
+        ],
+        "type": "object"
+      },
+      "AgentPanelOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "description": "Секретный путь панели агентов; пусто — панель выключена",
+            "type": "string"
+          },
+          "url": {
+            "description": "Полный адрес панели; тоже пустой, пока пути нет",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "type": "object"
+      },
+      "AgentReferralView": {
+        "additionalProperties": false,
+        "properties": {
+          "bought": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "chat_id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "first_seen": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "renewed": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "rub": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "tag": {
+            "description": "Ссылка, по которой человек пришёл",
+            "type": "string"
+          }
+        },
+        "required": [
+          "chat_id",
+          "name",
+          "tag",
+          "first_seen",
+          "bought",
+          "renewed",
+          "rub"
+        ],
+        "type": "object"
+      },
+      "AgentReferralsOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AgentReferralView"
+            },
+            "type": "array"
+          },
+          "total": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "type": "object"
+      },
+      "AgentView": {
+        "additionalProperties": false,
+        "properties": {
+          "bought": {
+            "description": "Сколько из них купили подписку впервые",
+            "format": "int64",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "currency": {
+            "enum": [
+              "RUB"
+            ],
+            "type": "string"
+          },
+          "disabled": {
+            "type": "boolean"
+          },
+          "earned": {
+            "description": "Сколько агент заработал процентом с продаж, в копейках",
+            "format": "int64",
+            "type": "integer"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "links": {
+            "description": "Сколько ссылок-кампаний закреплено за агентом",
+            "format": "int64",
+            "type": "integer"
+          },
+          "login": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "owed": {
+            "description": "Сколько агенту осталось выдать, в копейках",
+            "format": "int64",
+            "type": "integer"
+          },
+          "paid": {
+            "description": "Сколько агенту уже выдано, в копейках",
+            "format": "int64",
+            "type": "integer"
+          },
+          "renewed": {
+            "description": "Сколько оплат было продлениями",
+            "format": "int64",
+            "type": "integer"
+          },
+          "revenue": {
+            "description": "Сумма оплаченного через ссылки агента, в копейках",
+            "format": "int64",
+            "type": "integer"
+          },
+          "tg_id": {
+            "description": "Телеграм-аккаунт самого агента; null — не указан. Его переходы по своим ссылкам считаются его юзом, а не пришедшими",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "usages": {
+            "description": "Сколько раз сам агент заходил по своим ссылкам; к пришедшим не относится",
+            "format": "int64",
+            "type": "integer"
+          },
+          "visits": {
+            "description": "Сколько людей пришло по ссылкам агента",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "login",
+          "disabled",
+          "created_at",
+          "tg_id",
+          "links",
+          "visits",
+          "bought",
+          "renewed",
+          "revenue",
+          "earned",
+          "paid",
+          "owed",
+          "usages",
+          "currency"
+        ],
+        "type": "object"
+      },
+      "AgentsOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AgentView"
+            },
+            "type": "array"
+          },
+          "stats": {
+            "$ref": "#/components/schemas/AgentsStatsView"
+          },
+          "total": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "stats"
+        ],
+        "type": "object"
+      },
+      "AgentsStatsView": {
+        "additionalProperties": false,
+        "properties": {
+          "agents": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "bought": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "earned": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "owed": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "paid": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "renewed": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "revenue": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "usages": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "visits": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "agents",
+          "visits",
+          "bought",
+          "renewed",
+          "revenue",
+          "earned",
+          "paid",
+          "owed",
+          "usages"
+        ],
+        "type": "object"
+      },
       "AlertsConfig": {
         "additionalProperties": false,
         "properties": {
@@ -1125,6 +1467,16 @@
       "CampaignView": {
         "additionalProperties": false,
         "properties": {
+          "agent_id": {
+            "description": "Рекламный агент, которому платит кампания; 0 — своя",
+            "format": "int64",
+            "type": "integer"
+          },
+          "agent_percent": {
+            "description": "Процент с продаж, который получает агент этой кампании",
+            "format": "int64",
+            "type": "integer"
+          },
           "amount": {
             "description": "Сумма применённых оплат в копейках (только RUB)",
             "format": "int64",
@@ -1945,9 +2297,54 @@
         ],
         "type": "object"
       },
+      "CreateAgentInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "login": {
+            "description": "Латиница, цифры, точка, дефис и подчёркивание; регистр не важен",
+            "maxLength": 64,
+            "minLength": 3,
+            "type": "string"
+          },
+          "note": {
+            "maxLength": 500,
+            "type": "string"
+          },
+          "password": {
+            "description": "Выдадите агенту вместе со ссылкой на его панель; не короче 12 символов",
+            "maxLength": 256,
+            "minLength": 12,
+            "type": "string"
+          },
+          "tg_id": {
+            "description": "Телеграм-аккаунт самого агента: его входы по своим ссылкам не считаются пришедшими",
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "login",
+          "password",
+          "note"
+        ],
+        "type": "object"
+      },
       "CreateCampaignInputBody": {
         "additionalProperties": false,
         "properties": {
+          "agent_id": {
+            "format": "int64",
+            "maximum": 9223372036854776000,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "agent_percent": {
+            "format": "int64",
+            "maximum": 100,
+            "minimum": 0,
+            "type": "integer"
+          },
           "name": {
             "maxLength": 120,
             "type": "string"
@@ -2234,6 +2631,102 @@
         ],
         "type": "object"
       },
+      "DevicePackBody": {
+        "additionalProperties": false,
+        "properties": {
+          "on_sale": {
+            "type": "boolean"
+          },
+          "price_rub": {
+            "description": "Цена за месяц, в копейках",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "price_stars": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "slots": {
+            "description": "Сколько мест пакет добавляет (панель держит до 50 устройств)",
+            "format": "int64",
+            "maximum": 47,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "sort": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "title": {
+            "maxLength": 120,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "slots",
+          "price_rub",
+          "sort",
+          "on_sale"
+        ],
+        "type": "object"
+      },
+      "DevicePackView": {
+        "additionalProperties": false,
+        "properties": {
+          "archived": {
+            "type": "boolean"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "on_sale": {
+            "type": "boolean"
+          },
+          "price_rub": {
+            "description": "Цена за месяц, в копейках",
+            "format": "int64",
+            "type": "integer"
+          },
+          "price_stars": {
+            "description": "Цена за месяц в Stars; без значения — только рубли",
+            "format": "int64",
+            "type": "integer"
+          },
+          "slots": {
+            "description": "Сколько мест пакет добавляет к лимиту устройств тарифа",
+            "format": "int64",
+            "type": "integer"
+          },
+          "sort": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "slots",
+          "price_rub",
+          "sort",
+          "on_sale",
+          "archived",
+          "created_at"
+        ],
+        "type": "object"
+      },
       "DeviceView": {
         "additionalProperties": false,
         "properties": {
@@ -2257,6 +2750,417 @@
           "first_seen",
           "last_seen",
           "online"
+        ],
+        "type": "object"
+      },
+      "DiscountBody": {
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "description": "Для fixed: RUB или XTR. Для percent: пусто — любая валюта",
+            "type": "string"
+          },
+          "description": {
+            "maxLength": 500,
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "ends_at": {
+            "description": "Unix time в секундах; значение не может быть в прошлом",
+            "format": "int64",
+            "type": "integer"
+          },
+          "max_discount": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "max_uses": {
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "min_order": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "type": "string"
+          },
+          "notify_audience": {
+            "enum": [
+              "buyers",
+              "subscribers"
+            ],
+            "type": "string"
+          },
+          "notify_days": {
+            "description": "За сколько дней до конца скидки напоминать; по умолчанию за 3 дня и за день",
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "notify_enabled": {
+            "description": "Напоминать ли о конце скидки",
+            "type": "boolean"
+          },
+          "notify_text": {
+            "maxLength": 1000,
+            "type": "string"
+          },
+          "starts_at": {
+            "description": "Unix time в секундах",
+            "format": "int64",
+            "type": "integer"
+          },
+          "tariff_ids": {
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "type": {
+            "enum": [
+              "percent",
+              "fixed"
+            ],
+            "type": "string"
+          },
+          "value": {
+            "description": "percent — проценты 1-100; fixed — сумма в минимальных единицах оплаты",
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "description",
+          "type",
+          "value",
+          "currency",
+          "tariff_ids",
+          "starts_at",
+          "ends_at",
+          "min_order",
+          "max_discount",
+          "notify_enabled",
+          "notify_days",
+          "notify_audience",
+          "notify_text",
+          "enabled"
+        ],
+        "type": "object"
+      },
+      "DiscountListOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DiscountView"
+            },
+            "type": "array"
+          },
+          "total": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "type": "object"
+      },
+      "DiscountRedemptionView": {
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "type": "string"
+          },
+          "discount_amount": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "discount_id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "discount_name": {
+            "type": "string"
+          },
+          "final_amount": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "original_amount": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "payment_id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "redeemed_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "tg_id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "user_id": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "discount_id",
+          "discount_name",
+          "tg_id",
+          "status",
+          "redeemed_at",
+          "discount_amount",
+          "original_amount",
+          "final_amount",
+          "currency"
+        ],
+        "type": "object"
+      },
+      "DiscountRedemptionsOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DiscountRedemptionView"
+            },
+            "type": "array"
+          },
+          "total": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "type": "object"
+      },
+      "DiscountView": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "created_by": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "currency": {
+            "description": "Для fixed: RUB (копейки) или XTR (Stars). Для percent: пусто — любая валюта",
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "ends_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "max_discount": {
+            "description": "Максимальная скидка, в минимальных единицах оплаты",
+            "format": "int64",
+            "type": "integer"
+          },
+          "max_uses": {
+            "description": "Сколько раз скидку можно применить; без значения — без ограничения",
+            "format": "int64",
+            "type": "integer"
+          },
+          "min_order": {
+            "description": "Минимальная сумма заказа, в минимальных единицах оплаты",
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "notify_audience": {
+            "description": "buyers — тем, кто купил по скидке; subscribers — всем подписчикам тарифов скидки",
+            "enum": [
+              "buyers",
+              "subscribers"
+            ],
+            "type": "string"
+          },
+          "notify_days": {
+            "description": "За сколько дней до конца скидки бот напоминает",
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "notify_enabled": {
+            "type": "boolean"
+          },
+          "notify_text": {
+            "description": "Свой текст рассылки; пусто — текст бота",
+            "type": "string"
+          },
+          "recipients": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "starts_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "tariff_ids": {
+            "description": "Тарифы, к которым applies скидка; пусто — ко всем тарифам в продаже",
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "type": {
+            "description": "percent — процент от цены, fixed — сумма скидки",
+            "enum": [
+              "percent",
+              "fixed"
+            ],
+            "type": "string"
+          },
+          "used_count": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "value": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "type",
+          "value",
+          "currency",
+          "tariff_ids",
+          "starts_at",
+          "ends_at",
+          "used_count",
+          "min_order",
+          "max_discount",
+          "notify_enabled",
+          "notify_days",
+          "notify_audience",
+          "notify_text",
+          "enabled",
+          "status",
+          "created_at",
+          "recipients"
+        ],
+        "type": "object"
+      },
+      "DiskDirView": {
+        "additionalProperties": false,
+        "properties": {
+          "bytes": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "path": {
+            "description": "Относительно каталога данных ноды: mihomo, update, …",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "bytes"
+        ],
+        "type": "object"
+      },
+      "DiskView": {
+        "additionalProperties": false,
+        "properties": {
+          "dirs": {
+            "items": {
+              "$ref": "#/components/schemas/DiskDirView"
+            },
+            "type": "array"
+          },
+          "files": {
+            "description": "Эти файлы уберёт очистка",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "free": {
+            "description": "Свободно, байт",
+            "format": "int64",
+            "type": "integer"
+          },
+          "freed": {
+            "description": "Сколько убрала последняя очистка, байт; 0 если её не было",
+            "format": "int64",
+            "type": "integer"
+          },
+          "junk": {
+            "description": "Мусор, который уберёт очистка: остатки обновлений и временные файлы, байт",
+            "format": "int64",
+            "type": "integer"
+          },
+          "total": {
+            "description": "Размер файловой системы каталога данных, байт",
+            "format": "int64",
+            "type": "integer"
+          },
+          "used": {
+            "description": "Занято, байт",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "free",
+          "used",
+          "dirs",
+          "junk",
+          "files",
+          "freed"
         ],
         "type": "object"
       },
@@ -2325,6 +3229,18 @@
         "required": [
           "ids",
           "at"
+        ],
+        "type": "object"
+      },
+      "Enable-discountRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
         ],
         "type": "object"
       },
@@ -6270,6 +7186,53 @@
         ],
         "type": "object"
       },
+      "PayoutView": {
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "description": "Выдано, в копейках",
+            "format": "int64",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "note": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "amount",
+          "created_at"
+        ],
+        "type": "object"
+      },
+      "PayoutsBody": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PayoutView"
+            },
+            "type": "array"
+          },
+          "total": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "type": "object"
+      },
       "PoolInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -6980,6 +7943,27 @@
         "required": [
           "enabled",
           "days"
+        ],
+        "type": "object"
+      },
+      "RecordPayoutInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "description": "Сколько выдано, в копейках",
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "note": {
+            "description": "Как и когда передано: «наличными 19.10», скажем",
+            "maxLength": 200,
+            "type": "string"
+          }
+        },
+        "required": [
+          "amount",
+          "note"
         ],
         "type": "object"
       },
@@ -7751,6 +8735,20 @@
         ],
         "type": "object"
       },
+      "SetAgentPanelInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "description": "От 8 знаков: латиница, цифры, дефис и подчёркивание; пусто — панель выключена",
+            "maxLength": 64,
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "type": "object"
+      },
       "SetMonitorPasswordInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -8474,6 +9472,14 @@
             "minimum": 1,
             "type": "integer"
           },
+          "closed": {
+            "description": "Отключённые протоколы тарифа (id подключений); пусто или нет в теле — все открыты. PUT заменяет тариф, так что закрыто ровно то, что в списке",
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": "array"
+          },
           "description": {
             "description": "Текст для покупателей, виден в боте и Mini App рядом со строкой из лимитов: чем тариф отличается, когда лимиты этого не показывают («с белыми списками»). Простой текст до 300 символов и до 5 строк; не передан или пустой — только строка из лимитов",
             "type": "string"
@@ -8577,6 +9583,10 @@
       "TariffView": {
         "additionalProperties": false,
         "properties": {
+          "archived": {
+            "description": "Убран из продажи; продлить на него можно, купить новую подписку — нет",
+            "type": "boolean"
+          },
           "billing_day": {
             "description": "День месяца, в который заканчивается срок; null — срок в днях",
             "format": "int64",
@@ -8584,6 +9594,14 @@
               "integer",
               "null"
             ]
+          },
+          "closed": {
+            "description": "Отключённые для тарифа протоколы (id подключений): их нет в подписке клиентов тарифа и ноды их не пускают; личное разрешение пользователя закрытое протоколом тарифа не открывает",
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": "array"
           },
           "description": {
             "description": "Текст для покупателей: чем тариф отличается, когда лимиты этого не показывают; до 300 символов, до 5 строк, пустой — только строка из лимитов",
@@ -8697,6 +9715,7 @@
           "price_stars",
           "price_rub",
           "on_sale",
+          "archived",
           "terms",
           "pools",
           "sort"
@@ -9554,9 +10573,56 @@
         ],
         "type": "object"
       },
+      "UpdateAgentInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "disabled": {
+            "description": "Выключенный агент не может войти, его числа остаются",
+            "type": "boolean"
+          },
+          "login": {
+            "maxLength": 64,
+            "minLength": 3,
+            "type": "string"
+          },
+          "note": {
+            "maxLength": 500,
+            "type": "string"
+          },
+          "password": {
+            "maxLength": 256,
+            "minLength": 0,
+            "type": "string"
+          },
+          "tg_id": {
+            "description": "Телеграм-аккаунт самого агента; null — убрать",
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "login",
+          "note",
+          "disabled"
+        ],
+        "type": "object"
+      },
       "UpdateCampaignInputBody": {
         "additionalProperties": false,
         "properties": {
+          "agent_id": {
+            "format": "int64",
+            "maximum": 9223372036854776000,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "agent_percent": {
+            "format": "int64",
+            "maximum": 100,
+            "minimum": 0,
+            "type": "integer"
+          },
           "enabled": {
             "type": "boolean"
           },
@@ -9934,6 +11000,14 @@
             "description": "Привязанные устройства: с привязкой это занятые места",
             "format": "int64",
             "type": "integer"
+          },
+          "closed_inbounds": {
+            "description": "Отключённые тарифом протоколы (id подключений); только в карточке",
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": "array"
           },
           "contact": {
             "type": "string"
@@ -11025,6 +12099,499 @@
         "x-session-only": true
       }
     },
+    "/api/v1/agents": {
+      "get": {
+        "operationId": "list-agents",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "format": "int64",
+              "maximum": 200,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "default": 0,
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentsOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Рекламные агенты",
+        "tags": [
+          "agents"
+        ],
+        "x-session-only": true
+      },
+      "post": {
+        "operationId": "create-agent",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAgentInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentView"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Создать рекламного агента",
+        "tags": [
+          "agents"
+        ],
+        "x-session-only": true
+      }
+    },
+    "/api/v1/agents/panel": {
+      "get": {
+        "operationId": "agent-panel",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentPanelOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Адрес панели агентов",
+        "tags": [
+          "agents"
+        ],
+        "x-session-only": true
+      },
+      "put": {
+        "operationId": "set-agent-panel",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetAgentPanelInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentPanelOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Задать путь панели агентов",
+        "tags": [
+          "agents"
+        ],
+        "x-session-only": true
+      }
+    },
+    "/api/v1/agents/{id}": {
+      "put": {
+        "operationId": "update-agent",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAgentInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentView"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Изменить агента",
+        "tags": [
+          "agents"
+        ],
+        "x-session-only": true
+      }
+    },
+    "/api/v1/agents/{id}/campaigns": {
+      "get": {
+        "operationId": "list-agent-campaigns",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "format": "int64",
+              "maximum": 200,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "default": 0,
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentCampaignsOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Ссылки агента",
+        "tags": [
+          "agents"
+        ],
+        "x-session-only": true
+      }
+    },
+    "/api/v1/agents/{id}/payouts": {
+      "get": {
+        "operationId": "list-agent-payouts",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PayoutsBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Выплаты агенту",
+        "tags": [
+          "agents"
+        ],
+        "x-session-only": true
+      },
+      "post": {
+        "operationId": "record-agent-payout",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordPayoutInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PayoutView"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Отметить выплату агенту",
+        "tags": [
+          "agents"
+        ],
+        "x-session-only": true
+      }
+    },
+    "/api/v1/agents/{id}/referrals": {
+      "get": {
+        "operationId": "list-agent-referrals",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "format": "int64",
+              "maximum": 200,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "default": 0,
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentReferralsOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Кто пришёл по ссылкам агента",
+        "tags": [
+          "agents"
+        ],
+        "x-session-only": true
+      }
+    },
+    "/api/v1/agents/{id}/referrals/{chat_id}": {
+      "delete": {
+        "operationId": "delete-agent-referral",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "chat_id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Убрать человека из пришедших",
+        "tags": [
+          "agents"
+        ],
+        "x-session-only": true
+      }
+    },
     "/api/v1/api-keys": {
       "get": {
         "operationId": "list-api-keys",
@@ -11925,6 +13492,494 @@
           "settings"
         ],
         "x-session-only": true
+      }
+    },
+    "/api/v1/device-packs": {
+      "get": {
+        "operationId": "list-device-packs",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DevicePackView"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Пакеты устройств",
+        "tags": [
+          "device-packs"
+        ]
+      },
+      "post": {
+        "operationId": "create-device-pack",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DevicePackBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePackView"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Создать пакет устройств",
+        "tags": [
+          "device-packs"
+        ]
+      }
+    },
+    "/api/v1/device-packs/{id}": {
+      "delete": {
+        "operationId": "delete-device-pack",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Убрать пакет устройств из продажи (в архив)",
+        "tags": [
+          "device-packs"
+        ]
+      },
+      "put": {
+        "operationId": "update-device-pack",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DevicePackBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePackView"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Изменить пакет устройств",
+        "tags": [
+          "device-packs"
+        ]
+      }
+    },
+    "/api/v1/device-packs/{id}/restore": {
+      "post": {
+        "operationId": "restore-device-pack",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePackView"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Вернуть пакет устройств из архива",
+        "tags": [
+          "device-packs"
+        ]
+      }
+    },
+    "/api/v1/discounts": {
+      "get": {
+        "operationId": "list-discounts",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "format": "int64",
+              "maximum": 200,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "default": 0,
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscountListOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Скидки",
+        "tags": [
+          "discounts"
+        ]
+      },
+      "post": {
+        "operationId": "create-discount",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscountBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscountView"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Создать скидку",
+        "tags": [
+          "discounts"
+        ]
+      }
+    },
+    "/api/v1/discounts/redemptions": {
+      "get": {
+        "operationId": "list-discount-redemptions",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "format": "int64",
+              "maximum": 200,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "default": 0,
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscountRedemptionsOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "История скидок",
+        "tags": [
+          "discounts"
+        ]
+      }
+    },
+    "/api/v1/discounts/{id}": {
+      "delete": {
+        "operationId": "delete-discount",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Удалить скидку",
+        "tags": [
+          "discounts"
+        ]
+      },
+      "put": {
+        "operationId": "update-discount",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscountBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscountView"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Изменить скидку",
+        "tags": [
+          "discounts"
+        ]
+      }
+    },
+    "/api/v1/discounts/{id}/enabled": {
+      "post": {
+        "operationId": "enable-discount",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Enable-discountRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscountView"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Включить или выключить скидку",
+        "tags": [
+          "discounts"
+        ]
       }
     },
     "/api/v1/filters": {
@@ -13786,6 +15841,95 @@
         "tags": [
           "node"
         ]
+      }
+    },
+    "/api/v1/nodes/{id}/disk": {
+      "get": {
+        "description": "Файловая система каталога данных ноды и что в ней занимает место; мусор, который уберёт очистка.",
+        "operationId": "node-disk",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiskView"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Диск ноды",
+        "tags": [
+          "node"
+        ]
+      }
+    },
+    "/api/v1/nodes/{id}/disk/clean": {
+      "post": {
+        "description": "Убирает остатки обновлений и временные файлы в каталоге данных ноды. Старые образы релизов чистит сам установщик после успешного обновления.",
+        "operationId": "clean-node-disk",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiskView"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Почистить диск ноды",
+        "tags": [
+          "node"
+        ],
+        "x-session-only": true
       }
     },
     "/api/v1/nodes/{id}/key": {
@@ -16616,6 +18760,18 @@
     "/api/v1/tariffs": {
       "get": {
         "operationId": "list-tariffs",
+        "parameters": [
+          {
+            "description": "Показать и архивные",
+            "explode": false,
+            "in": "query",
+            "name": "archived",
+            "schema": {
+              "description": "Показать и архивные",
+              "type": "boolean"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -16811,6 +18967,49 @@
           }
         },
         "summary": "Применить лимиты пулов тарифа к уже выданным подпискам: свои лимиты пулов у клиентов заменятся, израсходованное останется",
+        "tags": [
+          "tariffs"
+        ]
+      }
+    },
+    "/api/v1/tariffs/{id}/restore": {
+      "post": {
+        "operationId": "restore-tariff",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TariffView"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Вернуть тариф из архива",
         "tags": [
           "tariffs"
         ]
@@ -17657,6 +19856,24 @@
                 "hide",
                 "show",
                 "only"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "Порядок списка: new — новые сверху; traffic — по израсходованному трафику, большие сверху; traffic_least — наоборот; expires — по сроку, истекающие сверху, бессрочные внизу; name — по имени, безымянные внизу",
+            "explode": false,
+            "in": "query",
+            "name": "sort",
+            "schema": {
+              "default": "new",
+              "description": "Порядок списка: new — новые сверху; traffic — по израсходованному трафику, большие сверху; traffic_least — наоборот; expires — по сроку, истекающие сверху, бессрочные внизу; name — по имени, безымянные внизу",
+              "enum": [
+                "new",
+                "traffic",
+                "traffic_least",
+                "expires",
+                "name"
               ],
               "type": "string"
             }

@@ -37,6 +37,23 @@ func (b *Bot) screen(ctx context.Context, cfg Config, chat int64, data, notice s
 		return b.gateScreen(ctx, cfg, w, notice)
 	}
 	list, u, ok := b.subs(ctx, chat)
+	// pk:<flow>:<id> asks the devices of a tariff first; the flow (tn new, t renew) is
+	// where it goes next. A stale button — the shop closed, the subscription gone — is the
+	// main screen.
+	if cmd == "pk" {
+		flow, idArg, _ := strings.Cut(arg, ":")
+		switch flow {
+		case "tn":
+			if b.canBuyNew(ctx, chat) {
+				return b.packScreen(ctx, w, chat, 0, "tn", idArg, []tgate.Button{{Text: w.back, CallbackData: "b"}})
+			}
+		case "t":
+			if ok {
+				return b.packScreen(ctx, w, chat, u.ID, "t", idArg, []tgate.Button{{Text: w.back, CallbackData: "r"}})
+			}
+		}
+		return b.screen(ctx, cfg, chat, "m", notice)
+	}
 	// Buying a new subscription works with or without one.
 	// The referral programme works with or without a subscription.
 	if cmd == "f" || cmd == "fh" {
@@ -46,9 +63,9 @@ func (b *Bot) screen(ctx context.Context, cfg Config, chat int64, data, notice s
 		home := []tgate.Button{{Text: w.back, CallbackData: "m"}}
 		switch cmd {
 		case "b":
-			return b.shopList(ctx, w, chat, w.buyTitle, "tn", notice, home)
+			return b.shopList(ctx, w, chat, 0, w.buyTitle, "tn", notice, home)
 		case "tn":
-			return b.shopTariff(ctx, w, chat, arg, "tn", "pn", shopBack(w, "tn", arg, "b"))
+			return b.shopTariff(ctx, w, chat, 0, arg, "tn", "pn", shopBack(w, "tn", arg, "b"))
 		case "pn":
 			id, _, _ := strings.Cut(arg, ":")
 			return b.shopInvoice(ctx, w, chat, 0, arg, []tgate.Button{{Text: w.back, CallbackData: "tn:" + id}})
@@ -76,7 +93,7 @@ func (b *Bot) screen(ctx context.Context, cfg Config, chat int64, data, notice s
 	}
 	switch cmd {
 	case "t":
-		return b.shopTariff(ctx, w, chat, arg, "t", "py", shopBack(w, "t", arg, "r"))
+		return b.shopTariff(ctx, w, chat, u.ID, arg, "t", "py", shopBack(w, "t", arg, "r"))
 	case "py":
 		id, _, _ := strings.Cut(arg, ":")
 		return b.shopInvoice(ctx, w, chat, u.ID, arg, []tgate.Button{{Text: w.back, CallbackData: "t:" + id}})
@@ -129,7 +146,7 @@ func (b *Bot) screen(ctx context.Context, cfg Config, chat int64, data, notice s
 		return withNotice(text), &tgate.Keyboard{InlineKeyboard: append(rows, back)}
 	case "r":
 		if offers, _ := b.offers(ctx, chat); len(offers) > 0 {
-			text, kb := b.shopList(ctx, w, chat, fmt.Sprintf(w.renewTitle, u.Name), "t", notice, nil)
+			text, kb := b.shopList(ctx, w, chat, u.ID, fmt.Sprintf(w.renewTitle, u.Name), "t", notice, nil)
 			if sup := b.supportURL(ctx); sup != "" {
 				kb.InlineKeyboard = append(kb.InlineKeyboard, []tgate.Button{dressed(cfg, "support", w.support, tgate.Button{URL: sup})})
 			}

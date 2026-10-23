@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
-import { Archive, Layers, Package, Pencil, Plus, Tag, X } from "lucide-react";
+import { Archive, ArchiveRestore, Layers, Package, Pencil, Plus, Smartphone, Tag, X } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { api, errorText, unwrap, type Schemas, type Tariff } from "../../api/client";
 import { onFormError } from "../../lib/fields";
@@ -15,6 +15,7 @@ import { t } from "../../i18n";
 import { bytes, days, GiB, months, rubles, termMonths } from "../../lib/format";
 import { isKopecks, isStars, parseDecimal, rubKopecks } from "../../lib/validate";
 import { TARIFF_TABS } from "../search";
+import { DevicePacksCard } from "./device-packs";
 import { PackagesCard } from "./packages";
 import { PoolLimitsField, PoolsCard } from "./pools";
 import { DeviceModePicker, modeOf, type DeviceMode } from "./user/device-mode";
@@ -45,7 +46,7 @@ export function tariffSummary(tr: Tariff): string {
   return parts.join(" · ");
 }
 
-const TAB_ICONS = { tariffs: Tag, pools: Layers, packages: Package } as const;
+const TAB_ICONS = { tariffs: Tag, pools: Layers, packages: Package, packs: Smartphone } as const;
 
 /** A tariff's pool limits by pool name: "WL 100 GB", "Premium closed"; pools without a limit are left out. */
 function poolLimitsText(tr: Tariff, names: Map<number, string>): string {
@@ -72,7 +73,7 @@ export function TariffsPage() {
   const [edit, setEdit] = useState<Tariff | "new" | null>(null);
   const [archive, setArchive] = useState<Tariff | null>(null);
   const [applying, setApplying] = useState<Tariff | null>(null);
-  const [creating, setCreating] = useState<"pools" | "packages" | null>(null);
+  const [creating, setCreating] = useState<"pools" | "packages" | "packs" | null>(null);
   const qc = useQueryClient();
   const toast = useToast();
   const remove = useMutation({
@@ -82,6 +83,16 @@ export function TariffsPage() {
       void qc.invalidateQueries({ queryKey: qk.paymentSettings });
       toast.ok(t("tariffs.archived"));
       setArchive(null);
+    },
+    onError: (e) => toast.error(errorText(e)),
+  });
+  // A tariff taken off the shop comes back to it; its subscribers could renew all along.
+  const restore = useMutation({
+    mutationFn: (id: number) => unwrap(api.POST("/api/v1/tariffs/{id}/restore", { params: { path: { id } } })),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: qk.tariffs });
+      void qc.invalidateQueries({ queryKey: qk.paymentSettings });
+      toast.ok(t("tariffs.restored"));
     },
     onError: (e) => toast.error(errorText(e)),
   });
@@ -105,7 +116,7 @@ export function TariffsPage() {
           // Each section adds its own kind of thing from the same place.
           <Button variant="primary" onClick={() => (tab === "tariffs" ? setEdit("new") : setCreating(tab))}>
             <Plus size={18} aria-hidden />
-            <span className="max-[760px]:hidden">{tab === "pools" ? t("pools.add") : tab === "packages" ? t("packages.add") : t("tariffs.new")}</span>
+            <span className="max-[760px]:hidden">{tab === "pools" ? t("pools.add") : tab === "packages" ? t("packages.add") : tab === "packs" ? t("devicePacks.add") : t("tariffs.new")}</span>
           </Button>
         }
       />
@@ -120,6 +131,8 @@ export function TariffsPage() {
           <PoolsCard creating={creating === "pools"} onCreateClose={() => setCreating(null)} />
         ) : tab === "packages" ? (
           <PackagesCard creating={creating === "packages"} onCreateClose={() => setCreating(null)} />
+        ) : tab === "packs" ? (
+          <DevicePacksCard creating={creating === "packs"} onCreateClose={() => setCreating(null)} />
         ) : (
           <QueryBoundary
             query={tariffs}
@@ -144,10 +157,11 @@ export function TariffsPage() {
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                   {list.map((tr, i) => (
-                    <section key={tr.id} className="card glass reveal flex flex-col" style={{ "--i": i } as React.CSSProperties}>
+                    <section key={tr.id} className={`card glass reveal flex flex-col${tr.archived ? " opacity-60" : ""}`} style={{ "--i": i } as React.CSSProperties}>
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <h2 className="font-display text-xl font-medium tracking-tight">{tr.name}</h2>
+                          {tr.archived ? <div className="mt-2"><Pill tone="off">{t("tariffs.archivedPill")}</Pill></div> : null}
                           {tr.price_label ? <div className="mt-1 text-[13px] font-medium text-[var(--md-primary)]">{tr.price_label}</div> : null}
                           {tr.description ? <p className="mt-2 whitespace-pre-line text-[13px] text-[var(--md-on-surface-variant)]">{tr.description}</p> : null}
                           {selling && tr.on_sale ? (
@@ -160,6 +174,15 @@ export function TariffsPage() {
                           ) : null}
                         </div>
                         <div className="flex gap-1">
+                          {tr.archived ? (
+                            <button type="button" className="icon-btn" aria-label={t("tariffs.restoreLabel", { name: tr.name })} title={t("tariffs.restore")} disabled={restore.isPending} onClick={() => restore.mutate(tr.id)}>
+                              <ArchiveRestore size={16} />
+                            </button>
+                          ) : (
+                            <button type="button" className="icon-btn" aria-label={t("tariffs.archiveLabel", { name: tr.name })} onClick={() => setArchive(tr)}>
+                              <Archive size={16} />
+                            </button>
+                          )}
                           <button type="button" className="icon-btn" aria-label={t("tariffs.editLabel", { name: tr.name })} onClick={() => setEdit(tr)}>
                             <Pencil size={16} />
                           </button>
@@ -168,9 +191,6 @@ export function TariffsPage() {
                               <Layers size={16} />
                             </button>
                           ) : null}
-                          <button type="button" className="icon-btn" aria-label={t("tariffs.archiveLabel", { name: tr.name })} onClick={() => setArchive(tr)}>
-                            <Archive size={16} />
-                          </button>
                         </div>
                       </div>
                       <dl className="mt-5 grid grid-cols-2 gap-3 text-xs text-[var(--md-on-surface-variant)]">

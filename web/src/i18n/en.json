@@ -1162,7 +1162,8 @@
     "tabs": {
       "tariffs": "Plans",
       "pools": "Traffic pools",
-      "packages": "Traffic packages"
+      "packages": "Traffic packages",
+      "packs": "Device packs"
     },
     "sections": "Plan sections",
     "applyPools": "Apply the pool limits to subscriptions given out",
@@ -1172,7 +1173,11 @@
     "applyPoolsConfirm": "Apply",
     "applyPoolsDone": "Pool limits updated for {n, plural, one {# client} other {# clients}}",
     "closedGroup": "Closed for this tariff",
-    "openProtocol": "Open"
+    "openProtocol": "Open",
+    "archivedPill": "Archived",
+    "restore": "Restore the tariff",
+    "restoreLabel": "Restore the tariff “{name}”",
+    "restored": "The tariff is on sale again"
   },
   "presets": {
     "vless_reality_xhttp": "Main one for Russia: looks like plain HTTPS and keeps few connections",
@@ -2435,7 +2440,10 @@
     "reissueFailed": "The link was not changed. Reload the page and try again.",
     "reissueOff": "Only the administrator can change the link: write to support.",
     "reissueAfter": "You can issue a new link again on {date} at {time}.",
-    "reissueLimit": "At most {n, plural, one {# time} other {# times}} per {period}."
+    "reissueLimit": "At most {n, plural, one {# time} other {# times}} per {period}.",
+    "shopPickPack": "How many devices",
+    "shopPackNone": "As in the plan",
+    "perMonthShort": "mo"
   },
   "nodes": {
     "subtitle": "Servers that run the VPN. The subscription includes the protocols of every enabled node, each in its own group.",
@@ -4269,5 +4277,33 @@
       "duplicate": "the name repeats",
       "too_many": "more than 64 entries"
     }
+  },
+  "devicePacks": {
+    "title": "Device packs",
+    "sub": "Extra places to buy: the price adds to every term, the slots widen the plan's device limit.",
+    "none": "No packs yet.",
+    "add": "Add a pack",
+    "new": "New device pack",
+    "edit": "Edit the pack",
+    "drawerMeta": "A pack adds places on top of the plan's device limit",
+    "name": "Title",
+    "namePlaceholder": "+2 devices",
+    "slots": "Places in the pack",
+    "slotsHint": "How many devices the pack adds to the plan's limit",
+    "slotsLine": "+{n} devices",
+    "perMonth": "the monthly price adds to the plan",
+    "saleSub": "The pack's price adds to the price of every term",
+    "errTitle": "Give the pack a title",
+    "errSlots": "1 to 47 places",
+    "created": "Pack created",
+    "saved": "Pack saved",
+    "archived": "The pack is off the shop",
+    "restored": "The pack is on sale again",
+    "archivedPill": "Archived",
+    "editLabel": "Edit the pack “{name}”",
+    "archiveLabel": "Take the pack “{name}” off the shop",
+    "restoreLabel": "Put the pack “{name}” back on sale",
+    "archiveTitle": "Take “{name}” off the shop?",
+    "archiveText": "It cannot be bought anymore; subscriptions that carry it keep working until they end."
   }
 }

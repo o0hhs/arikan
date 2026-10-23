@@ -213,6 +213,21 @@ func (s remoteShop) AddonName(ctx context.Context, id, lang string) string {
 	return n
 }
 
+func (s remoteShop) DevicePacks(ctx context.Context) ([]db.DevicePack, error) {
+	var p []db.DevicePack
+	err := s.r.call(ctx, "Shop.DevicePacks", nil, &p)
+	return p, err
+}
+
+func (s remoteShop) Renewable(ctx context.Context, userID int64) (billing.Offer, bool, error) {
+	var (
+		o  billing.Offer
+		ok bool
+	)
+	err := s.r.call(ctx, "Shop.Renewable", []any{userID}, &o, &ok)
+	return o, ok, err
+}
+
 func (s remoteShop) Invoice(ctx context.Context, req billing.InvoiceRequest) (db.Payment, error) {
 	var p db.Payment
 	err := s.r.call(ctx, "Shop.Invoice", []any{req}, &p)

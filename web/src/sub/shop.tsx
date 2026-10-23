@@ -31,6 +31,8 @@ type Built = {
 };
 /** An access code the account redeemed: the plan it opened. */
 type AccessItem = { tariff_id: number; name: string; code: string; mode: string };
+/** A pack of extra device places: its price adds to every term of the plan beside it. */
+type Pack = { id: number; title: string; slots: number; stars?: number; rub?: number };
 export type ShopData = {
   allow_new: boolean;
   providers: { stars: boolean };
@@ -38,6 +40,10 @@ export type ShopData = {
   addons?: { provider: `addon:${string}`; name: string }[];
   offers: Offer[];
   packages?: Offer[];
+  /** The packs of extra device places a buyer may add to a plan. */
+  packs?: Pack[];
+  /** The pack the subscription carries now: what its renewal starts from. */
+  device_pack?: number;
   /** The priced trial the account may buy now: once, before any plan. */
   trial?: Offer;
   /** The free plan the account may take now; channel is the one it asks the account to join. */
@@ -106,6 +112,10 @@ export function Shop({
   const [picked, setPicked] = useState<number | null>(offers.length === 1 ? offers[0]!.id : null);
   // The chosen term of a plan sold for several; the first until another is chosen.
   const [termDays, setTermDays] = useState<number | null>(null);
+  // The pack of extra device places beside a plan; the subscription's own is where a
+  // renewal starts. 0: the plan's places only.
+  const [packID, setPackID] = useState<number>(data.device_pack ?? 0);
+  const packs = field === "tariff_id" ? (data.packs ?? []) : [];
   const [busy, setBusy] = useState<Provider | null>(null);
   const [error, setError] = useState("");
   const [promoPreview, setPromoPreview] = useState<{ discount: number; final_amount: number; currency: string } | null>(null);
@@ -113,7 +123,7 @@ export function Shop({
   // The payment page of a ruble provider, ready to open. Telegram opens a link only for a tap
   // it sees, and the requests that made this link took that tap, so the buyer taps again.
   const [ready, setReady] = useState<{ url: string; provider: Provider } | null>(null);
-  useEffect(() => { setError(""); setPromoPreview(null); setReady(null); }, [picked, termDays, promoCode]);
+  useEffect(() => { setError(""); setPromoPreview(null); setReady(null); }, [picked, termDays, packID, promoCode]);
   useEffect(() => setTermDays(null), [picked]);
   const offer = offers.find((o) => o.id === picked);
   const terms = offer?.terms && offer.terms.length > 1 ? offer.terms : null;
@@ -123,7 +133,7 @@ export function Shop({
   // A single term the providers take now is named too: it may not be the plan's first,
   // which a request without days is for.
   const sold = term ?? offer?.terms?.[0];
-  const order = field === "trial" ? { trial: true } : { [field]: offer?.id, ...(sold ? { term_days: sold.days } : {}) };
+  const order = field === "trial" ? { trial: true } : { [field]: offer?.id, ...(sold ? { term_days: sold.days } : {}), ...(field === "tariff_id" && packID ? { device_pack_id: packID } : {}) };
   const failText = (code: string) => (field === "package_id" && code === "not_for_sale" ? t("sub.packageNotForSale") : t(FAIL[code] ?? "sub.shopFail"));
 
   const pay = async (provider: Provider, custom?: BuiltPlan) => {
@@ -202,6 +212,19 @@ export function Shop({
           </button>
         ))}
       </div>
+      {packs.length ? (
+        <div className="mt-3 flex flex-wrap gap-2" role="radiogroup" aria-label={t("sub.shopPickPack")}>
+          <button type="button" role="radio" aria-checked={packID === 0} className="opt flex-1" style={{ minWidth: 96 }} onClick={() => setPackID(0)}>
+            <span className="font-semibold">{t("sub.shopPackNone")}</span>
+          </button>
+          {packs.map((p) => (
+            <button key={p.id} type="button" role="radio" aria-checked={packID === p.id} className="opt flex-1" style={{ minWidth: 96 }} onClick={() => setPackID(p.id)}>
+              <span className="font-semibold">{p.title}</span>
+              <span className="num text-xs text-[var(--md-on-surface-variant)]">{p.rub ? `+${rubles(p.rub)}` : p.stars ? `+⭐ ${p.stars}` : ""} / {t("sub.perMonthShort")}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
       {terms ? (
         <div className="mt-3 flex flex-wrap gap-2" role="radiogroup" aria-label={t("sub.shopPickTerm")}>
           {terms.map((x) => (

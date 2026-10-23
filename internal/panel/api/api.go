@@ -303,6 +303,7 @@ func New(d Deps) (http.Handler, huma.API, error) {
 	h.registerPayments()
 	h.registerPromocodes()
 	h.registerDiscounts()
+	h.registerDevicePacks()
 	h.registerReferrals()
 	h.registerCampaigns()
 	h.registerAgents()

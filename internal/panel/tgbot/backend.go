@@ -130,6 +130,11 @@ type PanelBackend interface {
 type Shop interface {
 	Config(ctx context.Context) billing.Config
 	Offers(ctx context.Context, tgID int64) ([]billing.Offer, billing.Available, error)
+	// DevicePacks are the packs of extra device places a buyer may add to a tariff.
+	DevicePacks(ctx context.Context) ([]db.DevicePack, error)
+	// Renewable is the tariff the subscription itself is on — its own to renew, the shop's
+	// list apart.
+	Renewable(ctx context.Context, userID int64) (billing.Offer, bool, error)
 	AddonName(ctx context.Context, id, lang string) string
 	Invoice(ctx context.Context, req billing.InvoiceRequest) (db.Payment, error)
 	PackageOffers(ctx context.Context, userID int64) ([]billing.PackageOffer, billing.Available, error)

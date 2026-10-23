@@ -39,6 +39,7 @@ export const qk = {
   pools: ["pools"] as const,
   userPools: (id: number) => ["users", "pools", id] as const,
   packages: ["packages"] as const,
+  devicePacks: ["device-packs"] as const,
   promocodes: ["promocodes"] as const,
   promocodeRedemptions: ["promocodes", "redemptions"] as const,
   referrals: ["referrals"] as const,
@@ -147,7 +148,13 @@ export function useDeviceBans(id: number) {
 }
 
 export function useTariffs() {
-  return useQuery({ queryKey: qk.tariffs, queryFn: ({ signal }) => unwrap(api.GET("/api/v1/tariffs", { signal })) });
+  // Archived tariffs stay on the page, greyed with the way back: their subscribers keep
+  // renewing them, so the admin keeps seeing them.
+  return useQuery({ queryKey: qk.tariffs, queryFn: ({ signal }) => unwrap(api.GET("/api/v1/tariffs", { params: { query: { archived: true } }, signal })) });
+}
+
+export function useDevicePacks() {
+  return useQuery({ queryKey: qk.devicePacks, queryFn: ({ signal }) => unwrap(api.GET("/api/v1/device-packs", { signal })) });
 }
 
 export function useInbounds() {

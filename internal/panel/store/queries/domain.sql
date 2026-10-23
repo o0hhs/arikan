@@ -1,6 +1,11 @@
 -- name: ListTariffs :many
 SELECT * FROM tariffs WHERE archived = 0 ORDER BY sort, id;
 
+-- name: ListAllTariffs :many
+-- Every tariff, the archived among them: the admin's page shows them greyed, with the way
+-- back from the archive.
+SELECT * FROM tariffs ORDER BY sort, id;
+
 -- name: GetTariff :one
 SELECT * FROM tariffs WHERE id = $1;
 
@@ -38,6 +43,16 @@ INSERT INTO tariff_terms (tariff_id, days, price_stars, price_rub, sort) VALUES 
 
 -- name: ArchiveTariff :execrows
 UPDATE tariffs SET archived = 1 WHERE id = $1;
+
+-- name: UnarchiveTariff :execrows
+-- The way back from ArchiveTariff: the two are one switch the admin may flip either way.
+UPDATE tariffs SET archived = 0 WHERE id = $1;
+
+-- name: SetUserDevicePack :exec
+-- The pack of extra device places a subscription carries; a statement of its own, beside
+-- CreateUser and UpdateUser, which set the tariff's own limits (a pack widens the device
+-- limit on top of those).
+UPDATE users SET device_pack_id = sqlc.arg(pack_id), updated_at = sqlc.arg(now) WHERE id = sqlc.arg(id);
 
 -- name: CountSlotsByState :many
 SELECT state, count(*) AS n FROM slots GROUP BY state;

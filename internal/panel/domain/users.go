@@ -133,6 +133,9 @@ type CreateInput struct {
 	// Options replaces the tariff's own limits and strategy on the new user (a tariff the
 	// buyer put together, a tariff an access code opened); nil: the tariff's.
 	Options *Options
+	// DevicePackID is the pack of extra device places the purchase carries; 0: the tariff's
+	// own places only. The pack's slots widen the device limit on top of the tariff's.
+	DevicePackID int64
 }
 
 // Options are the limits a subscription runs with in place of its tariff's: a traffic limit
@@ -228,6 +231,10 @@ func (s *Users) createTx(ctx context.Context, q *db.Queries, in CreateInput, any
 		return db.User{}, err
 	}
 	traffic, devices, speed, strategy := in.Options.LimitsOf(t)
+	devices, err = widenDevices(ctx, q, devices, in.DevicePackID)
+	if err != nil {
+		return db.User{}, err
+	}
 	u, err := q.CreateUser(ctx, db.CreateUserParams{
 		Name: strings.TrimSpace(in.Name), Contact: strings.TrimSpace(in.Contact), Note: in.Note, Tags: tags,
 		TariffID: sql.NullInt64{Int64: t.ID, Valid: true}, TrafficLimit: traffic, DeviceLimit: devices, SpeedLimit: speed,
@@ -244,6 +251,11 @@ func (s *Users) createTx(ctx context.Context, q *db.Queries, in CreateInput, any
 	}
 	if err := ApplyTariffPools(ctx, q, u.ID, t.ID); err != nil {
 		return u, err
+	}
+	if in.DevicePackID != 0 {
+		if err := setDevicePack(ctx, q, u.ID, in.DevicePackID, now); err != nil {
+			return u, err
+		}
 	}
 	// Told in the same transaction, never of a user that rolled back. An import is a bulk move
 	// of people who already have their subscriptions: no one to welcome, and thousands of events.
@@ -275,6 +287,9 @@ type PurchaseInput struct {
 	// Options replaces the tariff's own limits and strategy on the subscription (a tariff
 	// the buyer put together); nil: the tariff's.
 	Options *Options
+	// DevicePackID is the pack of extra device places this purchase carries; 0: none, and
+	// a renewal without a pack takes the places an earlier one bought back.
+	DevicePackID int64
 }
 
 // Purchase applies a paid tariff on q's transaction, so the payment and its effect commit
@@ -292,7 +307,7 @@ func (s *Users) Purchase(ctx context.Context, q *db.Queries, in PurchaseInput) (
 	}
 	if in.UserID == 0 || errors.Is(err, sql.ErrNoRows) {
 		u, err = s.createTx(ctx, q, CreateInput{Name: in.Name, Note: cmp.Or(in.Note, "Telegram"), TariffID: in.TariffID,
-			TermDays: in.Term, Source: cmp.Or(in.Source, UserFromBot), TgID: in.TgID, Options: in.Options}, true)
+			TermDays: in.Term, Source: cmp.Or(in.Source, UserFromBot), TgID: in.TgID, Options: in.Options, DevicePackID: in.DevicePackID}, true)
 		return u, err == nil, err
 	}
 	if err != nil {
@@ -315,6 +330,10 @@ func (s *Users) Purchase(ctx context.Context, q *db.Queries, in PurchaseInput) (
 		billingDay = u.BillingDay
 	}
 	traffic, devices, speed, strategy := in.Options.LimitsOf(t)
+	devices, err = widenDevices(ctx, q, devices, in.DevicePackID)
+	if err != nil {
+		return u, false, err
+	}
 	u, err = q.UpdateUser(ctx, db.UpdateUserParams{
 		Name: u.Name, Contact: u.Contact, Note: u.Note, Tags: u.Tags, Status: "active", TariffID: sql.NullInt64{Int64: t.ID, Valid: true},
 		TrafficLimit: traffic, DeviceLimit: devices, SpeedLimit: speed, ResetStrategy: strategy, PeriodDays: u.PeriodDays, PeriodStart: u.PeriodStart,
@@ -325,6 +344,11 @@ func (s *Users) Purchase(ctx context.Context, q *db.Queries, in PurchaseInput) (
 		return u, false, err
 	}
 	if err := setDeviceMode(ctx, q, &u, t.DeviceMode, now.Unix()); err != nil {
+		return u, false, err
+	}
+	// The pack is chosen again on every invoice: a renewal without one takes the places an
+	// earlier pack bought back, with the limit the tariff sets.
+	if err := setDevicePack(ctx, q, u.ID, in.DevicePackID, now.Unix()); err != nil {
 		return u, false, err
 	}
 	if err := ApplyTariffPools(ctx, q, u.ID, t.ID); err != nil {
@@ -338,6 +362,31 @@ func (s *Users) Purchase(ctx context.Context, q *db.Queries, in PurchaseInput) (
 	}
 	u, err = q.GetUser(ctx, u.ID)
 	return u, false, err
+}
+
+// widenDevices adds a pack's places to the device limit the tariff (or the buyer's plan)
+// sets: a pack buys the subscription more places on top of its own. Endless (no limit) has
+// nothing to widen — the places cost nothing there.
+func widenDevices(ctx context.Context, q *db.Queries, devices sql.NullInt64, packID int64) (sql.NullInt64, error) {
+	if packID == 0 || !devices.Valid {
+		return devices, nil
+	}
+	pack, err := q.GetDevicePack(ctx, packID)
+	if err != nil {
+		return devices, err
+	}
+	devices.Int64 += int64(pack.Slots)
+	return devices, nil
+}
+
+// setDevicePack keeps the pack with the subscription, what a renewal builds on; packID 0
+// takes the pack off.
+func setDevicePack(ctx context.Context, q *db.Queries, userID, packID, now int64) error {
+	var id sql.NullInt64
+	if packID != 0 {
+		id = sql.NullInt64{Int64: packID, Valid: true}
+	}
+	return q.SetUserDevicePack(ctx, db.SetUserDevicePackParams{PackID: id, Now: now, ID: userID})
 }
 
 // RefillSlots tops the slot pool up after ErrNoSlots.

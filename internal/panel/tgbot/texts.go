@@ -44,6 +44,7 @@ type words struct {
 	trialPaid, trialTitle                                                                                           string // the priced trial: its button with the price, its title over the ways to pay
 	trialNotGiven                                                                                                   string // a paid trial not given, its money back by hand
 	pickTerm, priceFrom                                                                                             string
+	packTitle, packBase, packSlots, packPerMonth                                                                    string
 	poolOut                                                                                                         string // a traffic pool used up
 
 	// The channel a subscriber must join, and the free plan.
@@ -136,6 +137,10 @@ var ru = words{
 	payRenew:        "подписка продлится",
 	notForSale:      "Этот тариф больше не продаётся.",
 	pickTerm:        "На какой срок?",
+	packTitle:       "Сколько устройств?",
+	packBase:        "базово",
+	packSlots:       "Устройств: %s",
+	packPerMonth:    "%s/мес",
 	priceFrom:       "от %s",
 	payUnavailable:  "Оплата сейчас недоступна. Попробуйте позже или напишите в поддержку.",
 	tooManyInvoices: "Слишком много счетов подряд. Попробуйте через час.",
@@ -272,6 +277,10 @@ var en = words{
 	payRenew:        "subscription is renewed",
 	notForSale:      "This plan is no longer sold.",
 	pickTerm:        "For how long?",
+	packTitle:       "How many devices?",
+	packBase:        "included",
+	packSlots:       "Devices: %s",
+	packPerMonth:    "%s/mo",
 	priceFrom:       "from %s",
 	payUnavailable:  "Payment is not available right now. Try later or message support.",
 	tooManyInvoices: "Too many invoices in a row. Try again in an hour.",

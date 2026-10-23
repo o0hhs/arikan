@@ -26,8 +26,9 @@ type userState struct {
 	TariffID      *int64 `json:"tariff_id"`
 	TrafficLimit  *int64 `json:"traffic_limit"`
 	DeviceLimit   *int64 `json:"device_limit"`
-	SpeedLimit    *int64 `json:"speed_limit,omitempty"` // payments before speed caps have none: no cap then
-	DeviceMode    string `json:"device_mode,omitempty"` // payments before the modes have none: the user keeps theirs
+	DevicePackID  *int64 `json:"device_pack_id,omitempty"` // payments before device packs have none: no pack then
+	SpeedLimit    *int64 `json:"speed_limit,omitempty"`    // payments before speed caps have none: no cap then
+	DeviceMode    string `json:"device_mode,omitempty"`    // payments before the modes have none: the user keeps theirs
 	ResetStrategy string `json:"reset_strategy"`
 	BillingDay    *int64 `json:"billing_day"`
 	ExpiresAt     *int64 `json:"expires_at"`
@@ -43,7 +44,8 @@ type revertInfo struct {
 
 func stateOf(u db.User) *userState {
 	return &userState{Status: u.Status, TariffID: store.Int64Ptr(u.TariffID), TrafficLimit: store.Int64Ptr(u.TrafficLimit), DeviceLimit: store.Int64Ptr(u.DeviceLimit),
-		SpeedLimit: store.Int64Ptr(u.SpeedLimit), DeviceMode: u.DeviceMode, ResetStrategy: u.ResetStrategy, BillingDay: store.Int64Ptr(u.BillingDay), ExpiresAt: store.Int64Ptr(u.ExpiresAt)}
+		DevicePackID: store.Int64Ptr(u.DevicePackID), SpeedLimit: store.Int64Ptr(u.SpeedLimit), DeviceMode: u.DeviceMode, ResetStrategy: u.ResetStrategy,
+		BillingDay: store.Int64Ptr(u.BillingDay), ExpiresAt: store.Int64Ptr(u.ExpiresAt)}
 }
 
 // sameOffer: the user still has the tariff and limits the payment set. The term and the
@@ -169,6 +171,12 @@ func (s *Service) takeBackTariff(ctx context.Context, q *db.Queries, p db.Paymen
 	}
 	if u, err = q.UpdateUser(ctx, par); err != nil {
 		return rv, u, err
+	}
+	if rv.TariffRestored {
+		// The pack comes back with the limit it widened.
+		if err = q.SetUserDevicePack(ctx, db.SetUserDevicePackParams{PackID: domain.NullInt(ri.Prior.DevicePackID), Now: now, ID: u.ID}); err != nil {
+			return rv, u, err
+		}
 	}
 	if rv.TariffRestored && ri.Prior.DeviceMode != "" && u.DeviceMode != ri.Prior.DeviceMode {
 		// The mode comes back with the limit it counts.

@@ -354,6 +354,54 @@ func (s *Service) Offers(ctx context.Context, tgID int64) ([]Offer, Available, e
 	return out, av, nil
 }
 
+// Renewable is the tariff the subscription itself is on, priced as the shop would price it:
+// a tariff the admin took off the shop stays its own subscribers' to renew. ok false: no
+// subscription, no tariff of its own, or nothing a provider takes its price.
+func (s *Service) Renewable(ctx context.Context, userID int64) (Offer, bool, error) {
+	av := s.Available(ctx)
+	if !av.Any() {
+		return Offer{}, false, nil
+	}
+	u, err := s.d.Store.Q.GetUser(ctx, userID)
+	if errors.Is(err, sql.ErrNoRows) || (err == nil && !u.TariffID.Valid) {
+		return Offer{}, false, nil
+	}
+	if err != nil {
+		return Offer{}, false, err
+	}
+	t, err := s.d.Store.Q.GetTariff(ctx, u.TariffID.Int64)
+	if errors.Is(err, sql.ErrNoRows) {
+		return Offer{}, false, nil
+	}
+	if err != nil {
+		return Offer{}, false, err
+	}
+	rows, err := s.d.Store.Q.ListAllTariffTerms(ctx)
+	if err != nil {
+		return Offer{}, false, err
+	}
+	o := Offer{Tariff: t}
+	terms := domain.TariffTerms(t, rows)
+	o.First = terms[0].Days
+	for _, term := range terms {
+		ot := OfferTerm{Days: term.Days}
+		ot.Stars, ot.Rub = av.prices(term.PriceStars, term.PriceRub)
+		if ot.Stars > 0 || ot.Rub > 0 {
+			o.Terms = append(o.Terms, ot)
+		}
+	}
+	if len(o.Terms) == 0 {
+		return Offer{}, false, nil
+	}
+	o.Stars, o.Rub = o.Terms[0].Stars, o.Terms[0].Rub
+	return o, true, nil
+}
+
+// DevicePacks are the packs of extra device places on sale, in their order.
+func (s *Service) DevicePacks(ctx context.Context) ([]db.DevicePack, error) {
+	return s.d.Store.Q.ListDevicePacksOnSale(ctx)
+}
+
 // Term is the offer's term of so many days; nil days: the tariff's first term, the one an
 // invoice without days is for (not there when no available provider takes its price).
 func (o Offer) Term(days *int64) (OfferTerm, bool) {
@@ -371,15 +419,18 @@ func (o Offer) Term(days *int64) (OfferTerm, bool) {
 
 // InvoiceRequest: who buys which tariff for which term with what. UserID 0 buys a new
 // subscription. Custom, when it is set, is a tariff the buyer put together themselves
-// (custom.go) on the constructor's base tariff.
+// (custom.go) on the constructor's base tariff. DevicePackID, when it is set, adds a pack
+// of extra device places to the purchase: its price adds to the term's, part of every day
+// of it, and its slots widen the subscription's device limit.
 type InvoiceRequest struct {
-	TgID      int64
-	UserID    int64
-	TariffID  int64
-	TermDays  *int64 // the term's days; nil: the tariff's first term
-	Provider  string
-	PromoCode string
-	Custom    *CustomPlan
+	TgID         int64
+	UserID       int64
+	TariffID     int64
+	TermDays     *int64 // the term's days; nil: the tariff's first term
+	Provider     string
+	PromoCode    string
+	Custom       *CustomPlan
+	DevicePackID int64
 }
 
 // mayBuy: the buyer may take this tariff — it is on sale, or an access code of theirs opens
@@ -395,6 +446,26 @@ func (s *Service) mayBuy(ctx context.Context, tgID int64, t db.Tariff) (bool, er
 		return false, nil
 	}
 	return s.d.Promo.HasAccess(ctx, tgID, t.ID)
+}
+
+// mayRenewOwn: the subscription userID is on this tariff and the buyer owns it — an
+// archived tariff stays its own subscribers' to renew, taken off the shop for new ones.
+func (s *Service) mayRenewOwn(ctx context.Context, q *db.Queries, req InvoiceRequest, t db.Tariff) (bool, error) {
+	if req.UserID == 0 {
+		return false, nil
+	}
+	u, err := q.GetUser(ctx, req.UserID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if !u.TariffID.Valid || u.TariffID.Int64 != t.ID {
+		return false, nil
+	}
+	link, err := q.GetTgLink(ctx, req.UserID)
+	return err == nil && link.TgID == req.TgID, nil
 }
 
 // Invoice opens a payment and returns it with the URL to pay at. An open invoice for the
@@ -416,7 +487,14 @@ func (s *Service) Invoice(ctx context.Context, req InvoiceRequest) (db.Payment, 
 		return db.Payment{}, err
 	}
 	if !ok {
-		return db.Payment{}, ErrNotForSale
+		// The shop is closed to this tariff, but its own subscribers keep it: a renewal of
+		// the subscription's tariff is always theirs to buy.
+		if ok, err = s.mayRenewOwn(ctx, q, req, t); err != nil {
+			return db.Payment{}, err
+		}
+		if !ok {
+			return db.Payment{}, ErrNotForSale
+		}
 	}
 	terms, err := domain.TermsOf(ctx, q, t)
 	if err != nil {
@@ -444,6 +522,22 @@ func (s *Service) Invoice(ctx context.Context, req InvoiceRequest) (db.Payment, 
 		// itself carries the days.
 		term.Days = custom.TermDays
 	}
+	// A pack of extra device places rides the invoice at its monthly price, part of every
+	// day of the term. The constructor's plan is its own shape of limits: no pack beside it.
+	var pack db.DevicePack
+	if req.DevicePackID != 0 {
+		if hasCustom {
+			return db.Payment{}, ErrBadOptions
+		}
+		if pack, err = q.GetDevicePack(ctx, req.DevicePackID); errors.Is(err, sql.ErrNoRows) {
+			return db.Payment{}, ErrNotForSale
+		} else if err != nil {
+			return db.Payment{}, err
+		}
+		if pack.Archived || !pack.OnSale {
+			return db.Payment{}, ErrNotForSale
+		}
+	}
 	amount, currency, ok := s.Available(ctx).price(req.Provider, term.PriceStars, term.PriceRub)
 	if !ok {
 		return db.Payment{}, ErrProviderOff
@@ -452,6 +546,14 @@ func (s *Service) Invoice(ctx context.Context, req InvoiceRequest) (db.Payment, 
 		if amount, currency, err = s.CustomPrice(ctx, t, custom, term, req.Provider); err != nil {
 			return db.Payment{}, err
 		}
+	}
+	if pack.ID != 0 {
+		add, took := packTermPrice(pack, term.Days, currency)
+		if !took {
+			// The provider takes a currency the pack is not sold for.
+			return db.Payment{}, ErrProviderOff
+		}
+		amount += add
 	}
 	termDays := sql.NullInt64{Int64: term.Days, Valid: true}
 	kind := "renew"
@@ -495,6 +597,11 @@ func (s *Service) Invoice(ctx context.Context, req InvoiceRequest) (db.Payment, 
 			if existing.TermDays != termDays {
 				return false, nil
 			}
+			// The pack is part of what the invoice buys: one with another pack is another
+			// purchase, whatever the price of the two happens to be.
+			if existing.DevicePackID.Int64 != req.DevicePackID {
+				return false, nil
+			}
 			// A tariff put together by the buyer is only the same purchase as another with
 			// the very same plan: two plans may cost the same and give different things.
 			if planJSON(custom) != strings.TrimSpace(existing.Custom) {
@@ -511,7 +618,7 @@ func (s *Service) Invoice(ctx context.Context, req InvoiceRequest) (db.Payment, 
 			}
 			p, err := q.CreatePayment(ctx, db.CreatePaymentParams{Provider: req.Provider, Payload: secure.Token(32), TgID: req.TgID, Kind: kind, UserID: userID,
 				TariffID: tariffID, TariffName: t.Name, Amount: amount, Currency: currency, CreatedAt: now.Unix(), TermDays: termDays,
-				Custom: plan, CustomBaseID: baseID})
+				Custom: plan, CustomBaseID: baseID, DevicePackID: sql.NullInt64{Int64: req.DevicePackID, Valid: req.DevicePackID != 0}})
 			if err != nil {
 				return db.Payment{}, err
 			}
@@ -548,7 +655,29 @@ func (s *Service) Invoice(ctx context.Context, req InvoiceRequest) (db.Payment, 
 		return p, nil
 	}
 	lang, _ := s.d.Settings.Lang(ctx)
-	return s.openPayment(ctx, p, t.Name, Describe(t, term.Days, lang))
+	what := Describe(t, term.Days, lang)
+	if pack.ID != 0 {
+		what += " · " + pack.Title
+	}
+	return s.openPayment(ctx, p, t.Name, what)
+}
+
+// packTermPrice is the pack's part of a term of so many days: its monthly price in the
+// currency, its share of every day, rounded half up to the smallest the currency takes.
+// took false: the pack is not sold for that currency.
+func packTermPrice(pack db.DevicePack, days int64, currency string) (amount int64, took bool) {
+	var month int64
+	switch currency {
+	case "RUB":
+		month = pack.PriceRub
+	case "XTR":
+		month = pack.PriceStars.Int64
+	}
+	if month <= 0 || days <= 0 {
+		return 0, false
+	}
+	// Half up: (month*days)/30, the remainder of 15 days or more rounding to a whole.
+	return (month*days + 15) / 30, true
 }
 
 // promoGuard refuses a promo code before anything is opened: codes are off, or the
@@ -1149,7 +1278,8 @@ func (s *Service) Apply(ctx context.Context, id int64) error {
 			plan = c.Options()
 		}
 		if u, created, err = s.d.Users.Purchase(ctx, q, domain.PurchaseInput{UserID: userID, TariffID: pay.TariffID.Int64,
-			Term: pay.TermDays, Name: buyerName(ctx, q, pay.TgID), TgID: pay.TgID, ResetTraffic: reset, Options: plan}); err != nil {
+			Term: pay.TermDays, Name: buyerName(ctx, q, pay.TgID), TgID: pay.TgID, ResetTraffic: reset, Options: plan,
+			DevicePackID: pay.DevicePackID.Int64}); err != nil {
 			return err
 		}
 		if created {

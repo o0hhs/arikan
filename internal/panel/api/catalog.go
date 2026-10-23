@@ -31,6 +31,7 @@ type TariffView struct {
 	PriceStars    *int64      `json:"price_stars" doc:"Цена в Telegram Stars; null — не продаётся за Stars"`
 	PriceRub      *int64      `json:"price_rub" doc:"Цена в копейках (ЮKassa, CryptoBot); null — не продаётся за рубли"`
 	OnSale        bool        `json:"on_sale" doc:"Продаётся в боте и Mini App"`
+	Archived      bool        `json:"archived" doc:"Убран из продажи; продлить на него можно, купить новую подписку — нет"`
 	Terms         []TermView  `json:"terms" doc:"Сроки, на которые продаётся тариф, по порядку; первый — тот же, что duration_days, price_stars и price_rub"`
 	Pools         []PoolLimit `json:"pools" doc:"Лимиты пулов трафика и закрытые пулы; пул не в списке — без лимита. Лимиты действуют на новых пользователей и при продлении или смене тарифа; закрытие и открытие пула действуют сразу на всех пользователей тарифа: при открытии на них ставится лимит тарифа, ручной лимит пользователя затирается"`
 	Closed        []int64     `json:"closed,omitempty" doc:"Отключённые для тарифа протоколы (id подключений): их нет в подписке клиентов тарифа и ноды их не пускают; личное разрешение пользователя закрытое протоколом тарифа не открывает"`
@@ -48,7 +49,7 @@ func viewTariff(t db.Tariff, terms []db.TariffTerm) TariffView {
 	v := TariffView{ID: t.ID, Name: t.Name, TrafficLimit: store.Int64Ptr(t.TrafficLimit),
 		DurationDays: t.DurationDays, DeviceLimit: store.Int64Ptr(t.DeviceLimit), DeviceMode: t.DeviceMode,
 		SpeedLimit: store.Int64Ptr(t.SpeedLimit), ResetStrategy: t.ResetStrategy, BillingDay: store.Int64Ptr(t.BillingDay), PriceLabel: t.PriceLabel, Description: t.Description, Sort: t.Sort,
-		PriceStars: store.Int64Ptr(t.PriceStars), PriceRub: store.Int64Ptr(t.PriceRub), OnSale: t.OnSale != 0, Closed: domain.DecodeClosed(t.Closed)}
+		PriceStars: store.Int64Ptr(t.PriceStars), PriceRub: store.Int64Ptr(t.PriceRub), OnSale: t.OnSale != 0, Archived: t.Archived != 0, Closed: domain.DecodeClosed(t.Closed)}
 	for _, term := range domain.TariffTerms(t, terms) {
 		v.Terms = append(v.Terms, TermView{Days: term.Days, PriceStars: store.Int64Ptr(term.PriceStars), PriceRub: store.Int64Ptr(term.PriceRub)})
 	}
@@ -99,11 +100,22 @@ func (h *handlers) registerCatalog() {
 	huma.Register(h.api, huma.Operation{OperationID: "create-tariff", Method: http.MethodPost, Path: "/api/v1/tariffs", Summary: "Создать тариф", Tags: []string{"tariffs"}, DefaultStatus: http.StatusCreated}, h.createTariff)
 	huma.Register(h.api, huma.Operation{OperationID: "update-tariff", Method: http.MethodPut, Path: "/api/v1/tariffs/{id}", Summary: "Изменить тариф", Tags: []string{"tariffs"}}, h.updateTariff)
 	huma.Register(h.api, huma.Operation{OperationID: "archive-tariff", Method: http.MethodDelete, Path: "/api/v1/tariffs/{id}", Summary: "Убрать тариф в архив", Tags: []string{"tariffs"}, DefaultStatus: http.StatusNoContent}, h.archiveTariff)
+	huma.Register(h.api, huma.Operation{OperationID: "restore-tariff", Method: http.MethodPost, Path: "/api/v1/tariffs/{id}/restore", Summary: "Вернуть тариф из архива", Tags: []string{"tariffs"}}, h.restoreTariff)
 	huma.Register(h.api, huma.Operation{OperationID: "apply-tariff-pools", Method: http.MethodPost, Path: "/api/v1/tariffs/{id}/apply-pools", Summary: "Применить лимиты пулов тарифа к уже выданным подпискам: свои лимиты пулов у клиентов заменятся, израсходованное останется", Tags: []string{"tariffs"}}, h.applyTariffPools)
 }
 
-func (h *handlers) listTariffs(ctx context.Context, _ *struct{}) (*tariffsOutput, error) {
-	rows, err := h.d.Store.Q.ListTariffs(ctx)
+type tariffsInput struct {
+	Archived bool `query:"archived" doc:"Показать и архивные"`
+}
+
+func (h *handlers) listTariffs(ctx context.Context, in *tariffsInput) (*tariffsOutput, error) {
+	var rows []db.Tariff
+	var err error
+	if in.Archived {
+		rows, err = h.d.Store.Q.ListAllTariffs(ctx)
+	} else {
+		rows, err = h.d.Store.Q.ListTariffs(ctx)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -248,6 +260,24 @@ func (h *handlers) archiveTariff(ctx context.Context, in *userIDInput) (*struct{
 	}
 	h.audit(ctx, sessionOf(ctx).AdminID, "tariff.archive", "tariff", strconv.FormatInt(in.ID, 10), nil)
 	return nil, nil
+}
+
+// restoreTariff is the way back from the archive: a tariff taken off the shop comes back to
+// it. Its subscribers could renew all along; this opens it to new ones again.
+func (h *handlers) restoreTariff(ctx context.Context, in *userIDInput) (*tariffOutput, error) {
+	n, err := h.d.Store.Q.UnarchiveTariff(ctx, in.ID)
+	if err != nil {
+		return nil, err
+	}
+	if n == 0 {
+		return nil, huma.Error404NotFound("not_found")
+	}
+	h.audit(ctx, sessionOf(ctx).AdminID, "tariff.restore", "tariff", strconv.FormatInt(in.ID, 10), nil)
+	t, err := h.d.Store.Q.GetTariff(ctx, in.ID)
+	if err != nil {
+		return nil, err
+	}
+	return h.tariffOut(ctx, t)
 }
 
 type applyPoolsOutput struct {

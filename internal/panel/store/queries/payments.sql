@@ -1,6 +1,6 @@
 -- name: CreatePayment :one
-INSERT INTO payments (provider, payload, tg_id, kind, user_id, tariff_id, tariff_name, amount, currency, status, created_at, term_days, custom, custom_base_id)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending', $10, $11, $12, $13)
+INSERT INTO payments (provider, payload, tg_id, kind, user_id, tariff_id, tariff_name, amount, currency, status, created_at, term_days, custom, custom_base_id, device_pack_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending', $10, $11, $12, $13, $14)
 RETURNING *;
 
 -- name: GetPayment :one

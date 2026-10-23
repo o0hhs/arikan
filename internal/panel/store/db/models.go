@@ -227,6 +227,18 @@ type DeviceBan struct {
 	Until    sql.NullInt64
 }
 
+type DevicePack struct {
+	ID         int64
+	Title      string
+	Slots      int32
+	PriceRub   int64
+	PriceStars sql.NullInt64
+	Sort       int64
+	OnSale     bool
+	Archived   bool
+	CreatedAt  int64
+}
+
 type DeviceUnbind struct {
 	ID     int64
 	UserID int64
@@ -488,6 +500,7 @@ type Payment struct {
 	Revert       string
 	Custom       string
 	CustomBaseID sql.NullInt64
+	DevicePackID sql.NullInt64
 }
 
 type PromoAccess struct {
@@ -857,6 +870,7 @@ type User struct {
 	FolderID      sql.NullInt64
 	SpeedLimit    sql.NullInt64
 	DeviceMode    string
+	DevicePackID  sql.NullInt64
 }
 
 type UserFolder struct {

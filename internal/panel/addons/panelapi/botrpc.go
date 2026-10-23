@@ -69,6 +69,8 @@ var botRPC = map[string]rpcRule{
 	"Reissue":       rule("users:write", nil, []int{0}),
 	// The shop: what is on offer, and what makes a payment or a subscription.
 	"Shop.Config": rule("", nil, nil), "Shop.Offers": rule("", nil, nil), "Shop.AddonName": rule("", nil, nil),
+	"Shop.DevicePacks":    rule("", nil, nil),
+	"Shop.Renewable":      rule("users:read", nil, []int{0}),
 	"Shop.TrialTariff":    rule("", nil, nil),
 	"Shop.PackageOffers":  rule("", nil, []int{0}),
 	"Shop.TrialOpen":      rule("", []int{0}, nil),
