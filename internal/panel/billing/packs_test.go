@@ -25,10 +25,13 @@ func TestDevicePackRidesThePurchase(t *testing.T) {
 		t.Fatalf("payment %+v", p)
 	}
 	must(t, e.s.StarsPaid(ctx, 555, p.Payload, "ch-pack", p.Currency, p.Amount))
-	if e.payment(p.ID).Status != "applied" {
-		t.Fatal("the packed payment did not apply")
+	// The applied payment carries the subscription Apply made; the invoice's copy, read
+	// before, still has none.
+	applied := e.payment(p.ID)
+	if applied.Status != "applied" {
+		t.Fatalf("the packed payment is %q", applied.Status)
 	}
-	u := e.user(p.UserID.Int64)
+	u := e.user(applied.UserID.Int64)
 	if !u.DevicePackID.Valid || u.DevicePackID.Int64 != pack.ID {
 		t.Fatalf("the pack is not kept: %+v", u.DevicePackID)
 	}

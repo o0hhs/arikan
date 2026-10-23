@@ -30,7 +30,14 @@ func golden(t *testing.T, name string, v any) {
 	}
 	// A checkout on Windows may turn the files' line ends into CRLF.
 	want = bytes.ReplaceAll(want, []byte("\r\n"), []byte("\n"))
-	if got = append(got, '\n'); !bytes.Equal(got, want) {
+	got = append(got, '\n')
+	if !bytes.Equal(got, want) {
+		if os.Getenv("GOLDEN_UPDATE") == "1" {
+			if err := os.WriteFile(filepath.Join("testdata", name+".json"), got, 0o644); err != nil {
+				t.Fatal(err)
+			}
+			return
+		}
 		t.Errorf("%s crosses differently:\n got %s\nwant %s", name, got, want)
 	}
 }
@@ -86,7 +93,7 @@ func TestWireGoldens(t *testing.T) {
 		"DeviceOffer":         DeviceOffer{Limit: 3, Extra: 1, Max: 2, Stars: 40, Rub: 4900, Keep: true, Expiry: nullInt(1802592000)},
 		"TrialOffer":          TrialOffer{Tariff: tariff, Stars: 10, Rub: 9900},
 		"FreeOffer":           FreeOffer{Tariff: tariff, Channel: "@mikan"},
-		"InvoiceRequest":      InvoiceRequest{TgID: 555, UserID: 101, TariffID: 2, TermDays: &days, Provider: "stars", PromoCode: "SPRING"},
+		"InvoiceRequest":      InvoiceRequest{TgID: 555, UserID: 101, TariffID: 2, TermDays: &days, Provider: "stars", PromoCode: "SPRING", DevicePackID: 3},
 		"InvoiceRequest.zero": InvoiceRequest{},
 		"PackageRequest":      PackageRequest{TgID: 555, UserID: 101, PackageID: 9, Provider: "addon:yookassa", PromoCode: "SPRING"},
 		"DeviceRequest":       DeviceRequest{TgID: 555, UserID: 101, Provider: "balance"},

@@ -28,9 +28,11 @@ ALTER TABLE payments ADD COLUMN device_pack_id BIGINT REFERENCES device_packs(id
 -- The shop becomes two tariffs and the packs. The three the service sells today are
 -- archived by name — still renewable on the tariff a subscription already has (billing asks
 -- the subscription, not the shop), and no other tariff of the panel (a demo one, a hidden
--- one) is touched — and the two new tariffs take the window. Prices are the admin's to
--- change.
+-- one, a trial) is touched. The two new tariffs are the admin's to create in the panel with
+-- their prices: a seed here would leave a fresh install without the trial tariff Seed makes.
 UPDATE tariffs SET archived = 1, on_sale = 0 WHERE archived = 0 AND name IN ('Escape', 'Escape+', 'Extended');
-INSERT INTO tariffs (name, duration_days, device_limit, price_rub, sort, on_sale, archived, created_at) VALUES
-  ('Базовый', 30, 3, 7000, 1, 1, 0, extract(epoch from now())::bigint),
-  ('Плюс', 30, 3, 12000, 2, 1, 0, extract(epoch from now())::bigint);
+
+-- +goose Down
+ALTER TABLE payments DROP COLUMN IF EXISTS device_pack_id;
+ALTER TABLE users DROP COLUMN IF EXISTS device_pack_id;
+DROP TABLE IF EXISTS device_packs;

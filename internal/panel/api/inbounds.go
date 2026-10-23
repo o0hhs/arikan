@@ -210,12 +210,6 @@ func (h *handlers) viewInbound(ctx context.Context, in db.Inbound, last map[int6
 	v := InboundView{ID: in.ID, NodeID: in.NodeID, Name: in.Name, Preset: in.Preset, Title: info.Title, Port: in.Port, Enabled: in.Enabled != 0,
 		DisplayName: in.DisplayName, SubName: domain.ProxyName(in), Config: config, Status: "unknown", UpdatedAt: store.Time(in.UpdatedAt),
 		AutoPort: in.AutoPort != 0, AutoSNI: in.AutoSni != 0, Outbound: in.Outbound, Listen: in.Listen}
-	// The listener template holds the inbound's own key material (a REALITY private key, a
-	// protocol password): a key that may only read sees the connection without it. The
-	// fields parsed out of it below are not secret and stay.
-	if hidesSecrets(ctx) {
-		v.Config = ""
-	}
 	if in.PoolID.Valid {
 		id := in.PoolID.Int64
 		v.PoolID = &id

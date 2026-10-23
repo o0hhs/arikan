@@ -39,7 +39,14 @@ func golden(t *testing.T, name string, v any) {
 	if err != nil {
 		t.Fatalf("%s: %v", name, err)
 	}
-	if got, want := append(got, '\n'), goldenFile(t, name); !bytes.Equal(got, want) {
+	got = append(got, '\n')
+	if os.Getenv("GOLDEN_UPDATE") == "1" {
+		if err := os.WriteFile(filepath.Join(goldenDir, name+".json"), got, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return
+	}
+	if want := goldenFile(t, name); !bytes.Equal(got, want) {
 		t.Errorf("%s crosses differently:\n got %s\nwant %s", name, got, want)
 	}
 }
@@ -140,10 +147,10 @@ func TestWireGoldens(t *testing.T) {
 // read before.
 func TestWireGoldenRequests(t *testing.T) {
 	days := int64(90)
-	invoice := billing.InvoiceRequest{TgID: 555, UserID: 101, TariffID: 2, TermDays: &days, Provider: "stars", PromoCode: "SPRING"}
+	invoice := billing.InvoiceRequest{TgID: 555, UserID: 101, TariffID: 2, TermDays: &days, Provider: "stars", PromoCode: "SPRING", DevicePackID: 3}
 	pack := billing.PackageRequest{TgID: 555, UserID: 101, PackageID: 9, Provider: "addon:yookassa", PromoCode: "SPRING"}
 	device := billing.DeviceRequest{TgID: 555, UserID: 101, Provider: "balance"}
-	golden(t, "InvoiceRequest", model.InvoiceRequest{TgID: invoice.TgID, UserID: invoice.UserID, TariffID: invoice.TariffID, TermDays: invoice.TermDays, Provider: invoice.Provider, PromoCode: invoice.PromoCode})
+	golden(t, "InvoiceRequest", model.InvoiceRequest{TgID: invoice.TgID, UserID: invoice.UserID, TariffID: invoice.TariffID, TermDays: invoice.TermDays, Provider: invoice.Provider, PromoCode: invoice.PromoCode, DevicePackID: invoice.DevicePackID})
 	golden(t, "InvoiceRequest.zero", model.InvoiceRequest{})
 	golden(t, "PackageRequest", model.PackageRequest(pack))
 	golden(t, "DeviceRequest", model.DeviceRequest(device))
@@ -158,7 +165,7 @@ func TestWireGoldenRequests(t *testing.T) {
 	readGolden(t, "PackageRequest", &pk)
 	readGolden(t, "DeviceRequest", &dev)
 	for name, c := range map[string]struct{ got, want any }{
-		"InvoiceRequest":      {billing.InvoiceRequest{TgID: inv.TgID, UserID: inv.UserID, TariffID: inv.TariffID, TermDays: inv.TermDays, Provider: inv.Provider, PromoCode: inv.PromoCode}, invoice},
+		"InvoiceRequest":      {billing.InvoiceRequest{TgID: inv.TgID, UserID: inv.UserID, TariffID: inv.TariffID, TermDays: inv.TermDays, Provider: inv.Provider, PromoCode: inv.PromoCode, DevicePackID: inv.DevicePackID}, invoice},
 		"InvoiceRequest.zero": {billing.InvoiceRequest{}, billing.InvoiceRequest{}},
 		"PackageRequest":      {billing.PackageRequest(pk), pack},
 		"DeviceRequest":       {billing.DeviceRequest(dev), device},

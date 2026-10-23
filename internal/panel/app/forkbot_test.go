@@ -16,6 +16,7 @@ import (
 	"testing"
 
 	"mikan/internal/panel/addons"
+	"mikan/internal/release"
 	"mikan/internal/panel/addons/panelapi"
 	"mikan/internal/panel/settings"
 	"mikan/internal/panel/store/db"
@@ -59,8 +60,8 @@ func TestForkBotIsPreferred(t *testing.T) {
 		switch r.URL.Path {
 		case "/index.json":
 			_, _ = w.Write(index)
-		case "/index.json.sig":
-			_, _ = io.WriteString(w, base64.StdEncoding.EncodeToString(ed25519.Sign(catPriv, index)))
+		case "/index.json" + release.SigSuffix:
+			_, _ = io.WriteString(w, release.SignIn(release.CatalogContext, index, catPriv))
 		}
 	}))
 	t.Cleanup(catalog.Close)

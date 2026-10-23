@@ -69,8 +69,14 @@ func TestShopStars(t *testing.T) {
 	}
 	list := step("b", "Месяц")
 	id := strconv.FormatInt(sale.ID, 10)
-	if buttons(list)["Месяц · ⭐ 50"] != "tn:"+id {
+	// With packs on sale the first tap asks how many devices; the tariff's own are the
+	// base choice.
+	if buttons(list)["Месяц · ⭐ 50"] != "pk:tn:"+id {
 		t.Fatalf("plans: %v", buttons(list))
+	}
+	packs := step("pk:tn:"+id, "Устройств")
+	if buttons(packs)["Устройств: 3 · базово"] != "tn:"+id {
+		t.Fatalf("packs: %v", buttons(packs))
 	}
 	plan := step("tn:"+id, "Stars")
 	if buttons(plan)["⭐ Telegram Stars — ⭐ 50"] != "pn:"+id+":s" {
