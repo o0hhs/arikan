@@ -5389,6 +5389,8 @@
     "enable": "Enable",
     "disable": "Disable",
     "on": "On",
-    "off": "Off"
+    "off": "Off",
+    "owner": "Partner's own Telegram account",
+    "ownerHint": "Its code pays this account nothing: a partner is not their own customer. Empty — not set."
   }
 }

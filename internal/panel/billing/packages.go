@@ -132,6 +132,11 @@ func (s *Service) PackageInvoice(ctx context.Context, req PackageRequest) (db.Pa
 			if err := s.discount(ctx, q, &created, req.UserID, user.TariffID.Int64, req.PromoCode); err != nil {
 				return db.Payment{}, err
 			}
+			if s.d.Partners != nil {
+				if err := s.d.Partners.TouchPayment(ctx, q, req.TgID, created.ID); err != nil {
+					return db.Payment{}, err
+				}
+			}
 			return created, nil
 		})
 	if err != nil {

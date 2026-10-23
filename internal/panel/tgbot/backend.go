@@ -94,14 +94,15 @@ type Backend interface {
 	// no such code.
 	PartnerCode(ctx context.Context, tgID int64, code string) (string, bool, error)
 	AdminRole(ctx context.Context, tgID int64) (string, error)
-	AdminFindUser(ctx context.Context, query string) (model.User, bool, error)
-	AdminAddDays(ctx context.Context, userID int64, days int) (model.User, error)
-	AdminResetSessions(ctx context.Context, userID int64) error
-	AdminSetDisabled(ctx context.Context, userID int64, disabled bool) (model.User, error)
-	AdminSleepingTrials(ctx context.Context) ([]SleepingTrial, error)
+	// by is the account that acts: the panel checks its admin role, not the addon's.
+	AdminFindUser(ctx context.Context, by int64, query string) (model.User, bool, error)
+	AdminAddDays(ctx context.Context, by, userID int64, days int) (model.User, error)
+	AdminResetSessions(ctx context.Context, by, userID int64) error
+	AdminSetDisabled(ctx context.Context, by, userID int64, disabled bool) (model.User, error)
+	AdminSleepingTrials(ctx context.Context, by int64) ([]SleepingTrial, error)
 	AdminSetRole(ctx context.Context, tgID int64, role string, by int64) error
-	AdminDelRole(ctx context.Context, tgID int64) error
-	AdminList(ctx context.Context) ([]AdminUser, error)
+	AdminDelRole(ctx context.Context, tgID, by int64) error
+	AdminList(ctx context.Context, by int64) ([]AdminUser, error)
 
 	// BotUsername is the bot's own @name, for the invite links; "" while it is unknown.
 	BotUsername(ctx context.Context) string

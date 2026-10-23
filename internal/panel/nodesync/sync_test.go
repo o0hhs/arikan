@@ -647,3 +647,23 @@ func TestStateKeyHoldsTheNodeSwitches(t *testing.T) {
 		}
 	}
 }
+
+// The emergency node lets in a subscription that ran out, and only that: a blocked
+// subscription keeps its block there, and an account without one is nobody's to let in.
+func TestEmergencyNodeOnlyForExpired(t *testing.T) {
+	now := time.Unix(1_800_000_000, 0)
+	expired := db.User{ID: 42, Status: "active", TariffID: sql.NullInt64{Int64: 1, Valid: true}, ExpiresAt: sql.NullInt64{Int64: now.Add(-time.Hour).Unix(), Valid: true}}
+	if p := userPolicy(expired, 0, "s1", 1, now, nil, domain.AccessOf(expired, domain.AllServers), nil, nil, true, 50); !p.Allowed || p.SpeedMbps != 50 || p.QuotaRemaining != -1 {
+		t.Fatalf("an expired subscription on the emergency node: %+v", p)
+	}
+	blocked := db.User{ID: 43, Status: "disabled", TariffID: sql.NullInt64{Int64: 1, Valid: true}, ExpiresAt: sql.NullInt64{Int64: now.Add(-time.Hour).Unix(), Valid: true}}
+	if p := userPolicy(blocked, 0, "s1", 1, now, nil, domain.AccessOf(blocked, domain.AllServers), nil, nil, true, 50); p.Allowed {
+		t.Fatalf("a blocked subscription got in on the emergency node: %+v", p)
+	}
+	// An ended term on an account that never had a tariff has nothing that ran out: the
+	// emergency node does not take it in.
+	none := db.User{ID: 44, Status: "active", ExpiresAt: sql.NullInt64{Int64: now.Add(-time.Hour).Unix(), Valid: true}}
+	if p := userPolicy(none, 0, "s1", 1, now, nil, domain.AccessOf(none, domain.AllServers), nil, nil, true, 50); p.Allowed {
+		t.Fatalf("an account without a tariff got in on the emergency node: %+v", p)
+	}
+}

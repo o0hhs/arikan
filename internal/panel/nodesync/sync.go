@@ -553,14 +553,17 @@ func userPolicy(u db.User, grants int64, name string, seq int64, now time.Time, 
 	if u.SpeedLimit.Valid {
 		p.SpeedMbps = int(u.SpeedLimit.Int64)
 	}
-	if emergency && !p.Allowed {
-		// The emergency node keeps Telegram reachable for a subscription that ran out: it
-		// gets in here alone, endless in quota but shaped to the speed the node says.
+	// The emergency node lets in a subscription that ran out, and only that: a subscription
+	// the admin blocked keeps its block, and an account that never had one has nothing that
+	// ran out.
+	if emergency && state == domain.StateExpired && u.TariffID.Valid {
 		p.Allowed = true
 		p.QuotaRemaining = -1
-		if emergencySpeed > 0 {
-			p.SpeedMbps = emergencySpeed
-		}
+	}
+	// A subscription whose traffic ran out gets in here by its groups, as everywhere; the
+	// node's emergency cap keeps that path a lifeline rather than a free tunnel.
+	if emergency && emergencySpeed > 0 && (state == domain.StateLimited || state == domain.StateExpired && p.Allowed) {
+		p.SpeedMbps = emergencySpeed
 	}
 	// The user's devices are slots of their own: they share the user's speed and the
 	// node's fair share as one.

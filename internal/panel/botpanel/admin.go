@@ -21,6 +21,25 @@ import (
 // named in admin_users.
 const KeyAdminOwner = "admin_owner"
 
+// errNoAdmin refuses a call whose actor holds no role for it.
+var errNoAdmin = errors.New("no_admin")
+
+// adminRank is how far the acting account may go: 2 superadmin, 1 support, 0 none (the
+// tech role holds no admin-data access of its own).
+func (l *Local) adminRank(ctx context.Context, by int64) int {
+	role, err := l.AdminRole(ctx, by)
+	if err != nil {
+		return 0
+	}
+	switch role {
+	case "superadmin":
+		return 2
+	case "support":
+		return 1
+	}
+	return 0
+}
+
 // AdminRole is tgID's role in the bot's admin side: "" when it has none.
 func (l *Local) AdminRole(ctx context.Context, tgID int64) (string, error) {
 	if tgID == 0 {
@@ -38,7 +57,10 @@ func (l *Local) AdminRole(ctx context.Context, tgID int64) (string, error) {
 
 // AdminFindUser is the subscriber a card is asked about: an id, a payment's number, or a
 // @username (a first name too, the way the chat calls it).
-func (l *Local) AdminFindUser(ctx context.Context, query string) (model.User, bool, error) {
+func (l *Local) AdminFindUser(ctx context.Context, by int64, query string) (model.User, bool, error) {
+	if l.adminRank(ctx, by) < 1 {
+		return model.User{}, false, errNoAdmin
+	}
 	q := strings.TrimSpace(query)
 	if q == "" {
 		return model.User{}, false, nil
@@ -68,13 +90,25 @@ func (l *Local) AdminFindUser(ctx context.Context, query string) (model.User, bo
 
 // AdminAddDays is the support's gift: days after the end in force (from now when it has
 // passed). Unlimited stays unlimited.
-func (l *Local) AdminAddDays(ctx context.Context, userID int64, days int) (model.User, error) {
+func (l *Local) AdminAddDays(ctx context.Context, by, userID int64, days int) (model.User, error) {
+	if l.adminRank(ctx, by) < 1 {
+		return model.User{}, errNoAdmin
+	}
+	if days < 1 {
+		days = 1
+	}
+	if days > 3650 {
+		days = 3650
+	}
 	u, err := l.Store.Q.ExtendUser(ctx, db.ExtendUserParams{ID: userID, Days: int64(days), Now: l.Now().Unix()})
 	return model.User(u), err
 }
 
 // AdminSetDisabled blocks (the user's apps get nothing) or lets the subscription back.
-func (l *Local) AdminSetDisabled(ctx context.Context, userID int64, disabled bool) (model.User, error) {
+func (l *Local) AdminSetDisabled(ctx context.Context, by, userID int64, disabled bool) (model.User, error) {
+	if l.adminRank(ctx, by) < 1 {
+		return model.User{}, errNoAdmin
+	}
 	status := "active"
 	if disabled {
 		status = "disabled"
@@ -85,7 +119,10 @@ func (l *Local) AdminSetDisabled(ctx context.Context, userID int64, disabled boo
 
 // AdminResetSessions takes every device off the subscription and issues a new link: the old
 // one stops working, the apps must be set up again.
-func (l *Local) AdminResetSessions(ctx context.Context, userID int64) error {
+func (l *Local) AdminResetSessions(ctx context.Context, by, userID int64) error {
+	if l.adminRank(ctx, by) < 1 {
+		return errNoAdmin
+	}
 	if _, err := l.Store.Q.DeleteUserBoundDevices(ctx, userID); err != nil {
 		return err
 	}
@@ -98,7 +135,10 @@ func (l *Local) AdminResetSessions(ctx context.Context, userID int64) error {
 }
 
 // AdminSleepingTrials lists the accounts that took a trial and could not connect.
-func (l *Local) AdminSleepingTrials(ctx context.Context) ([]tgbot.SleepingTrial, error) {
+func (l *Local) AdminSleepingTrials(ctx context.Context, by int64) ([]tgbot.SleepingTrial, error) {
+	if l.adminRank(ctx, by) < 1 {
+		return nil, errNoAdmin
+	}
 	rows, err := l.Store.Q.SleepingTrials(ctx)
 	if err != nil {
 		return nil, err
@@ -120,6 +160,9 @@ func (l *Local) AdminSleepingTrials(ctx context.Context) ([]tgbot.SleepingTrial,
 // AdminSetRole names an account of the bot's admin side (or changes its role): the owner's
 // call — a superadmin only, checked by the screens.
 func (l *Local) AdminSetRole(ctx context.Context, tgID int64, role string, by int64) error {
+	if l.adminRank(ctx, by) < 2 {
+		return errNoAdmin
+	}
 	if role != "superadmin" && role != "support" && role != "tech" {
 		return errors.New("bad role")
 	}
@@ -133,13 +176,19 @@ func (l *Local) AdminSetRole(ctx context.Context, tgID int64, role string, by in
 }
 
 // AdminDelRole takes an account off the list.
-func (l *Local) AdminDelRole(ctx context.Context, tgID int64) error {
+func (l *Local) AdminDelRole(ctx context.Context, tgID, by int64) error {
+	if l.adminRank(ctx, by) < 2 {
+		return errNoAdmin
+	}
 	_, err := l.Store.Q.DeleteAdminUser(ctx, tgID)
 	return err
 }
 
 // AdminList is the bot's admin side as the superadmin sees it.
-func (l *Local) AdminList(ctx context.Context) ([]tgbot.AdminUser, error) {
+func (l *Local) AdminList(ctx context.Context, by int64) ([]tgbot.AdminUser, error) {
+	if l.adminRank(ctx, by) < 2 {
+		return nil, errNoAdmin
+	}
 	rows, err := l.Store.Q.ListAdminUsers(ctx)
 	if err != nil {
 		return nil, err

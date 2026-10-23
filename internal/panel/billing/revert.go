@@ -96,6 +96,12 @@ func (s *Service) takeBack(ctx context.Context, q *db.Queries, p db.Payment) (rv
 			return rv, u, err
 		}
 	}
+	// The sale the order used was not one in the end: its budget comes back whole.
+	if s.d.Discounts != nil {
+		if err = s.d.Discounts.ReleaseApplied(ctx, q, p.ID); err != nil {
+			return rv, u, err
+		}
+	}
 	// What the invitee paid the referrer goes back with it, and so does the share of the
 	// price the balance held for this invoice: a refund undoes the whole payment.
 	if s.d.Referral != nil {
@@ -107,6 +113,13 @@ func (s *Service) takeBack(ctx context.Context, q *db.Queries, p db.Payment) (rv
 	// campaign is not credited with a sale that did not stand.
 	if s.d.Campaigns != nil {
 		if err = s.d.Campaigns.Revert(ctx, q, p.ID); err != nil {
+			return rv, u, err
+		}
+	}
+	// The partner's share goes back with the money that brought it: a refunded sale did not
+	// stay with the panel.
+	if s.d.Partners != nil {
+		if err = s.d.Partners.Revert(ctx, q, p.ID); err != nil {
 			return rv, u, err
 		}
 	}
@@ -198,6 +211,10 @@ func (s *Service) takeBackTariff(ctx context.Context, q *db.Queries, p db.Paymen
 	if rv.TariffRestored {
 		// The pack comes back with the limit it widened.
 		if err = q.SetUserDevicePack(ctx, db.SetUserDevicePackParams{PackID: domain.NullInt(ri.Prior.DevicePackID), Now: now, ID: u.ID}); err != nil {
+			return rv, u, err
+		}
+		// The places the refunded pack added go: a device bound on one is unbound with it.
+		if _, err = domain.TrimBound(ctx, q, u.ID, u.DeviceLimit, s.d.Now()); err != nil {
 			return rv, u, err
 		}
 	}

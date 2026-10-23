@@ -186,34 +186,34 @@ func (r *Remote) AdminRole(ctx context.Context, tgID int64) (string, error) {
 	return role, err
 }
 
-func (r *Remote) AdminFindUser(ctx context.Context, query string) (model.User, bool, error) {
+func (r *Remote) AdminFindUser(ctx context.Context, by int64, query string) (model.User, bool, error) {
 	var (
 		u  model.User
 		ok bool
 	)
-	err := r.call(ctx, "AdminFindUser", []any{query}, &u, &ok)
+	err := r.call(ctx, "AdminFindUser", []any{by, query}, &u, &ok)
 	return u, ok, err
 }
 
-func (r *Remote) AdminAddDays(ctx context.Context, userID int64, days int) (model.User, error) {
+func (r *Remote) AdminAddDays(ctx context.Context, by, userID int64, days int) (model.User, error) {
 	var u model.User
-	err := r.call(ctx, "AdminAddDays", []any{userID, days}, &u)
+	err := r.call(ctx, "AdminAddDays", []any{by, userID, days}, &u)
 	return u, err
 }
 
-func (r *Remote) AdminResetSessions(ctx context.Context, userID int64) error {
-	return r.call(ctx, "AdminResetSessions", []any{userID})
+func (r *Remote) AdminResetSessions(ctx context.Context, by, userID int64) error {
+	return r.call(ctx, "AdminResetSessions", []any{by, userID})
 }
 
-func (r *Remote) AdminSetDisabled(ctx context.Context, userID int64, disabled bool) (model.User, error) {
+func (r *Remote) AdminSetDisabled(ctx context.Context, by, userID int64, disabled bool) (model.User, error) {
 	var u model.User
-	err := r.call(ctx, "AdminSetDisabled", []any{userID, disabled}, &u)
+	err := r.call(ctx, "AdminSetDisabled", []any{by, userID, disabled}, &u)
 	return u, err
 }
 
-func (r *Remote) AdminSleepingTrials(ctx context.Context) ([]SleepingTrial, error) {
+func (r *Remote) AdminSleepingTrials(ctx context.Context, by int64) ([]SleepingTrial, error) {
 	var out []SleepingTrial
-	err := r.call(ctx, "AdminSleepingTrials", nil, &out)
+	err := r.call(ctx, "AdminSleepingTrials", []any{by}, &out)
 	return out, err
 }
 
@@ -221,13 +221,13 @@ func (r *Remote) AdminSetRole(ctx context.Context, tgID int64, role string, by i
 	return r.call(ctx, "AdminSetRole", []any{tgID, role, by})
 }
 
-func (r *Remote) AdminDelRole(ctx context.Context, tgID int64) error {
-	return r.call(ctx, "AdminDelRole", []any{tgID})
+func (r *Remote) AdminDelRole(ctx context.Context, tgID, by int64) error {
+	return r.call(ctx, "AdminDelRole", []any{tgID, by})
 }
 
-func (r *Remote) AdminList(ctx context.Context) ([]AdminUser, error) {
+func (r *Remote) AdminList(ctx context.Context, by int64) ([]AdminUser, error) {
 	var out []AdminUser
-	err := r.call(ctx, "AdminList", nil, &out)
+	err := r.call(ctx, "AdminList", []any{by}, &out)
 	return out, err
 }
 

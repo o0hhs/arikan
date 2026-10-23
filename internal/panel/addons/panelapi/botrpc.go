@@ -6,8 +6,11 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
+
+	"mikan/internal/panel/addons"
 )
 
 // What the bot addon may do over the bot's RPC (botpanel.RPCHandler) beyond holding the bot:
@@ -46,14 +49,14 @@ var botRPC = map[string]rpcRule{
 	// subscription — the addon asks as the account, the panel answers by its admin_users.
 	"PartnerCode":         rule("users:write", []int{0}, nil),
 	"AdminRole":           rule("", []int{0}, nil),
-	"AdminFindUser":       rule("users:read", nil, nil),
-	"AdminAddDays":        rule("users:write", nil, []int{0}),
-	"AdminResetSessions":  rule("users:write", nil, []int{0}),
-	"AdminSetDisabled":    rule("users:write", nil, []int{0}),
-	"AdminSleepingTrials": rule("users:read", nil, nil),
-	"AdminSetRole":        rule("users:write", nil, nil),
-	"AdminDelRole":        rule("users:write", nil, nil),
-	"AdminList":           rule("users:read", nil, nil),
+	"AdminFindUser":       rule("users:read", []int{0}, nil),
+	"AdminAddDays":        rule("users:write", []int{0}, nil),
+	"AdminResetSessions":  rule("users:write", []int{0}, nil),
+	"AdminSetDisabled":    rule("users:write", []int{0}, nil),
+	"AdminSleepingTrials": rule("users:read", []int{0}, nil),
+	"AdminSetRole":        rule("users:write", []int{2}, nil),
+	"AdminDelRole":        rule("users:write", []int{1}, nil),
+	"AdminList":           rule("users:read", []int{0}, nil),
 	// Accounts and their subscriptions.
 	"Context":       rule("users:read", []int{0}, nil),
 	"Chat":          rule("users:read", []int{0}, nil),
@@ -242,6 +245,13 @@ func (s *Server) guardRPC(w http.ResponseWriter, r *http.Request, c Caller) bool
 	rl, ok := botRPC[name]
 	if !ok {
 		Fail(w, http.StatusForbidden, "forbidden", "the method is not open to addons")
+		return false
+	}
+	// The bot's admin side answers only the official bots: another addon in the Bot slot has
+	// the bot's permissions, and it must not act on an admin account whose id it can guess
+	// from a chat it holds.
+	if strings.HasPrefix(name, "Admin") && c.ID != addons.OfficialBotID && c.ID != addons.ForkBotID {
+		Fail(w, http.StatusForbidden, "forbidden", "the bot's admin side is the official bot's")
 		return false
 	}
 	if rl.perm != "" && !c.Can(rl.perm) {
