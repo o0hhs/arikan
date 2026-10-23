@@ -319,6 +319,9 @@ func (s *Service) refunded(ctx context.Context, id int64) (Reverted, error) {
 			s.d.Log.Warn("billing: release promo of a refunded payment", "payment", id, "err", err)
 		}
 	}
+	if open {
+		s.releaseSale(ctx, id)
+	}
 	if !done {
 		return rv, nil
 	}

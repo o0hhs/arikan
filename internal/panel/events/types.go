@@ -22,6 +22,10 @@ const (
 	Traffic90    = "traffic.90"
 	Traffic100   = "traffic.100"
 
+	// DiscountEnding: a sale of the panel's own ends in 3 or 1 days, and the bot tells its
+	// buyers (or its subscribers) about it.
+	DiscountEnding = "discount.ending"
+
 	TrialStarted  = "trial.started"
 	TrialNotGiven = "trial.not_given"
 
@@ -74,6 +78,21 @@ type Notice struct {
 type User struct {
 	Source   string `json:"source"` // admin | bot | trial | free
 	TariffID int64  `json:"tariff_id,omitempty"`
+}
+
+// Discount is the data of DiscountEnding: the sale that ends, how long is left of it and
+// what the bot says about it. Text is the admin's own wording of the mailing; empty: the
+// bot's own words. Tariffs are the names of the tariffs the sale is about.
+type Discount struct {
+	DiscountID int64  `json:"discount_id"`
+	Name       string `json:"name"`
+	Days       int    `json:"days"`     // 3 or 1
+	EndsAt     int64  `json:"ends_at"`  // unix seconds
+	Value      int64  `json:"value"`    // percent, or the sum in the currency's smallest units
+	Type       string `json:"type"`     // percent | fixed
+	Currency   string `json:"currency"` // RUB | XTR, for a fixed sum
+	Text       string `json:"text,omitempty"`
+	Tariffs    string `json:"tariffs,omitempty"`
 }
 
 // Granted is the data of UserGranted: an addon with users:grant gave a subscription days or
@@ -169,6 +188,8 @@ var Docs = []Doc{
 	{UserExpired, "A subscription ended.", Notice{ExpiresAt: 1_800_000_000}},
 	{Traffic90, "A subscription used 90% of its traffic.", Notice{PeriodFrom: 1_790_000_000}},
 	{Traffic100, "A subscription used all of its traffic.", Notice{PeriodFrom: 1_790_000_000}},
+	{DiscountEnding, "A sale of the panel ends in 3 or 1 days, and the bot says so to its buyers.",
+		Discount{DiscountID: 4, Name: "Spring", Days: 3, EndsAt: 1_800_000_000, Value: 20, Type: "percent"}},
 	{TrialStarted, "An account took its trial.", Trial{TariffID: 3}},
 	{TrialNotGiven, "An account paid for a trial it may not have: nothing was made. With refund auto the money went back (PaymentRefunded follows); with manual the admin returns it by hand.",
 		NotGiven{PaymentID: 8, Provider: "addon:yookassa", Amount: 100, Currency: "RUB", TariffID: 3, TermDays: 3, Reason: TrialUsed, Refund: RefundedManually}},

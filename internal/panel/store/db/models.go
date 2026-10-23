@@ -233,6 +233,55 @@ type DeviceUnbind struct {
 	At     int64
 }
 
+type Discount struct {
+	ID             int64
+	Name           string
+	Description    string
+	Type           string
+	Value          int64
+	Currency       string
+	StartsAt       int64
+	EndsAt         int64
+	MaxUses        sql.NullInt64
+	UsedCount      int64
+	MinOrder       int64
+	MaxDiscount    int64
+	NotifyEnabled  int64
+	NotifyDays     string
+	NotifyAudience string
+	NotifyText     string
+	Enabled        int64
+	Deleted        int64
+	CreatedAt      int64
+	CreatedBy      sql.NullInt64
+}
+
+type DiscountNotice struct {
+	DiscountID int64
+	TgID       int64
+	Kind       string
+	SentAt     int64
+}
+
+type DiscountRedemption struct {
+	ID             int64
+	DiscountID     int64
+	UserID         sql.NullInt64
+	TgID           int64
+	PaymentID      sql.NullInt64
+	Status         string
+	RedeemedAt     int64
+	DiscountAmount int64
+	OriginalAmount int64
+	FinalAmount    int64
+	Currency       string
+}
+
+type DiscountTariff struct {
+	DiscountID int64
+	TariffID   int64
+}
+
 type FreePlan struct {
 	TgID      int64
 	UserID    sql.NullInt64

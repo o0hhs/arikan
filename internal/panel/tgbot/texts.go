@@ -11,6 +11,7 @@ import (
 // "admin" when set.
 type words struct {
 	welcome, main, renew, expiring, expired, traffic90, trafficEnd string // admin
+	discountEnding                                                 string // the mailing about the end of a sale
 	channel, freeButton                                            string // admin: the channel's screen, the free plan's button
 
 	back, yesUnbind, cancel, subscriptions, openPage, support, promo   string
@@ -78,6 +79,8 @@ var ru = words{
 	expired:    "⛔️ Подписка «{name}» закончилась. Чтобы продлить, напишите в поддержку.",
 	traffic90:  "📦 Израсходовано 90% трафика подписки «{name}»: осталось {left}.",
 	trafficEnd: "📦 Трафик подписки «{name}» на этот период закончился. Обновится {reset}.",
+	discountEnding: "🔥 Скидка «{name}» заканчивается {until}: осталось {days}.\n\n" +
+		"До её конца тарифы стоят дешевле на {value}.{tariffs}",
 	channel:    "Чтобы пользоваться ботом {brand}, подпишитесь на наш канал. Потом нажмите «Проверить».",
 	freeButton: "🎁 Бесплатный тариф",
 
@@ -212,6 +215,8 @@ var en = words{
 	expired:    "⛔️ Subscription “{name}” has ended. Message support to renew it.",
 	traffic90:  "📦 90% of the traffic of “{name}” is used: {left} left.",
 	trafficEnd: "📦 The traffic of “{name}” for this period is used up. It renews {reset}.",
+	discountEnding: "🔥 The discount “{name}” ends {until}: {days} left.\n\n" +
+		"Until then the tariffs cost {value} less.{tariffs}",
 	channel:    "To use the {brand} bot, join our channel, then tap “Check”.",
 	freeButton: "🎁 Free plan",
 

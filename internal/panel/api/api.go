@@ -25,6 +25,7 @@ import (
 	"mikan/internal/panel/campaigns"
 	"mikan/internal/panel/certcheck"
 	"mikan/internal/panel/checkhost"
+	"mikan/internal/panel/discounts"
 	"mikan/internal/panel/dnscheck"
 	"mikan/internal/panel/domain"
 	"mikan/internal/panel/geoip"
@@ -112,6 +113,8 @@ type Deps struct {
 	Referral *referral.Service
 	// Campaigns are the ad campaign tags; nil in tests.
 	Campaigns *campaigns.Service
+	// Discounts are the panel's own sales; nil in tests.
+	Discounts *discounts.Service
 	// Agents are the advertising agents the campaigns pay; nil in tests.
 	Agents *agents.Service
 	// Warp registers WARP accounts with Cloudflare.
@@ -299,6 +302,7 @@ func New(d Deps) (http.Handler, huma.API, error) {
 	h.registerAPIKeys()
 	h.registerPayments()
 	h.registerPromocodes()
+	h.registerDiscounts()
 	h.registerReferrals()
 	h.registerCampaigns()
 	h.registerAgents()

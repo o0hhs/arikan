@@ -27,6 +27,7 @@ import (
 	"mikan/internal/panel/autotune"
 	"mikan/internal/panel/billing"
 	"mikan/internal/panel/campaigns"
+	"mikan/internal/panel/discounts"
 	"mikan/internal/panel/checkhost"
 	"mikan/internal/panel/dnscheck"
 	"mikan/internal/panel/domain"
@@ -266,6 +267,10 @@ func NewPanel(st *store.Store, o Options) (*Panel, error) {
 	deps.DataDir = o.DataDir
 	promos := promo.New(st, o.Now)
 	promos.Changed = deps.Users.Changed
+	// The panel's own sales: while a discount stands, the price of some tariffs is lower
+	// and the panel takes the money off by itself. A discount carries its own mailing, and
+	// the bot reminds about the end of the sale.
+	sales := discounts.New(st, o.Now)
 	// The referral programme: what an invitee's payment brings the account that invited
 	// them, and what a balance pays of an invoice.
 	refs := referral.New(st, set, o.Log, o.Now)
@@ -283,7 +288,7 @@ func NewPanel(st *store.Store, o Options) (*Panel, error) {
 	p.Billing = billing.New(billing.Deps{Store: st, Settings: set, Users: deps.Users, Log: o.Log, Now: o.Now, TrustProxy: o.TrustProxy,
 		MaxLinks: tgate.MaxLinks,
 		Addons:   deps.Addons, SubBase: subBase, Promo: promos, Events: hub,
-		Referral: refs, Campaigns: camps})
+		Referral: refs, Campaigns: camps, Discounts: sales})
 	deps.Billing, deps.SubBase = p.Billing, subBase
 	// The bot may reach Telegram through a node when the panel's server cannot.
 	var tunnel func(ctx context.Context, nodeID int64, addr string) (net.Conn, error)
@@ -312,11 +317,12 @@ func NewPanel(st *store.Store, o Options) (*Panel, error) {
 		}
 		return err
 	}
-	p.Telegram = tgbot.NewPanel(tgbot.PanelDeps{Backend: backend, Outbox: p.Gateway.Outbox, Emit: emit, Log: o.Log, Now: o.Now})
+	p.Telegram = tgbot.NewPanel(tgbot.PanelDeps{Backend: backend, Outbox: p.Gateway.Outbox, Emit: emit, Discounts: sales, Log: o.Log, Now: o.Now})
 	// What an invitee's payment brought the inviter is the panel's to tell, through the
 	// bot's outbox (the addon holds the sending when it runs as one).
 	refs.Reward = p.Telegram.Reward
 	deps.Referral, deps.Campaigns, deps.Agents = refs, camps, agts
+	deps.Discounts = sales
 	// The updates wait in the buffer for the addon that holds the bot.
 	p.Gateway.SetHandler(p.AddonsAPI.BotSlot())
 	deps.Telegram, deps.Gateway = p.Telegram, p.Gateway

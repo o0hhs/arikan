@@ -24,6 +24,7 @@ import (
 
 	"mikan/internal/panel/addons"
 	"mikan/internal/panel/campaigns"
+	"mikan/internal/panel/discounts"
 	"mikan/internal/panel/domain"
 	"mikan/internal/panel/events"
 	"mikan/internal/panel/promo"
@@ -133,6 +134,9 @@ type Deps struct {
 	// SubBase is https://host:port/<sub path>, where the webhooks are; "" without an address.
 	SubBase func(ctx context.Context) string
 	Promo   *promo.Service
+	// Discounts are the panel's own sales: while a discount stands, the price of some
+	// tariffs is lower and the panel takes the money off by itself. nil: none.
+	Discounts *discounts.Service
 	// Referral is the bot's referral programme: what an invitee's payment gives the
 	// account that invited them, and what a balance pays of an invoice. nil: none.
 	Referral *referral.Service
@@ -530,6 +534,11 @@ func (s *Service) Invoice(ctx context.Context, req InvoiceRequest) (db.Payment, 
 			if err := s.discount(ctx, q, &p, req.UserID, t.ID, req.PromoCode); err != nil {
 				return db.Payment{}, err
 			}
+			// The panel's own sale comes last: the code the buyer typed is worked out
+			// against the price of the tariff, and the sale takes its share of what is left.
+			if err := s.sale(ctx, q, &p, req.UserID, t.ID); err != nil {
+				return db.Payment{}, err
+			}
 			return p, nil
 		})
 	if err != nil {
@@ -570,6 +579,38 @@ func (s *Service) discount(ctx context.Context, q *db.Queries, p *db.Payment, us
 	}
 	p.Amount = d.Final
 	return nil
+}
+
+// sale reserves the panel's own discount for the payment p just created, in the same
+// transaction, and sets the amount to pay to what is left. It is the best discount that
+// stands for the tariff; none: the price is the price.
+func (s *Service) sale(ctx context.Context, q *db.Queries, p *db.Payment, userID, tariffID int64) error {
+	if s.d.Discounts == nil {
+		return nil
+	}
+	d, err := s.d.Discounts.Reserve(ctx, q, p.TgID, userID, tariffID, p.Amount, p.Currency, p.ID)
+	if err != nil {
+		return err
+	}
+	if d.Amount <= 0 {
+		return nil
+	}
+	if _, err := q.SetPaymentAmount(ctx, db.SetPaymentAmountParams{Amount: d.Final, ID: p.ID}); err != nil {
+		return err
+	}
+	p.Amount = d.Final
+	return nil
+}
+
+// releaseSale gives the panel's own discount back when the payment it was taken off died:
+// the buyer did not pay, so the sale's budget is whole again.
+func (s *Service) releaseSale(ctx context.Context, paymentID int64) {
+	if s.d.Discounts == nil {
+		return
+	}
+	if err := s.d.Discounts.ReleasePayment(ctx, paymentID); err != nil {
+		s.d.Log.Warn("billing: release discount of a payment", "payment", paymentID, "err", err)
+	}
 }
 
 // lockBuyer lets one invoice of a Telegram account be opened at a time, the provider's
@@ -750,6 +791,7 @@ func (s *Service) openPayment(ctx context.Context, p db.Payment, title, desc str
 		if s.d.Promo != nil {
 			_ = s.d.Promo.ReleasePayment(ctx, p.ID)
 		}
+		s.releaseSale(ctx, p.ID)
 		// The provider never took the invoice: what the balance held of it is its owner's.
 		s.referralBack(ctx, p.ID)
 		_ = q.SetPaymentError(ctx, db.SetPaymentErrorParams{Error: errCode(err), ID: p.ID})
@@ -1121,6 +1163,11 @@ func (s *Service) Apply(ctx context.Context, id int64) error {
 		}
 		if s.d.Promo != nil {
 			if err := s.d.Promo.ApplyPayment(ctx, q, id, u.ID); err != nil {
+				return err
+			}
+		}
+		if s.d.Discounts != nil {
+			if err := s.d.Discounts.ApplyPayment(ctx, q, id, u.ID); err != nil {
 				return err
 			}
 		}
