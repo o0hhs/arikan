@@ -194,11 +194,11 @@ func (h *handlers) outboundError(ctx context.Context, id int64, err error) error
 	var inUse *domain.NameInUseError
 	switch {
 	case errors.Is(err, domain.ErrOutboundLink):
-		return huma.Error422UnprocessableEntity("outbound_link", &huma.ErrorDetail{Location: "body.link", Message: "bad_link"})
+		return fieldErr("body.link", "bad_link")
 	case errors.Is(err, domain.ErrOutboundSelf):
-		return huma.Error422UnprocessableEntity("outbound_link", &huma.ErrorDetail{Location: "body.link", Message: "own_server"})
+		return fieldErr("body.link", "own_server")
 	case errors.Is(err, domain.ErrOutboundName):
-		return huma.Error422UnprocessableEntity("outbound_name", &huma.ErrorDetail{Location: "body.name", Message: "bad_name"})
+		return fieldErr("body.name", "bad_name")
 	case errors.Is(err, domain.ErrOutboundFull):
 		return huma.Error409Conflict("outbound_full", &huma.ErrorDetail{Location: "body.link", Message: "outbound_full", Value: domain.MaxOutbounds})
 	case errors.Is(err, domain.ErrOutboundUsed):

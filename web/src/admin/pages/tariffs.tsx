@@ -107,7 +107,6 @@ export function TariffsPage() {
   });
   const giftNames = (tr: Tariff) => tr.gifts.map((id) => packages.data?.find((p) => p.id === id)?.name).filter(Boolean).join(", ");
   const nodes = useNodes();
-  const inbounds = useInbounds();
   // The chosen servers by name: the nodes whole, then the single protocols. Nothing while the
   // lists load ("none chosen" would be untrue); one that is gone is named by its id.
   const serversText = (tr: Tariff) => {

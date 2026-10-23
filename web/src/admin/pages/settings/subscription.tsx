@@ -35,8 +35,8 @@ export function SubDomainCard({ s }: { s: Schemas["SettingsView"] }) {
       <form onSubmit={submit} noValidate>
         <div className="card-head">
           <div>
-            <h2 className="card-title">{t("settings.subDomain")}</h2>
-            <div className="card-sub">{t("settings.subDomainSub")}</div>
+            <h2 className="card-title">{t("settings.subDomain.title")}</h2>
+            <div className="card-sub">{t("settings.subDomain.sub")}</div>
           </div>
           {s.sub_domain ? <Pill tone="ok">{s.sub_domain}</Pill> : null}
         </div>
@@ -48,7 +48,7 @@ export function SubDomainCard({ s }: { s: Schemas["SettingsView"] }) {
           </div>
         ) : null}
         <Field
-          label={t("settings.subDomainField")}
+          label={t("settings.subDomain.field")}
           htmlFor="s-sub-domain"
           hint={t("settings.subDomainHint")}
           error={error ?? (valid ? undefined : t("errors.api.sub_domain_invalid"))}

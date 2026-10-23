@@ -38,6 +38,8 @@ function listError(errors: Record<string, string>, list: string): string | undef
 }
 
 /** The ingress and egress filters: built into the nodes, switched on here. */
+const lines = (v: string) => v.split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
+
 export function FiltersPage() {
   const q = useFilters();
   return (

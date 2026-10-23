@@ -132,9 +132,9 @@ func (h *handlers) assignCampaign(ctx context.Context, id, agentID, percent int6
 	err := h.d.Campaigns.Assign(ctx, id, agentID, percent)
 	switch {
 	case errors.Is(err, campaigns.ErrAgentNotFound):
-		return huma.Error422UnprocessableEntity("validation", &huma.ErrorDetail{Location: "body.agent_id", Message: "agent_not_found"})
+		return fieldErr("body.agent_id", "agent_not_found")
 	case errors.Is(err, campaigns.ErrAgentPercent):
-		return huma.Error422UnprocessableEntity("validation", &huma.ErrorDetail{Location: "body.agent_percent", Message: "agent_percent"})
+		return fieldErr("body.agent_percent", "agent_percent")
 	}
 	return err
 }
@@ -172,7 +172,7 @@ func (h *handlers) createCampaign(ctx context.Context, in *createCampaignInput) 
 	}
 	c, err := h.d.Campaigns.Create(ctx, in.Body.Tag, in.Body.Name, in.Body.Note)
 	if errors.Is(err, campaigns.ErrTagInvalid) {
-		return nil, huma.Error422UnprocessableEntity("validation", &huma.ErrorDetail{Location: "body.tag", Message: "camp_tag_invalid"})
+		return nil, fieldErr("body.tag", "camp_tag_invalid")
 	}
 	if err != nil {
 		return nil, err

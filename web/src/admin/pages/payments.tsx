@@ -21,7 +21,6 @@ import { Referrals } from "./referrals";
 import { Campaigns } from "./campaigns";
 import { Agents } from "./agents";
 import { PromoSection } from "./promocodes";
-import { CampaignsSection } from "./campaigns";
 import { TopupsSection } from "./topups";
 
 type Settings = Schemas["PaymentSettingsView"];
@@ -98,8 +97,6 @@ export function PaymentsPage() {
           <History />
         ) : shown === "topups" ? (
           <TopupsSection />
-        ) : shown === "campaigns" ? (
-          <CampaignsSection />
         ) : shown === "promocodes" ? (
           <PromoSection sub={promo ?? "codes"} onSub={(next) => void navigate({ search: { tab: "promocodes", promo: next }, replace: true })} />
         ) : shown === "referrals" ? (

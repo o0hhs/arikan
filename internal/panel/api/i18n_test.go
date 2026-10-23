@@ -64,7 +64,6 @@ var codesNotShown = map[string]bool{
 	"validation": true, "invalid_config": true, "cascade": true, "warp": true,
 	"bad_name": true, "bad_certificate": true, "bad_dest": true,
 	// An outbound's link or name: the web shows the detail's own code (bad_link, own_server).
-	"outbound_link": true, "outbound_name": true,
 	// Statuses with texts of their own (errors.notFound, errors.tooMany, errors.noSlots).
 	"not_found": true, "session_not_found": true, "rate_limited": true, "no_free_slots": true,
 	// The login page words these itself.

@@ -720,7 +720,10 @@
       "bad_unbind_limit": "Devices per period: 0 to 100, 0 for no limit",
       "bad_unbind_days": "Period: 1 to 365 days",
       "bad_return_hours": "Pause: 0 to 720 hours, or \"Never\"",
-      "required": "Fill in this field"
+      "required": "Fill in this field",
+      "dashboard_card_unknown": "Unknown dashboard card",
+      "dashboard_date_unknown": "Unknown date format",
+      "monitor_password_short": "The password is too short"
     },
     "acme": {
       "port80_busy": "Port 80 is held by another program, and the certificate authority checks the server through it. If it is nginx or Caddy, the command below lets the check through to mikan; otherwise free the port",
@@ -1619,7 +1622,8 @@
       "doneNode": "{n, plural, one {# protocol goes} other {# protocols go}} out through {node}",
       "done": {
         "direct": "{n, plural, one {# protocol goes} other {# protocols go}} out directly",
-        "warp": "{n, plural, one {# protocol goes} other {# protocols go}} out through WARP"
+        "warp": "{n, plural, one {# protocol goes} other {# protocols go}} out through WARP",
+        "link": "{n, plural, one {# protocol goes} other {# protocols go}} out through a link outbound"
       }
     },
     "sni443": {
@@ -1986,8 +1990,6 @@
       "drawerLead": "A certificate and key for {domain}, from certbot for example (fullchain.pem and privkey.pem). The panel serves it only to those who come to the subscription domain.",
       "clearText": "The subscription domain gets its certificate automatically again. Until it is issued, clients get yours."
     },
-    "subDomainSub": "Subscription links on a domain or subdomain of their own — apart from the panel and the nodes. The panel moves, the links stand: only the DNS changes.",
-    "subDomainField": "Domain",
     "subDomainHint": "sub.example.com, pointed at the panel or at a proxy of yours in front of it. Empty: links carry the panel's address.",
     "subDomainNote": "Links on that domain have no secret path in them, and the panel's certificate takes the name too. The panel moved — update the DNS, the links stay.",
     "subPort": "Subscription port",

@@ -107,7 +107,7 @@ func (h *handlers) updateReferrals(ctx context.Context, in *patchReferralsInput)
 	}
 	cfg := in.Body
 	if err := cfg.Validate(); err != nil {
-		return nil, huma.Error422UnprocessableEntity("validation", &huma.ErrorDetail{Location: "body.rules", Message: err.Error()})
+		return nil, fieldErr("body.rules", err.Error())
 	}
 	if err := h.checkReferralTariffs(ctx, cfg); err != nil {
 		return nil, err
@@ -132,7 +132,7 @@ func (h *handlers) checkReferralTariffs(ctx context.Context, cfg referral.Progra
 				if !errors.Is(err, sql.ErrNoRows) {
 					return err
 				}
-				return huma.Error422UnprocessableEntity("validation", &huma.ErrorDetail{Location: "body.rules", Message: "tariff_not_found"})
+				return fieldErr("body.rules", "tariff_not_found")
 			}
 		}
 	}

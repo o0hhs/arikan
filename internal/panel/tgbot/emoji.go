@@ -6,7 +6,6 @@ import (
 	"mikan/internal/tgapi"
 	"slices"
 	"strings"
-
 )
 
 // The premium emoji the admin gives a menu button (MenuButton.EmojiID): a custom emoji's id,

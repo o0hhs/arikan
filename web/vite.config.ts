@@ -12,7 +12,7 @@ const devAdminPath = process.env.MIKAN_DEV_ADMIN_PATH ?? "dev-admin-path-0000";
 // when such a page (or what it imports) starts using one (`pnpm dev` warns about a missing
 // key).
 const DICTS: Record<string, string[]> = {
-  sub: ["common", "promocodes", "states", "sub", "time", "units"],
+  sub: ["common", "promocodes", "states", "sub", "tariffs", "time", "units"],
   monitor: ["common", "monitor", "time", "units"],
 };
 

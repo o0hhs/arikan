@@ -4360,7 +4360,7 @@ export interface components {
              * @description Выход в интернет: напрямую с сервера, через WARP ноды или через другую ноду (каскад)
              * @enum {string}
              */
-            outbound: "direct" | "warp" | "node";
+            outbound: "direct" | "warp" | "node" | "link";
             /**
              * Format: int64
              * @description Группа серверов подключения: какой трафик оно тратит; нет — основной трафик
@@ -5276,7 +5276,7 @@ export interface components {
              * @description Выход в интернет: напрямую, через WARP ноды или через другую ноду
              * @enum {string}
              */
-            outbound?: "direct" | "warp" | "node";
+            outbound?: "direct" | "warp" | "node" | "link";
             /**
              * Format: int64
              * @description Группа серверов; 0 — без группы, основной трафик
@@ -6146,7 +6146,7 @@ export interface components {
              * @description Выход в интернет: напрямую, через WARP своей ноды или через другую ноду
              * @enum {string}
              */
-            outbound: "direct" | "warp" | "node";
+            outbound: "direct" | "warp" | "node" | "link";
         };
         SetNodeBalanceInputBody: {
             /**

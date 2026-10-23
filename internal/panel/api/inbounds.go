@@ -171,7 +171,6 @@ func (h *handlers) registerInbounds() {
 	huma.Register(h.api, huma.Operation{OperationID: "list-presets", Method: http.MethodGet, Path: "/api/v1/presets", Summary: "Доступные пресеты подключений", Tags: []string{"inbounds"}}, h.listPresets)
 	huma.Register(h.api, huma.Operation{OperationID: "list-inbounds", Method: http.MethodGet, Path: "/api/v1/inbounds", Summary: "Подключения", Tags: []string{"inbounds"}}, h.listInbounds)
 	huma.Register(h.api, huma.Operation{OperationID: "create-inbound", Method: http.MethodPost, Path: "/api/v1/inbounds", Summary: "Добавить подключение", Tags: []string{"inbounds"}, DefaultStatus: http.StatusCreated}, h.createInbound)
-	huma.Register(h.api, huma.Operation{OperationID: "copy-inbound", Method: http.MethodPost, Path: "/api/v1/inbounds/{id}/copy", Summary: "Копировать подключение: тот же ключ и маскировка, свой порт и сайт", Tags: []string{"inbounds"}, DefaultStatus: http.StatusCreated}, h.copyInbound)
 	huma.Register(h.api, huma.Operation{OperationID: "validate-inbound", Method: http.MethodPost, Path: "/api/v1/inbounds/validate", Summary: "Проверить шаблон листенера без сохранения", Tags: []string{"inbounds"}}, h.validateInbound)
 	huma.Register(h.api, huma.Operation{OperationID: "copy-inbound", Method: http.MethodPost, Path: "/api/v1/inbounds/{id}/copy", Summary: "Скопировать подключение: те же настройки с новыми ключами, на ту же или другую ноду",
 		Tags: []string{"inbounds"}, DefaultStatus: http.StatusCreated}, h.copyInbound)
