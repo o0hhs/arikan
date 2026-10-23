@@ -90,7 +90,7 @@ export function PageBlocks(p: BlocksProps) {
   return (
     <>
       {p.config.blocks.map((b) => (b.on && (p.tgMode || !MINI_APP_ONLY.includes(b.type)) ? <Fragment key={b.id}>{block(b, p)}</Fragment> : null))}
-      {info.mtproto?.length ? <MTProto links={info.mtproto} /> : null}
+      {p.info.mtproto?.length ? <MTProto links={p.info.mtproto} /> : null}
     </>
   );
 }
