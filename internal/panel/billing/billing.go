@@ -620,6 +620,11 @@ func (s *Service) Invoice(ctx context.Context, req InvoiceRequest) (db.Payment, 
 		if pack.Archived || !pack.OnSale {
 			return db.Payment{}, ErrNotForSale
 		}
+		// Endless devices have nothing to widen: selling a pack here would take the money
+		// and add no place.
+		if !t.DeviceLimit.Valid {
+			return db.Payment{}, ErrDevicesUnlimited
+		}
 	}
 	amount, currency, ok := av.price(req.Provider, stars, rub)
 	if !ok {
@@ -932,6 +937,19 @@ func (s *Service) matchesOpenPayment(ctx context.Context, q *db.Queries, existin
 	// An open invoice that already holds a share of that balance is the one to show again:
 	// taking the balance a second time for the same purchase is not what the buyer meant.
 	// With it, want is what is left to pay — the figure a promo code was worked out against.
+	// The panel's own sale may already sit on this invoice: the payment's amount is the
+	// discounted one, so the comparison is against the amount before the sale.
+	preSale := existing.Amount
+	if s.d.Discounts != nil {
+		r, err := q.GetDiscountRedemptionByPayment(ctx, sql.NullInt64{Int64: existing.ID, Valid: true})
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+		case err != nil:
+			return false, err
+		case r.Status == discounts.RedemptionReserved:
+			preSale = existing.Amount + r.DiscountAmount
+		}
+	}
 	want := amount
 	if s.d.Referral != nil {
 		held, ok, err := s.d.Referral.Held(ctx, q, existing.ID, existing.Currency, s.referralConfig(ctx))
@@ -943,7 +961,7 @@ func (s *Service) matchesOpenPayment(ctx context.Context, q *db.Queries, existin
 		}
 	}
 	if strings.TrimSpace(code) == "" {
-		if existing.Amount != want {
+		if preSale != want {
 			return false, nil
 		}
 		if s.d.Promo == nil {
@@ -968,7 +986,7 @@ func (s *Service) matchesOpenPayment(ctx context.Context, q *db.Queries, existin
 	if err != nil {
 		return false, err
 	}
-	if r.Status != promo.RedemptionReserved || existing.Amount != r.FinalAmount || r.OriginalAmount != want || r.Currency != existing.Currency || r.ExpiresAt.Valid && s.d.Now().Unix() >= r.ExpiresAt.Int64 {
+	if r.Status != promo.RedemptionReserved || preSale != r.FinalAmount || r.OriginalAmount != want || r.Currency != existing.Currency || r.ExpiresAt.Valid && s.d.Now().Unix() >= r.ExpiresAt.Int64 {
 		return false, nil
 	}
 	pc, err := q.GetPromoCode(ctx, r.PromoID)
@@ -1290,11 +1308,21 @@ func (s *Service) Apply(ctx context.Context, id int64) error {
 					return err
 				}
 			}
+			if s.d.Partners != nil {
+				if err := s.d.Partners.Credit(ctx, q, pay); err != nil {
+					return err
+				}
+			}
 			return markApplied(ctx, q, id, u.ID, s.d.Now())
 		}
 		if pay.Kind == KindDevice {
 			if u, err = s.applyDevice(ctx, q, pay); err != nil {
 				return err
+			}
+			if s.d.Partners != nil {
+				if err := s.d.Partners.Credit(ctx, q, pay); err != nil {
+					return err
+				}
 			}
 			return markApplied(ctx, q, id, u.ID, s.d.Now())
 		}
@@ -1303,6 +1331,11 @@ func (s *Service) Apply(ctx context.Context, id int64) error {
 				return err
 			}
 			created = true
+			if s.d.Partners != nil {
+				if err := s.d.Partners.Credit(ctx, q, pay); err != nil {
+					return err
+				}
+			}
 			if err := markApplied(ctx, q, id, u.ID, s.d.Now()); err != nil {
 				return err
 			}
@@ -1663,6 +1696,9 @@ func (s *Service) Reconcile(ctx context.Context) {
 	}
 	if s.d.Referral != nil {
 		_ = s.d.Referral.ReleaseClosed(ctx)
+		if s.d.Discounts != nil {
+			_ = s.d.Discounts.ReleaseClosed(ctx)
+		}
 		// The days queue: rewards whose days have run out hand the referrer's own
 		// subscription back, and what is next starts where the last ended. This pass is
 		// the ticker the queue runs on — there is no daemon of its own.

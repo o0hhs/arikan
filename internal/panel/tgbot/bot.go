@@ -43,6 +43,8 @@ type Bot struct {
 	refused   map[string]time.Time
 	// adminAwait: the admin chats the next message answers as a search.
 	adminAwait sync.Map
+	// trials: one reactivation campaign at a time, however many admins press the button.
+	trials sync.Mutex
 }
 
 func New(d Deps) *Bot {

@@ -46,22 +46,29 @@ func (q *Queries) ChatPartner(ctx context.Context, tgID int64) (sql.NullInt64, e
 }
 
 const createPartner = `-- name: CreatePartner :one
-INSERT INTO partners (name, note, created_at) VALUES ($1, $2, $3) RETURNING id, name, note, created_at
+INSERT INTO partners (name, note, owner_tg_id, created_at) VALUES ($1, $2, $3, $4) RETURNING id, name, note, owner_tg_id, created_at
 `
 
 type CreatePartnerParams struct {
 	Name      string
 	Note      string
+	OwnerTgID int64
 	CreatedAt int64
 }
 
 func (q *Queries) CreatePartner(ctx context.Context, arg CreatePartnerParams) (Partner, error) {
-	row := q.db.QueryRowContext(ctx, createPartner, arg.Name, arg.Note, arg.CreatedAt)
+	row := q.db.QueryRowContext(ctx, createPartner,
+		arg.Name,
+		arg.Note,
+		arg.OwnerTgID,
+		arg.CreatedAt,
+	)
 	var i Partner
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
 		&i.Note,
+		&i.OwnerTgID,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -131,6 +138,32 @@ func (q *Queries) CreditPartner(ctx context.Context, arg CreditPartnerParams) (P
 	return i, err
 }
 
+const debitPartner = `-- name: DebitPartner :one
+UPDATE partner_bots SET balance_kop = balance_kop - $1::BIGINT WHERE id = $2 RETURNING id, partner_id, code, bot_username, bot_token, commission_percent, balance_kop, enabled, created_at
+`
+
+type DebitPartnerParams struct {
+	AmountKop int64
+	ID        int64
+}
+
+func (q *Queries) DebitPartner(ctx context.Context, arg DebitPartnerParams) (PartnerBot, error) {
+	row := q.db.QueryRowContext(ctx, debitPartner, arg.AmountKop, arg.ID)
+	var i PartnerBot
+	err := row.Scan(
+		&i.ID,
+		&i.PartnerID,
+		&i.Code,
+		&i.BotUsername,
+		&i.BotToken,
+		&i.CommissionPercent,
+		&i.BalanceKop,
+		&i.Enabled,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const deletePartner = `-- name: DeletePartner :execrows
 DELETE FROM partners WHERE id = $1
 `
@@ -156,7 +189,7 @@ func (q *Queries) DeletePartnerBot(ctx context.Context, id int64) (int64, error)
 }
 
 const getPartner = `-- name: GetPartner :one
-SELECT id, name, note, created_at FROM partners WHERE id = $1
+SELECT id, name, note, owner_tg_id, created_at FROM partners WHERE id = $1
 `
 
 func (q *Queries) GetPartner(ctx context.Context, id int64) (Partner, error) {
@@ -166,6 +199,7 @@ func (q *Queries) GetPartner(ctx context.Context, id int64) (Partner, error) {
 		&i.ID,
 		&i.Name,
 		&i.Note,
+		&i.OwnerTgID,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -230,7 +264,7 @@ func (q *Queries) ListPartnerBots(ctx context.Context) ([]PartnerBot, error) {
 }
 
 const listPartners = `-- name: ListPartners :many
-SELECT id, name, note, created_at FROM partners ORDER BY created_at, id
+SELECT id, name, note, owner_tg_id, created_at FROM partners ORDER BY created_at, id
 `
 
 func (q *Queries) ListPartners(ctx context.Context) ([]Partner, error) {
@@ -246,6 +280,7 @@ func (q *Queries) ListPartners(ctx context.Context) ([]Partner, error) {
 			&i.ID,
 			&i.Name,
 			&i.Note,
+			&i.OwnerTgID,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -262,12 +297,25 @@ func (q *Queries) ListPartners(ctx context.Context) ([]Partner, error) {
 }
 
 const partnerBotByCode = `-- name: PartnerBotByCode :one
-SELECT id, partner_id, code, bot_username, bot_token, commission_percent, balance_kop, enabled, created_at FROM partner_bots WHERE code = $1 AND enabled
+SELECT b.id, b.partner_id, b.code, b.bot_username, b.bot_token, b.commission_percent, b.balance_kop, b.enabled, b.created_at, p.owner_tg_id FROM partner_bots b JOIN partners p ON p.id = b.partner_id WHERE b.code = $1 AND b.enabled
 `
 
-func (q *Queries) PartnerBotByCode(ctx context.Context, code string) (PartnerBot, error) {
+type PartnerBotByCodeRow struct {
+	ID                int64
+	PartnerID         int64
+	Code              string
+	BotUsername       string
+	BotToken          string
+	CommissionPercent int32
+	BalanceKop        int64
+	Enabled           bool
+	CreatedAt         int64
+	OwnerTgID         int64
+}
+
+func (q *Queries) PartnerBotByCode(ctx context.Context, code string) (PartnerBotByCodeRow, error) {
 	row := q.db.QueryRowContext(ctx, partnerBotByCode, code)
-	var i PartnerBot
+	var i PartnerBotByCodeRow
 	err := row.Scan(
 		&i.ID,
 		&i.PartnerID,
@@ -277,6 +325,43 @@ func (q *Queries) PartnerBotByCode(ctx context.Context, code string) (PartnerBot
 		&i.CommissionPercent,
 		&i.BalanceKop,
 		&i.Enabled,
+		&i.CreatedAt,
+		&i.OwnerTgID,
+	)
+	return i, err
+}
+
+const partnerCommissionOfPayment = `-- name: PartnerCommissionOfPayment :one
+SELECT id, partner_bot_id, payment_id, kind, amount_kop, created_at FROM partner_transactions WHERE payment_id = $1 AND kind = 'commission' ORDER BY id DESC LIMIT 1
+`
+
+func (q *Queries) PartnerCommissionOfPayment(ctx context.Context, paymentID int64) (PartnerTransaction, error) {
+	row := q.db.QueryRowContext(ctx, partnerCommissionOfPayment, paymentID)
+	var i PartnerTransaction
+	err := row.Scan(
+		&i.ID,
+		&i.PartnerBotID,
+		&i.PaymentID,
+		&i.Kind,
+		&i.AmountKop,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const partnerRefundOfPayment = `-- name: PartnerRefundOfPayment :one
+SELECT id, partner_bot_id, payment_id, kind, amount_kop, created_at FROM partner_transactions WHERE payment_id = $1 AND kind = 'refund' ORDER BY id DESC LIMIT 1
+`
+
+func (q *Queries) PartnerRefundOfPayment(ctx context.Context, paymentID int64) (PartnerTransaction, error) {
+	row := q.db.QueryRowContext(ctx, partnerRefundOfPayment, paymentID)
+	var i PartnerTransaction
+	err := row.Scan(
+		&i.ID,
+		&i.PartnerBotID,
+		&i.PaymentID,
+		&i.Kind,
+		&i.AmountKop,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -382,22 +467,29 @@ func (q *Queries) SetUserPartner(ctx context.Context, arg SetUserPartnerParams) 
 }
 
 const updatePartner = `-- name: UpdatePartner :one
-UPDATE partners SET name = $1, note = $2 WHERE id = $3 RETURNING id, name, note, created_at
+UPDATE partners SET name = $1, note = $2, owner_tg_id = COALESCE($3, owner_tg_id) WHERE id = $4 RETURNING id, name, note, owner_tg_id, created_at
 `
 
 type UpdatePartnerParams struct {
-	Name string
-	Note string
-	ID   int64
+	Name      string
+	Note      string
+	OwnerTgID sql.NullInt64
+	ID        int64
 }
 
 func (q *Queries) UpdatePartner(ctx context.Context, arg UpdatePartnerParams) (Partner, error) {
-	row := q.db.QueryRowContext(ctx, updatePartner, arg.Name, arg.Note, arg.ID)
+	row := q.db.QueryRowContext(ctx, updatePartner,
+		arg.Name,
+		arg.Note,
+		arg.OwnerTgID,
+		arg.ID,
+	)
 	var i Partner
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
 		&i.Note,
+		&i.OwnerTgID,
 		&i.CreatedAt,
 	)
 	return i, err

@@ -26,8 +26,9 @@ export function PartnersPage() {
   const toast = useToast();
   const [name, setName] = useState("");
   const [note, setNote] = useState("");
+  const [owner, setOwner] = useState("");
   const create = useMutation({
-    mutationFn: () => unwrap(api.POST("/api/v1/partners", { body: { name: name.trim(), note: note.trim() } })),
+    mutationFn: () => unwrap(api.POST("/api/v1/partners", { body: { name: name.trim(), note: note.trim(), owner_tg_id: Number(owner) || 0 } })),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: qk.partners });
       setName("");
@@ -47,6 +48,9 @@ export function PartnersPage() {
         <form onSubmit={submit} className="mb-4 grid gap-3 sm:grid-cols-[1fr_2fr_auto] sm:items-end">
           <Field label={t("partners.name")} htmlFor="p-name">
             <input id="p-name" className="input" value={name} onChange={(e) => setName(e.target.value)} maxLength={120} placeholder={t("partners.namePlaceholder")} />
+          </Field>
+          <Field label={t("partners.owner")} htmlFor="p-owner" hint={t("partners.ownerHint")}>
+            <input id="p-owner" className="input mono" inputMode="numeric" value={owner} onChange={(ev) => setOwner(ev.target.value.replace(/\D/g, ""))} />
           </Field>
           <Field label={t("partners.note")} htmlFor="p-note">
             <input id="p-note" className="input" value={note} onChange={(e) => setNote(e.target.value)} maxLength={200} />

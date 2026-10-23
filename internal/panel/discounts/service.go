@@ -14,6 +14,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"slices"
 	"strconv"
 	"time"
@@ -46,6 +47,14 @@ const maxDays = 30
 // maxNotices is how many reminders one round tells: the rest wait for the next one, ten
 // minutes later, so a big mailing does not hold the panel's own round.
 const maxNotices = 500
+
+// The redemption's stand: reserved at the invoice, applied when it is paid, released when
+// the payment closed without the sale standing (a failed or refunded one).
+const (
+	RedemptionReserved = "reserved"
+	RedemptionApplied  = "applied"
+	RedemptionReleased = "released"
+)
 
 // Service is the discounts of the panel: the sales it makes and the mailings they carry.
 type Service struct {
@@ -176,6 +185,9 @@ func (s *Service) Best(ctx context.Context, q *db.Queries, tariffID, amount int6
 	var best db.Discount
 	bestOff := int64(0)
 	for _, d := range list {
+		if d.MaxUses.Valid && d.UsedCount >= d.MaxUses.Int64 {
+			continue // the sale is over its budget: there is nothing left to advertise
+		}
 		ids, err := s.tariffSet(ctx, q, d.ID)
 		if err != nil {
 			return db.Discount{}, 0, err
@@ -221,6 +233,9 @@ func (s *Service) Reserve(ctx context.Context, q *db.Queries, tgID, userID, tari
 		return int(Amount(b, amount) - Amount(a, amount))
 	})
 	for _, d := range list {
+		if d.MaxUses.Valid && d.UsedCount >= d.MaxUses.Int64 {
+			continue // the sale is over its budget: there is nothing left to advertise
+		}
 		ids, err := s.tariffSet(ctx, q, d.ID)
 		if err != nil {
 			return Applied{}, err
@@ -249,6 +264,58 @@ func (s *Service) Reserve(ctx context.Context, q *db.Queries, tgID, userID, tari
 		return Applied{DiscountID: d.ID, Name: d.Name, Amount: off, Final: amount - off, Currency: currency}, nil
 	}
 	return Applied{}, nil
+}
+
+// ReleaseApplied gives the sale's budget back when a paid order is refunded: the sale did
+// not stand, so it does not count to the budget. It runs in the refund's transaction.
+func (s *Service) ReleaseApplied(ctx context.Context, q *db.Queries, paymentID int64) error {
+	r, err := q.GetDiscountRedemptionByPayment(ctx, sql.NullInt64{Int64: paymentID, Valid: true})
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	n, err := q.ReleaseAppliedRedemption(ctx, r.ID)
+	if err != nil || n == 0 {
+		return err
+	}
+	_, err = q.DecrementDiscountUse(ctx, r.DiscountID)
+	return err
+}
+
+// ReleaseClosed gives back the reservations of invoices that closed without paying: an
+// expired or failed invoice never paid, so its sale's budget is whole again. It runs from
+// the reconcile pass, and the payment's row is locked and looked at again there: a payment
+// reported paid while the pass waited does not lose its sale.
+func (s *Service) ReleaseClosed(ctx context.Context) error {
+	rows, err := s.Store.Q.ListClosedReservedRedemptions(ctx)
+	if err != nil {
+		return err
+	}
+	for _, r := range rows {
+		if err := s.Store.Tx(ctx, func(q *db.Queries) error {
+			p, err := q.GetPaymentForUpdate(ctx, r.PaymentID.Int64)
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil
+			}
+			if err != nil {
+				return err
+			}
+			if p.Status != "expired" && p.Status != "failed" && p.Status != "refunded" {
+				return nil
+			}
+			n, err := q.ReleaseDiscountRedemption(ctx, r.ID)
+			if err != nil || n == 0 {
+				return err
+			}
+			_, err = q.DecrementDiscountUse(ctx, r.DiscountID)
+			return err
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // ApplyPayment marks the discount of a paid payment as given: the buyer is one of the
@@ -305,6 +372,9 @@ func (s *Service) Notices(ctx context.Context, now time.Time) ([]Notice, error) 
 	}
 	var out []Notice
 	for _, d := range list {
+		if d.MaxUses.Valid && d.UsedCount >= d.MaxUses.Int64 {
+			continue // the sale is over its budget: there is nothing left to advertise
+		}
 		if len(out) >= maxNotices {
 			break
 		}

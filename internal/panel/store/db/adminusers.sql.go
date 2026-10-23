@@ -292,7 +292,14 @@ FROM trials t
 JOIN users u ON u.id = t.user_id
 LEFT JOIN tg_chats c ON c.tg_id = t.tg_id
 WHERE u.used_up + u.used_down = 0
+  AND u.status = 'active'
   AND t.user_id IS NOT NULL
+  -- A trial that went on to pay for something (a plan, a package, places, a paid trial) is
+  -- not a lost trial: it does not get the reactivation days.
+  AND NOT EXISTS (
+    SELECT 1 FROM payments p
+    WHERE p.user_id = u.id AND p.status = 'applied' AND p.kind <> 'trial'
+  )
 ORDER BY t.created_at, t.tg_id
 `
 

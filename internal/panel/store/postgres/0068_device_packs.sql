@@ -33,6 +33,9 @@ ALTER TABLE payments ADD COLUMN device_pack_id BIGINT REFERENCES device_packs(id
 UPDATE tariffs SET archived = 1, on_sale = 0 WHERE archived = 0 AND name IN ('Escape', 'Escape+', 'Extended');
 
 -- +goose Down
+-- The archive by name is undone: the three come back on sale. A tariff the admin archived
+-- again after this migration is put back on sale as well, and nothing is destroyed.
+UPDATE tariffs SET archived = 0, on_sale = 1 WHERE archived = 1 AND name IN ('Escape', 'Escape+', 'Extended');
 ALTER TABLE payments DROP COLUMN IF EXISTS device_pack_id;
 ALTER TABLE users DROP COLUMN IF EXISTS device_pack_id;
 DROP TABLE IF EXISTS device_packs;

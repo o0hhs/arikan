@@ -537,6 +537,7 @@ type Partner struct {
 	ID        int64
 	Name      string
 	Note      string
+	OwnerTgID int64
 	CreatedAt int64
 }
 

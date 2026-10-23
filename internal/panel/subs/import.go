@@ -8,6 +8,14 @@ import (
 	"mikan/internal/panel/server"
 )
 
+// trimTo cuts a query value to at most n bytes, so a caller cannot stuff a header.
+func trimTo(s string, n int) string {
+	if len(s) > n {
+		return s[:n]
+	}
+	return s
+}
+
 // The one-tap import: GET /import?client=<app>&sub_url=<the subscription's own link> answers
 // a 302 to the app's own add-schema, so a button in the bot or a page can hand the whole
 // subscription over without the buyer copying anything. Happ and Incy take the link as
@@ -20,14 +28,10 @@ func (h *Handler) importRedirect(w http.ResponseWriter, r *http.Request) {
 		fail()
 		return
 	}
-	parsed, err := url.Parse(sub)
-	if err != nil || !parsed.IsAbs() {
-		fail()
-		return
-	}
-	// The link must be this panel's own: the token names a subscription, and the app that
-	// takes the redirect would hold it otherwise.
-	token := parsed.Path
+	// Only the token is taken from the caller: the link is rebuilt from this panel's own
+	// subscription base, so the redirect can never hand an app an address of somebody else's
+	// (a trusted panel link vouching for a host that serves a profile of its own).
+	token := sub
 	if i := strings.LastIndexAny(token, "/"); i >= 0 {
 		token = token[i+1:]
 	}
@@ -39,8 +43,14 @@ func (h *Handler) importRedirect(w http.ResponseWriter, r *http.Request) {
 		fail()
 		return
 	}
+	cfg, err := h.cfg(r.Context())
+	if err != nil || cfg.SubBase == "" {
+		fail()
+		return
+	}
+	sub = strings.TrimRight(cfg.SubBase, "/") + "/" + token
 	var to string
-	brand := url.QueryEscape(r.URL.Query().Get("name"))
+	brand := url.QueryEscape(trimTo(r.URL.Query().Get("name"), 40))
 	switch client {
 	case "happ":
 		// Happ takes the subscription URL in its add schema.
