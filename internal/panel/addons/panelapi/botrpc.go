@@ -73,7 +73,6 @@ var botRPC = map[string]rpcRule{
 	"Unlink":        rule("users:write", nil, []int{0}),
 	"Unbind":        rule("users:write", nil, []int{0}),
 	"Reissue":       rule("users:write", nil, []int{0}),
-	"TagCampaign":   rule("users:write", []int{0}, nil),
 	// The shop: what is on offer, and what makes a payment or a subscription.
 	"Shop.Config": rule("", nil, nil), "Shop.Offers": rule("", nil, nil), "Shop.AddonName": rule("", nil, nil),
 	"Shop.DevicePacks":    rule("", nil, nil),

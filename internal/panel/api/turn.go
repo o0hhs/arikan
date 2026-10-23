@@ -99,12 +99,12 @@ func turnError(err error) error {
 	if te.Field != "" {
 		location += "." + te.Field
 	}
-	return huma.Error422UnprocessableEntity("validation", &huma.ErrorDetail{Location: location, Message: te.Code, Value: te.Detail})
+	return fieldErrValue(location, te.Code, te.Detail)
 }
 
 // turnInbound is the refusal of an inbound that is not this node's, is off, or is gone.
 func turnInbound() error {
-	return huma.Error422UnprocessableEntity("validation", &huma.ErrorDetail{Location: "body.inbound_id", Message: "turn_inbound"})
+	return fieldErr("body.inbound_id", "turn_inbound")
 }
 
 // turnView is the node's setup as the drawer shows it. withStatus asks the node itself,

@@ -214,9 +214,9 @@ func viewAgent(a agents.Agent) AgentView {
 func agentErr(err error) error {
 	switch {
 	case errors.Is(err, agents.ErrLogin):
-		return huma.Error422UnprocessableEntity("validation", &huma.ErrorDetail{Location: "body.login", Message: "agent_login_invalid"})
+		return fieldErr("body.login", "agent_login_invalid")
 	case errors.Is(err, agents.ErrPassword):
-		return huma.Error422UnprocessableEntity("validation", &huma.ErrorDetail{Location: "body.password", Message: "agent_password_invalid"})
+		return fieldErr("body.password", "agent_password_invalid")
 	case errors.Is(err, agents.ErrLoginTaken):
 		return huma.Error409Conflict("agent_login_taken")
 	case errors.Is(err, agents.ErrTgTaken):
@@ -224,7 +224,7 @@ func agentErr(err error) error {
 	case errors.Is(err, agents.ErrNotFound):
 		return huma.Error404NotFound("agent_not_found")
 	case errors.Is(err, agents.ErrPayout):
-		return huma.Error422UnprocessableEntity("validation", &huma.ErrorDetail{Location: "body.amount", Message: "agent_payout_amount"})
+		return fieldErr("body.amount", "agent_payout_amount")
 	}
 	return err
 }
@@ -412,7 +412,7 @@ func (h *handlers) checkAgentPath(ctx context.Context, p string) error {
 		return nil
 	}
 	bad := func() error {
-		return huma.Error422UnprocessableEntity("validation", &huma.ErrorDetail{Location: "body.path", Message: "agent_path_invalid"})
+		return fieldErr("body.path", "agent_path_invalid")
 	}
 	if len(p) < 8 || len(p) > 64 {
 		return bad()
@@ -429,7 +429,7 @@ func (h *handlers) checkAgentPath(ctx context.Context, p string) error {
 		return err
 	}
 	if p == paths.Admin || p == paths.Sub || p == paths.Legacy {
-		return huma.Error422UnprocessableEntity("validation", &huma.ErrorDetail{Location: "body.path", Message: "agent_path_taken"})
+		return fieldErr("body.path", "agent_path_taken")
 	}
 	return nil
 }

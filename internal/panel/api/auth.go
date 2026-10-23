@@ -290,7 +290,7 @@ func (h *handlers) reauth(ctx context.Context, admin db.Admin, password, code st
 				return err
 			}
 			if !spent {
-				return huma.Error422UnprocessableEntity("invalid_totp", &huma.ErrorDetail{Location: "body.totp", Message: "invalid_totp"})
+				return fieldErr("body.totp", "invalid_totp")
 			}
 		}
 		return nil
@@ -419,7 +419,7 @@ func (h *handlers) totpEnable(ctx context.Context, in *totpCodeInput) (*recovery
 			return err
 		}
 		if !spent {
-			return huma.Error422UnprocessableEntity("invalid_totp", &huma.ErrorDetail{Location: "body.code", Message: "invalid_totp"})
+			return fieldErr("body.code", "invalid_totp")
 		}
 		return nil
 	}); err != nil {
@@ -464,7 +464,7 @@ func (h *handlers) totpDisable(ctx context.Context, in *totpDisableInput) (*stru
 			}
 		}
 		if !ok || !spent {
-			return huma.Error422UnprocessableEntity("invalid_credentials", &huma.ErrorDetail{Location: "body", Message: "invalid_password_or_code"})
+			return fieldErr("body", "invalid_password_or_code")
 		}
 		return nil
 	}); err != nil {

@@ -14,7 +14,6 @@ import { splitList } from "../../lib/list";
 import { BackToAddons } from "./addon-row";
 import { TrafficDetailCard } from "./traffic-detail";
 
-const lines = (v: string) => v.split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
 type View = Schemas["FiltersView"];
 
 const text = (l: string[]) => l.join("\n");
@@ -39,6 +38,8 @@ function listError(errors: Record<string, string>, list: string): string | undef
 }
 
 /** The ingress and egress filters: built into the nodes, switched on here. */
+const lines = (v: string) => v.split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
+
 export function FiltersPage() {
   const q = useFilters();
   return (

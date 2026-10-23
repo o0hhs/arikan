@@ -45,7 +45,7 @@ func TestFrontPageNamesAreOneList(t *testing.T) {
 		t.Errorf("%d fields found, want the node's front_page twice and site_template twice: the scan lost its way", found)
 	}
 
-	raw, err := os.ReadFile("../store/postgres/0046_node_front_page.sql")
+	raw, err := os.ReadFile("../store/postgres/0060_node_front_page.sql")
 	if err != nil {
 		t.Fatal(err)
 	}

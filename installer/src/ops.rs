@@ -291,7 +291,9 @@ pub fn status_to(install: &Install, say: &mut dyn FnMut(&str)) -> Result<()> {
             }
             let m = &found.manifest;
             match &found.newest {
-                Some(newest) if found.unreachable => say(&format!("Arikan {newest} is out, but this version cannot update to it directly.")),
+                Some(newest) if found.unreachable => {
+                    say(&format!("Arikan {newest} is out, but this version cannot update to it directly."))
+                }
                 Some(newest) => say(&format!("Arikan {newest} is out: arikan update (through Arikan {} first)", m.version)),
                 None if release::newer(&m.version, &version) => say(&format!("Arikan {} is out: arikan update", m.version)),
                 None => say("This is the latest release."),

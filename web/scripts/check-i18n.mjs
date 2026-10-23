@@ -1,6 +1,6 @@
 // Checks the dictionaries before a build. ru and en have the same keys, with the same
 // placeholders in each text. The subscription page and the Mini App (sub.html) get only the
-// sections of SUB_SECTIONS (vite.config.ts): a key of another section, used by code that
+// sections of its page in DICTS (vite.config.ts): a key of another section, used by code that
 // page reaches, shows as the key itself, and tsc does not see it (any key is a Key).
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, relative, resolve } from "node:path";
@@ -41,8 +41,8 @@ for (const k of Object.keys(ru)) {
 for (const k of Object.keys(en)) if (!(k in ru)) problems.push(`ru has no ${k}`);
 
 // The sections of the subscription page's bundle.
-const config = read("vite.config.ts").match(/const SUB_SECTIONS = \[([^\]]*)\]/);
-if (!config) throw new Error("SUB_SECTIONS not found in vite.config.ts");
+const config = read("vite.config.ts").match(/sub: \[([^\]]*)\]/);
+if (!config) throw new Error("DICTS.sub not found in vite.config.ts");
 const sections = new Set([...config[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]));
 
 // The files sub.html reaches: its entry and what it imports, type-only imports aside.

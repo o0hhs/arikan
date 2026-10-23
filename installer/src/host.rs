@@ -897,7 +897,6 @@ mod tests {
             }
         }
     }
-    }
 
     // A server updated by an older command has the older units: a node with none of the
     // request unit, a panel's file on a node, are not current; each mode's own are.
