@@ -132,7 +132,8 @@ func TestConnectBuyerFlow(t *testing.T) {
 			}
 		}
 	}
-	if connect != 1 || installs != 1 {
+	// Happ and Incy are two clients: two connect buttons and one install, not four.
+	if connect != 2 || installs != 1 {
 		t.Fatalf("the phone's screen: %d connect, %d install buttons: %+v", connect, installs, phones)
 	}
 
