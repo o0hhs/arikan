@@ -6342,7 +6342,7 @@ export interface components {
             /** @description Токен бота партнёра; пусто — оставить прежний */
             bot_token: string;
             bot_username: string;
-            /** @description Свой код; пусто — выданный панелью */
+            /** @description Свой код из латиницы, цифр, _ и -; пусто — выданный панелью */
             code?: string;
             /** Format: int64 */
             commission_percent: number;
@@ -6354,7 +6354,7 @@ export interface components {
              * @description Баланс партнёра, копейки
              */
             balance_kop: number;
-            /** @description Токен бота партнёра; пусто у read-ключа */
+            /** @description Токен бота партнёра; пусто у оператора поддержки */
             bot_token?: string;
             bot_username: string;
             /** @description Код в /start partner_<code>, с которым приходят подписчики */
@@ -6386,6 +6386,11 @@ export interface components {
             id: number;
             name: string;
             note: string;
+            /**
+             * Format: int64
+             * @description Свой Telegram-аккаунт партнёра; 0 — не задан
+             */
+            owner_tg_id?: number;
         };
         PasswordInputBody: {
             current: string;
