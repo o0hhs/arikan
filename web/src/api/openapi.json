@@ -2509,6 +2509,9 @@
             "description": "Удалять сообщения пользователя, чтобы в чате было одно меню",
             "type": "boolean"
           },
+          "connect": {
+            "$ref": "#/components/schemas/ConnectConfig"
+          },
           "lang": {
             "description": "Язык встроенных надписей бота",
             "enum": [
@@ -2545,7 +2548,81 @@
           "clean_chat",
           "quiet_night",
           "promo_button",
-          "channel"
+          "channel",
+          "connect"
+        ],
+        "type": "object"
+      },
+      "ConnectApp": {
+        "additionalProperties": false,
+        "properties": {
+          "client": {
+            "description": "Схема приложения: кнопка в один клик отдаёт подписку через неё",
+            "enum": [
+              "happ",
+              "incy",
+              "kabosu",
+              "clash",
+              "mihomo"
+            ],
+            "type": "string"
+          },
+          "download": {
+            "description": "Ссылка на установку; пусто — только подключение, без установки",
+            "type": "string"
+          },
+          "id": {
+            "description": "Постоянный id: латиница, цифры, дефис и подчёркивание",
+            "type": "string"
+          },
+          "name": {
+            "description": "Название в кнопках, например Happ",
+            "type": "string"
+          },
+          "on": {
+            "type": "boolean"
+          },
+          "platforms": {
+            "description": "Где предлагать: ios, android, desktop (Windows, macOS, Linux)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "primary": {
+            "description": "Цветная кнопка подключения; у остальных обычная",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "client",
+          "platforms",
+          "on"
+        ],
+        "type": "object"
+      },
+      "ConnectConfig": {
+        "additionalProperties": false,
+        "properties": {
+          "apps": {
+            "items": {
+              "$ref": "#/components/schemas/ConnectApp"
+            },
+            "type": "array"
+          },
+          "intro": {
+            "description": "Свой текст над кнопками подключения; пусто — встроенный",
+            "type": "string"
+          },
+          "one_screen": {
+            "description": "Показывать все приложения сразу, не спрашивая платформу",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "one_screen"
         ],
         "type": "object"
       },
@@ -3681,6 +3758,30 @@
           "ports",
           "networks",
           "domains"
+        ],
+        "type": "object"
+      },
+      "EgressView": {
+        "additionalProperties": false,
+        "properties": {
+          "checked_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          },
+          "latency_ms": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "ok": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok",
+          "checked_at"
         ],
         "type": "object"
       },
@@ -6004,6 +6105,9 @@
           "domain": {
             "type": "string"
           },
+          "egress": {
+            "$ref": "#/components/schemas/EgressView"
+          },
           "emergency": {
             "description": "Аварийная нода: закончившие подписку видят только её",
             "type": "boolean"
@@ -6154,6 +6258,11 @@
           "update": {
             "$ref": "#/components/schemas/UpdateStatus",
             "description": "Как идёт или прошло обновление ноды"
+          },
+          "uptime_seconds": {
+            "description": "Сколько работает процесс ноды, секунды; нет у нод, что не отвечают или старше 0.5.1.6",
+            "format": "int64",
+            "type": "integer"
           },
           "version": {
             "type": "string"

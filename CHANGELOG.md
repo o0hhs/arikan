@@ -3,6 +3,19 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
+## Unreleased
+### en
+**The bot the buyer understands, and the connect screen the admin owns.**
+- **«My profile» leads with the two things a buyer comes for:** «Connect» and «Renew» stand first on the subscription screen, before traffic packages, places and the reissue. Nobody has to guess where the way in is.
+- **Connecting hands the subscription to the app first.** The one-tap «Add to …» is the primary button — `happ://add`, `incy://add`, `kabosu://install-config` — and the app's download sits under it; the link stays below in code for a manual copy. The built-in set: iPhone — Happ (App Store) and Incy, Android — Happ (Google Play) and Incy, computer (Windows, macOS, Linux) — Kabosu.
+- **The screen is yours now:** Telegram → Menu and texts → «Connect screen». Every app on one screen or the platform question first; your own text over the buttons; up to eight apps with a name, an import scheme (happ, incy, kabosu, clash, mihomo), the platforms it is offered on, a download link, the primary one and its order. Nothing is saved that would leave the screen empty, and the panel says which field is wrong in its own words.
+
+### ru
+**Бот, который понимает покупатель, и экран подключения, который настраивает админ.**
+- **«Мой профиль» начинается с того, за чем приходят:** «Подключить» и «Продлить» стоят в первой строке экрана подписки, раньше пакетов трафика, мест и перевыпуска. Искать, где вход, больше не нужно.
+- **Подключение сперва отдаёт подписку приложению.** Главная кнопка — «Добавить в …» в один клик (`happ://add`, `incy://add`, `kabosu://install-config`), а установка приложения — под ней; ссылка остаётся ниже кодом для ручного копирования. Встроенный набор: iPhone — Happ (App Store) и Incy, Android — Happ (Google Play) и Incy, компьютер (Windows, macOS, Linux) — Kabosu.
+- **Экран теперь ваш:** Telegram → «Меню и тексты» → «Экран подключения». Все приложения одним экраном или сначала вопрос об устройстве; свой текст над кнопками; до восьми приложений с названием, схемой подключения (happ, incy, kabosu, clash, mihomo), платформами, ссылкой на установку, главной кнопкой и порядком. Пустой экран сохранить нельзя, а панель называет неверное поле своими словами.
+
 ## 0.5.2.4
 ### en
 **The node now says whether it has internet, and one bad connection no longer takes the node down with it.**

@@ -121,7 +121,14 @@ func (b *Bot) screen(ctx context.Context, cfg Config, chat int64, data, notice s
 		if linkLine != "" {
 			lines = append(lines, linkLine)
 		}
+		// The two things a buyer comes for stand first: connect, and renew.
 		rows := [][]tgapi.Button{}
+		connect := tgapi.Button{Text: w.connectButton, CallbackData: "c", Style: tgapi.StylePrimary}
+		if offers, _ := b.offers(ctx, chat); len(offers) > 0 {
+			rows = append(rows, []tgapi.Button{connect, {Text: w.renewButton, CallbackData: "r", Style: tgapi.StyleSuccess}})
+		} else {
+			rows = append(rows, []tgapi.Button{connect})
+		}
 		if offers := b.packageOffers(ctx, u.ID); len(offers) > 0 {
 			rows = append(rows, []tgapi.Button{{Text: w.buyTraffic, CallbackData: "x"}})
 		}
@@ -153,8 +160,12 @@ func (b *Bot) screen(ctx context.Context, cfg Config, chat int64, data, notice s
 		id, _ := strconv.ParseInt(arg, 10, 64)
 		return b.devices(ctx, w, u, cmd, id, notice, now)
 	case "c":
-		// Two steps: the platform, then its clients with the one-tap import.
-		return b.connectPlatforms(ctx, w, notice, u)
+		// Two steps: the platform, then its clients with the one-tap import — or one screen,
+		// when the admin chose that.
+		if cfg.Connect.OneScreen {
+			return b.connectAll(ctx, cfg, w, u, notice)
+		}
+		return b.connectPlatforms(ctx, cfg, w, notice, u)
 	case "c2":
 		return b.connectClients(ctx, cfg, w, u, arg, notice)
 	case "r":

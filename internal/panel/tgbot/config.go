@@ -27,6 +27,9 @@ type Config struct {
 	// Channel is the channel a subscriber must join before the bot shows its menu, and the
 	// one the free plan may ask for (model.FreeChannel). Off by default.
 	Channel tgapi.Channel `json:"channel"`
+	// Connect is the screen that hands the subscription to an app: its apps, platforms and
+	// words. A config saved before it gets the built-in set on the next save.
+	Connect ConnectConfig `json:"connect"`
 }
 
 // MenuButton of the main menu. Built-in actions open screens; "url" opens a link, "page"
@@ -115,6 +118,7 @@ func Default(lang string) Config {
 		CleanChat:   true,
 		QuietNight:  true,
 		PromoButton: true,
+		Connect:     DefaultConnect(),
 	}
 }
 
@@ -141,6 +145,9 @@ var (
 func (c *Config) Validate() error {
 	if c.Lang != "en" {
 		c.Lang = "ru"
+	}
+	if err := c.Connect.validate(); err != nil {
+		return err
 	}
 	if len(c.Buttons) > maxButtons {
 		return ErrButtons

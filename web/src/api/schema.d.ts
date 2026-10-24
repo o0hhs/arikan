@@ -4559,6 +4559,7 @@ export interface components {
             channel: components["schemas"]["Channel"];
             /** @description Удалять сообщения пользователя, чтобы в чате было одно меню */
             clean_chat: boolean;
+            connect: components["schemas"]["ConnectConfig"];
             /**
              * @description Язык встроенных надписей бота
              * @enum {string}
@@ -4572,6 +4573,31 @@ export interface components {
             /** @description Уведомления с 22:00 до 9:00 МСК приходят без звука */
             quiet_night: boolean;
             texts: components["schemas"]["Texts"];
+        };
+        ConnectApp: {
+            /**
+             * @description Схема приложения: кнопка в один клик отдаёт подписку через неё
+             * @enum {string}
+             */
+            client: "happ" | "incy" | "kabosu" | "clash" | "mihomo";
+            /** @description Ссылка на установку; пусто — только подключение, без установки */
+            download?: string;
+            /** @description Постоянный id: латиница, цифры, дефис и подчёркивание */
+            id: string;
+            /** @description Название в кнопках, например Happ */
+            name: string;
+            on: boolean;
+            /** @description Где предлагать: ios, android, desktop (Windows, macOS, Linux) */
+            platforms: string[];
+            /** @description Цветная кнопка подключения; у остальных обычная */
+            primary?: boolean;
+        };
+        ConnectConfig: {
+            apps?: components["schemas"]["ConnectApp"][];
+            /** @description Свой текст над кнопками подключения; пусто — встроенный */
+            intro?: string;
+            /** @description Показывать все приложения сразу, не спрашивая платформу */
+            one_screen: boolean;
         };
         CopyInboundInputBody: {
             /** @description Новый сайт маскировки REALITY (host:port); пусто — как у исходного */
@@ -4985,6 +5011,14 @@ export interface components {
             /** @description Порты и диапазоны: 6881, 6881-6889 */
             ports: string[];
         };
+        EgressView: {
+            /** Format: date-time */
+            checked_at: string;
+            error?: string;
+            /** Format: int64 */
+            latency_ms?: number;
+            ok: boolean;
+        };
         EmojiRefusal: {
             /** Format: int64 */
             at: number;
@@ -4996,14 +5030,6 @@ export interface components {
         };
         "Enable-promocodeRequest": {
             enabled: boolean;
-        };
-        EgressView: {
-            /** Format: date-time */
-            checked_at: string;
-            error?: string;
-            /** Format: int64 */
-            latency_ms?: number;
-            ok: boolean;
         };
         ErrorDetail: {
             /** @description Where the error occurred, e.g. 'body.items[3].tags' or 'path.thing-id' */
@@ -5816,8 +5842,6 @@ export interface components {
             behind: boolean;
             /** @description Панель может обновить ноду сама: удалённая, отвечает, версия 0.5.0.2 или новее; старую обновляют один раз вручную командой mikan update на её сервере */
             can_update: boolean;
-            /** @description Нода может выйти в интернет сама: TCP и DNS с её сервера; у старых нод нет */
-            egress?: components["schemas"]["EgressView"];
             /**
              * Format: int64
              * @description Мест для клиентов в группе; null — без ограничения
@@ -5851,6 +5875,7 @@ export interface components {
              */
             cpu_percent: number;
             domain: string;
+            egress?: components["schemas"]["EgressView"];
             /** @description Аварийная нода: закончившие подписку видят только её */
             emergency: boolean;
             /**

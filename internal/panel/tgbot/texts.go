@@ -32,7 +32,8 @@ type words struct {
 	appHapp, appIncy, appKabosu, appManual                          string
 	connectPlatforms                                                string
 	connectDownload, connectOneTap, connectOneTapAny, connectManual string
-	connectButton                                                   string
+	connectButton, renewButton                                      string
+	connectTapHint                                                  string
 	partnerHello                                                    string
 	linkLimit, noSub, sharedPlace, device, justNow                  string
 	// Taking a subscription off the Telegram account: it keeps working in the apps.
@@ -134,6 +135,8 @@ var ru = words{
 	connectOneTapAny:  "🔌 Подключить в %s",
 	connectManual:     "%s",
 	connectButton:     "⚡ Подключить устройство",
+	renewButton:       "💳 Продлить",
+	connectTapHint:    "Выберите приложение — подписка добавится в него сама. Если приложения ещё нет, поставьте его кнопкой ниже.",
 	partnerHello:      "🤝 Вы пришли от партнёра «%s»: спасибо! Подписка и оплата — как обычно.",
 	connectText:       "1. Установите приложение: Happ или Incy (iPhone, Android), Kabosu (Windows, Mac, Linux).\n2. Добавьте в него ссылку:\n<code>%s</code>\n\nНа странице подписки — кнопки «Добавить» для всех приложений.",
 	linked:            "✅ Подписка «%s» подключена.",
@@ -300,6 +303,8 @@ var en = words{
 	connectOneTapAny:  "🔌 Connect with %s",
 	connectManual:     "%s",
 	connectButton:     "⚡ Connect a device",
+	renewButton:       "💳 Renew",
+	connectTapHint:    "Pick an app — the subscription goes into it by itself. If the app is not installed yet, get it with the button under it.",
 	partnerHello:      "🤝 You are here from “%s”: thank you! The subscription and payment work as usual.",
 	connectText:       "1. Install an app: Happ or Incy (iPhone, Android), Kabosu (Windows, Mac, Linux).\n2. Add this link to it:\n<code>%s</code>\n\nThe subscription page has “Add” buttons for every app.",
 	linked:            "✅ Subscription “%s” is connected.",
