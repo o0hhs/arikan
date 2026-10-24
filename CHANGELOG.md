@@ -3,7 +3,7 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
-## Unreleased
+## 0.5.2.3
 ### en
 **The partners' books sit where the money is, and the additions are put away until they are needed.**
 - **Partners are a tab under Payments.** The sidebar entry is gone: balances, turnover and each bot's own drawer — its code, commission percent, token and the switch — live beside the payment history, the top-ups and the ads. The API client is regenerated from the panel's schema, so the partner's owner account and the new operation flags reach the page.
