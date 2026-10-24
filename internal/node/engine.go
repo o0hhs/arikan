@@ -82,6 +82,8 @@ type Engine struct {
 
 	Reg *Registry
 	tun *Tunnel
+	// egress is the node's own way to the internet, as last checked (egress.go).
+	egress atomic.Pointer[nodeapi.EgressStatus]
 	// Challenge answers the ACME challenges the panel orders for the node's address, on
 	// port 80 while one is pending.
 	Challenge *acmechallenge.Server
@@ -247,7 +249,7 @@ func Start(o Options) (*Engine, error) {
 	// device keeps its place as long.
 	statistic.DefaultManager.Users().IPRelease = o.DeviceRelease
 	e.Reg = NewRegistry(cs.Epoch, cs.Seq, o.DeviceRelease, time.Now, citrus{})
-	e.tun = &Tunnel{inner: tunnel.Tunnel, reg: e.Reg}
+	e.tun = &Tunnel{inner: tunnel.Tunnel, reg: e.Reg, log: log}
 	reg := e.Reg
 	statistic.DefaultManager.SetOnLeave(func(c statistic.Tracker) {
 		i := c.Info()
@@ -264,8 +266,9 @@ func Start(o Options) (*Engine, error) {
 		return nil, err
 	}
 	e.saved = &savedState{state: st, ok: ok, counters: cs}
-	go e.sys.run()
-	go e.Reg.Run(context.Background())
+	go e.safely("system sampler", e.sys.run)
+	go e.safely("egress", func() { e.runEgress(context.Background()) })
+	go e.safely("registry", func() { e.Reg.Run(context.Background()) })
 	return e, nil
 }
 
@@ -580,7 +583,7 @@ func (e *Engine) Health() nodeapi.Health {
 	}
 	return nodeapi.Health{
 		Version: e.version, Core: coreVersion(), Revision: rev, StartedAt: e.started,
-		Listeners: ls, Conns: e.Reg.ConnCount(), System: e.sys.last(), Update: e.UpdateStatus(), Host: e.host.get(), Time: time.Now(),
+		Listeners: ls, Conns: e.Reg.ConnCount(), System: e.sys.last(), Update: e.UpdateStatus(), Host: e.host.get(), Time: time.Now(), Egress: e.egress.Load(),
 		Redirect: e.redirect.Load(), Router: e.routerStatus.Load(), APILock: e.apiLock().status(),
 	}
 }
@@ -627,6 +630,17 @@ func (e *Engine) saveState(st nodeapi.DesiredState) error {
 	}
 	e.savedShape, e.savedAt = policyShape(st.Policies), time.Now()
 	return nil
+}
+
+// safely runs a background job of the node: a panic in it ends that job, not the data
+// plane (an unrecovered panic in any goroutine ends the process).
+func (e *Engine) safely(job string, fn func()) {
+	defer func() {
+		if r := recover(); r != nil {
+			e.log.Error("node: a background job panicked", "job", job, "panic", r)
+		}
+	}()
+	fn()
 }
 
 // pumpLogs forwards the core's warnings and errors to our logger.

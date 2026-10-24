@@ -1,7 +1,7 @@
 // A node's card on the Servers page: its state, address, certificate and update, and what can be done with it.
 import * as Menu from "@radix-ui/react-dropdown-menu";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Activity, ArrowDown, ArrowUp, ArrowUpCircle, Cloud, Copy, Gauge, HardDrive, KeyRound, LoaderCircle, MoreHorizontal, Pencil, RefreshCw, ShieldCheck, Stethoscope, Trash2, Users, Waypoints } from "lucide-react";
+import { Activity, ArrowDown, ArrowUp, ArrowUpCircle, Cloud, Copy, Gauge, HardDrive, KeyRound, LoaderCircle, MoreHorizontal, Pencil, RefreshCw, ShieldCheck, Stethoscope, Trash2, TriangleAlert, Users, Waypoints } from "lucide-react";
 import { api, errorText, unwrap } from "../../../api/client";
 import { qk, useNodes } from "../../../api/hooks";
 import { AcmeAttempts, AcmeProblem, caName } from "../../../components/acme";
@@ -10,7 +10,7 @@ import { useToast } from "../../../components/toast";
 import { Bar, Button, Pill } from "../../../components/ui";
 import { t, tMaybe } from "../../../i18n";
 import { useCopy } from "../../../lib/copy";
-import { bytes, num } from "../../../lib/format";
+import { bytes, duration, num } from "../../../lib/format";
 import { nodeLabel } from "../../../lib/node-label";
 import { HelloLine, NodeProblem, SkewLine } from "../node-check";
 import type { Node } from "../nodes";
@@ -106,6 +106,12 @@ export function NodeCard({
       </div>
       {n.status === "error" && n.enabled ? <NodeProblem n={n} onCheck={onCheck} actions={{ rekey: onRekey, update: updatable(n) ? onUpdate : undefined, edit: onEdit }} /> : null}
       {n.status === "ok" ? <SkewLine n={n} /> : null}
+      {n.status === "ok" && n.egress && !n.egress.ok ? (
+        <div className="banner warn mt-3" role="alert">
+          <TriangleAlert size={18} className="shrink-0" aria-hidden />
+          <span>{t("nodes.noEgress", { error: n.egress.error ?? "" })}</span>
+        </div>
+      ) : null}
       <HelloLine n={n} actions={{ edit: onEdit }} />
       <dl className="mt-4 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-x-4 gap-y-3 text-[13px] [&>div]:min-w-0">
         <div>
@@ -148,6 +154,14 @@ export function NodeCard({
               "—"
             )}
           </dd>
+        </div>
+        <div>
+          <dt className="text-xs text-[var(--ink-500)]">{t("nodes.uptime")}</dt>
+          <dd className="num">{n.status === "ok" && n.uptime_seconds !== undefined ? duration(n.uptime_seconds) : "—"}</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-[var(--ink-500)]">{t("nodes.internet")}</dt>
+          <dd className="num">{n.status === "ok" && n.egress ? (n.egress.ok ? t("nodes.internetOk", { ms: n.egress.latency_ms ?? 0 }) : t("nodes.internetNo")) : "—"}</dd>
         </div>
         <div className="col-span-2">
           <dt className="text-xs text-[var(--ink-500)]">{t("nodes.traffic24h")}</dt>

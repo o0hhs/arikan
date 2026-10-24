@@ -2813,6 +2813,11 @@
     "perMonthShort": "mo"
   },
   "nodes": {
+    "uptime": "Up for",
+    "internet": "Internet from the node",
+    "internetOk": "yes · {ms} ms",
+    "internetNo": "no",
+    "noEgress": "The node has no way to the internet: {error}. It answers the panel, but clients cannot pass through it — check the uplink and DNS of the server.",
     "subtitle": "Servers that run the VPN. The subscription includes the protocols of every enabled node, each in its own group.",
     "orderHint": "In clients' apps the servers appear in this same order. Use the arrows to move them.",
     "orderEdit": "Reorder",

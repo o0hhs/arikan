@@ -113,7 +113,14 @@ func run() error {
 	go serve(ln)
 	log.Info("node started", "version", version, "socket", sock)
 	// The state from before the restart comes back behind the API, which answers already.
-	go eng.Restore()
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Error("node: the restore panicked", "panic", r)
+			}
+		}()
+		eng.Restore()
+	}()
 	// A remote node also serves the Node API over TCP to its panel (see nodetls).
 	raw, err := config.Secret("MIKAN_NODE_JOIN")
 	if err != nil {
@@ -135,7 +142,14 @@ func run() error {
 		// With the panel's API lock on, strangers are closed before the TLS handshake.
 		go serve(tls.NewListener(eng.APIListener(tcp), cfg))
 		log.Info("node api for the panel", "port", key.Port)
-		go helloLoop(ctx, key, dataDir, log)
+		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Error("node: the hello loop panicked", "panic", r)
+				}
+			}()
+			helloLoop(ctx, key, dataDir, log)
+		}()
 	}
 
 	t := time.NewTicker(10 * time.Second)

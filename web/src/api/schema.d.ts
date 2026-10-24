@@ -4997,6 +4997,14 @@ export interface components {
         "Enable-promocodeRequest": {
             enabled: boolean;
         };
+        EgressView: {
+            /** Format: date-time */
+            checked_at: string;
+            error?: string;
+            /** Format: int64 */
+            latency_ms?: number;
+            ok: boolean;
+        };
         ErrorDetail: {
             /** @description Where the error occurred, e.g. 'body.items[3].tags' or 'path.thing-id' */
             location?: string;
@@ -5808,6 +5816,8 @@ export interface components {
             behind: boolean;
             /** @description Панель может обновить ноду сама: удалённая, отвечает, версия 0.5.0.2 или новее; старую обновляют один раз вручную командой mikan update на её сервере */
             can_update: boolean;
+            /** @description Нода может выйти в интернет сама: TCP и DNS с её сервера; у старых нод нет */
+            egress?: components["schemas"]["EgressView"];
             /**
              * Format: int64
              * @description Мест для клиентов в группе; null — без ограничения
@@ -5924,6 +5934,11 @@ export interface components {
             traffic_24h: number;
             /** @description Как идёт или прошло обновление ноды */
             update?: components["schemas"]["UpdateStatus"];
+            /**
+             * Format: int64
+             * @description Сколько работает процесс ноды, секунды; нет у нод, что не отвечают или старше 0.5.1.6
+             */
+            uptime_seconds?: number;
             version?: string;
         };
         NodeKeyOutputBody: {

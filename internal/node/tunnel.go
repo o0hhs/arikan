@@ -1,6 +1,7 @@
 package node
 
 import (
+	"log/slog"
 	"net"
 	"time"
 
@@ -17,9 +18,32 @@ import (
 type Tunnel struct {
 	inner C.Tunnel
 	reg   *Registry
+	log   *slog.Logger
+}
+
+// recovered turns a panic in one connection's handling into a log line and a dropped
+// connection: the node keeps carrying everyone else's traffic.
+func (t *Tunnel) recovered(what string, m *C.Metadata, drop func()) {
+	r := recover()
+	if r == nil {
+		return
+	}
+	log := t.log
+	if log == nil {
+		log = slog.Default()
+	}
+	in := ""
+	if m != nil {
+		in = m.InName
+	}
+	log.Error("node: a connection handler panicked", "what", what, "inbound", in, "panic", r)
+	if drop != nil {
+		drop()
+	}
 }
 
 func (t *Tunnel) HandleTCPConn(conn net.Conn, m *C.Metadata) {
+	defer t.recovered("tcp", m, func() { _ = conn.Close() })
 	// REALITY dials its dest through this tunnel for every handshake; these carry no
 	// user and must pass untouched or no client can connect (S-01a). They also bypass
 	// the REJECT rules for private ranges, so a self-hosted dest keeps working.
@@ -81,6 +105,7 @@ func peekFirst(bc *N.BufferedConn) []byte {
 }
 
 func (t *Tunnel) HandleUDPPacket(p C.UDPPacket, m *C.Metadata) {
+	defer t.recovered("udp", m, func() { p.Drop() })
 	if m.Type == C.INNER || m.InName == nodeapi.RelayListener {
 		t.inner.HandleUDPPacket(p, m)
 		return

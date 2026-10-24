@@ -25,6 +25,14 @@ import (
 	"mikan/internal/release"
 )
 
+// EgressView is the node's own way to the internet, as last checked (nodeapi.EgressStatus).
+type EgressView struct {
+	OK        bool      `json:"ok"`
+	CheckedAt time.Time `json:"checked_at"`
+	LatencyMS int64     `json:"latency_ms,omitempty"`
+	Error     string    `json:"error,omitempty"`
+}
+
 type NodeInfo struct {
 	ID         int64  `json:"id"`
 	Name       string `json:"name" doc:"Группа в подписке, например «🇳🇱 Нидерланды»; её флаг — префикс имён подключений"`
@@ -47,14 +55,20 @@ type NodeInfo struct {
 	ClockSkew   *int64            `json:"clock_skew,omitempty" doc:"Часы ноды минус часы панели, секунды; нет у старых нод"`
 	Hello       *NodeHello        `json:"hello,omitempty" doc:"Последний hello ноды после запуска: достучалась ли панель в ответ"`
 	Version     string            `json:"version,omitempty"`
-	Listeners   int               `json:"listeners"`
-	ListenersOK int               `json:"listeners_ok"`
-	Conns       int               `json:"conns"`
-	CPUPercent  float64           `json:"cpu_percent" doc:"Загрузка процессора всего сервера, не только ноды"`
-	ProcCPU     *float64          `json:"proc_cpu_percent,omitempty" doc:"Доля процессора самого процесса ноды (вся машина = 100); нет у нод до 0.5.0.4"`
-	MemUsed     uint64            `json:"mem_used"`
-	MemTotal    uint64            `json:"mem_total"`
-	CheckedAt   *time.Time        `json:"checked_at,omitempty"`
+	// UptimeSeconds is how long the node's own process has run: the first thing to look at
+	// when a node "goes away" for a while and comes back by itself.
+	UptimeSeconds int64 `json:"uptime_seconds,omitempty" doc:"Сколько работает процесс ноды, секунды; нет у нод, что не отвечают или старше 0.5.1.6"`
+	// Egress is the node's own way to the internet, as last checked: a node that answers the
+	// panel while its uplink is down serves nobody. nil for older nodes.
+	Egress      *EgressView `json:"egress,omitempty"`
+	Listeners   int         `json:"listeners"`
+	ListenersOK int         `json:"listeners_ok"`
+	Conns       int         `json:"conns"`
+	CPUPercent  float64     `json:"cpu_percent" doc:"Загрузка процессора всего сервера, не только ноды"`
+	ProcCPU     *float64    `json:"proc_cpu_percent,omitempty" doc:"Доля процессора самого процесса ноды (вся машина = 100); нет у нод до 0.5.0.4"`
+	MemUsed     uint64      `json:"mem_used"`
+	MemTotal    uint64      `json:"mem_total"`
+	CheckedAt   *time.Time  `json:"checked_at,omitempty"`
 	// Traffic24h is what the node carried in the last day, both ways.
 	Traffic24h int64 `json:"traffic_24h" doc:"Сколько унесла нода за последние сутки (вверх и вниз вместе), байты; у только что добавленной ноды 0"`
 	// Cascade is the other nodes' cascades through this one: the relay's open connections
@@ -245,6 +259,12 @@ func (h *handlers) viewNode(ctx context.Context, n db.Node, inbounds []db.Inboun
 		v.ClockSkew = &s
 	}
 	v.Status, v.Version, v.Conns = "ok", hv.Health.Version, hv.Health.Conns
+	if !hv.Health.StartedAt.IsZero() {
+		v.UptimeSeconds = int64(h.d.Now().Sub(hv.Health.StartedAt).Seconds())
+	}
+	if eg := hv.Health.Egress; eg != nil {
+		v.Egress = &EgressView{OK: eg.OK, CheckedAt: eg.CheckedAt, LatencyMS: eg.LatencyMS, Error: eg.Error}
+	}
 	v.Cascade = cascadeConns(hv.Relay)
 	v.CPUPercent, v.MemUsed, v.MemTotal = hv.Health.System.CPUPercent, hv.Health.System.MemUsed, hv.Health.System.MemTotal
 	if p := hv.Health.System.ProcCPUPercent; p > 0 {

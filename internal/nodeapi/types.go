@@ -272,6 +272,21 @@ type Health struct {
 	// firewall has no rule (nft missing, an installer too old to know it); the node refuses
 	// strangers in its own listener either way. nil while it is off or the node is older.
 	APILock *PortStatus `json:"api_lock,omitempty"`
+	// Egress is the node's own way to the internet, as last checked: a node that answers the
+	// panel while its uplink or DNS is down serves nobody, and that must not look like a
+	// healthy node. nil: not checked (older nodes, or the first seconds after the start).
+	Egress *EgressStatus `json:"egress,omitempty"`
+}
+
+// EgressStatus is one check of the node's own way out: a direct TCP connect to a public
+// address and the host's resolver for a public name. Neither goes through the core: a failure
+// here is the server's uplink or DNS, while a healthy egress with users failing points at the
+// core, the rules or the network between the client and the node.
+type EgressStatus struct {
+	OK        bool      `json:"ok"`
+	CheckedAt time.Time `json:"checked_at"`
+	LatencyMS int64     `json:"latency_ms,omitempty"`
+	Error     string    `json:"error,omitempty"`
 }
 
 // PortStatus is how a port the node holds for a feature of its own went (the 301 on port

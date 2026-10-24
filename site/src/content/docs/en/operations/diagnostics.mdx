@@ -57,3 +57,14 @@ The tab appears for an operator with "Terminal" level access and only for the se
 ## When the panel does not open
 
 Then the page is out of reach. Run `mikan doctor` on the server: the same report in the terminal. For a support ticket there is `mikan support <code>`, see [The mikan command](/arikan/en/operations/cli/).
+
+## The server answers but the internet through it does not
+
+The classic picture: ping to the server goes through, the panel sees the node, and nothing opens for the clients. It is always one of four places — the node's card names the first two at once.
+
+1. **The node has no way to the internet.** Look at the card's **"Internet from the node"** line: every half minute the node itself connects to a public address by TCP and asks its resolver for a public name. "no" (with a banner naming the reason) means the server is reachable while its uplink or DNS is down: that is the host's and the server's network, not the panel or the clients. On the server check `curl -sS -o /dev/null -w '%{http_code}\n' https://1.1.1.1` and `getent hosts www.google.com`; both failing — call the host, only the second — fix DNS (`/etc/resolv.conf`, `nft list ruleset`).
+2. **The node's process restarts.** The **"Up for"** line is the process's uptime: a small one after the outage means a restart on our side — see `arikan status` and the node's `docker logs`; a continuous one means the process never died, keep looking.
+3. **Name resolution is broken on the client.** Sites open by IP and not by name: the device's DNS. In Clash apps these are the [DNS on the device and DNS at the exit](/arikan/en/subscriptions/routing/#dns) cards on the routing page; Xray apps (Happ, v2RayTun) resolve through the node — turn on "Read the site on the server" and check the resolver at the exit.
+4. **DPI throttles the data.** The node is alive, "Internet from the node" is yes, the port opens (the "Check node" window — a check from Russia), but the clients' connection stalls or crawls. The sign is tiny packets and almost no speed while ICMP ping flows. That is a block of one protocol or address on the path: change the inbound's protocol (Vision, XHTTP), send clients through a cascade to another node (Nodes → the card → Exit), check from another operator and compare `mtr` to the server. In Russia REALITY without Vision and plain VLESS are throttled first; XHTTP and Vision hold longer.
+
+If the inbounds' ports moved recently (autotune or a manual edit), a client may sit on the old port until its subscription refreshes: refresh it in the app. For a support ticket attach the card's uptime and "Internet from the node" line, `mikan doctor` and the node's log tail (the "Log" page in the panel).

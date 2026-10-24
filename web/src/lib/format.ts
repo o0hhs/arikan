@@ -164,6 +164,16 @@ export function timeLeft(iso: string, now = Date.now()): string {
   return t("time.uptimeMinutes", { m });
 }
 
+/** duration is a span in seconds in the words uptime uses ("1 ч 12 мин"). */
+export function duration(sec: number): string {
+  const d = Math.floor(sec / 86400);
+  const h = Math.floor((sec % 86400) / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  if (d > 0) return t("time.uptimeDays", { d, h });
+  if (h > 0) return t("time.uptimeHours", { h, m });
+  return t("time.uptimeMinutes", { m });
+}
+
 export function uptime(iso: string, now = Date.now()): string {
   const s = Math.max(0, Math.round((now - new Date(iso).getTime()) / 1000));
   const d = Math.floor(s / 86400);
