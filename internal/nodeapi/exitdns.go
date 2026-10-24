@@ -20,6 +20,22 @@ import (
 type ExitDNS struct {
 	Sniff   bool     `json:"sniff"`
 	Servers []string `json:"servers,omitempty"`
+	// Nameserver, Default, ProxyServer and Policy are the admin's Routing → DNS as the
+	// fork has always sent it: the resolver of the users' traffic in mihomo's terms, the
+	// bootstraps, the resolver of the node's own outbounds, and the per-domain overrides
+	// (nameserver-policy) a site like Gemini needs. Empty: the node's defaults.
+	Nameserver  []string    `json:"nameserver,omitempty"`
+	Default     []string    `json:"default_nameserver,omitempty"`
+	ProxyServer []string    `json:"proxy_server_nameserver,omitempty"`
+	Policy      []DNSPolicy `json:"policy,omitempty"`
+}
+
+// DNSPolicy is one nameserver-policy entry: the names Match covers ("+.cn") resolve with
+// Servers. Entries that need the geodata (geosite:, rule-set:) are left out by the panel:
+// a node has none.
+type DNSPolicy struct {
+	Match   string   `json:"match"`
+	Servers []string `json:"servers"`
 }
 
 // MaxDNSServers bounds the resolvers of a node.

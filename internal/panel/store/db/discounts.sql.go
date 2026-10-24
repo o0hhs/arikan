@@ -455,6 +455,44 @@ func (q *Queries) ListActiveDiscountsForTariff(ctx context.Context, arg ListActi
 	return items, nil
 }
 
+const listClosedReservedRedemptions = `-- name: ListClosedReservedRedemptions :many
+SELECT r.id, r.discount_id, r.payment_id FROM discount_redemptions r
+JOIN payments p ON p.id = r.payment_id
+WHERE r.status='reserved' AND r.payment_id IS NOT NULL AND p.status IN ('expired','failed','refunded')
+ORDER BY r.id LIMIT 200
+`
+
+type ListClosedReservedRedemptionsRow struct {
+	ID         int64
+	DiscountID int64
+	PaymentID  sql.NullInt64
+}
+
+// The reservations whose invoice closed without paying: the reconcile pass gives the
+// budget back, one payment at a time.
+func (q *Queries) ListClosedReservedRedemptions(ctx context.Context) ([]ListClosedReservedRedemptionsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listClosedReservedRedemptions)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListClosedReservedRedemptionsRow{}
+	for rows.Next() {
+		var i ListClosedReservedRedemptionsRow
+		if err := rows.Scan(&i.ID, &i.DiscountID, &i.PaymentID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listDiscountBuyers = `-- name: ListDiscountBuyers :many
 SELECT DISTINCT r.tg_id FROM discount_redemptions r WHERE r.discount_id=$1 AND r.status='applied' ORDER BY r.tg_id
 `
@@ -743,6 +781,19 @@ DELETE FROM discount_notices WHERE sent_at < $1
 func (q *Queries) PruneDiscountNotices(ctx context.Context, before int64) error {
 	_, err := q.db.ExecContext(ctx, pruneDiscountNotices, before)
 	return err
+}
+
+const releaseAppliedRedemption = `-- name: ReleaseAppliedRedemption :execrows
+UPDATE discount_redemptions SET status='released' WHERE id=$1 AND status='applied'
+`
+
+// A paid order is refunded: the sale it used did not stand, so its budget comes back.
+func (q *Queries) ReleaseAppliedRedemption(ctx context.Context, id int64) (int64, error) {
+	result, err := q.db.ExecContext(ctx, releaseAppliedRedemption, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const releaseDiscountRedemption = `-- name: ReleaseDiscountRedemption :execrows

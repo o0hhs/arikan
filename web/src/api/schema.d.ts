@@ -6332,6 +6332,11 @@ export interface components {
         PartnerBody: {
             name: string;
             note: string;
+            /**
+             * Format: int64
+             * @description Свой Telegram-аккаунт партнёра: по его же коду комиссия не начисляется; 0 — не задан
+             */
+            owner_tg_id?: number;
         };
         PartnerBotBody: {
             /** @description Токен бота партнёра; пусто — оставить прежний */

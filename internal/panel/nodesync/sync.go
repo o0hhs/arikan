@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"mikan/internal/panel/subs"
 	"net"
 	"slices"
 	"sort"
@@ -277,7 +278,7 @@ func (s *Syncer) desiredPin(ctx context.Context) (st nodeapi.DesiredState, pin s
 	}
 	st.Torrent = snap.torrent.Block()
 	st.Filters = snap.filters.State()
-	st.DNS = snap.exitDNS.State()
+	st.DNS = routesDNS(snap.exitDNS.State(), snap.routes)
 	st.Detail = snap.detail
 	st.HTTPRedirect = n.HttpRedirect != 0 && n.Address != ""
 	st.APIAllow = s.apiAllow(ctx, n)
@@ -553,14 +554,17 @@ func userPolicy(u db.User, grants int64, name string, seq int64, now time.Time, 
 	if u.SpeedLimit.Valid {
 		p.SpeedMbps = int(u.SpeedLimit.Int64)
 	}
-	if emergency && !p.Allowed {
-		// The emergency node keeps Telegram reachable for a subscription that ran out: it
-		// gets in here alone, endless in quota but shaped to the speed the node says.
+	// The emergency node lets in a subscription that ran out, and only that: a subscription
+	// the admin blocked keeps its block, and an account that never had one has nothing that
+	// ran out.
+	if emergency && state == domain.StateExpired && u.TariffID.Valid {
 		p.Allowed = true
 		p.QuotaRemaining = -1
-		if emergencySpeed > 0 {
-			p.SpeedMbps = emergencySpeed
-		}
+	}
+	// A subscription whose traffic ran out gets in here by its groups, as everywhere; the
+	// node's emergency cap keeps that path a lifeline rather than a free tunnel.
+	if emergency && emergencySpeed > 0 && (state == domain.StateLimited || state == domain.StateExpired && p.Allowed) {
+		p.SpeedMbps = emergencySpeed
 	}
 	// The user's devices are slots of their own: they share the user's speed and the
 	// node's fair share as one.
@@ -1267,4 +1271,25 @@ func sniRouter(inbounds []nodeapi.Inbound, nodeDomain string, front bool) *nodea
 		return nil
 	}
 	return r
+}
+
+// routesDNS puts the admin's Routing → DNS onto the state's exit DNS: the resolvers, the
+// bootstraps, the outbounds' resolver and the per-domain overrides. It keeps the node's own
+// resolver in the state even with Exit DNS off — a node has always resolved the sites its
+// users reach, and a site that answers by the resolver's country (Gemini) needs it to.
+func routesDNS(st *nodeapi.ExitDNS, r subs.Routes) *nodeapi.ExitDNS {
+	d := r.DNS
+	if st == nil && len(d.Nameserver) == 0 && len(d.Default) == 0 && len(d.ProxyServer) == 0 && len(d.Policy) == 0 {
+		return nil // nothing configured: the node applies its own defaults, as it always has
+	}
+	if st == nil {
+		st = &nodeapi.ExitDNS{}
+	}
+	st.Nameserver = append([]string{}, d.Nameserver...)
+	st.Default = append([]string{}, d.Default...)
+	st.ProxyServer = append([]string{}, d.ProxyServer...)
+	for _, p := range d.Policy {
+		st.Policy = append(st.Policy, nodeapi.DNSPolicy{Match: p.Match, Servers: append([]string{}, p.Servers...)})
+	}
+	return st
 }

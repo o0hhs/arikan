@@ -95,6 +95,7 @@ function PartnerCard({ p, onEdit, onRemove, onChanged }: { p: Partner; onEdit: (
             <h3 className="truncate font-display text-lg font-medium tracking-tight">{p.name}</h3>
           </div>
           {p.note ? <p className="mt-1 whitespace-pre-line text-[13px] text-[var(--md-on-surface-variant)]">{p.note}</p> : null}
+          {p.owner_tg_id ? <p className="mt-1 text-xs text-[var(--md-on-surface-variant)]">{t("partners.ownerLine", { id: p.owner_tg_id })}</p> : null}
         </div>
         <div className="flex gap-1">
           <button type="button" className="icon-btn" aria-label={t("partners.editLabel", { name: p.name })} onClick={onEdit}>
@@ -204,16 +205,18 @@ function PartnerDrawer({ partner, onClose, onSaved }: { partner: Partner | "new"
   const toast = useToast();
   const [name, setName] = useState("");
   const [note, setNote] = useState("");
+  const [owner, setOwner] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   useEffect(() => {
     if (!partner) return;
     setName(partner === "new" ? "" : partner.name);
     setNote(partner === "new" ? "" : partner.note);
+    setOwner(partner === "new" || !partner.owner_tg_id ? "" : String(partner.owner_tg_id));
     setErrors({});
   }, [partner]);
   const save = useMutation({
     mutationFn: () => {
-      const body = { name: name.trim(), note: note.trim() };
+      const body = { name: name.trim(), note: note.trim(), owner_tg_id: owner.trim() ? Number(owner.trim()) : 0 };
       return partner === "new" || !partner
         ? unwrap(api.POST("/api/v1/partners", { body }))
         : unwrap(api.PUT("/api/v1/partners/{id}", { params: { path: { id: partner.id } }, body }));
@@ -229,6 +232,10 @@ function PartnerDrawer({ partner, onClose, onSaved }: { partner: Partner | "new"
     e.preventDefault();
     if (!name.trim()) {
       setErrors({ name: t("partners.errName") });
+      return;
+    }
+    if (owner.trim() && !Number.isInteger(Number(owner.trim()))) {
+      setErrors({ owner: t("partners.errOwner") });
       return;
     }
     save.mutate();
@@ -251,6 +258,9 @@ function PartnerDrawer({ partner, onClose, onSaved }: { partner: Partner | "new"
         </Field>
         <Field label={t("partners.note")} htmlFor="p-note" hint={t("partners.noteHint")}>
           <input id="p-note" className="input" value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} />
+        </Field>
+        <Field label={t("partners.owner")} htmlFor="p-owner" hint={t("partners.ownerHint")} error={errors.owner}>
+          <input id="p-owner" className="input mono max-w-[220px]" inputMode="numeric" value={owner} onChange={(e) => setOwner(e.target.value.replace(/[^0-9]/g, ""))} placeholder="123456789" maxLength={20} />
         </Field>
       </form>
     </Drawer>

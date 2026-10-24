@@ -125,8 +125,17 @@ func (s *Service) DeviceInvoice(ctx context.Context, req DeviceRequest) (db.Paym
 		},
 		func(q *db.Queries, existing db.Payment) (bool, error) { return existing.Amount == amount, nil },
 		func(q *db.Queries) (db.Payment, error) {
-			return q.CreatePayment(ctx, db.CreatePaymentParams{Provider: req.Provider, Payload: secure.Token(32), TgID: req.TgID, Kind: KindDevice,
+			created, err := q.CreatePayment(ctx, db.CreatePaymentParams{Provider: req.Provider, Payload: secure.Token(32), TgID: req.TgID, Kind: KindDevice,
 				UserID: userID, TariffID: tariffID, TariffName: title, Amount: amount, Currency: currency, CreatedAt: now.Unix()})
+			if err != nil {
+				return db.Payment{}, err
+			}
+			if s.d.Partners != nil {
+				if err := s.d.Partners.TouchPayment(ctx, q, req.TgID, created.ID); err != nil {
+					return db.Payment{}, err
+				}
+			}
+			return created, nil
 		})
 	if err != nil || open {
 		return pay, err

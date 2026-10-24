@@ -59,13 +59,13 @@ A decided request cannot be decided twice: if another administrator handled it a
 
 ### A notice in the chat
 
-A new request also comes to the administrator's alerts chat with its screenshot: "Top-up waits", the account and the amount. The decision is still made in the panel. The chat is connected in **Telegram → Alerts to me → Private alerts**, see [Notifications](/mikan/en/operations/alerts/). Without the bot or the chat there is no notice, the request simply waits on the tab.
+A new request also comes to the administrator's alerts chat with its screenshot: "Top-up waits", the account and the amount. The decision is still made in the panel. The chat is connected in **Telegram → Alerts to me → Private alerts**, see [Notifications](/arikan/en/operations/alerts/). Without the bot or the chat there is no notice, the request simply waits on the tab.
 
 ## Paying from the balance
 
-When the balance is on and ready, the payment methods in the bot get a **💰 From the balance** line. It is there wherever a ruble price is paid: a new subscription, a renewal, a [traffic package](/mikan/en/billing/pools/), an [extra device](/mikan/en/billing/plans/#extra-devices). If the balance is short, the bot says so and sends the client to top it up.
+When the balance is on and ready, the payment methods in the bot get a **💰 From the balance** line. It is there wherever a ruble price is paid: a new subscription, a renewal, a [traffic package](/arikan/en/billing/pools/), an [extra device](/arikan/en/billing/plans/#extra-devices). If the balance is short, the bot says so and sends the client to top it up.
 
-In the [payment history](/mikan/en/billing/payments/#history-and-refunds) such a payment is marked with the "Balance" method.
+In the [payment history](/arikan/en/billing/payments/#history-and-refunds) such a payment is marked with the "Balance" method.
 
 ## Refunds
 
@@ -75,7 +75,7 @@ The **Refund** button in the payment history works for balance payments too. The
 
 The panel has no button for it, a correction goes through the API: `POST /api/v1/balances/{tg_id}/adjust` with the fields `delta` and `note`. The `delta` is in hundredths of the balance's currency (150 ₽ is `15000`), a minus takes money off. The `note` is required, the client sees it in the balance history. You cannot take more than the balance holds. The method works only from an administrator's session, an API key does not fit. A correction goes into the audit log as `balance.adjust`.
 
-`GET /api/v1/balances/{tg_id}` reads the balance and its history: the current amount, the currency and the last 50 operations (`topup`, `spend`, `refund`, `adjust`). `GET /api/v1/topups/{id}/photo` returns a request's screenshot. More on the API: [API](/mikan/en/api/).
+`GET /api/v1/balances/{tg_id}` reads the balance and its history: the current amount, the currency and the last 50 operations (`topup`, `spend`, `refund`, `adjust`). `GET /api/v1/topups/{id}/photo` returns a request's screenshot. More on the API: [API](/arikan/en/api/).
 
 ## Good to know
 

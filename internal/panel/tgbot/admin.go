@@ -69,14 +69,12 @@ func (b *Bot) sendNotice(chat int64, text string, kb *tgapi.Keyboard) {
 // adminMenu is what /admin answers: what the role may do.
 func (b *Bot) adminMenu(ctx context.Context, w *words, chat int64) (string, *tgapi.Keyboard) {
 	role := b.adminRole(ctx, chat)
-	if role == "" {
-		return "", nil // not the admin's chat: the bot does not answer
+	if role != "superadmin" && role != "support" {
+		return "", nil // not the admin side's chat (tech holds no admin data): no answer
 	}
 	rows := [][]tgapi.Button{
 		{{Text: w.adm("🔍 Найти пользователя", "🔍 Find a user"), CallbackData: "ad:s"}},
-	}
-	if role == "superadmin" || role == "support" {
-		rows = append(rows, []tgapi.Button{{Text: w.adm("😴 Спящие триалы", "😴 Sleeping trials"), CallbackData: "ad:t"}})
+		{{Text: w.adm("😴 Спящие триалы", "😴 Sleeping trials"), CallbackData: "ad:t"}},
 	}
 	if role == "superadmin" {
 		rows = append(rows, []tgapi.Button{{Text: w.adm("👥 Админы", "👥 Admins"), CallbackData: "ad:a"}})
@@ -115,7 +113,7 @@ func (b *Bot) adminDel(ctx context.Context, w *words, chat int64, arg string) {
 		return
 	}
 	id, err := strconv.ParseInt(strings.TrimSpace(arg), 10, 64)
-	if err != nil || b.d.Backend.AdminDelRole(ctx, id) != nil {
+	if err != nil || b.d.Backend.AdminDelRole(ctx, id, chat) != nil {
 		b.sendNotice(chat, w.adm("Не вышло: пришлите id.", "That did not work: send the id."), nil)
 		return
 	}
@@ -124,7 +122,7 @@ func (b *Bot) adminDel(ctx context.Context, w *words, chat int64, arg string) {
 
 // adminPress answers the admin menu's buttons.
 func (b *Bot) adminPress(ctx context.Context, w *words, chat int64, arg string) (string, *tgapi.Keyboard) {
-	if b.adminRole(ctx, chat) == "" {
+	if role := b.adminRole(ctx, chat); role != "superadmin" && role != "support" {
 		return "", nil
 	}
 	switch arg {
@@ -137,7 +135,7 @@ func (b *Bot) adminPress(ctx context.Context, w *words, chat int64, arg string) 
 		if b.adminRole(ctx, chat) != "superadmin" {
 			return "", nil
 		}
-		list, err := b.d.Backend.AdminList(ctx)
+		list, err := b.d.Backend.AdminList(ctx, chat)
 		if err != nil {
 			return "", nil
 		}
@@ -155,37 +153,46 @@ func (b *Bot) adminPress(ctx context.Context, w *words, chat int64, arg string) 
 	parts := strings.Split(arg, ":")
 	switch parts[0] {
 	case "u":
+		if len(parts) < 2 {
+			return "", nil
+		}
 		id, _ := strconv.ParseInt(parts[1], 10, 64)
-		return b.adminCardByID(ctx, w, id)
+		return b.adminCardByID(ctx, w, chat, id)
 	case "d":
 		if len(parts) != 3 {
 			return "", nil
 		}
 		days, _ := strconv.Atoi(parts[1])
 		id, _ := strconv.ParseInt(parts[2], 10, 64)
-		if _, err := b.d.Backend.AdminAddDays(ctx, id, days); err != nil {
+		if _, err := b.d.Backend.AdminAddDays(ctx, chat, id, days); err != nil {
 			return w.adm("Не вышло: подписки нет.", "That did not work: no subscription."), nil
 		}
-		text, kb := b.adminCardByID(ctx, w, id)
+		text, kb := b.adminCardByID(ctx, w, chat, id)
 		return text + "\n\n" + fmt.Sprintf(w.adm("➕ %d дн. добавлено", "➕ %d days added"), days), kb
 	case "r":
+		if len(parts) < 2 {
+			return "", nil
+		}
 		id, _ := strconv.ParseInt(parts[1], 10, 64)
-		if err := b.d.Backend.AdminResetSessions(ctx, id); err != nil {
+		if err := b.d.Backend.AdminResetSessions(ctx, chat, id); err != nil {
 			return w.adm("Не вышло: подписки нет.", "That did not work: no subscription."), nil
 		}
-		text, kb := b.adminCardByID(ctx, w, id)
+		text, kb := b.adminCardByID(ctx, w, chat, id)
 		return text + "\n\n" + w.adm("🔄 Сессии сброшены, ссылка перевыпущена", "🔄 Sessions reset, the link reissued"), kb
 	case "b":
+		if len(parts) < 2 {
+			return "", nil
+		}
 		id, _ := strconv.ParseInt(parts[1], 10, 64)
-		u, ok, err := b.d.Backend.AdminFindUser(ctx, parts[1])
+		u, ok, err := b.d.Backend.AdminFindUser(ctx, chat, parts[1])
 		if err != nil || !ok {
 			return "", nil
 		}
 		disabled := u.Status != "disabled"
-		if _, err := b.d.Backend.AdminSetDisabled(ctx, id, disabled); err != nil {
+		if _, err := b.d.Backend.AdminSetDisabled(ctx, chat, id, disabled); err != nil {
 			return "", nil
 		}
-		text, kb := b.adminCardByID(ctx, w, id)
+		text, kb := b.adminCardByID(ctx, w, chat, id)
 		what := w.adm("🚫 заблокирована", "🚫 blocked")
 		if !disabled {
 			what = w.adm("✅ разблокирована", "✅ unblocked")
@@ -203,7 +210,7 @@ func (b *Bot) adminPress(ctx context.Context, w *words, chat int64, arg string) 
 
 // adminCard is the subscriber's card by the search input.
 func (b *Bot) adminCard(ctx context.Context, w *words, chat int64, query string) {
-	u, ok, err := b.d.Backend.AdminFindUser(ctx, query)
+	u, ok, err := b.d.Backend.AdminFindUser(ctx, chat, query)
 	if err != nil || !ok {
 		b.sendNotice(chat, w.adm("Не нашёл. ID подписки, @username или номер платежа.", "Nothing found. A subscription id, an @username or a payment number."), nil)
 		return
@@ -213,8 +220,8 @@ func (b *Bot) adminCard(ctx context.Context, w *words, chat int64, query string)
 }
 
 // adminCardByID is the card of a known subscription.
-func (b *Bot) adminCardByID(ctx context.Context, w *words, id int64) (string, *tgapi.Keyboard) {
-	u, ok, err := b.d.Backend.AdminFindUser(ctx, strconv.FormatInt(id, 10))
+func (b *Bot) adminCardByID(ctx context.Context, w *words, chat, id int64) (string, *tgapi.Keyboard) {
+	u, ok, err := b.d.Backend.AdminFindUser(ctx, chat, strconv.FormatInt(id, 10))
 	if err != nil || !ok {
 		return w.adm("Не нашёл подписку.", "No such subscription."), nil
 	}
@@ -268,7 +275,7 @@ func (b *Bot) adminCardOf(ctx context.Context, w *words, u model.User) (string, 
 
 // sleepingTrials lists the accounts that took a trial and could not connect.
 func (b *Bot) sleepingTrials(ctx context.Context, w *words, chat int64) (string, *tgapi.Keyboard) {
-	list, err := b.d.Backend.AdminSleepingTrials(ctx)
+	list, err := b.d.Backend.AdminSleepingTrials(ctx, chat)
 	if err != nil {
 		return "", nil
 	}
@@ -295,14 +302,18 @@ func (b *Bot) sleepingTrials(ctx context.Context, w *words, chat int64) (string,
 // the connect button, a step of 50 ms apart — Telegram's flood limits are per second, and
 // the outbox queues what it cannot send at once anyway.
 func (b *Bot) reactivateTrials(ctx context.Context, w *words, chat int64) {
-	list, err := b.d.Backend.AdminSleepingTrials(ctx)
+	if !b.trials.TryLock() {
+		return // a campaign is already running: one button, one mailing
+	}
+	defer b.trials.Unlock()
+	list, err := b.d.Backend.AdminSleepingTrials(ctx, chat)
 	if err != nil {
 		return
 	}
 	sent := 0
 	kb := &tgapi.Keyboard{InlineKeyboard: [][]tgapi.Button{{{Text: w.connectButton, CallbackData: "c", Style: tgapi.StylePrimary}}}}
 	for _, t := range list {
-		if _, err := b.d.Backend.AdminAddDays(ctx, t.UserID, 3); err != nil {
+		if _, err := b.d.Backend.AdminAddDays(ctx, chat, t.UserID, 3); err != nil {
 			continue
 		}
 		text := w.adm("🎁 Мы продлили ваш пробный период на 3 дня.\n\nПодключиться — одна кнопка ниже; если не вышло, напишите в поддержку.", "🎁 Your trial is three days longer.\n\nOne tap below to connect; if it does not work, write to support.")

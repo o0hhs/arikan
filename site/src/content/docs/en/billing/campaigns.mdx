@@ -1,0 +1,28 @@
+---
+title: Ad campaigns
+description: 'Campaign tags: links to the bot that carry a tag, the arrivals and first purchases by them, an agent the campaign pays and their share.'
+---
+
+A campaign is a tag a link to the bot carries: `t.me/<bot>?start=camp_<tag>`. The panel counts by every tag how many people came, how many of them bought a subscription for the first time, how many renewed and for how much, and pays a share to an advertising agent when the campaign belongs to one.
+
+## Create a campaign
+
+**Payments → Campaigns** keeps the tags and their stats.
+
+1. Press "Add" and name the campaign — for yourself; the stats show the name.
+2. The tag takes latin letters, digits, a dash and an underscore; the link carries it as `?start=camp_<tag>`. The same tag does not exist twice.
+3. Copy the link from the card and put it where the advert goes.
+
+An arrival counts once per Telegram account: whoever opens a second tagged link — this campaign's or another's — stays the first one's arrival. A purchase counts to the campaign when the account bought for the first time; a renewal when it renewed. The sum is of the applied payments in rubles; a refunded payment leaves the stats.
+
+## Switch off and remove
+
+A switched-off tag counts nobody new and keeps its stats. Removing takes the tag off the list: its arrivals stay in the payment history and the agent's books.
+
+## An advertising agent
+
+A campaign may have an agent: pick one in the campaign's card and a percent (1–100). Then every applied payment of a subscriber who came by the link pays the agent that share to their balance — the credits show in **Payments → Agents**, with their links and payouts. The owner's own campaigns have no agent and pay no share.
+
+## Where to look
+
+The **Campaigns** tab shows each tag's arrivals, first purchases, renewals and sum; the button opens the list of the accounts that came, with the date they first opened the link. Subscribers never see tags: they open the advert's link and get the bot's usual greeting.

@@ -2,6 +2,7 @@ package botpanel
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"strings"
 	"testing"
@@ -124,7 +125,7 @@ func TestSleepingTrialsMailing(t *testing.T) {
 		}
 		ids = append(ids, u.ID)
 	}
-	list, err := e.local.AdminSleepingTrials(ctx)
+	list, err := e.local.AdminSleepingTrials(ctx, 777)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -152,5 +153,44 @@ func TestSleepingTrialsMailing(t *testing.T) {
 		if u.ExpiresAt.Int64-before[id] != 3*86400 {
 			t.Fatalf("trial %d: %d → %d", id, before[id], u.ExpiresAt.Int64)
 		}
+	}
+}
+
+// The panel itself refuses an admin call whose actor holds no role: the bot's screens are
+// not the only gate, and an addon that holds the bot is not the actor.
+func TestAdminCallsRefuseWithoutRole(t *testing.T) {
+	e := setup(t)
+	e.link(555)
+	if err := setInt(e, KeyAdminOwner, 777); err != nil {
+		t.Fatal(err)
+	}
+	ctx := e.ctx
+	if _, err := e.local.AdminAddDays(ctx, 555, 1, 3); !errors.Is(err, errNoAdmin) {
+		t.Fatalf("days for a stranger: %v", err)
+	}
+	if _, err := e.local.AdminSetDisabled(ctx, 555, 1, true); !errors.Is(err, errNoAdmin) {
+		t.Fatalf("block by a stranger: %v", err)
+	}
+	if _, ok, err := e.local.AdminFindUser(ctx, 555, "555"); err == nil || ok {
+		t.Fatalf("a stranger's search: %v %v", ok, err)
+	}
+	if _, err := e.local.AdminList(ctx, 555); !errors.Is(err, errNoAdmin) {
+		t.Fatalf("the list for a stranger: %v", err)
+	}
+	if err := e.local.AdminDelRole(ctx, 777, 555); !errors.Is(err, errNoAdmin) {
+		t.Fatalf("a stranger removing a role: %v", err)
+	}
+	// The support may act on a subscription, and only the superadmin names the roles.
+	if _, err := e.local.AdminAddDays(ctx, 777, 1, 3); err != nil {
+		t.Fatalf("the owner's days: %v", err)
+	}
+	if err := e.local.AdminSetRole(ctx, 888, "support", 777); err != nil {
+		t.Fatalf("the owner naming support: %v", err)
+	}
+	if err := e.local.AdminDelRole(ctx, 888, 777); err != nil {
+		t.Fatalf("the owner removing a role: %v", err)
+	}
+	if _, err := e.local.AdminList(ctx, 888); !errors.Is(err, errNoAdmin) {
+		t.Fatalf("the list for support: %v", err)
 	}
 }

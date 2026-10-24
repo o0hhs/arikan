@@ -110,6 +110,18 @@ func TestForkBotIsPreferred(t *testing.T) {
 	if !asked(addons.ForkBotID) || asked(OfficialBot) {
 		t.Fatalf("not this fork's bot: %+v", h.p.Addons.Pending())
 	}
+	// The host is told what the source says (its image and digest), not just an id: this
+	// fork's bot is not in the marketplace catalog, and an install by id there fails.
+	var askedReq addons.Request
+	for _, r := range h.p.Addons.Pending() {
+		if r.ID == addons.ForkBotID {
+			askedReq = r
+		}
+	}
+	if askedReq.Source != addons.SourceCustom || askedReq.Image != "ghcr.io/o0hhs/arikan" || !strings.HasPrefix(askedReq.Digest, "sha256:a") ||
+		askedReq.Kind != addons.KindBot || askedReq.Mode != addons.ModeClient || askedReq.MemMB == 0 {
+		t.Fatalf("the host is asked by id from the catalog: %+v", askedReq)
+	}
 	want := []string{"bot", "users:read", "users:write", "billing:invoice", "events", "kv"}
 	if perms, _, err := addons.LoadGrant(ctx, h.st.Q, addons.ForkBotID); err != nil || !addons.SamePermissions(perms, want) {
 		t.Fatalf("grant: %v %v", perms, err)

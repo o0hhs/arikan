@@ -125,3 +125,15 @@ INSERT INTO discount_notices (discount_id,tg_id,kind,sent_at) VALUES (sqlc.arg(d
 
 -- name: PruneDiscountNotices :exec
 DELETE FROM discount_notices WHERE sent_at < sqlc.arg(before);
+
+-- name: ReleaseAppliedRedemption :execrows
+-- A paid order is refunded: the sale it used did not stand, so its budget comes back.
+UPDATE discount_redemptions SET status='released' WHERE id=sqlc.arg(id) AND status='applied';
+
+-- name: ListClosedReservedRedemptions :many
+-- The reservations whose invoice closed without paying: the reconcile pass gives the
+-- budget back, one payment at a time.
+SELECT r.id, r.discount_id, r.payment_id FROM discount_redemptions r
+JOIN payments p ON p.id = r.payment_id
+WHERE r.status='reserved' AND r.payment_id IS NOT NULL AND p.status IN ('expired','failed','refunded')
+ORDER BY r.id LIMIT 200;

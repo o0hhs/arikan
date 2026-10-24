@@ -207,9 +207,15 @@ func (h *handlers) readSettings(ctx context.Context) (SettingsView, error) {
 	if err == nil {
 		v.MTProto, _, err = settings.Get[[]subs.MTProxy](ctx, h.d.Settings, settings.KeyMTProto)
 	}
-	// An own profile may hold the admin's own proxies, a controller secret or DNS tokens.
+	// An own profile may hold the admin's own proxies, a controller secret or DNS tokens;
+	// an MTProto proxy's secret is the key that lets its users in. A reader that may not
+	// see secrets gets neither (the proxy's address and name stay: they let nobody in).
 	if !hidesSecrets(ctx) {
 		get(settings.KeyTemplate, &v.SubTemplate)
+	} else {
+		for i := range v.MTProto {
+			v.MTProto[i].Secret = ""
+		}
 	}
 	get(settings.KeyFingerprint, &v.Fingerprint)
 	if !proto.ValidFingerprint(v.Fingerprint) {

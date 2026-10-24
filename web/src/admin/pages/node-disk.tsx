@@ -24,11 +24,13 @@ type Disk = {
   freed: number;
 };
 
-const diskKey = (node: { id: number }) => ["node-disk", node.id] as const;
+// null is the closed drawer: the key is computed on every render, so it takes the
+// absence as well as the node.
+const diskKey = (node: { id: number } | null) => ["node-disk", node?.id ?? 0] as const;
 
 function useDisk(node: { id: number } | null) {
   return useQuery({
-    queryKey: diskKey(node!),
+    queryKey: diskKey(node),
     queryFn: ({ signal }) => rawJson<Disk>(`/api/v1/nodes/${node!.id}/disk`, { signal }),
     enabled: !!node,
   });
@@ -45,7 +47,7 @@ export function NodeDiskDrawer({ node, onClose }: { node: { id: number; name: st
       setConfirming(false);
       toast.ok(st.freed > 0 ? t("nodes.diskFreed", { size: bytes(st.freed) }) : t("nodes.diskNothing"));
     },
-    onSettled: () => void qc.invalidateQueries({ queryKey: diskKey(node!) }),
+    onSettled: () => void qc.invalidateQueries({ queryKey: diskKey(node) }),
     onError: (e) => toast.error(errorText(e)),
   });
   const pct = disk.data?.total ? Math.round(((disk.data.total - disk.data.free) / disk.data.total) * 100) : 0;

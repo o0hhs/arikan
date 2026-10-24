@@ -124,3 +124,54 @@ func TestPartnerCodeAndCommission(t *testing.T) {
 	}
 	_ = time.Now
 }
+
+// The partner's own account is not its code's customer, and a refund takes the share back
+// exactly once.
+func TestPartnerSelfAndRevert(t *testing.T) {
+	s, st := newTest(t)
+	ctx := context.Background()
+	p, err := st.Q.CreatePartner(ctx, db.CreatePartnerParams{Name: "Иван", OwnerTgID: 900, CreatedAt: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	bot, err := st.Q.CreatePartnerBot(ctx, db.CreatePartnerBotParams{PartnerID: p.ID, Code: "own", CommissionPercent: 10, CreatedAt: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok, err := s.Code(ctx, 900, "own"); ok || err != nil {
+		t.Fatalf("the partner's own code: %v %v", ok, err)
+	}
+	if _, ok, err := s.Code(ctx, 901, "own"); !ok || err != nil {
+		t.Fatalf("a stranger's code: %v %v", ok, err)
+	}
+	tariff, err := st.Q.CreateTariff(ctx, db.CreateTariffParams{Name: "Плюс", DurationDays: 30, ResetStrategy: "none", CreatedAt: 1, OnSale: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var pay db.Payment
+	if err := st.Tx(ctx, func(q *db.Queries) error {
+		var err error
+		if pay, err = q.CreatePayment(ctx, db.CreatePaymentParams{Provider: "stars", Payload: "pl-1", TgID: 901, Kind: "new",
+			TariffID: sql.NullInt64{Int64: tariff.ID, Valid: true}, TariffName: tariff.Name, Amount: 10000, Currency: "RUB", CreatedAt: 1}); err != nil {
+			return err
+		}
+		if err = q.SetPaymentPartner(ctx, db.SetPaymentPartnerParams{PartnerBotID: sql.NullInt64{Int64: bot.ID, Valid: true}, ID: pay.ID}); err != nil {
+			return err
+		}
+		pay.PartnerBotID = sql.NullInt64{Int64: bot.ID, Valid: true}
+		return s.Credit(ctx, q, pay)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if b, err := st.Q.GetPartnerBot(ctx, bot.ID); err != nil || b.BalanceKop != 1000 {
+		t.Fatalf("commission: %+v %v", b, err)
+	}
+	for i := 0; i < 2; i++ { // the second pass is a retried reconcile: nothing more comes off
+		if err := st.Tx(ctx, func(q *db.Queries) error { return s.Revert(ctx, q, pay.ID) }); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if b, err := st.Q.GetPartnerBot(ctx, bot.ID); err != nil || b.BalanceKop != 0 {
+		t.Fatalf("a refund takes the share back once: %+v %v", b, err)
+	}
+}
