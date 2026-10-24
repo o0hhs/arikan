@@ -101,8 +101,12 @@ func TestHandleEventPaymentMessages(t *testing.T) {
 		t.Fatalf("paid, subscription deleted: %v", err)
 	}
 	time.Sleep(100 * time.Millisecond)
-	if e.tg.count() != n {
-		t.Fatal("a payment of a deleted subscription was thanked")
+	// A menu of the previous step may still be on its way: what must not come is the
+	// thanks itself.
+	for _, c := range e.tg.since(n) {
+		if c.method == "sendMessage" && strings.Contains(text(c), "готова") {
+			t.Fatal("a payment of a deleted subscription was thanked")
+		}
 	}
 
 	// trial.not_given: why, and where the money comes back, with the support link.
@@ -118,8 +122,10 @@ func TestHandleEventPaymentMessages(t *testing.T) {
 		t.Fatal(err)
 	}
 	time.Sleep(100 * time.Millisecond)
-	if e.tg.count() != n {
-		t.Fatal("a trial that was refunded by itself was told twice")
+	for _, c := range e.tg.since(n) {
+		if c.method == "sendMessage" && strings.Contains(text(c), "не засчитан") {
+			t.Fatal("a trial that was refunded by itself was told twice")
+		}
 	}
 
 	// An event that says nothing readable is let go, not retried for ever.

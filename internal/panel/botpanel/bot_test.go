@@ -55,6 +55,16 @@ type fakeTelegram struct {
 	notAdmin bool
 }
 
+// since is the calls after the first n, as they were when it was asked.
+func (f *fakeTelegram) since(n int) []call {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if n > len(f.calls) {
+		n = len(f.calls)
+	}
+	return append([]call(nil), f.calls[n:]...)
+}
+
 // join puts an account in the channel ("" takes it out).
 func (f *fakeTelegram) join(id int64, status string) {
 	f.mu.Lock()
