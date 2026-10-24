@@ -3,7 +3,7 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
-## Unreleased
+## 0.5.2.2
 ### en
 **The update's first three breaks: the Nodes page, the fork bot's update, and the DNS the nodes resolve by.**
 - **Nodes opened to an error.** The disk drawer computed its query key from the node while the drawer was closed, and the page crashed on the null (`Cannot read properties of null`). The key takes the closed drawer now; the page opens as before.
