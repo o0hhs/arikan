@@ -3,6 +3,19 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
+## 0.5.2.4
+### en
+**The node now says whether it has internet, and one bad connection no longer takes the node down with it.**
+- **"Internet from the node" on the node's card.** Every half minute the node itself opens a TCP connection to a public address and asks its resolver for a public name, and reports both; the card shows the result, and a banner with the reason when it is down. This is the "ping works, the internet does not" case: the server answers while its uplink or DNS is gone, and until now it looked like a healthy node.
+- **The process's uptime on the card.** A small "Up for" value after an outage means the node restarted on our side; a continuous one points at the network, the client's DNS or the DPI — the new section "The server answers but the internet through it does not" in Diagnostics walks the four layers and says what to attach to a ticket.
+- **One panic no longer ends the data plane.** A panic in one connection's handling, in the state restore, in the hello loop or in a background job is logged and contained: an unrecovered panic in any goroutine used to end the whole process.
+
+### ru
+**Нода теперь говорит, есть ли у неё интернет, а одно плохое соединение больше не роняет ноду целиком.**
+- **«Интернет с ноды» в карточке.** Каждые полминуты нода сама открывает TCP-соединение к публичному адресу и спрашивает у своего резолвера публичное имя, и сообщает оба результата; карточка показывает итог, а при отказе — баннер с причиной. Это случай «ping идёт, а интернета нет»: сервер отвечает, пока его аплинк или DNS лежит, и до сих пор выглядел здоровым.
+- **Аптайм процесса на карточке.** Маленькое «Работает» после отвала значит, что нода перезапускалась у нас; непрерывное — сеть, DNS клиента или DPI — новый раздел «Сервер отвечает, а интернета через него нет» в «Диагностике» проходит четыре слоя и говорит, что приложить к обращению.
+- **Одна паника больше не роняет data plane.** Паника в обработке соединения, в восстановлении состояния, в hello-цикле или в фоновой задаче пишется в лог и остаётся в ней: необработанная паника в любой горутине раньше завершала весь процесс.
+
 ## 0.5.2.3
 ### en
 **The partners' books sit where the money is, and the additions are put away until they are needed.**
