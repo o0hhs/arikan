@@ -56,6 +56,7 @@ func kbFind(c call, want string) (kbButton, bool) {
 // the app, and installing an app is a screen of its own rather than a second button per app.
 func TestConnectBuyerFlow(t *testing.T) {
 	e := setup(t)
+	e.local.Billing.SetTelegram(e.gate)
 	if err := settings.Set(e.ctx, e.set, billing.KeyConfig, billing.Config{Enabled: true, Stars: true, AllowNew: true}); err != nil {
 		t.Fatal(err)
 	}

@@ -22,6 +22,11 @@ func deviceEnv(t *testing.T) (*env, db.User) {
 	must(t, err)
 	must(t, e.st.Q.LinkTg(ctx, db.LinkTgParams{UserID: u.ID, TgID: 555, CreatedAt: 1}))
 	must(t, e.st.Q.SetTariffExtraDevices(ctx, db.SetTariffExtraDevicesParams{DevicePriceStars: sql.NullInt64{Int64: 40, Valid: true}, DeviceExtraMax: 2, ID: e.sale.ID}))
+	// The seeded packs are off sale: these tests are of the single-device purchase, which
+	// is the way places are sold only while no pack is. The pack tests make their own.
+	if _, err := e.st.DB.ExecContext(ctx, "UPDATE device_packs SET on_sale = false"); err != nil {
+		t.Fatal(err)
+	}
 	return e, u
 }
 

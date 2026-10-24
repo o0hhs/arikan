@@ -26,6 +26,7 @@ func TestBalanceTopupAndPay(t *testing.T) {
 		d.Billing = svc
 	})
 	svc.SetTelegram(e.gate)
+	e.noDevicePacks()
 	const owner = 555
 	q := e.st.Q
 	must := func(err error) {

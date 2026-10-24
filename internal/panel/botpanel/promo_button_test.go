@@ -106,21 +106,29 @@ func TestPromoButtonInMenu(t *testing.T) {
 		t.Fatalf("the rest of the menu is unchanged: %v", rows)
 	}
 
-	// Subscriptions switcher still comes last and the menu has no empty row.
+	// The subscriptions list is the subscription screen's now: the menu has no empty row
+	// and no switcher of its own.
 	second := e.linkAnother(555)
 	rows = menuTexts(t, e.menuOf(cfg, 555))
-	if last := rows[len(rows)-1]; len(last) != 1 || !strings.HasPrefix(last[0], "🔁 Подписки") {
-		t.Fatalf("the subscriptions button: %v", rows)
+	for _, r := range rows {
+		for _, b := range r {
+			if strings.HasPrefix(b, "🔁 Подписки") {
+				t.Fatalf("the subscriptions button is still in the menu: %v", rows)
+			}
+		}
+	}
+	if _, ok := buttons(e.tap(555, "s"))["🔁 Подписки (2)"]; !ok {
+		t.Fatalf("no subscriptions list on the subscription screen: %v", buttons(e.tap(555, "s")))
 	}
 	if err := e.st.Q.UnlinkTg(e.ctx, second.ID); err != nil {
 		t.Fatal(err)
 	}
 
-	// Without the Mini App there is no promo button either way.
+	// The code is entered in the chat: the button needs no Mini App.
 	cfg.PromoButton = true
 	cfg.MiniApp = false
-	if rows = menuTexts(t, e.menuOf(cfg, 555)); hasPromo(rows) {
-		t.Fatalf("no Mini App, no promo button: %v", rows)
+	if rows = menuTexts(t, e.menuOf(cfg, 555)); !hasPromo(rows) {
+		t.Fatalf("the promo button does not need the Mini App: %v", rows)
 	}
 }
 

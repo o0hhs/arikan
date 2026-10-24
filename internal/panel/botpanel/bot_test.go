@@ -915,3 +915,12 @@ func signed(token string, vals url.Values) string {
 	vals.Set("hash", hex.EncodeToString(m.Sum(nil)))
 	return vals.Encode()
 }
+
+// noDevicePacks takes the seeded packs off sale: a test of the single-device purchase
+// exercises the way places are sold while no pack is on sale.
+func (e *env) noDevicePacks() {
+	e.t.Helper()
+	if _, err := e.st.DB.ExecContext(e.ctx, "UPDATE device_packs SET on_sale = false"); err != nil {
+		e.t.Fatal(err)
+	}
+}
