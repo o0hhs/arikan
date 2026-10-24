@@ -401,6 +401,20 @@ func (q *Queries) DeleteNodeStateOf(ctx context.Context, nodeID string) error {
 	return err
 }
 
+const deleteTariff = `-- name: DeleteTariff :execrows
+DELETE FROM tariffs t WHERE t.id = $1 AND NOT EXISTS (SELECT 1 FROM users u WHERE u.tariff_id = t.id)
+`
+
+// A tariff deleted for good: only one no subscription is on. Its terms and servers go with
+// it (ON DELETE CASCADE); a payment keeps its own tariff_name and loses the link.
+func (q *Queries) DeleteTariff(ctx context.Context, id int64) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteTariff, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const deleteTariffTerms = `-- name: DeleteTariffTerms :exec
 DELETE FROM tariff_terms WHERE tariff_id = $1
 `

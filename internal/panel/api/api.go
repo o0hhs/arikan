@@ -182,6 +182,9 @@ type Deps struct {
 // NodeRuntime is what the API needs from the running nodes.
 type NodeRuntime interface {
 	Health(id int64) (nodesync.HealthView, bool)
+	// Activity is, per device, when each inbound last let it in: which protocols the
+	// subscription really uses on that node (internal/node's hour of memory).
+	Activity(ctx context.Context, id int64) (nodeapi.Activity, error)
 	// Validate runs mihomo's parser on an inbound on the node that will run it.
 	Validate(ctx context.Context, id int64, req nodeapi.ValidateRequest) error
 	// Retire makes a node drop its listeners and users before it is removed.

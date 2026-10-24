@@ -164,6 +164,8 @@ func (h *handlers) registerCatalog() {
 	huma.Register(h.api, huma.Operation{OperationID: "update-tariff", Method: http.MethodPut, Path: "/api/v1/tariffs/{id}", Summary: "Изменить тариф", Tags: []string{"tariffs"}}, h.updateTariff)
 	huma.Register(h.api, huma.Operation{OperationID: "archive-tariff", Method: http.MethodDelete, Path: "/api/v1/tariffs/{id}", Summary: "Убрать тариф в архив", Tags: []string{"tariffs"}, DefaultStatus: http.StatusNoContent}, h.archiveTariff)
 	huma.Register(h.api, huma.Operation{OperationID: "restore-tariff", Method: http.MethodPost, Path: "/api/v1/tariffs/{id}/restore", Summary: "Вернуть тариф из архива", Tags: []string{"tariffs"}}, h.restoreTariff)
+	huma.Register(h.api, huma.Operation{OperationID: "delete-tariff", Method: http.MethodDelete, Path: "/api/v1/tariffs/{id}/permanent", Summary: "Удалить тариф навсегда",
+		Description: "Тариф без единой подписки: его сроки и серверы удаляются, а оплаты сохраняют название тарифа. Подписки держат тариф: сначала переведите их на другой.", Tags: []string{"tariffs"}, DefaultStatus: http.StatusNoContent}, h.deleteTariff)
 	huma.Register(h.api, huma.Operation{OperationID: "apply-tariff", Method: http.MethodPost, Path: "/api/v1/tariffs/{id}/apply", Summary: "Применить тариф к уже выданным подпискам: выбранные части тарифа заменят свои значения клиентов, срок и израсходованное останутся", Tags: []string{"tariffs"}}, h.applyTariff)
 }
 
@@ -351,6 +353,27 @@ func (h *handlers) restoreTariff(ctx context.Context, in *userIDInput) (*tariffO
 		return nil, err
 	}
 	return h.tariffOut(ctx, t)
+}
+
+// deleteTariff erases a tariff no subscription is on: archive is the usual way off the shop,
+// this one is for a plan made by mistake or one the admin is done with. A payment keeps its
+// tariff_name; its link goes (0069).
+func (h *handlers) deleteTariff(ctx context.Context, in *userIDInput) (*struct{}, error) {
+	if _, err := h.d.Store.Q.GetTariff(ctx, in.ID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, huma.Error404NotFound("not_found")
+		}
+		return nil, err
+	}
+	n, err := h.d.Store.Q.DeleteTariff(ctx, in.ID)
+	if err != nil {
+		return nil, err
+	}
+	if n == 0 {
+		return nil, huma.Error409Conflict("tariff_in_use", &huma.ErrorDetail{Location: "path.id", Message: "subscriptions are on the tariff"})
+	}
+	h.audit(ctx, sessionOf(ctx).AdminID, "tariff.delete", "tariff", strconv.FormatInt(in.ID, 10), nil)
+	return nil, nil
 }
 
 type applyTariffInput struct {

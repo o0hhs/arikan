@@ -3,6 +3,23 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
+## Unreleased
+### en
+**The admin's round of five: colors for the bot's own buttons, one «Where clients go», plans deleted for good, protocols per client, and a wider client card.**
+- **Every built-in button takes a color.** Telegram → Menu and texts → «The bot's buttons»: beside the emoji, the label and the premium emoji id, each button has Telegram's color — Plain, Blue, Green or Red — as the main menu's buttons already had. An empty color keeps the one the screen gives the button.
+- **«Where clients go» showed twice in the client's card.** The section was rendered twice after the merge; one is left, in its place under the traffic.
+- **A plan can be deleted for good.** «Удалить навсегда» beside archiving: the plan, its terms and its servers go, and a plan subscriptions are on is refused with the reason (move them to another plan first). Payments keep the plan's own name; their link to the row becomes none (migration 0069), so the history stays readable.
+- **Protocols, not only servers.** The client's card has «Протоколы»: the protocols the subscription actually uses — each node remembers which inbound admitted each device, the panel sums it by preset — with the last time, how many devices and how many nodes. It is usage, not traffic, and it covers the last hour. The per-node traffic moved into «Дополнительно».
+- **The client's card is as wide as the users list.** 880 pixels on a desktop: the traffic chart, the sites, the protocols and the devices have room, and the card no longer squeezes them into a form's width.
+
+### ru
+**Раунд админа из пяти: цвета собственных кнопок бота, одно «Куда ходят», удаление тарифов навсегда, протоколы по клиенту и карточка клиента шире.**
+- **Каждая собственная кнопка получает цвет.** Telegram → «Меню и тексты» → «Кнопки бота»: рядом с эмодзи, надписью и id премиум-эмодзи у кнопки есть цвет Telegram — обычная, синяя, зелёная или красная, — как у кнопок главного меню. Пустой цвет оставляет тот, что даёт экран.
+- **«Куда ходят клиенты» показывалось в карточке клиента дважды.** После слияния раздел выводился два раза; остался один, на своём месте под трафиком.
+- **Тариф можно удалить навсегда.** «Удалить навсегда» рядом с архивированием: тариф, его сроки и серверы удаляются, а тариф с подписками удалить не дадут и скажут причину (сначала переведите подписки на другой). Оплаты сохраняют название тарифа, а ссылка на строку становится пустой (миграция 0069), так что история читается.
+- **Протоколы, а не только серверы.** В карточке клиента появился раздел «Протоколы»: какими протоколами подписка реально пользуется — каждая нода помнит, какой inbound впустил каждое устройство, панель суммирует по пресетам — с последним временем, числом устройств и нод. Это использование, а не трафик, и окно — последний час. Трафик по нодам переехал в «Дополнительно».
+- **Карточка клиента — шириной со список пользователей.** 880 пикселей на десктопе: графику трафика, сайтам, протоколам и устройствам хватает места, и карточка больше не ужимает их до ширины формы.
+
 ## 0.5.2.6
 ### en
 **Seven fixes: the community bot on this fork, install apart from connect, promo codes in the chat, one way to sell device places, months in the terms, a label for every button, and a subscription screen without duplicates.**

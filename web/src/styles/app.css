@@ -436,6 +436,8 @@ html[data-font="system"] {
   .scrim { position: fixed; inset: 0; background: var(--md-scrim); z-index: 40; }
   .drawer { position: fixed; top: 16px; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); width: min(480px, calc(100vw - 32px)); border-radius: var(--md-shape-xl); z-index: 50; display: flex; flex-direction: column; overflow: hidden; }
   .drawer.wide { width: min(560px, calc(100vw - 32px)); }
+  /* A record with many sections: the width of the page's own column, so its lists and charts breathe. */
+  .drawer.full { width: min(880px, calc(100vw - 32px)); }
   .dr-head { display: flex; align-items: flex-start; gap: 16px; padding: 20px 20px 16px; border-bottom: 1px solid var(--md-outline-variant); }
   .dr-title h2 { font: var(--md-title-large); letter-spacing: var(--md-tracking-title); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .dr-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin-top: 8px; font: var(--md-body-small); color: var(--md-on-surface-variant); }

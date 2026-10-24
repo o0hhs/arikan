@@ -134,6 +134,9 @@ func applyLabels(cfg Config, w *words, kb *tgapi.Keyboard) *tgapi.Keyboard {
 			if label.EmojiID != "" {
 				btn.IconCustomEmojiID = label.EmojiID
 			}
+			if label.Style != "" {
+				btn.Style = label.Style
+			}
 		}
 	}
 	return kb

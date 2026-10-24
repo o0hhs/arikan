@@ -2928,6 +2928,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tariffs/{id}/permanent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Удалить тариф навсегда
+         * @description Тариф без единой подписки: его сроки и серверы удаляются, а оплаты сохраняют название тарифа. Подписки держат тариф: сначала переведите их на другой.
+         */
+        delete: operations["delete-tariff"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tariffs/{id}/restore": {
         parameters: {
             query?: never;
@@ -3493,6 +3513,26 @@ export interface paths {
         get: operations["user-pools"];
         /** Как подписка пользователя держит группы серверов */
         put: operations["set-user-pools"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{id}/protocols": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Протоколы пользователя
+         * @description Какими протоколами подписка пользовалась за последний час: ноды помнят, какой inbound впустил каждое устройство. Не сумма трафика, а то, чем человек реально подключается.
+         */
+        get: operations["user-protocols"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -4290,6 +4330,11 @@ export interface components {
         ButtonLabel: {
             emoji?: string;
             emoji_id?: string;
+            /**
+             * @description Цвет кнопки в свежих клиентах Telegram: primary — синий, success — зелёный, danger — красный; пусто — обычная тёмная
+             * @enum {string}
+             */
+            style?: "" | "primary" | "success" | "danger";
             text?: string;
         };
         CampaignEnabledInputBody: {
@@ -8638,6 +8683,36 @@ export interface components {
         UserPoolsInputBody: {
             /** @description Группы, которые меняются; остальные остаются как есть */
             pools: components["schemas"]["PoolSetting"][];
+        };
+        UserProtocolView: {
+            /**
+             * Format: int64
+             * @description Сколько устройств подписки им пользовались
+             */
+            devices: number;
+            /**
+             * Format: date-time
+             * @description Когда протокол в последний раз впустил устройство этой подписки
+             */
+            last_seen: string | null;
+            /**
+             * Format: int64
+             * @description На скольких нодах
+             */
+            nodes: number;
+            /** @description Пресет протокола; custom — своя настройка входящего */
+            preset: string;
+            /** @description Название протокола для человека */
+            title: string;
+        };
+        UserProtocolsOutputBody: {
+            /** @description Протоколы, недавние сверху */
+            items: components["schemas"]["UserProtocolView"][];
+            /**
+             * Format: int64
+             * @description Окно, за которое ноды помнят активность
+             */
+            window_seconds: number;
         };
         UserSitesOutputBody: {
             enabled: boolean;
@@ -15867,6 +15942,35 @@ export interface operations {
             };
         };
     };
+    "delete-tariff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "restore-tariff": {
         parameters: {
             query?: never;
@@ -17288,6 +17392,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UserPoolView"][];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "user-protocols": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserProtocolsOutputBody"];
                 };
             };
             /** @description Error */

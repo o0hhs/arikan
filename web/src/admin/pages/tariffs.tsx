@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
-import { Archive, ArchiveRestore, Layers, Package, Pencil, Plus, RefreshCcw, Smartphone, Tag } from "lucide-react";
+import { Archive, ArchiveRestore, Layers, Package, Pencil, Plus, RefreshCcw, Smartphone, Tag, Trash2 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { api, errorText, unwrap, type Tariff } from "../../api/client";
 import { qk, useInbounds, useNodes, usePackages, usePaymentSettings, usePools, useTariffs } from "../../api/hooks";
@@ -75,6 +75,7 @@ export function TariffsPage() {
   const selling = usePaymentSettings().data?.enabled === true;
   const [edit, setEdit] = useState<Tariff | "new" | null>(null);
   const [archive, setArchive] = useState<Tariff | null>(null);
+  const [purge, setPurge] = useState<Tariff | null>(null);
   const [applying, setApplying] = useState<Tariff | null>(null);
   // The parts start as the defaults for every tariff: what was ticked for one is not applied
   // to the next by surprise.
@@ -93,6 +94,17 @@ export function TariffsPage() {
       void qc.invalidateQueries({ queryKey: qk.paymentSettings });
       toast.ok(t("tariffs.archived"));
       setArchive(null);
+    },
+    onError: (e) => toast.error(errorText(e)),
+  });
+  // A tariff no subscription is on goes for good; archive is the usual way off the shop.
+  const erase = useMutation({
+    mutationFn: (id: number) => unwrap(api.DELETE("/api/v1/tariffs/{id}/permanent", { params: { path: { id } } })),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: qk.tariffs });
+      void qc.invalidateQueries({ queryKey: qk.paymentSettings });
+      toast.ok(t("tariffs.deleted"));
+      setPurge(null);
     },
     onError: (e) => toast.error(errorText(e)),
   });
@@ -224,6 +236,15 @@ export function TariffsPage() {
                               <Archive size={16} />
                             </button>
                           )}
+                          <button
+                            type="button"
+                            className="icon-btn text-[var(--berry-600)]"
+                            aria-label={t("tariffs.deleteLabel", { name: tr.name })}
+                            title={t("tariffs.deleteTariff")}
+                            onClick={() => setPurge(tr)}
+                          >
+                            <Trash2 size={16} />
+                          </button>
                         </div>
                       </div>
                       <dl className="mt-5 grid grid-cols-2 gap-3 text-xs text-[var(--md-on-surface-variant)]">
@@ -271,6 +292,16 @@ export function TariffsPage() {
         confirm={t("tariffs.archiveConfirm")}
         loading={remove.isPending}
         onConfirm={() => archive && remove.mutate(archive.id)}
+      />
+      <Confirm
+        open={!!purge}
+        onOpenChange={(v) => !v && setPurge(null)}
+        title={t("tariffs.deleteTitle", { name: purge?.name ?? "" })}
+        text={t("tariffs.deleteText")}
+        confirm={t("tariffs.deleteConfirm")}
+        danger
+        loading={erase.isPending}
+        onConfirm={() => purge && erase.mutate(purge.id)}
       />
       <Confirm
         open={!!applying}

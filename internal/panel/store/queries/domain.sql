@@ -48,6 +48,11 @@ UPDATE tariffs SET archived = 1 WHERE id = $1;
 -- The way back from ArchiveTariff: the two are one switch the admin may flip either way.
 UPDATE tariffs SET archived = 0 WHERE id = $1;
 
+-- name: DeleteTariff :execrows
+-- A tariff deleted for good: only one no subscription is on. Its terms and servers go with
+-- it (ON DELETE CASCADE); a payment keeps its own tariff_name and loses the link.
+DELETE FROM tariffs t WHERE t.id = sqlc.arg(id) AND NOT EXISTS (SELECT 1 FROM users u WHERE u.tariff_id = t.id);
+
 -- name: SetUserDevicePack :exec
 -- The pack of extra device places a subscription carries; a statement of its own, beside
 -- CreateUser and UpdateUser, which set the tariff's own limits (a pack widens the device

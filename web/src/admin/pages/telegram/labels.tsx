@@ -24,7 +24,14 @@ const GROUPS = [
   { title: "telegram.labels.groupCommon", keys: ["back", "support", "open_page", "channel_join", "channel_check", "cancel"] },
 ] as const;
 
-type Label = { emoji?: string; text?: string; emoji_id?: string };
+type Label = { emoji?: string; text?: string; emoji_id?: string; style?: "" | "primary" | "success" | "danger" };
+
+const STYLES = [
+  ["", "telegram.stylePlain"],
+  ["primary", "telegram.stylePrimary"],
+  ["success", "telegram.styleSuccess"],
+  ["danger", "telegram.styleDanger"],
+] as const;
 
 /** The button's badge: its emoji, its whole label and a premium emoji's id. */
 export function LabelsCard({ draft, setDraft }: { draft: Config; setDraft: (c: Config) => void }) {
@@ -32,7 +39,7 @@ export function LabelsCard({ draft, setDraft }: { draft: Config; setDraft: (c: C
   const set = (key: string, patch: Label) => {
     const next: Record<string, Label> = { ...labels, [key]: { ...labels[key], ...patch } };
     const l = next[key]!;
-    if (!l.emoji?.trim() && !l.text?.trim() && !l.emoji_id?.trim()) delete next[key];
+    if (!l.emoji?.trim() && !l.text?.trim() && !l.emoji_id?.trim() && !l.style) delete next[key];
     setDraft({ ...draft, labels: Object.keys(next).length ? next : undefined });
   };
   const changed = Object.keys(labels).length;
@@ -44,17 +51,18 @@ export function LabelsCard({ draft, setDraft }: { draft: Config; setDraft: (c: C
         {GROUPS.map((g) => (
           <Disclosure key={g.title} title={t(g.title)} sub={t("telegram.labels.changed", { n: g.keys.filter((k) => labels[k]).length })}>
             <div className="flex flex-col gap-3 pt-3">
-              <div className="hidden gap-2 text-[11px] uppercase tracking-wide text-[var(--ink-500)] sm:grid sm:grid-cols-[minmax(0,1fr)_72px_minmax(0,1.4fr)_120px_auto]">
+              <div className="hidden gap-2 text-[11px] uppercase tracking-wide text-[var(--ink-500)] sm:grid sm:grid-cols-[minmax(0,1fr)_64px_minmax(0,1.2fr)_104px_96px_auto]">
                 <span>{t("telegram.labels.button")}</span>
                 <span>{t("telegram.labels.emoji")}</span>
                 <span>{t("telegram.labels.text")}</span>
                 <span>{t("telegram.labels.premium")}</span>
+                <span>{t("telegram.labels.color")}</span>
                 <span />
               </div>
               {g.keys.map((key) => {
                 const l = labels[key] ?? {};
                 return (
-                  <div key={key} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_72px_minmax(0,1.4fr)_120px_auto] sm:items-end">
+                  <div key={key} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_64px_minmax(0,1.2fr)_104px_96px_auto] sm:items-end">
                     <div className="text-[13px] font-medium">{t(`telegram.labels.key.${key}`)}</div>
                     <input
                       className="input num"
@@ -81,12 +89,19 @@ export function LabelsCard({ draft, setDraft }: { draft: Config; setDraft: (c: C
                       placeholder={t("telegram.labels.premium")}
                       inputMode="numeric"
                     />
+                    <select className="input" value={l.style ?? ""} onChange={(e) => set(key, { style: e.target.value as "" | "primary" | "success" | "danger" })} aria-label={t("telegram.labels.color")}>
+                      {STYLES.map(([value, key2]) => (
+                        <option key={value} value={value}>
+                          {t(key2)}
+                        </option>
+                      ))}
+                    </select>
                     <Button
                       type="button"
                       size="sm"
                       variant="ghost"
                       disabled={!labels[key]}
-                      onClick={() => set(key, { emoji: "", text: "", emoji_id: "" })}
+                      onClick={() => set(key, { emoji: "", text: "", emoji_id: "", style: "" })}
                       aria-label={t("telegram.labels.reset", { name: t(`telegram.labels.key.${key}`) })}
                     >
                       <RotateCcw size={14} aria-hidden />

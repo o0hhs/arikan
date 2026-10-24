@@ -15,7 +15,7 @@ func TestButtonLabels(t *testing.T) {
 	cfg.Labels = map[string]ButtonLabel{
 		"trial": {Emoji: "🔥"},
 		"back":  {Text: "↩️ В меню"},
-		"buy":   {EmojiID: "5368324170671202286"},
+		"buy":   {EmojiID: "5368324170671202286", Style: tgapi.StylePrimary},
 	}
 	w := wordsFor("ru")
 	kb := &tgapi.Keyboard{InlineKeyboard: [][]tgapi.Button{
@@ -34,6 +34,9 @@ func TestButtonLabels(t *testing.T) {
 	}
 	if got := rows[2][0].IconCustomEmojiID; got != "5368324170671202286" {
 		t.Fatalf("the premium emoji: %q", got)
+	}
+	if got := rows[2][0].Style; got != tgapi.StylePrimary {
+		t.Fatalf("the button's color: %q", got)
 	}
 	if got := rows[3][0].Text; got != "Тариф «Базовый» · 150 ⭐" {
 		t.Fatalf("a data button was renamed: %q", got)
@@ -67,6 +70,10 @@ func TestLabelKeysChecked(t *testing.T) {
 	c.Labels = map[string]ButtonLabel{"no_such_button": {Emoji: "🔥"}}
 	if err := c.Validate(); err != ErrLabelKey {
 		t.Fatalf("an unknown key: %v", err)
+	}
+	c.Labels = map[string]ButtonLabel{"trial": {Style: "rainbow"}}
+	if err := c.Validate(); err != ErrLabel {
+		t.Fatalf("an unknown color: %v", err)
 	}
 	c.Labels = map[string]ButtonLabel{"trial": {Text: strings.Repeat("x", maxLabel+1)}}
 	if err := c.Validate(); err != ErrLabel {

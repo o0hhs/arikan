@@ -16,6 +16,7 @@ import { ExpirySection } from "./user/expiry";
 import { NoteSection, ProtocolsSection, SubscriptionSection, TelegramSection } from "./user/access";
 import { DevicesSection } from "./user/devices";
 import { NodesSection } from "./user/nodes";
+import { ProtocolsUsageSection } from "./user/protocols";
 import { OrganiseSection } from "./user/organise";
 import { TorrentSection } from "./user/torrent";
 import { SitesSection } from "./user/sites";
@@ -26,7 +27,7 @@ export function UserDrawer({ id, onClose }: { id?: number; onClose: () => void }
   const [renaming, setRenaming] = useState(false);
   return (
     <Drawer
-      wide
+      full
       open={!!id}
       onOpenChange={(v) => !v && onClose()}
       title={u?.name ?? t("userDrawer.fallbackTitle")}
@@ -165,13 +166,13 @@ function UserBody({ u, onDeleted, onRename }: { u: User; onDeleted: () => void; 
       <SubscriptionSection u={u} onReissue={() => setConfirm("reissue")} />
       <ExpirySection u={u} />
       <TrafficSection u={u} />
+      <ProtocolsUsageSection u={u} />
       <SitesSection u={u} />
-      <NodesSection u={u} />
       <DevicesSection u={u} />
-      <SitesSection u={u} />
       <TariffSection u={u} />
       <NoteSection u={u} />
       <Disclosure title={t("userDrawer.advanced")} sub={t("userDrawer.advancedSub")}>
+        <NodesSection u={u} />
         <PoolsSection u={u} />
         <GrantsSection u={u} />
         <ProtocolsSection u={u} />

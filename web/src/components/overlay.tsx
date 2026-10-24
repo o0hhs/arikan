@@ -15,6 +15,7 @@ export function Drawer({
   children,
   footer,
   wide,
+  full,
   titleAction,
 }: {
   open: boolean;
@@ -28,6 +29,8 @@ export function Drawer({
   footer?: ReactNode;
   /** A record's card with many sections: a little wider than a form. */
   wide?: boolean;
+  /** A card with many sections beside lists and charts: as wide as the page's content. */
+  full?: boolean;
 }) {
   const reduce = useReducedMotion();
   return (
@@ -40,7 +43,7 @@ export function Drawer({
             </Dialog.Overlay>
             <Dialog.Content asChild forceMount aria-describedby={undefined} onEscapeKeyDown={keepOpenForLocalEscape}>
               <motion.aside
-                className={wide ? "drawer wide glass-strong" : "drawer glass-strong"}
+                className={full ? "drawer full glass-strong" : wide ? "drawer wide glass-strong" : "drawer glass-strong"}
                 initial={reduce ? { opacity: 0 } : { x: "110%" }}
                 animate={reduce ? { opacity: 1 } : { x: 0 }}
                 exit={reduce ? { opacity: 0 } : { x: "110%" }}

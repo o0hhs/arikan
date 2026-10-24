@@ -1781,6 +1781,16 @@
           "emoji_id": {
             "type": "string"
           },
+          "style": {
+            "description": "Цвет кнопки в свежих клиентах Telegram: primary — синий, success — зелёный, danger — красный; пусто — обычная тёмная",
+            "enum": [
+              "",
+              "primary",
+              "success",
+              "danger"
+            ],
+            "type": "string"
+          },
           "text": {
             "type": "string"
           }
@@ -13425,6 +13435,67 @@
         ],
         "type": "object"
       },
+      "UserProtocolView": {
+        "additionalProperties": false,
+        "properties": {
+          "devices": {
+            "description": "Сколько устройств подписки им пользовались",
+            "format": "int64",
+            "type": "integer"
+          },
+          "last_seen": {
+            "description": "Когда протокол в последний раз впустил устройство этой подписки",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "nodes": {
+            "description": "На скольких нодах",
+            "format": "int64",
+            "type": "integer"
+          },
+          "preset": {
+            "description": "Пресет протокола; custom — своя настройка входящего",
+            "type": "string"
+          },
+          "title": {
+            "description": "Название протокола для человека",
+            "type": "string"
+          }
+        },
+        "required": [
+          "preset",
+          "title",
+          "last_seen",
+          "devices",
+          "nodes"
+        ],
+        "type": "object"
+      },
+      "UserProtocolsOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "description": "Протоколы, недавние сверху",
+            "items": {
+              "$ref": "#/components/schemas/UserProtocolView"
+            },
+            "type": "array"
+          },
+          "window_seconds": {
+            "description": "Окно, за которое ноды помнят активность",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "window_seconds"
+        ],
+        "type": "object"
+      },
       "UserSitesOutputBody": {
         "additionalProperties": false,
         "properties": {
@@ -23462,6 +23533,43 @@
         ]
       }
     },
+    "/api/v1/tariffs/{id}/permanent": {
+      "delete": {
+        "description": "Тариф без единой подписки: его сроки и серверы удаляются, а оплаты сохраняют название тарифа. Подписки держат тариф: сначала переведите их на другой.",
+        "operationId": "delete-tariff",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Удалить тариф навсегда",
+        "tags": [
+          "tariffs"
+        ]
+      }
+    },
     "/api/v1/tariffs/{id}/restore": {
       "post": {
         "operationId": "restore-tariff",
@@ -25488,6 +25596,50 @@
           }
         },
         "summary": "Как подписка пользователя держит группы серверов",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/v1/users/{id}/protocols": {
+      "get": {
+        "description": "Какими протоколами подписка пользовалась за последний час: ноды помнят, какой inbound впустил каждое устройство. Не сумма трафика, а то, чем человек реально подключается.",
+        "operationId": "user-protocols",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserProtocolsOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Протоколы пользователя",
         "tags": [
           "users"
         ]

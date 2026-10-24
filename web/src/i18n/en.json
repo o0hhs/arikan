@@ -199,6 +199,7 @@
     "pageNotFoundText": "The address is wrong or the page has moved.",
     "toOverview": "To the overview",
     "api": {
+    "tariff_in_use": "The plan has subscriptions on it: move them to another plan, then it can be deleted.",
     "tg_connect_apps": "At least one app is needed, at most eight",
     "tg_connect_app": "An app has an empty name or a duplicate id",
     "tg_connect_client": "Unknown import scheme",
@@ -1131,6 +1132,14 @@
     "addresses": "Connection addresses",
     "nodes": "Nodes",
     "nodesCount": "{n} total",
+    "usage": {
+      "title": "Protocols",
+      "window": "in the last hour",
+      "empty": "The subscription did not connect in the last hour: the protocols it uses will appear here.",
+      "devices": "devices: {n}",
+      "nodes": "nodes: {n}",
+      "note": "Nodes remember which protocol last let each device in, for the last hour. This is not traffic: it is what the person really connects with."
+    },
     "nodesEmpty": "The client has not connected anywhere yet.",
     "nodeSeen": "seen {ago}",
     "nodeNever": "never",
@@ -1229,6 +1238,12 @@
     "archiveTitle": "Archive «{name}»?",
     "archiveText": "New clients cannot be created with it. Nothing changes for those who already have it.",
     "archiveConfirm": "Archive",
+    "deleteTariff": "Delete the plan for good",
+    "deleteLabel": "Delete the plan “{name}” for good",
+    "deleteTitle": "Delete “{name}” for good?",
+    "deleteText": "The plan, its terms and servers will be deleted. It cannot be brought back. Payments keep the plan's name; subscriptions on it stop the deletion — move them to another plan first.",
+    "deleteConfirm": "Delete for good",
+    "deleted": "The plan is deleted",
     "devicesUnlimitedShort": "∞ dev.",
     "created": "Plan created",
     "saved": "Plan saved",
@@ -2987,6 +3002,7 @@
       "emoji": "Emoji",
       "text": "Label",
       "premium": "Premium emoji id",
+      "color": "Color",
       "changed": "Buttons changed: {n}",
       "reset": "Restore the built-in look of “{name}”",
       "key": {

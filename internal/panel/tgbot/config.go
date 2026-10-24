@@ -42,6 +42,7 @@ type ButtonLabel struct {
 	Emoji   string `json:"emoji,omitempty"`
 	Text    string `json:"text,omitempty"`
 	EmojiID string `json:"emoji_id,omitempty"`
+	Style   string `json:"style,omitempty" enum:",primary,success,danger" doc:"Цвет кнопки в свежих клиентах Telegram: primary — синий, success — зелёный, danger — красный; пусто — обычная тёмная"`
 }
 
 // MenuButton of the main menu. Built-in actions open screens; "url" opens a link, "page"
@@ -226,12 +227,13 @@ func (c *Config) Validate() error {
 		l.Emoji = strings.TrimSpace(l.Emoji)
 		l.Text = strings.TrimSpace(l.Text)
 		l.EmojiID = strings.TrimSpace(l.EmojiID)
+		l.Style = strings.TrimSpace(l.Style)
 		// One or two emoji at most: the field is the emoji before the text, not a second
 		// label (Text is that one).
-		if utf8.RuneCountInString(l.Emoji) > 8 || utf8.RuneCountInString(l.Text) > maxLabel || !tgapi.ValidEmojiID(l.EmojiID) {
+		if utf8.RuneCountInString(l.Emoji) > 8 || utf8.RuneCountInString(l.Text) > maxLabel || !tgapi.ValidEmojiID(l.EmojiID) || !tgapi.ValidStyle(l.Style) {
 			return ErrLabel
 		}
-		if l.Emoji == "" && l.Text == "" && l.EmojiID == "" {
+		if l.Emoji == "" && l.Text == "" && l.EmojiID == "" && l.Style == "" {
 			delete(c.Labels, key)
 			continue
 		}
