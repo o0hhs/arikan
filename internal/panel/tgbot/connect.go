@@ -140,7 +140,9 @@ func (b *Bot) connectAll(ctx context.Context, cfg Config, w *words, u model.User
 	return b.connectApps(ctx, cfg, w, u, "", notice)
 }
 
-// connectApps draws the apps of one platform ("" — all of them).
+// connectApps draws the apps of one platform ("" — all of them). Each app is one connect
+// button: installing it is a step of its own, behind one button for the whole platform, so a
+// platform with two clients does not turn into four buttons of two different things.
 func (b *Bot) connectApps(ctx context.Context, cfg Config, w *words, u model.User, platform, notice string) (string, *tgapi.Keyboard) {
 	apps := appsOf(cfg, platform)
 	sub := b.subURL(ctx, u)
@@ -158,9 +160,9 @@ func (b *Bot) connectApps(ctx context.Context, cfg Config, w *words, u model.Use
 			}
 			rows = append(rows, []tgapi.Button{btn})
 		}
-		if a.Download != "" {
-			rows = append(rows, []tgapi.Button{{Text: fmt.Sprintf(w.connectDownload, a.Name), URL: a.Download}})
-		}
+	}
+	if hasDownload(apps) {
+		rows = append(rows, []tgapi.Button{{Text: w.connectInstall, CallbackData: "ci:" + platform}})
 	}
 	// The messenger itself needs no subscription: the MTProto proxy is a button of its own.
 	if mts := b.d.Backend.MTProto(ctx); len(mts) > 0 {
@@ -174,6 +176,31 @@ func (b *Bot) connectApps(ctx context.Context, cfg Config, w *words, u model.Use
 	}
 	back := tgapi.Button{Text: w.back, CallbackData: "m"}
 	if platform != "" {
+		back.CallbackData = "c"
+	}
+	rows = append(rows, []tgapi.Button{back})
+	return withNoticeText(notice, strings.Join(lines, "\n")), &tgapi.Keyboard{InlineKeyboard: rows}
+}
+
+// hasDownload: something on the screen is installed from a link of its own.
+func hasDownload(apps []clientApp) bool {
+	return slices.ContainsFunc(apps, func(a clientApp) bool { return a.Download != "" })
+}
+
+// connectInstall is where the apps come from: a screen of downloads, apart from the connect
+// buttons. It is reached whatever the subscription link is doing.
+func (b *Bot) connectInstall(ctx context.Context, cfg Config, w *words, platform, notice string) (string, *tgapi.Keyboard) {
+	apps := appsOf(cfg, platform)
+	lines := []string{"<b>" + html.EscapeString(w.connectInstallTitle) + "</b>", "", html.EscapeString(w.connectInstallHint)}
+	rows := [][]tgapi.Button{}
+	for _, a := range apps {
+		if a.Download == "" {
+			continue
+		}
+		rows = append(rows, []tgapi.Button{{Text: fmt.Sprintf(w.connectDownload, a.Name), URL: a.Download}})
+	}
+	back := tgapi.Button{Text: w.back, CallbackData: "c2:" + platform}
+	if platform == "" {
 		back.CallbackData = "c"
 	}
 	rows = append(rows, []tgapi.Button{back})

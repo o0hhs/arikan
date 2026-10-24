@@ -51,29 +51,35 @@ func kbFind(c call, want string) (kbButton, bool) {
 	return kbButton{}, false
 }
 
-// The buyer's path: «Моя подписка» leads with connect and renew, and the connect screen
-// hands the subscription to the app first — the download comes under it.
+// The buyer's path: connect and renew are the menu's buttons; the subscription screen holds
+// its own doings and the list of subscriptions. The connect screen hands the subscription to
+// the app, and installing an app is a screen of its own rather than a second button per app.
 func TestConnectBuyerFlow(t *testing.T) {
 	e := setup(t)
 	if err := settings.Set(e.ctx, e.set, billing.KeyConfig, billing.Config{Enabled: true, Stars: true, AllowNew: true}); err != nil {
 		t.Fatal(err)
 	}
-	// A plan on sale: «Продлить» stands beside «Подключить» only while there is something
-	// to sell.
+	// A plan on sale: the subscription screen offers the list of subscriptions, where another
+	// one is bought too.
 	if _, err := e.st.Q.CreateTariff(e.ctx, db.CreateTariffParams{Name: "Тариф", DurationDays: 30, ResetStrategy: "none", CreatedAt: 1,
 		PriceStars: sql.NullInt64{Int64: 150, Valid: true}, OnSale: 1}); err != nil {
 		t.Fatal(err)
 	}
 	e.link(555)
 
-	// «Моя подписка»: connect and renew are the first row.
+	// «Моя подписка»: no duplicate connect and renew, the subscriptions list stands here.
 	sub := e.tap(555, "s")
-	rows := kbRows(sub)
-	if len(rows) == 0 || len(rows[0]) != 2 || rows[0][0].value != "c" || rows[0][1].value != "r" {
-		t.Fatalf("the subscription screen's first row: %+v", rows)
+	for _, link := range []string{"c", "r"} {
+		if _, ok := kbFind(sub, link); ok {
+			t.Fatalf("the subscription screen repeats %q: %+v", link, kbRows(sub))
+		}
 	}
-	if rows[0][0].text != "⚡ Подключить устройство" || rows[0][0].style != "primary" {
-		t.Fatalf("connect is not the primary button: %+v", rows[0][0])
+	if b, ok := kbFind(sub, "w"); !ok || b.text != "🔁 Подписки (1)" {
+		t.Fatalf("the subscriptions list is not on the subscription screen: %+v", kbRows(sub))
+	}
+	// The main menu keeps the same button out of itself: one place for it.
+	if menu := e.tap(555, "m"); func() bool { _, ok := kbFind(menu, "w"); return ok }() {
+		t.Fatalf("the subscriptions list is still in the menu: %+v", kbRows(menu))
 	}
 
 	// The platform step offers all three, the desk included.
@@ -87,7 +93,7 @@ func TestConnectBuyerFlow(t *testing.T) {
 		t.Fatal("the platform step already hands the subscription out")
 	}
 
-	// The desk's screen: one-tap into Kabosu first, then where to download it.
+	// The desk's screen: one-tap into Kabosu, and one button to install it.
 	desk := e.tap(555, "c2:desktop")
 	deskRows := kbRows(desk)
 	if len(deskRows) < 2 {
@@ -97,14 +103,41 @@ func TestConnectBuyerFlow(t *testing.T) {
 	if !strings.Contains(first.value, "/import?client=kabosu") || first.style != "primary" {
 		t.Fatalf("the desk's primary is not the one-tap: %+v", first)
 	}
-	if second := deskRows[1][0]; !strings.Contains(second.value, "github.com/getmikan/kabosu") {
-		t.Fatalf("the download under the one-tap: %+v", second)
-	}
 	if !strings.Contains(first.text, "Kabosu") || !strings.Contains(first.text, "1 клик") {
 		t.Fatalf("the one-tap button does not name Kabosu: %+v", first)
 	}
+	install, ok := kbFind(desk, "ci:desktop")
+	if !ok || !strings.Contains(install.text, "Установить") {
+		t.Fatalf("no install step apart from the connect button: %+v", deskRows)
+	}
+	// The install screen is where the download is, and back leads to the desk's clients.
+	installScreen := e.tap(555, "ci:desktop")
+	if _, ok := kbFind(installScreen, "https://github.com/getmikan/kabosu"); !ok {
+		t.Fatalf("no Kabosu download on the install screen: %+v", kbRows(installScreen))
+	}
+	if _, ok := kbFind(installScreen, "c2:desktop"); !ok {
+		t.Fatalf("the install screen does not lead back to the desk: %+v", kbRows(installScreen))
+	}
+	// Two clients on a platform do not make four buttons: each is one connect button, and the
+	// downloads are one screen behind one button.
+	phones := kbRows(e.tap(555, "c2:ios"))
+	connect, installs := 0, 0
+	for _, row := range phones {
+		for _, b := range row {
+			if strings.Contains(b.value, "/import?client=") {
+				connect++
+			}
+			if strings.HasPrefix(b.value, "ci:") {
+				installs++
+			}
+		}
+	}
+	if connect != 1 || installs != 1 {
+		t.Fatalf("the phone's screen: %d connect, %d install buttons: %+v", connect, installs, phones)
+	}
 
-	// A panel that shows every app at once: «Подключить» skips the platform question.
+	// A panel that shows every app at once: «Подключить» skips the platform question, and
+	// every download is on the one install screen.
 	cfg := tgbot.Default("ru")
 	cfg.Connect.OneScreen = true
 	if err := settings.Set(e.ctx, e.set, tgate.KeyConfig, cfg); err != nil {
@@ -121,6 +154,11 @@ func TestConnectBuyerFlow(t *testing.T) {
 	}
 	if !happ || !kabosu {
 		t.Fatalf("every client on one screen: %+v", kbValues(all))
+	}
+	allInstall := e.tap(555, "ci:")
+	downloads := strings.Join(kbValues(allInstall), " ")
+	if !strings.Contains(downloads, "apps.apple.com") || !strings.Contains(downloads, "github.com/getmikan/kabosu") {
+		t.Fatalf("the downloads of every client: %+v", kbRows(allInstall))
 	}
 }
 

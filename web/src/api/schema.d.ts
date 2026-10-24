@@ -4287,6 +4287,11 @@ export interface components {
             /** Format: int64 */
             affected: number;
         };
+        ButtonLabel: {
+            emoji?: string;
+            emoji_id?: string;
+            text?: string;
+        };
         CampaignEnabledInputBody: {
             enabled: boolean;
         };
@@ -4560,6 +4565,10 @@ export interface components {
             /** @description Удалять сообщения пользователя, чтобы в чате было одно меню */
             clean_chat: boolean;
             connect: components["schemas"]["ConnectConfig"];
+            /** @description Эмодзи и надписи собственных кнопок бота: ключ — кнопка (trial, connect, renew, ...), emoji заменяет эмодзи в начале надписи, text — всю надпись, emoji_id — премиум-эмодзи */
+            labels?: {
+                [key: string]: components["schemas"]["ButtonLabel"];
+            };
             /**
              * @description Язык встроенных надписей бота
              * @enum {string}
@@ -4568,7 +4577,7 @@ export interface components {
             /** @description Кнопка Mini App со страницей подписки */
             mini_app: boolean;
             notify: components["schemas"]["Notify"];
-            /** @description Кнопка «Промокоды» в главном меню (нужен Mini App) */
+            /** @description Кнопка «Промокоды» в главном меню: код вводится прямо в чате */
             promo_button: boolean;
             /** @description Уведомления с 22:00 до 9:00 МСК приходят без звука */
             quiet_night: boolean;

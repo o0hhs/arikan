@@ -52,7 +52,7 @@ type TariffForm = {
   closed: number[];
   stars: string;
   rub: string;
-  // The terms after the first: days, or months with a billing day, and their prices.
+  // The terms after the first: months of 30 days, and their prices.
   more: ExtraTerm[];
   // One more device bought in the bot: its price and how many a subscription may buy.
   devMax: string;
@@ -92,7 +92,8 @@ function formOf(tr: Tariff | null): TariffForm {
     devRub: tr?.extra_devices.price_rub != null ? String(tr.extra_devices.price_rub / 100) : "",
     more: (tr?.terms ?? []).slice(1).map((x) => ({
       key: nextKey++,
-      days: tr?.billing_day != null ? (x.days ? String(termMonths(x.days)) : "0") : String(x.days),
+      // A term is entered in months, 30 days each; 0 is the first term's own days.
+      months: x.days ? String(termMonths(x.days)) : "0",
       stars: x.price_stars != null ? String(x.price_stars) : "",
       rub: x.price_rub != null ? String(x.price_rub / 100) : "",
     })),
@@ -177,9 +178,10 @@ export function TariffDrawer({ tariff, onClose }: { tariff: Tariff | "new" | nul
     if (more.length && !stars.trim() && !rub.trim()) errs.price_rub = t("errors.api.term_no_price");
     more.forEach((m, i) => {
       const at = `terms[${i + 1}]`;
-      const n = Number(m.days);
-      const d = toDay ? n * 30 : n;
-      if (!Number.isInteger(n) || n < 0 || (toDay ? n > 120 : n > 3650)) errs[`${at}.days`] = t(toDay ? "tariffs.errMonths" : "tariffs.errDuration");
+      // An extra term is measured in months of 30 days, whatever the first term is.
+      const n = Number(m.months);
+      const d = n * 30;
+      if (!Number.isInteger(n) || n < 0 || n > 120) errs[`${at}.days`] = t("tariffs.errMonths");
       else if (seen.has(d)) errs[`${at}.days`] = t("errors.api.term_days_repeat");
       seen.add(d);
       const s = Number(m.stars);
@@ -516,11 +518,12 @@ export function TariffDrawer({ tariff, onClose }: { tariff: Tariff | "new" | nul
                   </div>
                 </Field>
               </div>
-              <MoreTerms value={more} onChange={set.more} toDay={term === "day"} errors={errors} />
+              <MoreTerms value={more} onChange={set.more} errors={errors} />
               {devicesUnlimited ? null : (
                 <div className="mb-4" role="group" aria-label={t("tariffs.extraDevices.title")}>
                   <div className="text-[13px] font-semibold">{t("tariffs.extraDevices.title")}</div>
                   <div className="mb-2 text-xs text-[var(--ink-500)]">{t("tariffs.extraDevices.sub")}</div>
+                  <div className="mb-2 text-xs text-[var(--ink-500)]">{t("tariffs.extraDevices.packs")}</div>
                   <div className="grid gap-x-3 sm:grid-cols-3">
                     <Field label={t("tariffs.extraDevices.max")} htmlFor="t-dev-max" error={errors["extra_devices.max"]}>
                       <input id="t-dev-max" className="input max-w-[100px]" inputMode="numeric" value={devMax} onChange={(e) => set.devMax(e.target.value)} aria-invalid={!!errors["extra_devices.max"]} />
@@ -551,14 +554,14 @@ export function TariffDrawer({ tariff, onClose }: { tariff: Tariff | "new" | nul
   );
 }
 
-type ExtraTerm = { key: number; days: string; stars: string; rub: string };
+type ExtraTerm = { key: number; months: string; stars: string; rub: string };
 
 let nextKey = 0;
 
-/** The terms a tariff is sold for after its first: each its own days (or months up to the
- * billing day) and prices. The bot and the Mini App let the buyer pick one. */
-function MoreTerms({ value, onChange, toDay, errors }: { value: ExtraTerm[]; onChange: (v: ExtraTerm[]) => void; toDay: boolean; errors: Record<string, string> }) {
-  const set = (i: number, k: "days" | "stars" | "rub", v: string) => onChange(value.map((m, j) => (j === i ? { ...m, [k]: v } : m)));
+/** The terms a tariff is sold for after its first: each its months (30 days) and prices.
+ * The bot and the Mini App let the buyer pick one. */
+function MoreTerms({ value, onChange, errors }: { value: ExtraTerm[]; onChange: (v: ExtraTerm[]) => void; errors: Record<string, string> }) {
+  const set = (i: number, k: "months" | "stars" | "rub", v: string) => onChange(value.map((m, j) => (j === i ? { ...m, [k]: v } : m)));
   return (
     <div className="mb-4" role="group" aria-label={t("tariffs.moreTerms")}>
       <div className="text-[13px] font-semibold">{t("tariffs.moreTerms")}</div>
@@ -573,12 +576,12 @@ function MoreTerms({ value, onChange, toDay, errors }: { value: ExtraTerm[]; onC
                 <input
                   className="input num"
                   inputMode="numeric"
-                  value={m.days}
-                  onChange={(e) => set(i, "days", e.target.value)}
-                  aria-label={t(toDay ? "tariffs.termMonthsLabel" : "tariffs.termDaysLabel", { n: i + 2 })}
+                  value={m.months}
+                  onChange={(e) => set(i, "months", e.target.value)}
+                  aria-label={t("tariffs.termMonthsLabel", { n: i + 2 })}
                   aria-invalid={!!errors[`${at}.days`]}
                 />
-                <span>{t(toDay ? "tariffs.monthsShort" : "tariffs.daysShort")}</span>
+                <span>{t("tariffs.monthsShort")}</span>
               </label>
               <label className="input-unit min-w-0">
                 <input className="input num" inputMode="numeric" value={m.stars} onChange={(e) => set(i, "stars", e.target.value)} aria-label={t("tariffs.priceStars")} aria-invalid={!!errors[`${at}.price_stars`]} />
@@ -601,7 +604,7 @@ function MoreTerms({ value, onChange, toDay, errors }: { value: ExtraTerm[]; onC
         );
       })}
       {value.length < 11 ? (
-        <Button type="button" size="sm" variant="ghost" onClick={() => onChange([...value, { key: nextKey++, days: "", stars: "", rub: "" }])}>
+        <Button type="button" size="sm" variant="ghost" onClick={() => onChange([...value, { key: nextKey++, months: "", stars: "", rub: "" }])}>
           <Plus size={16} aria-hidden /> {t("tariffs.addTerm")}
         </Button>
       ) : null}

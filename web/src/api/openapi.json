@@ -1772,6 +1772,21 @@
         ],
         "type": "object"
       },
+      "ButtonLabel": {
+        "additionalProperties": false,
+        "properties": {
+          "emoji": {
+            "type": "string"
+          },
+          "emoji_id": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "CampaignEnabledInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -2512,6 +2527,13 @@
           "connect": {
             "$ref": "#/components/schemas/ConnectConfig"
           },
+          "labels": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ButtonLabel"
+            },
+            "description": "Эмодзи и надписи собственных кнопок бота: ключ — кнопка (trial, connect, renew, ...), emoji заменяет эмодзи в начале надписи, text — всю надпись, emoji_id — премиум-эмодзи",
+            "type": "object"
+          },
           "lang": {
             "description": "Язык встроенных надписей бота",
             "enum": [
@@ -2528,7 +2550,7 @@
             "$ref": "#/components/schemas/Notify"
           },
           "promo_button": {
-            "description": "Кнопка «Промокоды» в главном меню (нужен Mini App)",
+            "description": "Кнопка «Промокоды» в главном меню: код вводится прямо в чате",
             "type": "boolean"
           },
           "quiet_night": {

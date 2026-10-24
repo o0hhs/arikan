@@ -5,6 +5,7 @@ import (
 
 	"mikan/internal/panel/billing"
 	"mikan/internal/panel/model"
+	"mikan/internal/panel/promo"
 	"mikan/internal/panel/store/db"
 	"mikan/internal/panel/tgbot"
 )
@@ -39,9 +40,35 @@ func (s shop) AddonName(ctx context.Context, id, lang string) string {
 	return s.b.AddonName(ctx, id, lang)
 }
 
+// refusal is an error the screens are to tell as a refusal of a code: the RPC crosses every
+// promo refusal as model.ErrPromo, and the in-process bot answers the same.
+func refusal(err error) error {
+	if promo.IsRefusal(err) {
+		return model.ErrPromo
+	}
+	return err
+}
+
 func (s shop) Invoice(ctx context.Context, req model.InvoiceRequest) (model.Payment, error) {
 	p, err := s.b.Invoice(ctx, billing.InvoiceRequest{TgID: req.TgID, UserID: req.UserID, TariffID: req.TariffID, TermDays: req.TermDays, Provider: req.Provider, PromoCode: req.PromoCode, DevicePackID: req.DevicePackID})
-	return payment(p), err
+	return payment(p), refusal(err)
+}
+
+func (s shop) Promo(ctx context.Context, tgID, userID int64, code string) (model.Promo, error) {
+	u, err := s.b.UsePromo(ctx, tgID, userID, code)
+	if err != nil {
+		return model.Promo{}, refusal(err)
+	}
+	p := model.Promo{Code: u.Code, Type: u.Type, Days: u.Days, Bytes: u.Bytes, Percent: u.Percent,
+		Amount: u.Amount, Currency: u.Currency}
+	if u.Tariff != nil {
+		t := model.Tariff(*u.Tariff)
+		p.Tariff = &t
+	}
+	if u.User != nil {
+		p.Subscription = u.User.Name
+	}
+	return p, nil
 }
 
 func (s shop) PackageOffers(ctx context.Context, userID int64) ([]model.PackageOffer, model.Available, error) {
@@ -51,7 +78,7 @@ func (s shop) PackageOffers(ctx context.Context, userID int64) ([]model.PackageO
 
 func (s shop) PackageInvoice(ctx context.Context, req model.PackageRequest) (model.Payment, error) {
 	p, err := s.b.PackageInvoice(ctx, billing.PackageRequest(req))
-	return payment(p), err
+	return payment(p), refusal(err)
 }
 
 func (s shop) DeviceOfferFor(ctx context.Context, userID int64) (model.DeviceOffer, model.Available, bool, error) {

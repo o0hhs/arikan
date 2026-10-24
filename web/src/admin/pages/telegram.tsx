@@ -19,6 +19,7 @@ import { ConnectCard, RouteCard } from "./telegram/connect";
 import { BackupCard, InfrastructureCard } from "./telegram/infra";
 import { ChannelCard, channelErrorText, MenuCard, OptionsCard, TextsCard } from "./telegram/menu";
 import { ConnectAppsCard } from "./telegram/connect-apps";
+import { LabelsCard } from "./telegram/labels";
 import { Preview } from "./telegram/preview";
 import { usePatchTelegram, type View } from "./telegram/shared";
 
@@ -108,6 +109,7 @@ function TelegramBody({ v }: { v: View }) {
         ) : tab === "menu" ? (
           <WithPreview title={t("telegram.preview")} preview={preview}>
             <MenuCard draft={draft} setDraft={setDraft} refused={v.emoji_refused} />
+            <LabelsCard draft={draft} setDraft={setDraft} />
             <ConnectAppsCard draft={draft} setDraft={setDraft} />
             <ChannelCard draft={draft} setDraft={setDraft} v={v} />
             <TextsCard draft={draft} setDraft={setDraft} defaults={v.defaults} />

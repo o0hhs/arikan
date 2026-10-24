@@ -14,13 +14,21 @@ import (
 )
 
 // Callback data: m main, s subscription, d devices, dc:<id> confirm unbind, du:<id>
-// unbind, c connect, r renew, p:<button> the admin's page, w switch list, u:<user> show
+// unbind, c connect, c2:<platform> its clients, ci:<platform> where they are installed, r
+// renew, p:<button> the admin's page, w switch list, u:<user> show
 // that subscription, rm confirm removing it from the account, rd:<user> remove it, rl
 // confirm a new link, rn:<user> issue it (reissue.go). f the referral programme, fh what
 // it has earned.
 
-// screen renders what the chat sees for a press: text (HTML) and buttons.
+// screen renders what the chat sees for a press: text (HTML) and buttons, with the admin's
+// labels and emoji on the bot's own buttons.
 func (b *Bot) screen(ctx context.Context, cfg Config, chat int64, data, notice string) (string, *tgapi.Keyboard) {
+	text, kb := b.screenRaw(ctx, cfg, chat, data, notice)
+	return text, applyLabels(cfg, wordsFor(cfg.Lang), kb)
+}
+
+// screenRaw draws one screen.
+func (b *Bot) screenRaw(ctx context.Context, cfg Config, chat int64, data, notice string) (string, *tgapi.Keyboard) {
 	w := wordsFor(cfg.Lang)
 	cmd, arg, _ := strings.Cut(data, ":")
 	// The channel stands in front of every screen but paying (ungated). Asked here, as the
@@ -121,9 +129,9 @@ func (b *Bot) screen(ctx context.Context, cfg Config, chat int64, data, notice s
 		if linkLine != "" {
 			lines = append(lines, linkLine)
 		}
-		// The two things a buyer comes for stand first: connect, and renew.
-		rows := [][]tgapi.Button{{{Text: w.connectButton, CallbackData: "c", Style: tgapi.StylePrimary},
-			{Text: w.renewButton, CallbackData: "r", Style: tgapi.StyleSuccess}}}
+		// Connect and renew are the menu's buttons already: the subscription screen holds
+		// what belongs to this subscription alone.
+		rows := [][]tgapi.Button{}
 		if offers := b.packageOffers(ctx, u.ID); len(offers) > 0 {
 			rows = append(rows, []tgapi.Button{{Text: w.buyTraffic, CallbackData: "x"}})
 		}
@@ -132,6 +140,11 @@ func (b *Bot) screen(ctx context.Context, cfg Config, chat int64, data, notice s
 		}
 		if newLink != nil {
 			rows = append(rows, []tgapi.Button{*newLink})
+		}
+		// The list of subscriptions moved here from the main menu: it is where another one
+		// is bought too, so it shows with one subscription as soon as a second may be bought.
+		if len(list) > 1 || len(list) == 1 && len(list) < model.MaxLinks && b.canBuyNew(ctx, chat) {
+			rows = append(rows, []tgapi.Button{{Text: fmt.Sprintf("%s (%d)", w.subscriptions, len(list)), CallbackData: "w"}})
 		}
 		rows = append(rows, []tgapi.Button{{Text: w.removeSub, CallbackData: "rm"}})
 		return withNotice(strings.Join(lines, "\n")), &tgapi.Keyboard{InlineKeyboard: append(rows, back)}
@@ -163,6 +176,15 @@ func (b *Bot) screen(ctx context.Context, cfg Config, chat int64, data, notice s
 		return b.connectPlatforms(ctx, cfg, w, notice, u)
 	case "c2":
 		return b.connectClients(ctx, cfg, w, u, arg, notice)
+	case "ci":
+		// Where the apps come from: apart from the connect buttons, one screen per platform.
+		return b.connectInstall(ctx, cfg, w, arg, notice)
+	case "pr":
+		// The code is typed here; a discount stays for the purchase.
+		return b.promoEntry(ctx, cfg, w, chat, notice)
+	case "px":
+		b.setPromo(chat, func(s *promoState) { s.code = "" })
+		return b.promoEntry(ctx, cfg, w, chat, w.promoCleared)
 	case "r":
 		if offers, _ := b.offers(ctx, chat); len(offers) > 0 {
 			text, kb := b.shopList(ctx, w, chat, u.ID, fmt.Sprintf(w.renewTitle, u.Name), "t", notice, nil)
@@ -197,7 +219,7 @@ func (b *Bot) screen(ctx context.Context, cfg Config, chat int64, data, notice s
 		}
 		return w.switchTitle, &tgapi.Keyboard{InlineKeyboard: append(rows, back)}
 	}
-	return withNotice(render(pick(cfg.Texts.Main, w.main), vars)), b.menu(ctx, cfg, w, chat, len(list))
+	return withNotice(render(pick(cfg.Texts.Main, w.main), vars)), b.menu(ctx, cfg, w, chat)
 }
 
 func (b *Bot) welcome(ctx context.Context, cfg Config, w *words, chat int64, notice string) (string, *tgapi.Keyboard) {
@@ -249,7 +271,7 @@ func (b *Bot) referralButton(ctx context.Context, cfg Config) bool {
 }
 
 // menu is the admin's main menu as buttons.
-func (b *Bot) menu(ctx context.Context, cfg Config, w *words, chat int64, subs int) *tgapi.Keyboard {
+func (b *Bot) menu(ctx context.Context, cfg Config, w *words, chat int64) *tgapi.Keyboard {
 	var rows [][]tgapi.Button
 	for _, mb := range cfg.Buttons {
 		if !mb.On {
@@ -300,17 +322,13 @@ func (b *Bot) menu(ctx context.Context, cfg Config, w *words, chat int64, subs i
 	if btn, ok := b.freeButton(ctx, cfg, w, chat); ok {
 		rows = append(rows, []tgapi.Button{btn})
 	}
-	// The promo codes entry is the admin's to hide; the Mini App page keeps its field.
-	if url := b.miniAppURL(ctx, cfg); url != "" && cfg.PromoButton {
-		rows = append(rows, []tgapi.Button{{Text: w.promo, WebApp: &tgapi.WebApp{URL: url + "#promocodes"}}})
+	// The promo codes entry is the admin's to hide, and the code is entered here: the
+	// subscription page keeps its field for those who open it.
+	if cfg.PromoButton {
+		rows = append(rows, []tgapi.Button{{Text: w.promo, CallbackData: "pr"}})
 	}
 	if btn, ok := b.balanceButton(ctx, w, chat); ok {
 		rows = append(rows, []tgapi.Button{btn})
-	}
-	// The list of subscriptions is where another one is bought too: it shows with one
-	// subscription as soon as a second may be bought.
-	if subs > 1 || subs == 1 && subs < model.MaxLinks && b.canBuyNew(ctx, chat) {
-		rows = append(rows, []tgapi.Button{{Text: fmt.Sprintf("%s (%d)", w.subscriptions, subs), CallbackData: "w"}})
 	}
 	return &tgapi.Keyboard{InlineKeyboard: rows}
 }

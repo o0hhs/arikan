@@ -130,3 +130,20 @@ func TestExtraDeviceNotOffered(t *testing.T) {
 		t.Fatalf("unlimited: %v %v", ok, err)
 	}
 }
+
+// A pack on sale is the way places are sold: the single-device offer is gone, and an
+// invoice for one opens nothing. The two do not work together.
+func TestDevicePacksTakeTheSingleDeviceOffSale(t *testing.T) {
+	e, u := deviceEnv(t)
+	ctx := context.Background()
+	if _, err := e.st.Q.CreateDevicePack(ctx, db.CreateDevicePackParams{Title: "+2 устройства", Slots: 2,
+		PriceRub: 5000, PriceStars: sql.NullInt64{Int64: 100, Valid: true}, OnSale: true, CreatedAt: e.now.Unix()}); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, ok, err := e.s.DeviceOfferFor(ctx, u.ID); ok || err != nil {
+		t.Fatalf("the single device is offered beside a pack: %v %v", ok, err)
+	}
+	if _, err := e.s.DeviceInvoice(ctx, DeviceRequest{TgID: 555, UserID: u.ID, Provider: Stars}); !errors.Is(err, ErrNotForSale) {
+		t.Fatalf("a single device is invoiced beside a pack: %v", err)
+	}
+}

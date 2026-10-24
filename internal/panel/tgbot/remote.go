@@ -299,6 +299,12 @@ func (s remoteShop) Invoice(ctx context.Context, req model.InvoiceRequest) (mode
 	return p, err
 }
 
+func (s remoteShop) Promo(ctx context.Context, tgID, userID int64, code string) (model.Promo, error) {
+	var p model.Promo
+	err := s.r.call(ctx, "Shop.Promo", []any{tgID, userID, code}, &p)
+	return p, err
+}
+
 func (s remoteShop) PackageOffers(ctx context.Context, userID int64) ([]model.PackageOffer, model.Available, error) {
 	var (
 		o []model.PackageOffer

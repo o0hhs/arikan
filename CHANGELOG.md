@@ -3,6 +3,27 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
+## Unreleased
+### en
+**Seven fixes: the community bot on this fork, install apart from connect, promo codes in the chat, one way to sell device places, months in the terms, a label for every button, and a subscription screen without duplicates.**
+- **The community addon `mikan-subs-bot` works here.** The bot's RPC refused a call whose argument count differed from the panel's method, and this fork's `Shop.Offers` takes the chat's account (the tariffs an access code opens are offered by it): an addon built on upstream calls it without an argument and got `bad_request`, so its shop and its purchases failed. A call with fewer trailing arguments is answered with the zero values now, so an addon built against an older panel keeps working; more arguments than the method takes is still a mistake.
+- **Installing an app and connecting the subscription are two steps.** The connect screen has one button per client — the one-tap import — and installing the apps is a screen of its own behind a single button: a platform with two clients is two buttons, not four.
+- **Promo codes are entered in the bot.** «Промокоды» opens a screen in the chat: send a code and it is checked — a bonus lands on the subscription at once, an access code opens its plan (a free one gives the subscription), a discount is kept and comes off the next purchase or renewal. The Mini App keeps its field.
+- **One way to sell device places.** While device packs are on sale, the single-device purchase is not offered and not invoiced: either packs or the single device, never both. The tariff editor says so.
+- **A term is measured in months.** A tariff's extra terms are entered in months of 30 days in the editor, whatever the first term is; the promo code's percent value states 1–100% and any currency, and the label says so.
+- **A label for every button.** Telegram → Menu and texts → «The bot's buttons»: the trial, connect, renew, pay, back and the rest of the bot's own buttons take an emoji (only the sign in front of the price or count changes) or a label of their own, plus a premium emoji id.
+- **The subscription screen holds its own doings.** The duplicate «Connect» and «Renew» are gone — they are the menu's buttons — and «Subscriptions (N)» moved there from the main menu.
+
+### ru
+**Семь правок: бот сообщества на этом форке, установка отдельно от подключения, промокоды в чате, один способ продажи мест, месяцы в сроках, надпись для каждой кнопки и экран подписки без дублей.**
+- **Аддон сообщества `mikan-subs-bot` работает здесь.** RPC бота отказывал вызову, у которого число аргументов отличалось от метода панели, а `Shop.Offers` этого форка берёт аккаунт чата (по нему предлагаются тарифы, открытые кодом доступа): аддон, собранный на апстриме, зовёт его без аргумента и получал `bad_request`, поэтому его витрина и покупки не работали. Вызов с меньшим числом аргументов теперь получает нулевые значения, и аддон, собранный под старую панель, продолжает работать; больше аргументов, чем у метода, — по-прежнему ошибка.
+- **Установка приложения и подключение подписки — два шага.** На экране подключения одна кнопка на клиента — импорт в один клик, — а установка приложений вынесена на отдельный экран за одной кнопкой: платформа с двумя клиентами даёт две кнопки, а не четыре.
+- **Промокоды вводятся в боте.** «Промокоды» открывают экран в чате: отправьте код, и он проверяется — бонус начисляется на подписку сразу, код доступа открывает свой тариф (бесплатный выдаёт подписку), скидка сохраняется и применяется к следующей покупке или продлению. Поле в Mini App остаётся.
+- **Один способ продажи мест.** Пока в продаже есть пачки устройств, отдельная докупка не предлагается и не выставляется в счёт: либо пачки, либо одно устройство, вместе — никогда. Об этом говорит и редактор тарифа.
+- **Срок измеряется в месяцах.** Дополнительные сроки тарифа вводятся в редакторе в месяцах по 30 дней, каким бы ни был первый срок; процентное значение промокода подписано «1–100 %» и работает с любой валютой.
+- **Надпись для каждой кнопки.** Telegram → «Меню и тексты» → «Кнопки бота»: пробный период, подключение, продление, оплата, «назад» и остальные собственные кнопки бота принимают эмодзи (меняется только значок перед ценой или числом) или свою надпись, а также id премиум-эмодзи.
+- **Экран подписки занят своим.** Дубли «Подключить» и «Продлить» убраны — это кнопки меню, — а «Подписки (N)» переехали туда из главного меню.
+
 ## 0.5.2.5
 ### en
 **The bot the buyer understands, and the connect screen the admin owns.**

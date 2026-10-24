@@ -411,8 +411,14 @@ func (b *Bot) shopInvoice(ctx context.Context, w *words, chat, userID int64, arg
 	if !ok {
 		return html.EscapeString(w.payUnavailable), &tgapi.Keyboard{InlineKeyboard: [][]tgapi.Button{back}}
 	}
-	p, err := shop.Invoice(ctx, model.InvoiceRequest{TgID: chat, UserID: userID, TariffID: id, TermDays: days, Provider: provider, DevicePackID: pack})
+	promo := b.savedPromo(chat)
+	p, err := shop.Invoice(ctx, model.InvoiceRequest{TgID: chat, UserID: userID, TariffID: id, TermDays: days, Provider: provider, PromoCode: promo, DevicePackID: pack})
 	if err != nil {
+		if errors.Is(err, model.ErrPromo) && promo != "" {
+			// The code did not fit this order (or is spent): the next one starts clean.
+			b.setPromo(chat, func(s *promoState) { s.code = "" })
+			return html.EscapeString(w.promoBad), &tgapi.Keyboard{InlineKeyboard: [][]tgapi.Button{back}}
+		}
 		return html.EscapeString(w.payError(err)), &tgapi.Keyboard{InlineKeyboard: [][]tgapi.Button{back}}
 	}
 	done := w.payNew
@@ -434,6 +440,9 @@ func (b *Bot) shopInvoice(ctx context.Context, w *words, chat, userID int64, arg
 		}
 	}
 	text := fmt.Sprintf(w.invoice, html.EscapeString(name), html.EscapeString(w.price(p.Amount, p.Currency)), done)
+	if promo != "" {
+		text += "\n\n" + html.EscapeString(fmt.Sprintf(w.promoInvoice, promo))
+	}
 	if p.Provider == model.Balance {
 		return w.balancePaidScreen(p.Amount, p.Currency)
 	}

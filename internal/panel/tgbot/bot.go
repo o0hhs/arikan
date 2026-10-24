@@ -41,6 +41,8 @@ type Bot struct {
 	// Subscriptions somebody asked to take over: by subscription, and who was refused.
 	transfers map[int64]transfer
 	refused   map[string]time.Time
+	// promos: each chat's code screen and the discount kept for its purchase.
+	promos map[int64]promoState
 	// adminAwait: the admin chats the next message answers as a search.
 	adminAwait sync.Map
 	// trials: one reactivation campaign at a time, however many admins press the button.
@@ -48,7 +50,7 @@ type Bot struct {
 }
 
 func New(d Deps) *Bot {
-	return &Bot{d: d, transfers: map[int64]transfer{}, refused: map[string]time.Time{}}
+	return &Bot{d: d, transfers: map[int64]transfer{}, refused: map[string]time.Time{}, promos: map[int64]promoState{}}
 }
 
 func (b *Bot) config(ctx context.Context) Config { return b.d.Backend.Config(ctx) }
@@ -113,6 +115,11 @@ func (b *Bot) onMessage(ctx context.Context, m *tgapi.Message) {
 		if n != "" {
 			b.freshScreen(chat, "bl", n)
 		}
+		return
+	}
+	// A promo code is typed here too: the screen asked for one, or the text is shaped like
+	// one and the panel knows it.
+	if b.promoMessage(ctx, cfg, w, m) {
 		return
 	}
 	switch {

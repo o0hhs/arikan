@@ -38,13 +38,21 @@ type DeviceOffer struct {
 
 // DeviceOfferFor says whether the owner of userID may buy one more device now, and for
 // how much. ok is false when there is nothing to offer: selling off, no price on the
-// tariff, no limit, or the cap reached (err tells which of the last two).
+// tariff, no limit, the cap reached (err tells which of the last two), or device packs on
+// sale — the two ways of buying places do not work together, and a pack is the one on sale.
 func (s *Service) DeviceOfferFor(ctx context.Context, userID int64) (o DeviceOffer, av Available, ok bool, err error) {
 	av = s.Available(ctx)
 	if !av.Any() {
 		return o, av, false, nil
 	}
 	q := s.d.Store.Q
+	packs, err := q.ListDevicePacksOnSale(ctx)
+	if err != nil {
+		return o, av, false, err
+	}
+	if len(packs) > 0 {
+		return o, av, false, nil
+	}
 	u, err := q.GetUser(ctx, userID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return o, av, false, errUserGone

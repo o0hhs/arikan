@@ -90,15 +90,19 @@ var botRPC = map[string]rpcRule{
 	"Reissue":       rule("users:write", nil, []int{0}),
 	// The shop: what is on offer, and what makes a payment or a subscription.
 	"Shop.Config": rule("", nil, nil), "Shop.Offers": rule("", nil, nil), "Shop.AddonName": rule("", nil, nil),
-	"Shop.DevicePacks":    rule("", nil, nil),
-	"Shop.Renewable":      rule("users:read", nil, []int{0}),
-	"Shop.TrialTariff":    rule("", nil, nil),
-	"Shop.PackageOffers":  rule("", nil, []int{0}),
-	"Shop.TrialOpen":      rule("", []int{0}, nil),
-	"Shop.TrialAllowed":   rule("", []int{0}, nil),
-	"Shop.TrialOffer":     rule("", []int{0}, nil),
-	"Shop.FreeOffer":      rule("", []int{0}, nil),
-	"Shop.Invoice":        {perm: "billing:invoice", tgField: 0},
+	"Shop.DevicePacks":   rule("", nil, nil),
+	"Shop.Renewable":     rule("users:read", nil, []int{0}),
+	"Shop.TrialTariff":   rule("", nil, nil),
+	"Shop.PackageOffers": rule("", nil, []int{0}),
+	"Shop.TrialOpen":     rule("", []int{0}, nil),
+	"Shop.TrialAllowed":  rule("", []int{0}, nil),
+	"Shop.TrialOffer":    rule("", []int{0}, nil),
+	"Shop.FreeOffer":     rule("", []int{0}, nil),
+	"Shop.Invoice":       {perm: "billing:invoice", tgField: 0},
+	// A code is entered for the account talking and lands on its subscription; no
+	// subscription yet is fine, an access code may give the first one (a bonus code is
+	// refused by the panel itself).
+	"Shop.Promo":          {perm: "billing:invoice", tg: []int{0}, owner: []int{1}, tgField: -1},
 	"Shop.PackageInvoice": {perm: "billing:invoice", tgField: 0},
 	"Shop.DeviceOfferFor": rule("", nil, []int{0}),
 	"Shop.DeviceInvoice":  {perm: "billing:invoice", tgField: 0},
@@ -293,7 +297,15 @@ func (s *Server) guardRPC(w http.ResponseWriter, r *http.Request, c Caller) bool
 	}
 	for _, i := range rl.owner {
 		user, ok := arg(i)
-		if !ok || !s.ownerTalking(r.Context(), user) {
+		if !ok {
+			return quiet()
+		}
+		// 0 is "no subscription yet": the buyer may not have one, and the panel answers
+		// what such a call can do (an access code gives the first one; a bonus has none).
+		if user == 0 {
+			continue
+		}
+		if !s.ownerTalking(r.Context(), user) {
 			return quiet()
 		}
 	}

@@ -2,6 +2,7 @@ package tgbot
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"html"
 	"slices"
@@ -126,8 +127,13 @@ func (b *Bot) trafficInvoice(ctx context.Context, w *words, chat, userID int64, 
 	if !ok {
 		return html.EscapeString(w.payUnavailable), &tgapi.Keyboard{InlineKeyboard: [][]tgapi.Button{back}}
 	}
-	p, err := shop.PackageInvoice(ctx, model.PackageRequest{TgID: chat, UserID: userID, PackageID: id, Provider: provider})
+	promo := b.savedPromo(chat)
+	p, err := shop.PackageInvoice(ctx, model.PackageRequest{TgID: chat, UserID: userID, PackageID: id, Provider: provider, PromoCode: promo})
 	if err != nil {
+		if errors.Is(err, model.ErrPromo) && promo != "" {
+			b.setPromo(chat, func(s *promoState) { s.code = "" })
+			return html.EscapeString(w.promoBad), &tgapi.Keyboard{InlineKeyboard: [][]tgapi.Button{back}}
+		}
 		msg := w.payError(err)
 		if msg == w.notForSale {
 			msg = w.packageGone
@@ -135,6 +141,9 @@ func (b *Bot) trafficInvoice(ctx context.Context, w *words, chat, userID int64, 
 		return html.EscapeString(msg), &tgapi.Keyboard{InlineKeyboard: [][]tgapi.Button{back}}
 	}
 	text := fmt.Sprintf(w.invoice, html.EscapeString(p.TariffName), html.EscapeString(w.price(p.Amount, p.Currency)), w.payPackage)
+	if promo != "" {
+		text += "\n\n" + html.EscapeString(fmt.Sprintf(w.promoInvoice, promo))
+	}
 	if p.Provider == model.Balance {
 		return w.balancePaidScreen(p.Amount, p.Currency)
 	}

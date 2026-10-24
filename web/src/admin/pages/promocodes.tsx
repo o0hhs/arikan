@@ -380,8 +380,22 @@ function PromoForm({ value, onSave, onSaving, onBlocked }: { value: PromoCode; o
             <input id="pc-value" className="input" value={t("promocodes.accessValue")} disabled readOnly />
           </Field>
         ) : (
-          <Field label={p.type === "fixed" && p.currency ? `${t("promocodes.value")}, ${unitOf(p.currency)}` : t("promocodes.value")} htmlFor="pc-value">
-            <input id="pc-value" className="input" type="number" inputMode="decimal" min={step === "0.01" ? "0.01" : "1"} step={step} max={p.type === "days" ? 36500 : undefined} value={p.value} onChange={set("value")} />
+          <Field
+            label={p.type === "percent" ? `${t("promocodes.value")}, %` : p.type === "fixed" && p.currency ? `${t("promocodes.value")}, ${unitOf(p.currency)}` : t("promocodes.value")}
+            htmlFor="pc-value"
+            hint={p.type === "percent" ? t("promocodes.percentHint") : undefined}
+          >
+            <input
+              id="pc-value"
+              className="input"
+              type="number"
+              inputMode="decimal"
+              min={step === "0.01" ? "0.01" : "1"}
+              step={step}
+              max={p.type === "days" ? 36500 : p.type === "percent" ? 100 : undefined}
+              value={p.value}
+              onChange={set("value")}
+            />
           </Field>
         )}
       </div>

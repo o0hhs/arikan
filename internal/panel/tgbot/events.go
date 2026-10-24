@@ -50,6 +50,9 @@ func (b *Bot) HandleEvent(ctx context.Context, e events.Event) error {
 			}
 		}
 		if e.Type == events.PaymentPaid {
+			// The code kept for a purchase was spent by this one (or never fitted it): the
+			// next one starts clean rather than failing on a used code.
+			b.setPromo(e.TgID, func(s *promoState) { s.code = "" })
 			if u.ID == 0 {
 				return nil // a subscription that is gone has nothing to be thanked for
 			}

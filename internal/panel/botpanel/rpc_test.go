@@ -186,3 +186,64 @@ func TestAnswerThatDoesNotEncode(t *testing.T) {
 		t.Fatalf("an answer that does not encode: %+v %v", st, err)
 	}
 }
+
+// An addon built against a panel whose Shop.Offers took no tg calls it with no arguments: the
+// argument gained since is the zero value, so the addon's shop lists the tariffs rather than
+// failing the call. A call with more arguments than the panel's method is still a mistake.
+type olderShop struct {
+	tgbot.Shop
+	got int64
+}
+
+func (s *olderShop) Offers(_ context.Context, tgID int64) ([]model.Offer, model.Available, error) {
+	s.got = tgID
+	return []model.Offer{{First: 30}}, model.Available{Stars: true}, nil
+}
+
+type olderBackend struct {
+	stubBackend
+	shop tgbot.Shop
+}
+
+func (b olderBackend) Shop() tgbot.Shop { return b.shop }
+
+func TestRPCOlderAddonArgs(t *testing.T) {
+	sh := &olderShop{}
+	mux := http.NewServeMux()
+	mux.Handle("POST /bot/{method}", RPCHandler(olderBackend{shop: sh}))
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	r := tgbot.NewRemote(srv.URL, "t", nil)
+	ctx := context.Background()
+
+	// Remote always sends tgID; the raw call is what an older addon sends.
+	call := func(method, args string) ([]json.RawMessage, string) {
+		resp, err := http.Post(srv.URL+"/bot/"+method, "application/json", strings.NewReader(args))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		var ans struct {
+			Results []json.RawMessage `json:"results"`
+			Error   *tgbot.RPCError   `json:"error"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&ans); err != nil {
+			t.Fatal(err)
+		}
+		if ans.Error != nil {
+			return nil, ans.Error.Code
+		}
+		return ans.Results, ""
+	}
+
+	if o, av, err := r.Shop().Offers(ctx, 42); err != nil || len(o) != 1 || !av.Stars || sh.got != 42 {
+		t.Fatalf("the current call: %+v %+v %v", o, av, err)
+	}
+	res, code := call("Shop.Offers", `[]`)
+	if code != "" || len(res) != 2 || sh.got != 0 {
+		t.Fatalf("an older addon's call: %v %q, tg %d", res, code, sh.got)
+	}
+	if _, code := call("Shop.Offers", `[1,2]`); code != "bad_request" {
+		t.Fatalf("more arguments: %q", code)
+	}
+}

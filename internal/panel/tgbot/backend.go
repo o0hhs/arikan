@@ -162,6 +162,10 @@ type Shop interface {
 	Renewable(ctx context.Context, userID int64) (model.Offer, bool, error)
 	AddonName(ctx context.Context, id, lang string) string
 	Invoice(ctx context.Context, req model.InvoiceRequest) (model.Payment, error)
+	// Promo is the subscriber's code entered in the bot: a bonus and an access code are
+	// applied at once, a discount comes back to go with the invoice. Any refusal is
+	// model.ErrPromo.
+	Promo(ctx context.Context, tgID, userID int64, code string) (model.Promo, error)
 	PackageOffers(ctx context.Context, userID int64) ([]model.PackageOffer, model.Available, error)
 	PackageInvoice(ctx context.Context, req model.PackageRequest) (model.Payment, error)
 	DeviceOfferFor(ctx context.Context, userID int64) (model.DeviceOffer, model.Available, bool, error)

@@ -265,7 +265,7 @@ export function OptionsCard({ draft, setDraft, v }: { draft: Config; setDraft: (
       <CardHead title={t("telegram.options")} sub={t("telegram.optionsSub")} />
       <ul className="row-list">
         {row(t("telegram.miniApp"), v.mini_app_url ? t("telegram.miniAppSub") : t("telegram.miniAppNoCert"), draft.mini_app, (on) => setDraft({ ...draft, mini_app: on }))}
-        {row(t("telegram.promoButton"), draft.mini_app ? t("telegram.promoButtonSub") : t("telegram.promoButtonNeedsApp"), draft.promo_button, (on) => setDraft({ ...draft, promo_button: on }))}
+        {row(t("telegram.promoButton"), t("telegram.promoButtonSub"), draft.promo_button, (on) => setDraft({ ...draft, promo_button: on }))}
         {row(t("telegram.cleanChat"), t("telegram.cleanChatSub"), draft.clean_chat, (on) => setDraft({ ...draft, clean_chat: on }))}
         {row(t("telegram.quietNight"), t("telegram.quietNightSub"), draft.quiet_night, (on) => setDraft({ ...draft, quiet_night: on }))}
         {NOTICES.map((k) => row(t(`telegram.notice.${k}`), t("telegram.noticeSub"), draft.notify[k], (on) => setDraft({ ...draft, notify: { ...draft.notify, [k]: on } })))}

@@ -21,15 +21,27 @@ type Config struct {
 	CleanChat bool         `json:"clean_chat" doc:"Удалять сообщения пользователя, чтобы в чате было одно меню"`
 	// QuietNight: the automatic notices from 22:00 to 9:00 Moscow time come without a sound.
 	QuietNight bool `json:"quiet_night" doc:"Уведомления с 22:00 до 9:00 МСК приходят без звука"`
-	// PromoButton: «Промокоды» under the menu, opening the Mini App at the promo code field.
-	// It needs the Mini App. A bot saved before this option has it on.
-	PromoButton bool `json:"promo_button" doc:"Кнопка «Промокоды» в главном меню (нужен Mini App)"`
+	// PromoButton: «Промокоды» under the menu — the code is typed into the chat there. A
+	// bot saved before this option has it on.
+	PromoButton bool `json:"promo_button" doc:"Кнопка «Промокоды» в главном меню: код вводится прямо в чате"`
 	// Channel is the channel a subscriber must join before the bot shows its menu, and the
 	// one the free plan may ask for (model.FreeChannel). Off by default.
 	Channel tgapi.Channel `json:"channel"`
 	// Connect is the screen that hands the subscription to an app: its apps, platforms and
 	// words. A config saved before it gets the built-in set on the next save.
 	Connect ConnectConfig `json:"connect"`
+	// Labels rename the bot's own buttons beyond the main menu (the trial, connect and pay
+	// ones), by the button's id: the emoji before its text, or the whole text.
+	Labels map[string]ButtonLabel `json:"labels,omitempty" doc:"Эмодзи и надписи собственных кнопок бота: ключ — кнопка (trial, connect, renew, ...), emoji заменяет эмодзи в начале надписи, text — всю надпись, emoji_id — премиум-эмодзи"`
+}
+
+// ButtonLabel is one of the bot's own buttons as the admin changed it: Emoji replaces the
+// emoji at the start of its text and keeps the rest (the price or the count in it too), Text
+// replaces the whole label, EmojiID shows a premium emoji before it.
+type ButtonLabel struct {
+	Emoji   string `json:"emoji,omitempty"`
+	Text    string `json:"text,omitempty"`
+	EmojiID string `json:"emoji_id,omitempty"`
 }
 
 // MenuButton of the main menu. Built-in actions open screens; "url" opens a link, "page"
@@ -139,6 +151,8 @@ var (
 	ErrButtonURL   = errors.New("tg_button_url")
 	ErrButtonText  = errors.New("tg_button_text")
 	ErrText        = errors.New("tg_text")
+	ErrLabelKey    = errors.New("tg_label_key")
+	ErrLabel       = errors.New("tg_label")
 )
 
 // Validate checks a config from the admin panel and fills in defaults.
@@ -204,6 +218,24 @@ func (c *Config) Validate() error {
 	c.Texts.FreeButton = strings.TrimSpace(c.Texts.FreeButton)
 	if utf8.RuneCountInString(c.Texts.FreeButton) > maxLabel {
 		return ErrButtonLabel
+	}
+	for key, l := range c.Labels {
+		if !builtinLabelKeys[key] {
+			return ErrLabelKey
+		}
+		l.Emoji = strings.TrimSpace(l.Emoji)
+		l.Text = strings.TrimSpace(l.Text)
+		l.EmojiID = strings.TrimSpace(l.EmojiID)
+		// One or two emoji at most: the field is the emoji before the text, not a second
+		// label (Text is that one).
+		if utf8.RuneCountInString(l.Emoji) > 8 || utf8.RuneCountInString(l.Text) > maxLabel || !tgapi.ValidEmojiID(l.EmojiID) {
+			return ErrLabel
+		}
+		if l.Emoji == "" && l.Text == "" && l.EmojiID == "" {
+			delete(c.Labels, key)
+			continue
+		}
+		c.Labels[key] = l
 	}
 	c.refreshBuiltin()
 	return c.Channel.Validate()

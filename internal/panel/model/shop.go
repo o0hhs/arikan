@@ -212,6 +212,23 @@ type DeviceOffer struct {
 	Expiry sql.NullInt64
 }
 
+// Promo is a subscriber's code as the bot enters it: what it gives at once, or the discount
+// the purchase takes. A bonus code is already redeemed; a discount code is only checked and
+// goes with the invoice, which reserves it against the order.
+type Promo struct {
+	Code     string
+	Type     string
+	Days     int64 // a days code's
+	Bytes    int64 // a traffic code's
+	Percent  int64 // a percent code's cut
+	Amount   int64 // a fixed code's, in the minor units of Currency
+	Currency string
+	// Tariff is the one an access code opened; Subscription the name of the one a free
+	// access gave.
+	Tariff       *Tariff
+	Subscription string
+}
+
 // TrialOffer is the priced trial an account can buy.
 type TrialOffer struct {
 	Tariff Tariff

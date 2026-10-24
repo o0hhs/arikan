@@ -58,15 +58,23 @@ func RPCHandler(b tgbot.Backend) http.Handler {
 		if t.NumIn() > 0 && t.In(0) == contextType {
 			args, first = append(args, reflect.ValueOf(r.Context())), 1
 		}
-		if len(raw) != t.NumIn()-first {
-			rpcWrite(w, http.StatusBadRequest, map[string]any{"error": tgbot.RPCError{Code: "bad_request", Message: fmt.Sprintf("%s takes %d arguments", name, t.NumIn()-first)}})
+		want := t.NumIn() - first
+		// Fewer arguments is an addon built against an older panel: a method gained a
+		// parameter since (Shop.Offers took the chat's tg to offer an access code's tariff).
+		// The rest keep their zero value, so such an addon's screens work rather than fail
+		// on a call the panel itself would only use for the extra feature. More is a
+		// mistake on the caller's side.
+		if len(raw) > want {
+			rpcWrite(w, http.StatusBadRequest, map[string]any{"error": tgbot.RPCError{Code: "bad_request", Message: fmt.Sprintf("%s takes %d arguments", name, want)}})
 			return
 		}
-		for i, a := range raw {
+		for i := 0; i < want; i++ {
 			v := reflect.New(t.In(first + i))
-			if err := json.Unmarshal(a, v.Interface()); err != nil {
-				rpcWrite(w, http.StatusBadRequest, map[string]any{"error": tgbot.RPCError{Code: "bad_request", Message: fmt.Sprintf("argument %d: %v", i+1, err)}})
-				return
+			if i < len(raw) {
+				if err := json.Unmarshal(raw[i], v.Interface()); err != nil {
+					rpcWrite(w, http.StatusBadRequest, map[string]any{"error": tgbot.RPCError{Code: "bad_request", Message: fmt.Sprintf("argument %d: %v", i+1, err)}})
+					return
+				}
 			}
 			args = append(args, v.Elem())
 		}
