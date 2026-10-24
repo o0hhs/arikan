@@ -5,6 +5,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { api, unwrap, type Schemas } from "../../../api/client";
 import { qk, useSpeedTests } from "../../../api/hooks";
 import { Drawer, DrawerFooter } from "../../../components/overlay";
+import { Disclosure } from "../../../components/layout";
 import { Switch, SwitchRow } from "../../../components/switch";
 import { useToast } from "../../../components/toast";
 import { Button, Field, Segmented } from "../../../components/ui";
@@ -274,6 +275,7 @@ export function EditNodeDrawer({ node, onClose }: { node: Node | null; onClose: 
           {form.fair_share && !node?.fair_share ? <p className="text-xs text-[var(--honey-600)]">{t("nodes.fairShareReconnect")}</p> : null}
         </div>
         <div className="dr-sec">
+          <Disclosure title={t("nodes.emergency")} sub={t("nodes.emergencyHint")} open={form.emergency}>
           <SwitchRow className="pt-0" label={t("nodes.emergency")} sub={t("nodes.emergencyHint")} checked={form.emergency} onChange={(v) => setForm((f) => ({ ...f, emergency: v }))} />
           {form.emergency ? (
             <Field label={t("nodes.emergencySpeed")} htmlFor="e-emergency-speed" hint={t("nodes.emergencySpeedHint")} error={errors.emergency_speed}>
@@ -293,6 +295,7 @@ export function EditNodeDrawer({ node, onClose }: { node: Node | null; onClose: 
               </label>
             </Field>
           ) : null}
+          </Disclosure>
         </div>
         {node && !node.local ? (
           <div className="dr-sec">

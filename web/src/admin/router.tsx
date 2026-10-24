@@ -137,7 +137,6 @@ export function createAppRouter(queryClient: QueryClient) {
   });
   // The addons: what is installed (the bot, payment methods, pages, the built-in tools) and
   // the catalog of the marketplace.
-  const partners = createRoute({ getParentRoute: () => app, path: "/partners", component: page(() => import("./pages/partners"), "PartnersPage") });
   const client = createRoute({ getParentRoute: () => app, path: "/client", component: page(() => import("./pages/client"), "ClientPage") });
   const audit = createRoute({ getParentRoute: () => app, path: "/audit", component: page(() => import("./pages/client-audit"), "AuditPage") });
   const addons = createRoute({
@@ -218,7 +217,7 @@ export function createAppRouter(queryClient: QueryClient) {
   // The API section lived in the sidebar until 0.4.2: old links land on its new place.
   const apiDocsOld = createRoute({ getParentRoute: () => app, path: "/api-docs", beforeLoad: () => { throw redirect({ to: "/settings/api" }); } });
 
-  const routeTree = root.addChildren([login, supportEnter, app.addChildren([dashboard, users, tariffs, inbounds, nodes, outbounds, diagnostics, promocodes, payments, addons, partners, client, audit, telegram, torrent, filters, market, addonApp, telegramOld, apiDocs, apiDocsOld, settings])]);
+  const routeTree = root.addChildren([login, supportEnter, app.addChildren([dashboard, users, tariffs, inbounds, nodes, outbounds, diagnostics, promocodes, payments, addons, client, audit, telegram, torrent, filters, market, addonApp, telegramOld, apiDocs, apiDocsOld, settings])]);
   return createRouter({
     routeTree,
     basepath: basePath || "/",

@@ -231,13 +231,15 @@ export function ProtocolsCard({ s }: { s: Schemas["SettingsView"] }) {
     <section className="card glass reveal">
       <form onSubmit={submit} noValidate>
         <CardHead title={t("settings.protocols")} sub={t("settings.protocolsSub")} />
-        <Field label={t("settings.protocolOrder")} htmlFor="s-order" hint={t("settings.protocolOrderHint")} error={errors.protocol_order}>
-          <input id="s-order" className="input" value={order} onChange={(e) => setOrder(e.target.value)} placeholder="vless, hysteria2, shadowsocks" autoComplete="off" aria-invalid={!!errors.protocol_order} />
-        </Field>
-        <Field label={t("settings.mtproto")} htmlFor="s-mtproto" hint={t("settings.mtprotoHint")} error={errors.mtproto}>
-          <textarea id="s-mtproto" className="input min-h-[96px]" rows={3} value={mt} onChange={(e) => setMt(e.target.value)} placeholder={"mt.example.com:443:ee0123…:Мой прокси"} aria-invalid={!!errors.mtproto} />
-        </Field>
-        <FormActions dirty={order !== orderText(s) || mt !== mtText(s)} saving={save.isPending} />
+        <Disclosure title={t("settings.protocolsOpen")} open={order !== orderText(s) || mt !== mtText(s) || !!errors.protocol_order || !!errors.mtproto}>
+          <Field label={t("settings.protocolOrder")} htmlFor="s-order" hint={t("settings.protocolOrderHint")} error={errors.protocol_order}>
+            <input id="s-order" className="input" value={order} onChange={(e) => setOrder(e.target.value)} placeholder="vless, hysteria2, shadowsocks" autoComplete="off" aria-invalid={!!errors.protocol_order} />
+          </Field>
+          <Field label={t("settings.mtproto")} htmlFor="s-mtproto" hint={t("settings.mtprotoHint")} error={errors.mtproto}>
+            <textarea id="s-mtproto" className="input min-h-[96px]" rows={3} value={mt} onChange={(e) => setMt(e.target.value)} placeholder={"mt.example.com:443:ee0123…:Мой прокси"} aria-invalid={!!errors.mtproto} />
+          </Field>
+          <FormActions dirty={order !== orderText(s) || mt !== mtText(s)} saving={save.isPending} />
+        </Disclosure>
       </form>
     </section>
   );
