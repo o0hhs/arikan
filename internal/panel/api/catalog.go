@@ -357,7 +357,7 @@ func (h *handlers) restoreTariff(ctx context.Context, in *userIDInput) (*tariffO
 
 // deleteTariff erases a tariff no subscription is on: archive is the usual way off the shop,
 // this one is for a plan made by mistake or one the admin is done with. A payment keeps its
-// tariff_name; its link goes (0069).
+// tariff_name; its link goes (0073).
 func (h *handlers) deleteTariff(ctx context.Context, in *userIDInput) (*struct{}, error) {
 	if _, err := h.d.Store.Q.GetTariff(ctx, in.ID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
