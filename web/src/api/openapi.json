@@ -7375,6 +7375,12 @@
           "note": {
             "maxLength": 500,
             "type": "string"
+          },
+          "owner_tg_id": {
+            "description": "Свой Telegram-аккаунт партнёра: по его же коду комиссия не начисляется; 0 — не задан",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
           }
         },
         "required": [
@@ -7396,7 +7402,8 @@
             "type": "string"
           },
           "code": {
-            "description": "Свой код; пусто — выданный панелью",
+            "description": "Свой код из латиницы, цифр, _ и -; пусто — выданный панелью",
+            "maxLength": 64,
             "type": "string"
           },
           "commission_percent": {
@@ -7426,7 +7433,7 @@
             "type": "integer"
           },
           "bot_token": {
-            "description": "Токен бота партнёра; пусто у read-ключа",
+            "description": "Токен бота партнёра; пусто у оператора поддержки",
             "type": "string"
           },
           "bot_username": {
@@ -7493,6 +7500,11 @@
           },
           "note": {
             "type": "string"
+          },
+          "owner_tg_id": {
+            "description": "Свой Telegram-аккаунт партнёра; 0 — не задан",
+            "format": "int64",
+            "type": "integer"
           }
         },
         "required": [
@@ -20056,7 +20068,8 @@
         "summary": "Партнёры",
         "tags": [
           "partners"
-        ]
+        ],
+        "x-session-only": true
       },
       "post": {
         "operationId": "create-partner",
@@ -20095,7 +20108,8 @@
         "summary": "Добавить партнёра",
         "tags": [
           "partners"
-        ]
+        ],
+        "x-session-only": true
       }
     },
     "/api/v1/partners/bots/{bot}": {
@@ -20130,7 +20144,8 @@
         "summary": "Удалить бота партнёра",
         "tags": [
           "partners"
-        ]
+        ],
+        "x-session-only": true
       },
       "put": {
         "operationId": "update-partner-bot",
@@ -20180,7 +20195,8 @@
         "summary": "Изменить бота партнёра",
         "tags": [
           "partners"
-        ]
+        ],
+        "x-session-only": true
       }
     },
     "/api/v1/partners/{id}": {
@@ -20216,7 +20232,8 @@
         "summary": "Удалить партнёра",
         "tags": [
           "partners"
-        ]
+        ],
+        "x-session-only": true
       },
       "put": {
         "operationId": "update-partner",
@@ -20266,7 +20283,8 @@
         "summary": "Изменить партнёра",
         "tags": [
           "partners"
-        ]
+        ],
+        "x-session-only": true
       }
     },
     "/api/v1/partners/{id}/bots": {
@@ -20318,7 +20336,8 @@
         "summary": "Добавить бота партнёра",
         "tags": [
           "partners"
-        ]
+        ],
+        "x-session-only": true
       }
     },
     "/api/v1/payments": {

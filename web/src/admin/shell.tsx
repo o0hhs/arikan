@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Menu from "@radix-ui/react-dropdown-menu";
 import { Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
-import { Activity, ArrowUpCircle, LayoutDashboard, Link2, LogOut, MoreHorizontal, Network, PanelLeftClose, PanelLeftOpen, Puzzle, ScrollText, Search, Server, SlidersHorizontal, Tag, Users, Wallet, Handshake } from "lucide-react";
+import { Activity, ArrowUpCircle, LayoutDashboard, Link2, LogOut, MoreHorizontal, Network, PanelLeftClose, PanelLeftOpen, Puzzle, ScrollText, Search, Server, SlidersHorizontal, Tag, Users, Wallet } from "lucide-react";
 import { useState } from "react";
 import { api, ApiError, errorText, unwrap } from "../api/client";
 import { meQuery, useNode, useOverview, useUpdates } from "../api/hooks";
@@ -27,7 +27,6 @@ const NAV: NavItem[] = [
   { to: "/outbounds", key: "outbounds", icon: Link2, roles: ["superadmin", "tech"] as const },
   { to: "/payments", key: "payments", icon: Wallet, roles: ["superadmin"] as const },
   { to: "/addons", key: "addons", icon: Puzzle, roles: ["superadmin"] as const },
-  { to: "/partners", key: "partners", icon: Handshake, roles: ["superadmin"] as const },
   { to: "/diagnostics", key: "diagnostics", icon: Activity, roles: ["superadmin"] as const },
   { to: "/audit", key: "audit", icon: ScrollText, roles: ["superadmin", "tech"] as const },
   { to: "/settings", key: "settings", icon: SlidersHorizontal, roles: ["superadmin"] as const },
