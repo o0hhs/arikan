@@ -3,7 +3,7 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
-## Unreleased
+## 0.5.2.6
 ### en
 **Seven fixes: the community bot on this fork, install apart from connect, promo codes in the chat, one way to sell device places, months in the terms, a label for every button, and a subscription screen without duplicates.**
 - **The community addon `mikan-subs-bot` works here.** The bot's RPC refused a call whose argument count differed from the panel's method, and this fork's `Shop.Offers` takes the chat's account (the tariffs an access code opens are offered by it): an addon built on upstream calls it without an argument and got `bad_request`, so its shop and its purchases failed. A call with fewer trailing arguments is answered with the zero values now, so an addon built against an older panel keeps working; more arguments than the method takes is still a mistake.
