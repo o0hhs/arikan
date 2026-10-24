@@ -2,6 +2,7 @@ package node
 
 import (
 	"encoding/json"
+	"strings"
 
 	"github.com/metacubex/mihomo/component/resolver"
 	"github.com/metacubex/mihomo/component/sniffer"
@@ -20,7 +21,9 @@ import (
 // name (override-destination): the node resolves it, not the user's device. Only on the
 // ports of SniffPorts, where the client speaks first.
 func snifferConfig(d *nodeapi.ExitDNS) map[string]any {
-	if d == nil || !d.Sniff {
+	// No state is a panel of before the switch, and the fork's node has always read the
+	// name off the connection: only a state that says so turns the sniffer off.
+	if d != nil && !d.Sniff {
 		return map[string]any{"enable": false}
 	}
 	ports := func(ps []string) []any {
@@ -42,29 +45,63 @@ func snifferConfig(d *nodeapi.ExitDNS) map[string]any {
 	}
 }
 
-// dnsConfig is mihomo's resolver with the state's servers; without any, the host's own
-// (mihomo's DNS off). A server that does not parse is left out, as the egress rules are:
-// a broken or older panel must not take the node's users down with it. A resolver by
-// name finds its address with the host's resolver.
+// dnsConfig is mihomo's resolver: the state's servers (the admin's Routing → DNS first,
+// then Exit DNS's own), its bootstraps and its per-domain overrides; without any, the
+// node's defaults. A server that does not parse is left out, as the egress rules are: a
+// broken or older panel must not take the node's users down with it.
 func dnsConfig(d *nodeapi.ExitDNS) map[string]any {
-	var servers []string
+	var raw []string
 	if d != nil {
-		for _, s := range d.Servers {
-			if c, ok := nodeapi.CanonDNSServer(s); ok && len(servers) < nodeapi.MaxDNSServers {
-				servers = append(servers, c)
-			}
+		// The admin's Routing → DNS first: it is the fork's own list. Exit DNS's servers are
+		// the same kind of resolver and join it.
+		raw = append(append([]string{}, d.Nameserver...), d.Servers...)
+	}
+	var servers []string
+	for _, s := range cleanServers(raw) {
+		if c, ok := nodeapi.CanonDNSServer(s); ok && len(servers) < nodeapi.MaxDNSServers {
+			servers = append(servers, c)
 		}
 	}
 	if len(servers) == 0 {
-		return map[string]any{"enable": false}
+		servers = cleanServers(defaultNameservers)
 	}
-	return map[string]any{
+	boot := defaultBootstraps
+	if d != nil && len(d.Default) > 0 {
+		boot = cleanServers(d.Default)
+	}
+	out := map[string]any{
 		"enable":             true,
 		"ipv6":               true,
 		"enhanced-mode":      "normal",
-		"default-nameserver": []string{"system://"},
+		"default-nameserver": boot,
 		"nameserver":         servers,
 	}
+	if d != nil {
+		if p := cleanServers(d.ProxyServer); len(p) > 0 {
+			out["proxy-server-nameserver"] = p
+		}
+		if p := policySection(d.Policy); len(p) > 0 {
+			out["nameserver-policy"] = p
+		}
+	}
+	return out
+}
+
+// policySection is the policies a node can apply: the ones that name domains ("+.cn"). A
+// geosite: or rule-set: key needs the geodata, which only the apps have; sending it would
+// refuse the whole config here.
+func policySection(in []nodeapi.DNSPolicy) map[string]any {
+	out := map[string]any{}
+	for _, p := range in {
+		match := strings.ToLower(strings.TrimSpace(p.Match))
+		if match == "" || strings.HasPrefix(match, "geosite:") || strings.HasPrefix(match, "rule-set:") || strings.Contains(match, "geosite:") {
+			continue
+		}
+		if servers := cleanServers(p.Servers); len(servers) > 0 {
+			out[p.Match] = servers
+		}
+	}
+	return out
 }
 
 // exitDNSKey covers what applyExitDNS depends on.

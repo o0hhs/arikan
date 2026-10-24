@@ -25,12 +25,19 @@ func TestExitDNSConfigParses(t *testing.T) {
 		sniff   bool
 		servers int
 	}{
-		{"none", nil, false, 0},
-		{"off", &nodeapi.ExitDNS{}, false, 0},
-		{"sniff", &nodeapi.ExitDNS{Sniff: true}, true, 0},
+		// No state is a panel of before the switch, and an empty one means the same: the
+		// fork's node resolves with its own defaults (Cloudflare and Google over HTTPS) and
+		// reads the name off the connection unless a state turns the sniffer off.
+		{"none", nil, true, 2},
+		{"off", &nodeapi.ExitDNS{}, false, 2},
+		{"sniff", &nodeapi.ExitDNS{Sniff: true}, true, 2},
 		// What does not parse is left out; the rest reaches mihomo.
 		{"servers", &nodeapi.ExitDNS{Sniff: true, Servers: []string{"https://1.1.1.1/dns-query", "tls://dns.google", "8.8.8.8", "dns.google", "https://1.1.1.1#PROXY", "dhcp://eth0"}}, true, 3},
 		{"servers only", &nodeapi.ExitDNS{Servers: []string{"quic://dns.adguard-dns.com"}}, false, 1},
+		// The admin's Routing → DNS: the servers, the bootstraps and the per-domain policy;
+		// a "#group" suffix and a geosite policy are the apps' and are left out.
+		{"routes", &nodeapi.ExitDNS{Sniff: true, Nameserver: []string{"https://dns.google/dns-query#PROXY"}, Default: []string{"1.1.1.1"}, ProxyServer: []string{"8.8.8.8"},
+			Policy: []nodeapi.DNSPolicy{{Match: "+.google.com", Servers: []string{"https://dns.google/dns-query"}}, {Match: "geosite:category-ru", Servers: []string{"1.1.1.1"}}}}, true, 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			st := cascadeState(t)

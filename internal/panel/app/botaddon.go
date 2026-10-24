@@ -116,13 +116,22 @@ func (b *botAddon) check(ctx context.Context) {
 	}
 	// An entry of a source is recorded as coming from it: the addon keeps working only while
 	// the source stays, and the admin's page says where it came from.
-	if src, ok := b.sourceOf(ctx, e.ID); ok {
+	src, fromSource := b.sourceOf(ctx, e.ID)
+	if fromSource {
 		if err := p.st.Q.UpsertAddonOrigin(ctx, db.UpsertAddonOriginParams{AddonID: e.ID, SourceID: src}); err != nil {
 			p.log.Error("bot addon: origin", "err", err)
 			return
 		}
 	}
-	if err := p.Addons.Ask(addons.Request{Action: "install", ID: e.ID}); err != nil {
+	// The host installs a source's entry from what the source says — its image and digest —
+	// not by looking the id up in the marketplace: this fork's bot is not in that catalog,
+	// and asking for it by id there fails for good.
+	req := addons.Request{Action: "install", ID: e.ID}
+	if fromSource {
+		req = addons.Request{Action: "install", ID: e.ID, Source: addons.SourceCustom, Image: e.Image, Digest: e.Digest,
+			Kind: e.Kind, Mode: e.Mode, Permissions: e.Permissions, MemMB: e.Resources.MemMB}
+	}
+	if err := p.Addons.Ask(req); err != nil {
 		p.log.Error("bot addon: ask the host", "err", err)
 		return
 	}

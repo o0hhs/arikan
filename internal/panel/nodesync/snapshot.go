@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"maps"
+	"mikan/internal/panel/subs"
 	"strconv"
 	"strings"
 
@@ -41,7 +42,10 @@ type snapshot struct {
 	bans      map[int64]int64 // user → when the torrent blocker's ban ends (unix)
 	filters   filters.Config
 	exitDNS   exitdns.Config
-	detail    bool // the nodes sum the bytes by site
+	// routes are the admin's Routing settings; their DNS (servers, bootstraps, policy) goes
+	// to the nodes on top of the exit DNS — it is how Gemini and the rest resolve.
+	routes subs.Routes
+	detail bool // the nodes sum the bytes by site
 }
 
 type counterPos struct {
@@ -126,6 +130,9 @@ func (m *Manager) readSnapshot(ctx context.Context) (s *snapshot, err error) {
 		return nil, err
 	}
 	if s.exitDNS, err = exitdns.Load(ctx, settings.New(q)); err != nil {
+		return nil, err
+	}
+	if s.routes, _, err = settings.Get[subs.Routes](ctx, settings.New(q), settings.KeyRoutes); err != nil {
 		return nil, err
 	}
 	if s.detail, err = settings.New(q).On(ctx, settings.TrafficDetail); err != nil {

@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"mikan/internal/panel/subs"
 	"net"
 	"slices"
 	"sort"
@@ -277,7 +278,7 @@ func (s *Syncer) desiredPin(ctx context.Context) (st nodeapi.DesiredState, pin s
 	}
 	st.Torrent = snap.torrent.Block()
 	st.Filters = snap.filters.State()
-	st.DNS = snap.exitDNS.State()
+	st.DNS = routesDNS(snap.exitDNS.State(), snap.routes)
 	st.Detail = snap.detail
 	st.HTTPRedirect = n.HttpRedirect != 0 && n.Address != ""
 	st.APIAllow = s.apiAllow(ctx, n)
@@ -1270,4 +1271,25 @@ func sniRouter(inbounds []nodeapi.Inbound, nodeDomain string, front bool) *nodea
 		return nil
 	}
 	return r
+}
+
+// routesDNS puts the admin's Routing → DNS onto the state's exit DNS: the resolvers, the
+// bootstraps, the outbounds' resolver and the per-domain overrides. It keeps the node's own
+// resolver in the state even with Exit DNS off — a node has always resolved the sites its
+// users reach, and a site that answers by the resolver's country (Gemini) needs it to.
+func routesDNS(st *nodeapi.ExitDNS, r subs.Routes) *nodeapi.ExitDNS {
+	d := r.DNS
+	if st == nil && len(d.Nameserver) == 0 && len(d.Default) == 0 && len(d.ProxyServer) == 0 && len(d.Policy) == 0 {
+		return nil // nothing configured: the node applies its own defaults, as it always has
+	}
+	if st == nil {
+		st = &nodeapi.ExitDNS{}
+	}
+	st.Nameserver = append([]string{}, d.Nameserver...)
+	st.Default = append([]string{}, d.Default...)
+	st.ProxyServer = append([]string{}, d.ProxyServer...)
+	for _, p := range d.Policy {
+		st.Policy = append(st.Policy, nodeapi.DNSPolicy{Match: p.Match, Servers: append([]string{}, p.Servers...)})
+	}
+	return st
 }

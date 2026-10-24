@@ -3,6 +3,19 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
+## Unreleased
+### en
+**The update's first three breaks: the Nodes page, the fork bot's update, and the DNS the nodes resolve by.**
+- **Nodes opened to an error.** The disk drawer computed its query key from the node while the drawer was closed, and the page crashed on the null (`Cannot read properties of null`). The key takes the closed drawer now; the page opens as before.
+- **The fork bot's update failed** with `the marketplace has no adapter arikan-telegram`: the panel asked the host to install by id from the marketplace catalog, where this fork's bot is not. A bot from the panel's own source is installed from what the source says — its image and digest — as the addons page does by hand; the auto-update reaches 0.5.2.1 and later.
+- **The nodes resolve by themselves again.** Moving to upstream's exit DNS left Routing → DNS unread: the servers, bootstraps, the outbounds' resolver and the per-domain policy (the names Google's Gemini answers by country) never reached the nodes, and Gemini stopped working. They ride the node's DNS state again, on top of the exit DNS, and a node with nothing configured keeps its own resolver (Cloudflare and Google over HTTPS) and the sniffer, as it always had.
+
+### ru
+**Первые три поломки обновления: страница «Ноды», обновление форкового бота и DNS, которым резолвят ноды.**
+- **«Ноды» открывались ошибкой.** Дровер диска считал ключ запроса от ноды, пока дровер закрыт, и страница падала на null (`Cannot read properties of null`). Ключ теперь терпит закрытый дровер, страница открывается как раньше.
+- **Обновление форкового бота падало** с `the marketplace has no adapter arikan-telegram`: панель просила host поставить бота по id из маркетплейс-каталога, а бота этого форка там нет. Бот из собственного источника панели ставится по тому, что говорит источник — образ и дайджест, — как это делает страница аддонов руками; автообновление доходит до 0.5.2.1 и дальше.
+- **Ноды снова резолвят сами.** На переезде на апстримовский exit DNS настройки Routing → DNS перестали читаться: серверы, бутстрапы, резолвер исходящих и политика по доменам (имена, по которым Google отвечает страной для Gemini) до нод не доходили, и Gemini перестал работать. Они снова едут в состоянии DNS ноды, поверх exit DNS, а нода без настроек держит свой резолвер (Cloudflare и Google по HTTPS) и сниффер, как всегда.
+
 ## 0.5.2.1
 ### en
 **The panel sits on upstream 0.5.2.0, and the round of six rides on it: two tariffs with device packs, a subscription that keeps Telegram alive, a four-button bot with its own admin side, panel admins with roles, and the franchise's books.**
