@@ -122,13 +122,8 @@ func (b *Bot) screen(ctx context.Context, cfg Config, chat int64, data, notice s
 			lines = append(lines, linkLine)
 		}
 		// The two things a buyer comes for stand first: connect, and renew.
-		rows := [][]tgapi.Button{}
-		connect := tgapi.Button{Text: w.connectButton, CallbackData: "c", Style: tgapi.StylePrimary}
-		if offers, _ := b.offers(ctx, chat); len(offers) > 0 {
-			rows = append(rows, []tgapi.Button{connect, {Text: w.renewButton, CallbackData: "r", Style: tgapi.StyleSuccess}})
-		} else {
-			rows = append(rows, []tgapi.Button{connect})
-		}
+		rows := [][]tgapi.Button{{{Text: w.connectButton, CallbackData: "c", Style: tgapi.StylePrimary},
+			{Text: w.renewButton, CallbackData: "r", Style: tgapi.StyleSuccess}}}
 		if offers := b.packageOffers(ctx, u.ID); len(offers) > 0 {
 			rows = append(rows, []tgapi.Button{{Text: w.buyTraffic, CallbackData: "x"}})
 		}

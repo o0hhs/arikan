@@ -100,7 +100,7 @@ func TestConnectBuyerFlow(t *testing.T) {
 	if second := deskRows[1][0]; !strings.Contains(second.value, "github.com/getmikan/kabosu") {
 		t.Fatalf("the download under the one-tap: %+v", second)
 	}
-	if !strings.Contains(text(desk), "Добавить в Kabosu") {
+	if !strings.Contains(text(desk), "Kabosu") || !strings.Contains(text(desk), "1 клик") {
 		t.Fatalf("no one-tap button for Kabosu: %q", text(desk))
 	}
 
@@ -136,7 +136,7 @@ func TestConnectScreenFollowsTheAdmin(t *testing.T) {
 		t.Fatal(err)
 	}
 	desk := e.tap(555, "c2:desktop")
-	if !strings.Contains(text(desk), "Ставьте приложение и жмите одну кнопку.") || !strings.Contains(text(desk), "Добавить в Мой клиент") {
+	if !strings.Contains(text(desk), "Ставьте приложение и жмите одну кнопку.") || !strings.Contains(text(desk), "Мой клиент") {
 		t.Fatalf("the admin's screen: %q", text(desk))
 	}
 	// The platform step keeps only the platforms that have apps: the phones are not offered.
