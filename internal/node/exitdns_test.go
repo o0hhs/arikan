@@ -113,11 +113,13 @@ func TestSnifferDialsTheName(t *testing.T) {
 }
 
 func TestExitDNSKey(t *testing.T) {
-	if exitDNSKey(nil) != exitDNSKey(&nodeapi.ExitDNS{}) {
-		t.Fatal("off and none differ")
+	// No state is the fork's node: its own resolver and the sniffer. An empty state keeps
+	// the resolver and turns the sniffer off, so the two are different states.
+	if exitDNSKey(nil) == exitDNSKey(&nodeapi.ExitDNS{}) {
+		t.Fatal("off and none are the same state")
 	}
-	if exitDNSKey(nil) == exitDNSKey(&nodeapi.ExitDNS{Sniff: true}) {
-		t.Fatal("the sniffer does not change the key")
+	if exitDNSKey(nil) != exitDNSKey(&nodeapi.ExitDNS{Sniff: true}) {
+		t.Fatal("no state is the sniffer on, as the fork's node always had it")
 	}
 	// A server that is left out does not change what mihomo holds.
 	if exitDNSKey(&nodeapi.ExitDNS{Servers: []string{"8.8.8.8"}}) != exitDNSKey(&nodeapi.ExitDNS{Servers: []string{" 8.8.8.8", "junk"}}) {
@@ -148,8 +150,8 @@ func TestApplyExitDNS(t *testing.T) {
 	if !tunnel.IsSniffing() || resolver.DefaultResolver == nil || resolver.DirectHostResolver == nil {
 		t.Fatalf("on: sniffing %v, resolver %v", tunnel.IsSniffing(), resolver.DefaultResolver)
 	}
-	apply(nil)
-	if tunnel.IsSniffing() || resolver.DefaultResolver != nil || resolver.DirectHostResolver != nil {
+	apply(&nodeapi.ExitDNS{})
+	if tunnel.IsSniffing() || resolver.DefaultResolver == nil || resolver.DirectHostResolver == nil {
 		t.Fatalf("off: sniffing %v, resolver %v", tunnel.IsSniffing(), resolver.DefaultResolver)
 	}
 }

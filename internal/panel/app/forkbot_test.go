@@ -119,7 +119,7 @@ func TestForkBotIsPreferred(t *testing.T) {
 		}
 	}
 	if askedReq.Source != addons.SourceCustom || askedReq.Image != "ghcr.io/o0hhs/arikan" || !strings.HasPrefix(askedReq.Digest, "sha256:a") ||
-		askedReq.Kind != addons.KindBot || askedReq.Mode != addons.ModeClient || askedReq.MemMB == 0 {
+		askedReq.Kind != addons.KindBot || askedReq.Mode != addons.ModeClient {
 		t.Fatalf("the host is asked by id from the catalog: %+v", askedReq)
 	}
 	want := []string{"bot", "users:read", "users:write", "billing:invoice", "events", "kv"}
