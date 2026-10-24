@@ -3,7 +3,7 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
-## Unreleased
+## 0.5.2.7
 ### en
 **The admin's round of five: colors for the bot's own buttons, one «Where clients go», plans deleted for good, protocols per client, and a wider client card.**
 - **Every built-in button takes a color.** Telegram → Menu and texts → «The bot's buttons»: beside the emoji, the label and the premium emoji id, each button has Telegram's color — Plain, Blue, Green or Red — as the main menu's buttons already had. An empty color keeps the one the screen gives the button.
