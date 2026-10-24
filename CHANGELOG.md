@@ -3,7 +3,7 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
-## Unreleased
+## 0.5.2.5
 ### en
 **The bot the buyer understands, and the connect screen the admin owns.**
 - **«My profile» leads with the two things a buyer comes for:** «Connect» and «Renew» stand first on the subscription screen, before traffic packages, places and the reissue. Nobody has to guess where the way in is.
