@@ -345,7 +345,10 @@ func NewPanel(st *store.Store, o Options) (*Panel, error) {
 		MaxLinks: model.MaxLinks,
 		Addons:   deps.Addons, SubBase: subBase, Promo: promos, Events: hub,
 		Referral: refs, Campaigns: camps, Discounts: sales, Partners: parts, Hooks: p.Webhooks,
-		TopupWaiting: func(ctx context.Context, t db.Topup) { p.tellAdminOfTopup(ctx, t) }})
+		TopupWaiting: func(ctx context.Context, t db.Topup) { p.tellAdminOfTopup(ctx, t) },
+		Sale: func(ctx context.Context, pay db.Payment, u db.User, created bool) {
+			p.tellAdminOfSale(ctx, pay, u, created)
+		}})
 	deps.Billing, deps.SubBase = p.Billing, subBase
 	deps.Webhooks = p.Webhooks
 	// The bot may reach Telegram through a node when the panel's server cannot.

@@ -153,6 +153,9 @@ type Deps struct {
 	Hooks interface {
 		Paid(ctx context.Context, q *db.Queries, p db.Payment, u db.User, created bool) error
 	}
+	// Sale tells the admin's Telegram a payment went through (panel/app's sale_notice); nil:
+	// nobody is told. Called after the transaction, a slow sender holds no payment.
+	Sale func(ctx context.Context, pay db.Payment, u db.User, created bool)
 }
 
 type Service struct {
@@ -1417,10 +1420,12 @@ func (s *Service) Apply(ctx context.Context, id int64) error {
 		return q.SetPaymentRevert(ctx, db.SetPaymentRevertParams{Revert: purchaseRevert(created, hadPrior, prior, u), ID: id})
 	}
 	// The addons hear of it in the same transaction: never of a payment that rolled back.
+	toldNow := false
 	told := func(q *db.Queries) error {
 		if err := run(q); err != nil || done || lateRef {
 			return err
 		}
+		toldNow = true
 		if err := emitPayment(ctx, q, s.d.Now(), events.PaymentPaid, pay, u.ID, created, false); err != nil {
 			return err
 		}
@@ -1448,6 +1453,11 @@ func (s *Service) Apply(ctx context.Context, id int64) error {
 	}
 	if err == nil && !done {
 		s.d.Events.Kick()
+	}
+	// The admin's Telegram hears of the sale outside the transaction: the notice queues in
+	// the alerts' own store, and a slow Telegram holds no payment.
+	if err == nil && toldNow && s.d.Sale != nil {
+		s.d.Sale(context.WithoutCancel(ctx), pay, u, created)
 	}
 	if errors.Is(err, ErrTrialUsed) {
 		// The account may no longer be given the trial it paid for: nothing was made, so
