@@ -21,6 +21,7 @@ import (
 	"mikan/internal/panel/settings"
 	"mikan/internal/panel/store/db"
 	"mikan/internal/panel/subs"
+	"mikan/internal/panel/webhooks"
 	"mikan/internal/proto"
 	"mikan/internal/textutil"
 )
@@ -60,13 +61,16 @@ type SettingsView struct {
 	ProtocolOrder []string       `json:"protocol_order" doc:"Порядок семейств протоколов в подписке, например vless, hysteria2, shadowsocks: внутри ноды подключения идут в нём; не названные — после них, как были"`
 	MTProto       []subs.MTProxy `json:"mtproto" doc:"MTProto-прокси для Telegram: кнопка в боте и блок на странице подписки; пусто — нет"`
 	SubTemplate   string         `json:"sub_template" doc:"Свой профиль Clash (YAML) вместо встроенного для приложений на mihomo; пусто — встроенный. Серверы панель подставляет сама: в proxies и в группы с include-all-proxies или mikan: {nodes, types}"`
-	SubRoutes     subs.Routes    `json:"sub_routes" doc:"Куда идут сервисы (services: id → vpn, direct, block или node:<id>), какие приложения и сайты идут мимо VPN (direct) и свои DNS (dns). Каталог — GET /api/v1/settings/routes/catalog"`
-	Fingerprint   string         `json:"client_fingerprint" doc:"Отпечаток TLS (uTLS) у клиентов, если у подключения не задан свой: chrome, firefox, safari, ios, android, edge, 360, qq, random, randomized или своё значение"`
-	AutoPort      bool           `json:"auto_port" doc:"Переносить подключение на другой порт, если клиенты перестали до него доходить"`
-	AutoSNI       bool           `json:"auto_sni" doc:"Менять сайт маскировки REALITY, если он перестал подходить"`
-	WideScan      bool           `json:"wide_sni_scan" doc:"Искать сайты маскировки REALITY не только в /24 ноды, но и в соседних /24 её /16, до 20 найденных сайтов или 2 минут. Много подключений: хостер может принять это за сканирование сети"`
-	AnyPort       bool           `json:"any_port" doc:"Когда запасные порты (2053, 2083…) заняты, панель сама берёт любой свободный из 20000-32767: для нового подключения без порта и при автопереносе. Эти порты установщик в файрволе не открывает"`
-	SupportAccess bool           `json:"support_access" doc:"Разрешить доступ для поддержки (Настройки → Безопасность). Выключено: новый доступ не выдать, действующий закрывается. MIKAN_SUPPORT_ACCESS=off в .env сервера выключает его независимо от этой настройки"`
+	// Webhook: the admin's own site the panel tells about sold and renewed subscriptions.
+	WebhookURL       string      `json:"webhook_url" doc:"Адрес сайта для вебхуков: https, без логина в адресе; пусто — не отправлять"`
+	WebhookSecretSet bool        `json:"webhook_secret_set" doc:"Секретный ключ подписи сохранён (сам ключ не показывается)"`
+	SubRoutes        subs.Routes `json:"sub_routes" doc:"Куда идут сервисы (services: id → vpn, direct, block или node:<id>), какие приложения и сайты идут мимо VPN (direct) и свои DNS (dns). Каталог — GET /api/v1/settings/routes/catalog"`
+	Fingerprint      string      `json:"client_fingerprint" doc:"Отпечаток TLS (uTLS) у клиентов, если у подключения не задан свой: chrome, firefox, safari, ios, android, edge, 360, qq, random, randomized или своё значение"`
+	AutoPort         bool        `json:"auto_port" doc:"Переносить подключение на другой порт, если клиенты перестали до него доходить"`
+	AutoSNI          bool        `json:"auto_sni" doc:"Менять сайт маскировки REALITY, если он перестал подходить"`
+	WideScan         bool        `json:"wide_sni_scan" doc:"Искать сайты маскировки REALITY не только в /24 ноды, но и в соседних /24 её /16, до 20 найденных сайтов или 2 минут. Много подключений: хостер может принять это за сканирование сети"`
+	AnyPort          bool        `json:"any_port" doc:"Когда запасные порты (2053, 2083…) заняты, панель сама берёт любой свободный из 20000-32767: для нового подключения без порта и при автопереносе. Эти порты установщик в файрволе не открывает"`
+	SupportAccess    bool        `json:"support_access" doc:"Разрешить доступ для поддержки (Настройки → Безопасность). Выключено: новый доступ не выдать, действующий закрывается. MIKAN_SUPPORT_ACCESS=off в .env сервера выключает его независимо от этой настройки"`
 	// Devices: see domain.Devices.
 	DeviceBinding bool `json:"device_binding" doc:"Привязывать подписку к устройствам: у каждого устройства свои ключи"`
 	RequireHWID   bool `json:"device_require_hwid" doc:"Не выдавать подписку приложениям без ID устройства (иначе они вместе занимают одно место)"`
@@ -144,6 +148,8 @@ type patchSettingsBody = struct {
 	ACMEEmail      *string              `json:"acme_email,omitempty" maxLength:"254"`
 	ACMEEABKID     *string              `json:"acme_eab_kid,omitempty" maxLength:"256"`
 	ACMEEABHMAC    *string              `json:"acme_eab_hmac,omitempty" maxLength:"512" doc:"Ключ HMAC (base64url); пусто — убрать. Обратно не показывается"`
+	WebhookURL     *string              `json:"webhook_url,omitempty" maxLength:"500" doc:"Адрес сайта для вебхуков: https; пусто — не отправлять"`
+	WebhookSecret  *string              `json:"webhook_secret,omitempty" maxLength:"200" doc:"Секретный ключ подписи HMAC-SHA256, от 8 символов; пусто — убрать. Обратно не показывается"`
 }
 
 type resetPathOutput struct {
@@ -156,11 +162,29 @@ func (h *handlers) registerSettings() {
 	huma.Register(h.api, huma.Operation{OperationID: "get-settings", Method: http.MethodGet, Path: "/api/v1/settings", Summary: "Настройки", Tags: []string{"settings"}}, h.getSettings)
 	huma.Register(h.api, huma.Operation{OperationID: "update-settings", Method: http.MethodPatch, Path: "/api/v1/settings", Summary: "Изменить настройки", Tags: []string{"settings"}}, h.updateSettings)
 	huma.Register(h.api, huma.Operation{OperationID: "reset-admin-path", Metadata: sessionOnly, Extensions: sessionOnlyExt, Method: http.MethodPost, Path: "/api/v1/settings/reset-admin-path", Summary: "Выдать новую секретную ссылку на панель", Tags: []string{"settings"}}, h.resetAdminPath)
+	huma.Register(h.api, huma.Operation{OperationID: "test-webhook", Metadata: sessionOnly, Extensions: sessionOnlyExt, Method: http.MethodPost, Path: "/api/v1/settings/webhook/test",
+		Summary: "Отправить тестовый вебхук на сохранённый адрес и показать ответ сайта", Tags: []string{"settings"}}, h.testWebhook)
 	huma.Register(h.api, huma.Operation{OperationID: "renew-certificate", Method: http.MethodPost, Path: "/api/v1/settings/certificate/renew",
 		Summary: "Получить сертификат панели сейчас: ждёт до 90 с и отвечает тем, что вышло (ordering — заказ ещё идёт)", Tags: []string{"settings"}}, h.renewCertificate)
 }
 
 type certificateOutput struct{ Body acme.Status }
+
+type webhookTestOutput struct{ Body webhooks.TestResult }
+
+// testWebhook sends the synthetic event with the saved address and secret, as a delivery
+// would go: the admin sees the site's status and whether its answer is a 2xx.
+func (h *handlers) testWebhook(ctx context.Context, _ *struct{}) (*webhookTestOutput, error) {
+	if h.d.Webhooks == nil {
+		return nil, huma.Error409Conflict("webhook_not_configured")
+	}
+	r, err := h.d.Webhooks.Test(ctx)
+	if err != nil {
+		return nil, huma.Error409Conflict(err.Error())
+	}
+	h.audit(ctx, sessionOf(ctx).AdminID, "settings.test_webhook", "", "", nil)
+	return &webhookTestOutput{Body: r}, nil
+}
 
 func (h *handlers) renewCertificate(ctx context.Context, _ *struct{}) (*certificateOutput, error) {
 	if h.d.RenewCertNow == nil {
@@ -216,6 +240,12 @@ func (h *handlers) readSettings(ctx context.Context) (SettingsView, error) {
 		for i := range v.MTProto {
 			v.MTProto[i].Secret = ""
 		}
+	}
+	get(settings.KeyWebhookURL, &v.WebhookURL)
+	// The secret itself never leaves the panel: only whether there is one.
+	var secret string
+	if secret, _, err = settings.Get[string](ctx, h.d.Settings, settings.KeyWebhookSecret); err == nil {
+		v.WebhookSecretSet = secret != ""
 	}
 	get(settings.KeyFingerprint, &v.Fingerprint)
 	if !proto.ValidFingerprint(v.Fingerprint) {
@@ -402,6 +432,14 @@ func (h *handlers) updateSettings(ctx context.Context, in *patchSettingsInput) (
 				details = append(details, fieldDetail("body.mtproto", "mtproto_server_invalid", nil))
 				break
 			}
+		}
+	}
+	if b.WebhookURL != nil && strings.TrimSpace(*b.WebhookURL) != "" && !webhooks.ValidURL(strings.TrimSpace(*b.WebhookURL)) {
+		details = append(details, fieldDetail("body.webhook_url", "webhook_url_invalid", nil))
+	}
+	if b.WebhookSecret != nil {
+		if sec := strings.TrimSpace(*b.WebhookSecret); sec != "" && (len(sec) < 8 || len(sec) > 200) {
+			details = append(details, fieldDetail("body.webhook_secret", "webhook_secret_invalid", nil))
 		}
 	}
 	if b.SupportURL != nil && strings.TrimSpace(*b.SupportURL) != "" && !textutil.ValidLink(strings.TrimSpace(*b.SupportURL), subs.AppLinks) {

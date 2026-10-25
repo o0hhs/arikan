@@ -1046,3 +1046,14 @@ type UserSite struct {
 	Up     int64
 	Down   int64
 }
+
+type WebhookDelivery struct {
+	ID          int64
+	Event       string
+	Payload     string
+	Attempts    int32
+	NextAt      int64
+	CreatedAt   int64
+	DeliveredAt sql.NullInt64
+	LastError   string
+}

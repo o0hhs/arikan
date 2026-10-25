@@ -28,6 +28,7 @@ import { AppsCard, DevicesCard, InactiveCard, ProtocolsCard, SubDomainCard, SubP
 import { AdminsCard } from "./admins";
 import { SiteCard } from "./site";
 import { HappCard } from "./happ";
+import { WebhooksCard } from "./webhooks";
 import { SubPageSettings, type SubPagePart } from "./sub-page";
 
 type Tab = SettingsSearch["tab"];
@@ -143,6 +144,7 @@ export function SettingsPage() {
                   <BackupCard />
                   <GoalsCard />
                   <AutoCard s={s} />
+                  <WebhooksCard s={s} />
                 </>
               ) : (
                 <>

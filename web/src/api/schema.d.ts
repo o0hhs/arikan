@@ -2408,6 +2408,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/settings/webhook/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Отправить тестовый вебхук на сохранённый адрес и показать ответ сайта */
+        post: operations["test-webhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/stats/nodes": {
         parameters: {
             query?: never;
@@ -6729,6 +6746,10 @@ export interface components {
             support_access?: boolean;
             /** @description https://… или tg://… */
             support_url?: string;
+            /** @description Секретный ключ подписи HMAC-SHA256, от 8 символов; пусто — убрать. Обратно не показывается */
+            webhook_secret?: string;
+            /** @description Адрес сайта для вебхуков: https; пусто — не отправлять */
+            webhook_url?: string;
             wide_sni_scan?: boolean;
         };
         PatchTelegramInputBody: {
@@ -7738,6 +7759,10 @@ export interface components {
             /** @description Разрешить доступ для поддержки (Настройки → Безопасность). Выключено: новый доступ не выдать, действующий закрывается. MIKAN_SUPPORT_ACCESS=off в .env сервера выключает его независимо от этой настройки */
             support_access: boolean;
             support_url: string;
+            /** @description Секретный ключ подписи сохранён (сам ключ не показывается) */
+            webhook_secret_set: boolean;
+            /** @description Адрес сайта для вебхуков: https, без логина в адресе; пусто — не отправлять */
+            webhook_url: string;
             /** @description Искать сайты маскировки REALITY не только в /24 ноды, но и в соседних /24 её /16, до 20 найденных сайтов или 2 минут. Много подключений: хостер может принять это за сканирование сети */
             wide_sni_scan: boolean;
         };
@@ -8279,6 +8304,15 @@ export interface components {
              * @description Цена в Telegram Stars; null — не за Stars
              */
             price_stars: number | null;
+        };
+        TestResult: {
+            error?: string;
+            /** Format: int64 */
+            ms: number;
+            /** @description Что именно ушло: сайт может сверить подпись */
+            payload: string;
+            /** Format: int64 */
+            status: number;
         };
         Texts: {
             /** @description Экран обязательной подписки на канал, вместо меню; {brand}: название сервиса */
@@ -14787,6 +14821,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Status"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "test-webhook": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestResult"];
                 };
             };
             /** @description Error */

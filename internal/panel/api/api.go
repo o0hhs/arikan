@@ -52,6 +52,7 @@ import (
 	"mikan/internal/panel/tlscert"
 	"mikan/internal/panel/updates"
 	"mikan/internal/panel/warp"
+	"mikan/internal/panel/webhooks"
 )
 
 type Deps struct {
@@ -117,6 +118,9 @@ type Deps struct {
 	Importer *panelimport.Importer
 	// Billing sells tariffs; SubBase is https://host:port/<sub path> ("" without an address).
 	Billing *billing.Service
+	// Webhooks tell the admin's site about sold and renewed subscriptions; nil: no test
+	// button (the deliveries themselves are the panel's worker).
+	Webhooks *webhooks.Service
 	// Referral is the Telegram bot's referral programme; nil in tests.
 	Referral *referral.Service
 	// Campaigns are the ad campaign tags; nil in tests.

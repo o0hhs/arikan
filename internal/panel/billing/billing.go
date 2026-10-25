@@ -149,6 +149,10 @@ type Deps struct {
 	// Events wakes the addons reading the feed after a payment, a trial or a refund; nil: no
 	// one waits (the events are written all the same).
 	Events *events.Hub
+	// Hooks queues the admin's webhook about a sold or renewed subscription; nil: none.
+	Hooks interface {
+		Paid(ctx context.Context, q *db.Queries, p db.Payment, u db.User, created bool) error
+	}
 }
 
 type Service struct {
@@ -1419,6 +1423,13 @@ func (s *Service) Apply(ctx context.Context, id int64) error {
 		}
 		if err := emitPayment(ctx, q, s.d.Now(), events.PaymentPaid, pay, u.ID, created, false); err != nil {
 			return err
+		}
+		// The admin's site hears of the sale in the same transaction; a queue that cannot
+		// take it is the panel's trouble, never the paid subscription's.
+		if s.d.Hooks != nil && (pay.Kind == "new" || pay.Kind == "renew") {
+			if err := s.d.Hooks.Paid(ctx, q, pay, u, created); err != nil {
+				s.d.Log.Error("webhook: the sale is not queued", "payment", pay.ID, "err", err)
+			}
 		}
 		if pay.Kind == KindTrial {
 			return emitTrialStarted(ctx, q, s.d.Now(), u.ID, pay.TgID, pay.TariffID.Int64, pay.ID)

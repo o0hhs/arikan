@@ -3,6 +3,21 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
+## Unreleased
+### en
+**Webhooks to the admin's own site: a sold or renewed subscription goes there as a signed POST, so the site's account shows it at once.**
+- **Settings → System → «Webhooks to your site»:** the site's URL (https only) and a secret key (8+ characters; it is never shown back). After every purchase or renewal of a subscription the panel sends `subscription.paid`.
+- **What the site gets:** the subscription's `id`, `name`, `uuid` (the key its apps use), `slot`, the subscription `token`, the tariff and its id, `expires_at`, `term_days`, the traffic and device limits — and the payment (id, provider, amount, currency, kind, whether the subscription was created), plus `telegram_id`. The body is JSON; the fields are the site's to use and to ignore.
+- **Signed and retried:** `X-Arikan-Signature: sha256=<HMAC-SHA256(secret, «timestamp.body»)>` with `X-Arikan-Timestamp`, `X-Arikan-Event` and `X-Arikan-Delivery`. A delivery is queued in the payment's own transaction and sent by a worker: a slow or a dead site never holds up a purchase. A site that answers no 2xx is retried with a growing pause (a minute, then up to every few hours), and the delivery history is kept for 7 days.
+- **«Test»** sends a synthetic event with the saved address and secret and shows the site's status and the time it took, so the address and the signature are checked before the first sale.
+
+### ru
+**Вебхуки на свой сайт: проданная или продлённая подписка уходит туда подписанным POST-запросом, и в личном кабинете сайта она появляется сразу.**
+- **Настройки → Система → «Вебхуки на ваш сайт»:** адрес сайта (только https) и секретный ключ (от 8 символов; обратно не показывается). После каждой покупки или продления подписки панель шлёт `subscription.paid`.
+- **Что получает сайт:** `id` подписки, `name`, `uuid` (ключ, которым подключаются приложения), `slot`, `token` подписки, тариф и его id, `expires_at`, `term_days`, лимиты трафика и устройств — и платёж (id, способ, сумма, валюта, вид, создана ли подписка), плюс `telegram_id`. Тело — JSON; поля сайт использует или игнорирует сам.
+- **Подпись и повторы:** `X-Arikan-Signature: sha256=<HMAC-SHA256(secret, «timestamp.body»)>` вместе с `X-Arikan-Timestamp`, `X-Arikan-Event` и `X-Arikan-Delivery`. Доставка ставится в очередь в транзакции самой оплаты и отправляется воркером: медленный или упавший сайт никогда не задерживает покупку. Сайт, ответивший не 2xx, получает повтор с растущей паузой (минута, дальше до нескольких часов), история доставок хранится 7 дней.
+- **«Проверить»** шлёт тестовое событие на сохранённые адрес и ключ и показывает ответ сайта и время, так адрес и подпись проверяются до первой продажи.
+
 ## 0.5.2.7
 ### en
 **The admin's round of five: colors for the bot's own buttons, one «Where clients go», plans deleted for good, protocols per client, and a wider client card.**

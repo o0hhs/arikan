@@ -62,6 +62,7 @@ import (
 	"mikan/internal/panel/tlscert"
 	"mikan/internal/panel/updates"
 	"mikan/internal/panel/warp"
+	"mikan/internal/panel/webhooks"
 	"mikan/internal/release"
 )
 
@@ -80,6 +81,7 @@ type Panel struct {
 	Gateway  *tgate.Gateway
 	Telegram *botpanel.Panel
 	Billing  *billing.Service
+	Webhooks *webhooks.Service
 	Updates  *updates.Checker
 	Alerts   *infraalerts.Monitor
 	Backups  *tgbackup.Service
@@ -338,12 +340,14 @@ func NewPanel(st *store.Store, o Options) (*Panel, error) {
 	agts := agents.New(st, o.Log, o.Now)
 	parts := partners.New(st, func() int64 { return o.Now().Unix() })
 	p.agentAuth = agts
+	p.Webhooks = webhooks.New(st, set, o.Log, o.Now)
 	p.Billing = billing.New(billing.Deps{Store: st, Settings: set, Users: deps.Users, Log: o.Log, Now: o.Now, TrustProxy: o.TrustProxy,
 		MaxLinks: model.MaxLinks,
 		Addons:   deps.Addons, SubBase: subBase, Promo: promos, Events: hub,
-		Referral: refs, Campaigns: camps, Discounts: sales, Partners: parts,
+		Referral: refs, Campaigns: camps, Discounts: sales, Partners: parts, Hooks: p.Webhooks,
 		TopupWaiting: func(ctx context.Context, t db.Topup) { p.tellAdminOfTopup(ctx, t) }})
 	deps.Billing, deps.SubBase = p.Billing, subBase
+	deps.Webhooks = p.Webhooks
 	// The bot may reach Telegram through a node when the panel's server cannot.
 	var tunnel func(ctx context.Context, nodeID int64, addr string) (net.Conn, error)
 	if p.Nodes != nil {
@@ -765,7 +769,7 @@ func (p *Panel) Run(ctx context.Context) {
 	if p.NodeUpdates != nil {
 		workers = append(workers, p.NodeUpdates.Run)
 	}
-	workers = append(workers, p.Gateway.Run, p.Telegram.Run, p.Billing.Run, p.AddonsAPI.Run, p.AddonsAPI.RunPush, (&botAddon{p: p}).Run, p.Updates.Run, p.Alerts.Run, p.Backups.Run, p.Importer.Run,
+	workers = append(workers, p.Gateway.Run, p.Telegram.Run, p.Billing.Run, p.Webhooks.Run, p.AddonsAPI.Run, p.AddonsAPI.RunPush, (&botAddon{p: p}).Run, p.Updates.Run, p.Alerts.Run, p.Backups.Run, p.Importer.Run,
 		func(ctx context.Context) {
 			pace.Tick(ctx, 5*time.Second, func(ctx context.Context) {
 				if _, err := p.Apply(ctx); err != nil {

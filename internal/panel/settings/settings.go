@@ -98,6 +98,11 @@ const (
 	// Branding and support: the bot's and the subscription page's name and the support link.
 	KeyBrand      = "brand"
 	KeySupportURL = "support_url"
+	// KeyWebhookURL is the admin's own site the panel tells about sold and renewed
+	// subscriptions (internal/panel/webhooks); empty: no deliveries. KeyWebhookSecret signs
+	// them (HMAC-SHA256) and is a secret: never shown back.
+	KeyWebhookURL    = "webhook_url"
+	KeyWebhookSecret = "webhook_secret"
 	// KeyPanelAppName is the admin panel's name as an installed app (server.AppName): ""
 	// for the brand, "mikan" without one.
 	KeyPanelAppName = "panel_app_name"

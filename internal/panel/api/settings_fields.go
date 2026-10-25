@@ -104,6 +104,9 @@ var settingFields = []settingField{
 	text("acme_email", settings.KeyACMEEmail, true, func(b *patchSettingsBody) *string { return b.ACMEEmail }),
 	text("acme_eab_kid", settings.KeyACMEEABKID, true, func(b *patchSettingsBody) *string { return b.ACMEEABKID }),
 	text("acme_eab_hmac", settings.KeyACMEEABHMAC, true, func(b *patchSettingsBody) *string { return b.ACMEEABHMAC }),
+	// The admin's own site: sold and renewed subscriptions go there, signed with the secret.
+	text("webhook_url", settings.KeyWebhookURL, true, func(b *patchSettingsBody) *string { return b.WebhookURL }),
+	text("webhook_secret", settings.KeyWebhookSecret, true, func(b *patchSettingsBody) *string { return b.WebhookSecret }),
 	// What a key may change: names, the default language, quiet hours, the automatic tuning.
 	text("brand", settings.KeyBrand, false, func(b *patchSettingsBody) *string { return b.Brand }),
 	text("panel_app_name", settings.KeyPanelAppName, false, func(b *patchSettingsBody) *string { return b.PanelAppName }),
