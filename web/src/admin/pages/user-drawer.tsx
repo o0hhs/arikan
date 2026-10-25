@@ -15,7 +15,6 @@ import { PoolsSection, TariffSection, TrafficSection } from "./user/traffic";
 import { ExpirySection } from "./user/expiry";
 import { NoteSection, ProtocolsSection, SubscriptionSection, TelegramSection } from "./user/access";
 import { DevicesSection } from "./user/devices";
-import { NodesSection } from "./user/nodes";
 import { ProtocolsUsageSection } from "./user/protocols";
 import { OrganiseSection } from "./user/organise";
 import { TorrentSection } from "./user/torrent";
@@ -172,7 +171,6 @@ function UserBody({ u, onDeleted, onRename }: { u: User; onDeleted: () => void; 
       <TariffSection u={u} />
       <NoteSection u={u} />
       <Disclosure title={t("userDrawer.advanced")} sub={t("userDrawer.advancedSub")}>
-        <NodesSection u={u} />
         <PoolsSection u={u} />
         <GrantsSection u={u} />
         <ProtocolsSection u={u} />

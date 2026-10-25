@@ -13481,26 +13481,87 @@
         ],
         "type": "object"
       },
-      "UserProtocolView": {
+      "UserProtocolNodeView": {
         "additionalProperties": false,
         "properties": {
-          "devices": {
-            "description": "Сколько устройств подписки им пользовались",
+          "bytes": {
+            "description": "up + down",
             "format": "int64",
             "type": "integer"
           },
-          "last_seen": {
-            "description": "Когда протокол в последний раз впустил устройство этой подписки",
+          "down": {
+            "description": "Сколько получила",
+            "format": "int64",
+            "type": "integer"
+          },
+          "first_seen": {
+            "description": "Когда подписку впервые увидели на этой ноде; null — время неизвестно",
             "format": "date-time",
             "type": [
               "string",
               "null"
             ]
           },
-          "nodes": {
-            "description": "На скольких нодах",
+          "last_seen": {
+            "description": "Когда её в последний раз видели на этой ноде; null — время неизвестно",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "node_id": {
             "format": "int64",
             "type": "integer"
+          },
+          "protocols": {
+            "description": "Протоколы на этой ноде, недавние сверху; пусто — за окно активности нет",
+            "items": {
+              "$ref": "#/components/schemas/UserProtocolView"
+            },
+            "type": "array"
+          },
+          "public_name": {
+            "description": "Имя ноды в подписке; пусто — берётся name",
+            "type": "string"
+          },
+          "up": {
+            "description": "Сколько подписка отдала через эту ноду всего",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "node_id",
+          "name",
+          "public_name",
+          "up",
+          "down",
+          "bytes",
+          "first_seen",
+          "last_seen",
+          "protocols"
+        ],
+        "type": "object"
+      },
+      "UserProtocolView": {
+        "additionalProperties": false,
+        "properties": {
+          "devices": {
+            "description": "Сколько устройств подписки им пользовались на этой ноде",
+            "format": "int64",
+            "type": "integer"
+          },
+          "last_seen": {
+            "description": "Когда протокол в последний раз впустил устройство этой подписки на этой ноде",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "preset": {
             "description": "Пресет протокола; custom — своя настройка входящего",
@@ -13515,18 +13576,17 @@
           "preset",
           "title",
           "last_seen",
-          "devices",
-          "nodes"
+          "devices"
         ],
         "type": "object"
       },
       "UserProtocolsOutputBody": {
         "additionalProperties": false,
         "properties": {
-          "items": {
-            "description": "Протоколы, недавние сверху",
+          "nodes": {
+            "description": "Ноды подписки: больше трафика — выше; нода без активности за окно тоже здесь",
             "items": {
-              "$ref": "#/components/schemas/UserProtocolView"
+              "$ref": "#/components/schemas/UserProtocolNodeView"
             },
             "type": "array"
           },
@@ -13537,7 +13597,7 @@
           }
         },
         "required": [
-          "items",
+          "nodes",
           "window_seconds"
         ],
         "type": "object"
@@ -25681,7 +25741,7 @@
     },
     "/api/v1/users/{id}/protocols": {
       "get": {
-        "description": "Какими протоколами подписка пользовалась за последний час: ноды помнят, какой inbound впустил каждое устройство. Не сумма трафика, а то, чем человек реально подключается.",
+        "description": "Какая нода каким протоколом впускала устройства подписки за последний час: у каждой ноды её трафик для этой подписки и протоколы, которыми через неё ходили.",
         "operationId": "user-protocols",
         "parameters": [
           {
@@ -25717,7 +25777,7 @@
             "description": "Error"
           }
         },
-        "summary": "Протоколы пользователя",
+        "summary": "Ноды и протоколы пользователя",
         "tags": [
           "users"
         ]

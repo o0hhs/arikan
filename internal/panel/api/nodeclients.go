@@ -69,8 +69,8 @@ func (h *handlers) registerNodeClients() {
 	huma.Register(h.api, huma.Operation{OperationID: "user-nodes", Method: http.MethodGet, Path: "/api/v1/users/{id}/nodes", Summary: "Ноды пользователя",
 		Description: "Через какие ноды ходил пользователь, сколько унёс через каждую и когда его там видели в последний раз.",
 		Tags:        []string{"users"}}, h.userNodes)
-	huma.Register(h.api, huma.Operation{OperationID: "user-protocols", Method: http.MethodGet, Path: "/api/v1/users/{id}/protocols", Summary: "Протоколы пользователя",
-		Description: "Какими протоколами подписка пользовалась за последний час: ноды помнят, какой inbound впустил каждое устройство. Не сумма трафика, а то, чем человек реально подключается.",
+	huma.Register(h.api, huma.Operation{OperationID: "user-protocols", Method: http.MethodGet, Path: "/api/v1/users/{id}/protocols", Summary: "Ноды и протоколы пользователя",
+		Description: "Какая нода каким протоколом впускала устройства подписки за последний час: у каждой ноды её трафик для этой подписки и протоколы, которыми через неё ходили.",
 		Tags:        []string{"users"}}, h.userProtocols)
 }
 
@@ -139,43 +139,70 @@ func (h *handlers) nodeClients(ctx context.Context, in *nodeClientsInput) (*node
 	return out, nil
 }
 
-// UserProtocolView is one protocol a subscription used lately: the preset, how many of its
-// devices reached it, and when it last let one in.
+// UserProtocolView is one protocol on one node: the preset, how many devices of the
+// subscription reached it there, and when it last let one in.
 type UserProtocolView struct {
 	Preset   string     `json:"preset" doc:"Пресет протокола; custom — своя настройка входящего"`
 	Title    string     `json:"title" doc:"Название протокола для человека"`
-	LastSeen *time.Time `json:"last_seen" doc:"Когда протокол в последний раз впустил устройство этой подписки"`
-	Devices  int        `json:"devices" doc:"Сколько устройств подписки им пользовались"`
-	Nodes    int        `json:"nodes" doc:"На скольких нодах"`
+	LastSeen *time.Time `json:"last_seen" doc:"Когда протокол в последний раз впустил устройство этой подписки на этой ноде"`
+	Devices  int        `json:"devices" doc:"Сколько устройств подписки им пользовались на этой ноде"`
+}
+
+// UserProtocolNodeView is one node the subscription went through: what it carried for it,
+// and which protocols admitted its devices there lately.
+type UserProtocolNodeView struct {
+	NodeID     int64              `json:"node_id"`
+	Name       string             `json:"name"`
+	PublicName string             `json:"public_name" doc:"Имя ноды в подписке; пусто — берётся name"`
+	Up         int64              `json:"up" doc:"Сколько подписка отдала через эту ноду всего"`
+	Down       int64              `json:"down" doc:"Сколько получила"`
+	Bytes      int64              `json:"bytes" doc:"up + down"`
+	FirstSeen  *time.Time         `json:"first_seen" doc:"Когда подписку впервые увидели на этой ноде; null — время неизвестно"`
+	LastSeen   *time.Time         `json:"last_seen" doc:"Когда её в последний раз видели на этой ноде; null — время неизвестно"`
+	Protocols  []UserProtocolView `json:"protocols" doc:"Протоколы на этой ноде, недавние сверху; пусто — за окно активности нет"`
 }
 
 type userProtocolsOutput struct {
 	Body struct {
-		Items []UserProtocolView `json:"items" doc:"Протоколы, недавние сверху"`
+		Nodes []UserProtocolNodeView `json:"nodes" doc:"Ноды подписки: больше трафика — выше; нода без активности за окно тоже здесь"`
 		// WindowSeconds is how far back a node remembers: what is older is not a statistic
 		// yet, only the last activity.
 		WindowSeconds int `json:"window_seconds" doc:"Окно, за которое ноды помнят активность"`
 	}
 }
 
-// userProtocols says which protocols the subscription actually used lately: each node keeps,
-// per device, the inbound that last admitted it (an hour of memory, internal/node's
-// activityKeep), and the slots are the subscription's own.
+// userProtocols says which node with which protocol the subscription actually used lately:
+// each node keeps, per device, the inbound that last admitted it (an hour of memory,
+// internal/node's activityKeep), the slots are the subscription's own, and the node's total
+// traffic comes from the per-node counters. A protocol is one preset on one node.
 func (h *handlers) userProtocols(ctx context.Context, in *userIDInput) (*userProtocolsOutput, error) {
 	if _, err := h.d.Users.Get(ctx, in.ID); err != nil {
 		return nil, mapDomainErr(err)
 	}
 	out := &userProtocolsOutput{}
-	out.Body.Items = []UserProtocolView{}
+	out.Body.Nodes = []UserProtocolNodeView{}
 	out.Body.WindowSeconds = 3600
-	if h.d.Nodes == nil {
-		return out, nil
-	}
 	slots, err := h.d.Store.Q.ListUserSlots(ctx, in.ID)
 	if err != nil {
 		return nil, err
 	}
-	if len(slots) == 0 {
+	// Every node the subscription went through, by traffic: the card shows it even where
+	// the last hour had no activity.
+	perNode := map[int64]*UserProtocolNodeView{}
+	if rows, err := h.d.Store.Q.ListUserNodes(ctx, in.ID); err != nil {
+		return nil, err
+	} else {
+		for _, r := range rows {
+			n := &UserProtocolNodeView{NodeID: r.NodeID, Name: r.Name, PublicName: r.PublicName, Up: r.Up, Down: r.Down, Bytes: r.Up + r.Down,
+				FirstSeen: ptrUnix(r.FirstSeen), LastSeen: ptrUnix(r.LastSeen), Protocols: []UserProtocolView{}}
+			perNode[n.NodeID] = n
+		}
+	}
+	if h.d.Nodes == nil || len(slots) == 0 {
+		for _, n := range perNode {
+			out.Body.Nodes = append(out.Body.Nodes, *n)
+		}
+		sortNodes(out.Body.Nodes)
 		return out, nil
 	}
 	mine := make(map[string]bool, len(slots))
@@ -190,17 +217,16 @@ func (h *handlers) userProtocols(ctx context.Context, in *userIDInput) (*userPro
 	for _, i := range inbounds {
 		byName[fmt.Sprintf("%d/%s", i.NodeID, i.Name)] = i
 	}
-	type used struct {
-		title   string
-		last    int64
-		devices map[string]bool
-		nodes   map[int64]bool
-	}
-	got := map[string]*used{}
 	nodes, err := h.d.Store.Q.ListNodes(ctx)
 	if err != nil {
 		return nil, err
 	}
+	type used struct {
+		title   string
+		last    int64
+		devices map[string]bool
+	}
+	got := map[int64]map[string]*used{} // node → preset → use
 	for _, n := range nodes {
 		act, err := h.d.Nodes.Activity(ctx, n.ID)
 		if err != nil {
@@ -209,6 +235,11 @@ func (h *handlers) userProtocols(ctx context.Context, in *userIDInput) (*userPro
 		for _, c := range act.Clients {
 			if !mine[c.Slot] {
 				continue
+			}
+			byPreset := got[n.ID]
+			if byPreset == nil {
+				byPreset = map[string]*used{}
+				got[n.ID] = byPreset
 			}
 			for name, ts := range c.Seen {
 				preset, title := "custom", name
@@ -221,32 +252,59 @@ func (h *handlers) userProtocols(ctx context.Context, in *userIDInput) (*userPro
 				if p, ok := presets.Get(preset); ok {
 					title = p.Title
 				}
-				u := got[preset]
+				u := byPreset[preset]
 				if u == nil {
-					u = &used{title: title, devices: map[string]bool{}, nodes: map[int64]bool{}}
-					got[preset] = u
+					u = &used{title: title, devices: map[string]bool{}}
+					byPreset[preset] = u
 				}
 				if ts > u.last {
 					u.last = ts
 				}
 				u.devices[c.IP] = true
-				u.nodes[n.ID] = true
 			}
 		}
 	}
-	for preset, u := range got {
-		out.Body.Items = append(out.Body.Items, UserProtocolView{
-			Preset: preset, Title: u.title, LastSeen: ptrUnix(u.last), Devices: len(u.devices), Nodes: len(u.nodes),
+	for nodeID, byPreset := range got {
+		n := perNode[nodeID]
+		if n == nil {
+			// Activity without a stored byte yet (a node seen a moment ago): still the node.
+			for _, dbn := range nodes {
+				if dbn.ID == nodeID {
+					n = &UserProtocolNodeView{NodeID: dbn.ID, Name: dbn.Name, PublicName: dbn.PublicName, Protocols: []UserProtocolView{}}
+					perNode[nodeID] = n
+					break
+				}
+			}
+			if n == nil {
+				continue
+			}
+		}
+		for preset, u := range byPreset {
+			n.Protocols = append(n.Protocols, UserProtocolView{Preset: preset, Title: u.title, LastSeen: ptrUnix(u.last), Devices: len(u.devices)})
+		}
+		sort.Slice(n.Protocols, func(i, j int) bool {
+			a, b := n.Protocols[i], n.Protocols[j]
+			if a.LastSeen != nil && b.LastSeen != nil && !a.LastSeen.Equal(*b.LastSeen) {
+				return a.LastSeen.After(*b.LastSeen)
+			}
+			return a.Preset < b.Preset
 		})
 	}
-	sort.Slice(out.Body.Items, func(i, j int) bool {
-		a, b := out.Body.Items[i], out.Body.Items[j]
-		if a.LastSeen != nil && b.LastSeen != nil && !a.LastSeen.Equal(*b.LastSeen) {
-			return a.LastSeen.After(*b.LastSeen)
-		}
-		return a.Preset < b.Preset
-	})
+	for _, n := range perNode {
+		out.Body.Nodes = append(out.Body.Nodes, *n)
+	}
+	sortNodes(out.Body.Nodes)
 	return out, nil
+}
+
+// sortNodes: the node that carried most first; ties by name.
+func sortNodes(list []UserProtocolNodeView) {
+	sort.Slice(list, func(i, j int) bool {
+		if list[i].Bytes != list[j].Bytes {
+			return list[i].Bytes > list[j].Bytes
+		}
+		return list[i].Name < list[j].Name
+	})
 }
 
 func (h *handlers) userNodes(ctx context.Context, in *userIDInput) (*userNodesOutput, error) {

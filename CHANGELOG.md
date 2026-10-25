@@ -3,6 +3,17 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
+## Unreleased
+### en
+**The client's card now names the node behind each protocol: which node, which protocol.**
+- **«Ноды и протоколы»** lists every node the subscription went through, the one that carried most first: its total traffic for this subscription, when it was first and last seen there, and beneath it the protocols that admitted the subscription's devices on that node in the last hour — each with the last time and how many devices used it. A node the subscription did not touch in that hour says so instead of disappearing.
+- **One place for the nodes:** the separate per-node block under «Дополнительно» is gone; the card no longer shows the same nodes twice.
+
+### ru
+**Карточка клиента теперь называет ноду у каждого протокола: какая нода, каким протоколом.**
+- **«Ноды и протоколы»** перечисляет все ноды, через которые прошла подписка, начиная с самой нагруженной: её трафик для этой подписки, когда на ней впервые и последний раз видели, а под нодой — протоколы, которые впускали устройства подписки на этой ноде за последний час, с последним временем и числом устройств. Нода, которой в этот час не было, так и говорит, а не исчезает.
+- **Ноды в одном месте:** отдельный блок по нодам в «Дополнительно» убран — карточка больше не показывает одни и те же ноды дважды.
+
 ## 0.5.2.8
 ### en
 **Webhooks to the admin's own site: a sold or renewed subscription goes there as a signed POST, so the site's account shows it at once.**

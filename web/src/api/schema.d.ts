@@ -3545,8 +3545,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Протоколы пользователя
-         * @description Какими протоколами подписка пользовалась за последний час: ноды помнят, какой inbound впустил каждое устройство. Не сумма трафика, а то, чем человек реально подключается.
+         * Ноды и протоколы пользователя
+         * @description Какая нода каким протоколом впускала устройства подписки за последний час: у каждой ноды её трафик для этой подписки и протоколы, которыми через неё ходили.
          */
         get: operations["user-protocols"];
         put?: never;
@@ -8718,30 +8718,59 @@ export interface components {
             /** @description Группы, которые меняются; остальные остаются как есть */
             pools: components["schemas"]["PoolSetting"][];
         };
+        UserProtocolNodeView: {
+            /**
+             * Format: int64
+             * @description up + down
+             */
+            bytes: number;
+            /**
+             * Format: int64
+             * @description Сколько получила
+             */
+            down: number;
+            /**
+             * Format: date-time
+             * @description Когда подписку впервые увидели на этой ноде; null — время неизвестно
+             */
+            first_seen: string | null;
+            /**
+             * Format: date-time
+             * @description Когда её в последний раз видели на этой ноде; null — время неизвестно
+             */
+            last_seen: string | null;
+            name: string;
+            /** Format: int64 */
+            node_id: number;
+            /** @description Протоколы на этой ноде, недавние сверху; пусто — за окно активности нет */
+            protocols: components["schemas"]["UserProtocolView"][];
+            /** @description Имя ноды в подписке; пусто — берётся name */
+            public_name: string;
+            /**
+             * Format: int64
+             * @description Сколько подписка отдала через эту ноду всего
+             */
+            up: number;
+        };
         UserProtocolView: {
             /**
              * Format: int64
-             * @description Сколько устройств подписки им пользовались
+             * @description Сколько устройств подписки им пользовались на этой ноде
              */
             devices: number;
             /**
              * Format: date-time
-             * @description Когда протокол в последний раз впустил устройство этой подписки
+             * @description Когда протокол в последний раз впустил устройство этой подписки на этой ноде
              */
             last_seen: string | null;
-            /**
-             * Format: int64
-             * @description На скольких нодах
-             */
-            nodes: number;
             /** @description Пресет протокола; custom — своя настройка входящего */
             preset: string;
             /** @description Название протокола для человека */
             title: string;
         };
         UserProtocolsOutputBody: {
-            /** @description Протоколы, недавние сверху */
-            items: components["schemas"]["UserProtocolView"][];
+            /** @description Ноды подписки: больше трафика — выше; нода без активности за окно тоже здесь */
+            nodes: components["schemas"]["UserProtocolNodeView"][];
             /**
              * Format: int64
              * @description Окно, за которое ноды помнят активность

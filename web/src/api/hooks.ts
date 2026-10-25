@@ -61,7 +61,6 @@ export const qk = {
   nodeTraffic: (node: number, range: string) => ["node-traffic", node, range] as const,
   nodeShares: (range: string) => ["node-shares", range] as const,
   nodeClients: (node: number) => ["node-clients", node] as const,
-  userNodes: (id: number) => ["users", "nodes", id] as const,
   userProtocols: (id: number) => ["users", "protocols", id] as const,
 };
 
@@ -131,14 +130,6 @@ export function useUserProtocols(id: number) {
   return useQuery({
     queryKey: qk.userProtocols(id),
     queryFn: ({ signal }) => unwrap(api.GET("/api/v1/users/{id}/protocols", { params: { path: { id } }, signal })),
-    refetchInterval: poll(30_000),
-  });
-}
-
-export function useUserNodes(id: number) {
-  return useQuery({
-    queryKey: qk.userNodes(id),
-    queryFn: ({ signal }) => unwrap(api.GET("/api/v1/users/{id}/nodes", { params: { path: { id } }, signal })),
     refetchInterval: poll(30_000),
   });
 }
