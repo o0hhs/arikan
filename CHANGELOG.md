@@ -3,7 +3,7 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
-## Unreleased
+## 0.5.2.8
 ### en
 **Webhooks to the admin's own site: a sold or renewed subscription goes there as a signed POST, so the site's account shows it at once.**
 - **Settings → System → «Webhooks to your site»:** the site's URL (https only) and a secret key (8+ characters; it is never shown back). After every purchase or renewal of a subscription the panel sends `subscription.paid`.
