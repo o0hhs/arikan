@@ -3,7 +3,7 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
-## Unreleased
+## 0.5.2.10
 ### en
 **The auto group balances again, and a node says what stopped working instead of only showing an error.**
 - **Routing → Advanced → «Auto» has three modes:** the fastest (url-test), the first working (fallback), and **balancing**: the traffic spreads over the working servers while a destination sticks to one server, so sessions keep their exit address. The balancing mode was in the profile code but was missing from the panel.
