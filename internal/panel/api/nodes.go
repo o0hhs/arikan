@@ -25,6 +25,14 @@ import (
 	"mikan/internal/release"
 )
 
+// ListenerFaultView is a listener that did not start: the protocol it serves and the
+// reason (a port another program holds, or the node's own 443 router).
+type ListenerFaultView struct {
+	Name  string `json:"name" doc:"Имя входящего (протокола)"`
+	Error string `json:"error" doc:"Почему не запустился"`
+	Busy  bool   `json:"addr_in_use" doc:"Порт уже занят: обычно его держит другая программа или общий 443 ноды"`
+}
+
 // EgressView is the node's own way to the internet, as last checked (nodeapi.EgressStatus).
 type EgressView struct {
 	OK        bool      `json:"ok"`
@@ -63,12 +71,15 @@ type NodeInfo struct {
 	Egress      *EgressView `json:"egress,omitempty"`
 	Listeners   int         `json:"listeners"`
 	ListenersOK int         `json:"listeners_ok"`
-	Conns       int         `json:"conns"`
-	CPUPercent  float64     `json:"cpu_percent" doc:"Загрузка процессора всего сервера, не только ноды"`
-	ProcCPU     *float64    `json:"proc_cpu_percent,omitempty" doc:"Доля процессора самого процесса ноды (вся машина = 100); нет у нод до 0.5.0.4"`
-	MemUsed     uint64      `json:"mem_used"`
-	MemTotal    uint64      `json:"mem_total"`
-	CheckedAt   *time.Time  `json:"checked_at,omitempty"`
+	// ListenerFaults are the protocols whose listener did not start: their clients have
+	// nothing to connect to while the node itself answers, the "ping goes, nothing loads".
+	ListenerFaults []ListenerFaultView `json:"listener_faults,omitempty" doc:"Протоколы, которые не запустились: их клиенты не подключатся, хотя нода отвечает"`
+	Conns          int                 `json:"conns"`
+	CPUPercent     float64             `json:"cpu_percent" doc:"Загрузка процессора всего сервера, не только ноды"`
+	ProcCPU        *float64            `json:"proc_cpu_percent,omitempty" doc:"Доля процессора самого процесса ноды (вся машина = 100); нет у нод до 0.5.0.4"`
+	MemUsed        uint64              `json:"mem_used"`
+	MemTotal       uint64              `json:"mem_total"`
+	CheckedAt      *time.Time          `json:"checked_at,omitempty"`
 	// Traffic24h is what the node carried in the last day, both ways.
 	Traffic24h int64 `json:"traffic_24h" doc:"Сколько унесла нода за последние сутки (вверх и вниз вместе), байты; у только что добавленной ноды 0"`
 	// Cascade is the other nodes' cascades through this one: the relay's open connections
@@ -274,7 +285,9 @@ func (h *handlers) viewNode(ctx context.Context, n db.Node, inbounds []db.Inboun
 		v.Listeners++
 		if l.OK {
 			v.ListenersOK++
+			continue
 		}
+		v.ListenerFaults = append(v.ListenerFaults, ListenerFaultView{Name: l.Name, Error: l.Error, Busy: l.Busy()})
 	}
 	if l := hv.Health.APILock; v.APILockdown && !v.Local && l != nil && !l.OK {
 		v.APILockError = l.Error

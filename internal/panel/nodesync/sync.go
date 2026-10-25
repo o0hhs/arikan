@@ -848,6 +848,56 @@ func (s *Syncer) saveRevision(ctx context.Context, rev int64) error {
 	return s.m.st.Q.SetNodeState(ctx, db.SetNodeStateParams{Key: stateKeyOf("revision", s.id), Value: strconv.FormatInt(rev, 10)})
 }
 
+// noteUplink logs the transitions of a node's own internet and of its listeners: the two
+// failures that look like "the ping goes, nothing loads".
+func (s *Syncer) noteUplink(prev *HealthView, h nodeapi.Health) {
+	if prev != nil && prev.OK {
+		if a, b := prev.Health.Egress, h.Egress; a != nil && b != nil && a.OK != b.OK {
+			if b.OK {
+				s.log.Info("the node has internet again", "latency_ms", b.LatencyMS)
+			} else {
+				s.log.Warn("the node has no internet", "err", b.Error)
+			}
+		}
+		// A node that names no listener says nothing about them (older builds): no news,
+		// not a recovery and not a loss.
+		if len(prev.Listeners) == 0 && len(h.Listeners) == 0 {
+			return
+		}
+		was := map[string]bool{}
+		for _, l := range prev.Listeners {
+			if !l.OK {
+				was[l.Name] = true
+			}
+		}
+		for _, l := range h.Listeners {
+			if l.OK {
+				if was[l.Name] {
+					s.log.Info("a listener is back", "listener", l.Name)
+				}
+				continue
+			}
+			if !was[l.Name] {
+				s.log.Warn("a listener failed", "listener", l.Name, "err", l.Error, "addr_in_use", l.Busy())
+			}
+		}
+		if len(h.Listeners) > 0 {
+			for name := range was {
+				found := false
+				for _, l := range h.Listeners {
+					if l.Name == name {
+						found = true
+						break
+					}
+				}
+				if !found {
+					s.log.Info("a listener is gone from the node", "listener", name)
+				}
+			}
+		}
+	}
+}
+
 func (s *Syncer) refreshHealth(ctx context.Context) {
 	sent := s.m.now()
 	h, err := s.node.Health(ctx)
@@ -867,6 +917,9 @@ func (s *Syncer) refreshHealth(ctx context.Context) {
 		return
 	}
 	view.OK, view.Health, view.Listeners, view.LastOK = true, h, h.Listeners, view.CheckedAt
+	// What changed on a node that answers goes to the log: an outage with the server itself
+	// up is what the admin reads it for.
+	s.noteUplink(prev, h)
 	if !h.Time.IsZero() {
 		// The node read its clock about halfway through the round trip.
 		d := h.Time.Sub(sent.Add(view.CheckedAt.Sub(sent) / 2))

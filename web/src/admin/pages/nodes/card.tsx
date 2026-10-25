@@ -106,6 +106,16 @@ export function NodeCard({
       </div>
       {n.status === "error" && n.enabled ? <NodeProblem n={n} onCheck={onCheck} actions={{ rekey: onRekey, update: updatable(n) ? onUpdate : undefined, edit: onEdit }} /> : null}
       {n.status === "ok" ? <SkewLine n={n} /> : null}
+      {n.status === "ok" && (n.listener_faults?.length ?? 0) > 0 ? (
+        <div className="banner warn mt-3" role="alert">
+          <TriangleAlert size={18} className="shrink-0" aria-hidden />
+          <span>
+            {t("nodes.listenerFault", { name: n.listener_faults![0]!.name, error: n.listener_faults![0]!.error })}
+            {n.listener_faults![0]!.addr_in_use ? ` ${t("nodes.listenerFaultBusy")}` : ""}
+            {(n.listener_faults?.length ?? 0) > 1 ? ` ${t("nodes.listenerFaultMore", { n: n.listener_faults!.length - 1 })}` : ""}
+          </span>
+        </div>
+      ) : null}
       {n.status === "ok" && n.egress && !n.egress.ok ? (
         <div className="banner warn mt-3" role="alert">
           <TriangleAlert size={18} className="shrink-0" aria-hidden />

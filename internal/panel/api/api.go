@@ -297,6 +297,12 @@ func Config(version string) huma.Config {
 	return cfg
 }
 
+// canceled is a request the client gave up on (a closed tab, a reload): what it ends as is
+// no server error, and the log says so quietly.
+func canceled(err error) bool {
+	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
+}
+
 var hideInternalOnce sync.Once
 
 // hideInternal keeps the text of unexpected errors (SQL constraints, file paths) out of
@@ -307,7 +313,14 @@ func hideInternal(log *slog.Logger) {
 		huma.NewError = func(status int, msg string, errs ...error) huma.StatusError {
 			if status >= 500 && len(errs) > 0 {
 				if log != nil {
-					log.Error("api internal error", "status", status, "err", errors.Join(errs...))
+					err := errors.Join(errs...)
+					// A client that closed the tab is no server error: it would bury the real
+					// ones in the log.
+					if canceled(err) {
+						log.Debug("api request canceled", "status", status)
+					} else {
+						log.Error("api internal error", "status", status, "err", err)
+					}
 				}
 				return base(status, msg)
 			}
@@ -424,7 +437,12 @@ func (h *handlers) middleware(ctx huma.Context, next func(huma.Context)) {
 	}
 	sess, err := h.d.Sessions.Lookup(ctx.Context(), ck.Value)
 	if err != nil {
-		if err != auth.ErrNoSession {
+		if !errors.Is(err, auth.ErrNoSession) {
+			if canceled(err) {
+				h.d.Log.Debug("session lookup canceled")
+				_ = huma.WriteErr(h.api, ctx, 499, "canceled")
+				return
+			}
 			h.d.Log.Error("session lookup", "err", err)
 			_ = huma.WriteErr(h.api, ctx, http.StatusInternalServerError, "internal error")
 			return

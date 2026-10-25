@@ -5613,6 +5613,14 @@ export interface components {
              */
             users_total: number;
         };
+        ListenerFaultView: {
+            /** @description Порт уже занят: обычно его держит другая программа или общий 443 ноды */
+            addr_in_use: boolean;
+            /** @description Почему не запустился */
+            error: string;
+            /** @description Имя входящего (протокола) */
+            name: string;
+        };
         ListenerStatus: {
             code?: string;
             error?: string;
@@ -5993,6 +6001,8 @@ export interface components {
              * @description Когда нода последний раз отвечала (с запуска панели)
              */
             last_ok_at?: string;
+            /** @description Протоколы, которые не запустились: их клиенты не подключатся, хотя нода отвечает */
+            listener_faults?: components["schemas"]["ListenerFaultView"][];
             /** Format: int64 */
             listeners: number;
             /** Format: int64 */

@@ -3,6 +3,19 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
+## Unreleased
+### en
+**The auto group balances again, and a node says what stopped working instead of only showing an error.**
+- **Routing → Advanced → «Auto» has three modes:** the fastest (url-test), the first working (fallback), and **balancing**: the traffic spreads over the working servers while a destination sticks to one server, so sessions keep their exit address. The balancing mode was in the profile code but was missing from the panel.
+- **The panel's log now records the transitions of a node's health that explain a "the ping goes, nothing loads":** the node's own internet (it has it, or it is gone with the reason) and its listeners (which protocol failed, why, and whether the port was taken). The node card names a protocol that did not start right on the card, with the busy-port hint — usually the shared 443: turn on «Through the shared 443» for it or change its port. Sweden's `vless-xhttp … 0.0.0.0:443: bind: address already in use` now shows there at once, not only in the node's log.
+- **Cancelled requests no longer look like server errors.** A closed tab's aborted request is logged at debug and answered 499 instead of 500 ERROR, so real failures are not buried in a burst of `context canceled`.
+
+### ru
+**Автогруппа снова умеет балансировать, а нода говорит, что именно перестало работать, а не только «ошибка».**
+- **Настройки → Маршрутизация → Дополнительно → «Автовыбор», три режима:** самый быстрый (url-test), первый рабочий (fallback) и **балансировка**: трафик распределяется по рабочим серверам, а сайт закрепляется за одним сервером, поэтому сессии не рвутся. Режим балансировки был в коде профиля, но его не было в панели.
+- **В журнал панели теперь пишутся переходы состояния ноды, которые объясняют «пинг идёт, а ничего не грузится»:** собственный интернет ноды (есть или пропал с причиной) и её слушатели (какой протокол не поднялся, почему, занят ли порт). На карточке ноды протокол, который не запустился, виден сразу — с подсказкой про занятый порт: если это общий 443, включите протоколу «Через общий 443» или смените порт. Ошибка шведской ноды `vless-xhttp … 0.0.0.0:443: bind: address already in use` теперь видна на карточке, а не только в журнале ноды.
+- **Отменённые запросы больше не выглядят серверной ошибкой.** Запрос из закрытой вкладки пишется в debug и получает 499 вместо 500 ERROR, чтобы настоящие сбои не тонули в потоке `context canceled`.
+
 ## 0.5.2.9
 ### en
 **The client's card now names the node behind each protocol: which node, which protocol.**

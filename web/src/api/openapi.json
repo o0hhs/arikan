@@ -5263,6 +5263,29 @@
         ],
         "type": "object"
       },
+      "ListenerFaultView": {
+        "additionalProperties": false,
+        "properties": {
+          "addr_in_use": {
+            "description": "Порт уже занят: обычно его держит другая программа или общий 443 ноды",
+            "type": "boolean"
+          },
+          "error": {
+            "description": "Почему не запустился",
+            "type": "string"
+          },
+          "name": {
+            "description": "Имя входящего (протокола)",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "error",
+          "addr_in_use"
+        ],
+        "type": "object"
+      },
       "ListenerStatus": {
         "additionalProperties": false,
         "properties": {
@@ -6219,6 +6242,13 @@
             "description": "Когда нода последний раз отвечала (с запуска панели)",
             "format": "date-time",
             "type": "string"
+          },
+          "listener_faults": {
+            "description": "Протоколы, которые не запустились: их клиенты не подключатся, хотя нода отвечает",
+            "items": {
+              "$ref": "#/components/schemas/ListenerFaultView"
+            },
+            "type": "array"
           },
           "listeners": {
             "format": "int64",
