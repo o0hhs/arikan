@@ -3,7 +3,7 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
-## Unreleased
+## 0.5.2.9
 ### en
 **The client's card now names the node behind each protocol: which node, which protocol.**
 - **«Ноды и протоколы»** lists every node the subscription went through, the one that carried most first: its total traffic for this subscription, when it was first and last seen there, and beneath it the protocols that admitted the subscription's devices on that node in the last hour — each with the last time and how many devices used it. A node the subscription did not touch in that hour says so instead of disappearing.
