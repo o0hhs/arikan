@@ -315,8 +315,15 @@ func hideInternal(log *slog.Logger) {
 				if log != nil {
 					err := errors.Join(errs...)
 					// A client that closed the tab is no server error: it would bury the real
-					// ones in the log.
-					if canceled(err) {
+					// ones in the log. A real error joined with a canceled one stays an error.
+					all := true
+					for _, e := range errs {
+						if !canceled(e) {
+							all = false
+							break
+						}
+					}
+					if all {
 						log.Debug("api request canceled", "status", status)
 					} else {
 						log.Error("api internal error", "status", status, "err", err)
