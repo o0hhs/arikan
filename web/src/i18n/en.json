@@ -89,9 +89,104 @@
     "hide": "Hide",
     "confirm": "Sure?"
   },
+  "analytics": {
+    "title": "Analytics",
+    "subtitle": "Money, customers and retention",
+    "range": "Period",
+    "ranges": {
+      "30d": "30 days",
+      "90d": "90 days",
+      "365d": "Year"
+    },
+    "kpi": {
+      "mrr": "MRR",
+      "mrrHint": "Recurring revenue per month",
+      "revenue": "Revenue for the period",
+      "revenueHint": "Applied payments in rubles",
+      "arpu": "ARPU",
+      "arpuHint": "MRR per active subscription",
+      "ltv": "LTV",
+      "ltvHint": "Average revenue per paying customer",
+      "trial": "Trial conversion",
+      "trialHint": "{converted} of {started}",
+      "churn": "Churn",
+      "churnHint": "{churned} of {expired} expired",
+      "stars": "Stars for the period",
+      "starsHint": "Separate from rubles",
+      "paying": "Paying",
+      "payingHint": "of {active} active",
+      "newUsers": "New: {n}"
+    },
+    "revenue": {
+      "title": "Revenue",
+      "sub": "By day, in rubles",
+      "rub": "Rubles",
+      "stars": "Stars",
+      "total": "Total",
+      "payments": "Payments: {n}",
+      "empty": "No payments in this period.",
+      "note": "Stars are shown separately and are not part of ruble revenue.",
+      "chartLabel": "Revenue by day from {from} to {to}"
+    },
+    "tariffs": {
+      "title": "Revenue by tariff",
+      "sub": "New subscriptions and renewals",
+      "name": "Tariff",
+      "payments": "Payments",
+      "rub": "Rubles",
+      "stars": "Stars",
+      "share": "Share",
+      "empty": "No tariff payments yet."
+    },
+    "providers": {
+      "title": "Payment methods",
+      "sub": "How customers pay",
+      "name": "Method",
+      "payments": "Payments",
+      "rub": "Rubles",
+      "stars": "Stars",
+      "share": "Share",
+      "empty": "No payments yet."
+    },
+    "trials": {
+      "title": "Trial",
+      "sub": "How many trials reached a payment",
+      "started": "Started",
+      "converted": "Paid",
+      "conversion": "Conversion",
+      "empty": "No trials in this period."
+    },
+    "churn": {
+      "title": "Churn",
+      "sub": "Expired subscriptions that did not renew",
+      "expired": "Expired",
+      "churned": "Churned",
+      "rate": "Churn",
+      "empty": "No subscriptions expired in this period."
+    },
+    "cohorts": {
+      "title": "Retention by cohort",
+      "sub": "Share of customers who paid in month N after signup",
+      "month": "Cohort",
+      "users": "Customers",
+      "empty": "No cohort data yet.",
+      "cell": "{paying} of {users} ({rate}%)"
+    },
+    "campaigns": {
+      "title": "Ad campaigns",
+      "sub": "What the links brought",
+      "name": "Campaign",
+      "bought": "Bought",
+      "renewed": "Renewed",
+      "rub": "Rubles",
+      "empty": "No campaigns with payments yet."
+    },
+    "note": "Ruble sums come from applied payments; Stars are not converted to rubles."
+  },
   "nav": {
     "outbounds": "Outbounds",
     "overview": "Overview",
+    "analytics": "Analytics",
     "users": "Clients",
     "tariffs": "Plans",
     "inbounds": "Protocols",
@@ -108,6 +203,7 @@
   "navShort": {
     "outbounds": "Outbounds",
     "overview": "Overview",
+    "analytics": "Analytics",
     "users": "Clients",
     "tariffs": "Plans",
     "inbounds": "Protocols",
@@ -1497,6 +1593,8 @@
     "nodeEmptyTitle": "This node has no protocols",
     "nodeEmptyText": "Add protocols: they appear in the subscription with the node's flag.",
     "newOn": "Node «{name}»",
+    "autoInclude": "In auto",
+    "autoIncludeSub": "The protocol takes part in the “Auto” group and in the fastest-pick. Turn it off to keep it in the list and its country's group while apps do not choose it themselves.",
     "auto": "Automatic fixes",
     "autoPort": "Move to another port when it is blocked",
     "autoPortSub": "If your provider starts blocking the port, the panel moves the connection to another one by itself. Same if another program takes the port.",
