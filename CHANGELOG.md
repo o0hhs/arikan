@@ -3,7 +3,7 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
-## Unreleased
+## 0.5.2.11
 ### en
 **The admin's Telegram hears of every payment.**
 - A payment that goes through — a subscription bought or renewed, a traffic package, a device, a trial — sends a message to the chat connected for the panel's alerts (the one top-ups and support notices go to): the plan, what kind of payment it was, the amount, the buyer and the subscription's number, and a «new subscription» mark when one was created. The alerts' queue delivers it and retries while Telegram does not answer, so a bot that is down for a minute does not lose the news. No chat connected: the Payments page still has everything.
