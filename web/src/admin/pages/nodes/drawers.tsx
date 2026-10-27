@@ -126,7 +126,7 @@ export function KeyDrawer({ joined, onClose, actions }: { joined: Joined | null;
 export function EditNodeDrawer({ node, onClose }: { node: Node | null; onClose: () => void }) {
   const qc = useQueryClient();
   const toast = useToast();
-  const [form, setForm] = useState({ name: "", public_name: "", host: "", domain: "", enabled: true, fair_share: false, channel: "", group: "", capacity: "", http_redirect: false, sni_router: false, front_page: "", api_lockdown: false, api_allow: "", emergency: false, emergency_speed: "" });
+  const [form, setForm] = useState({ name: "", public_name: "", host: "", domain: "", enabled: true, fair_share: false, channel: "", group: "", capacity: "", http_redirect: false, sni_router: false, auto_include: true, front_page: "", api_lockdown: false, api_allow: "", emergency: false, emergency_speed: "" });
   const balance = useBalance();
   const [errors, setErrors] = useState<Record<string, string>>({});
   useEffect(() => {
@@ -134,7 +134,7 @@ export function EditNodeDrawer({ node, onClose }: { node: Node | null; onClose: 
       // The server as it was given, not the address for clients (its domain when it has one):
       // the field saves the server.
       setForm({ name: node.name, public_name: node.public_name, host: node.server_host, domain: node.domain, enabled: node.enabled, fair_share: node.fair_share, channel: node.channel_mbps != null ? String(node.channel_mbps) : "",
-        group: node.balance_group, capacity: node.capacity != null ? String(node.capacity) : "", http_redirect: node.http_redirect, sni_router: node.sni_router, front_page: node.front_page, api_lockdown: node.api_lockdown, api_allow: node.api_allow.join(", "), emergency: node.emergency, emergency_speed: node.emergency_speed != null ? String(node.emergency_speed) : "" });
+        group: node.balance_group, capacity: node.capacity != null ? String(node.capacity) : "", http_redirect: node.http_redirect, sni_router: node.sni_router, auto_include: node.auto_include, front_page: node.front_page, api_lockdown: node.api_lockdown, api_allow: node.api_allow.join(", "), emergency: node.emergency, emergency_speed: node.emergency_speed != null ? String(node.emergency_speed) : "" });
       setErrors({});
     }
   }, [node]);
@@ -199,6 +199,7 @@ export function EditNodeDrawer({ node, onClose }: { node: Node | null; onClose: 
       }
     }
     body.sni_router = form.sni_router;
+    body.auto_include = form.auto_include;
     body.front_page = form.front_page as NonNullable<Schemas["PatchNodeInputBody"]["front_page"]>;
     const group = form.group.trim();
     const capacity = group && form.capacity.trim() ? Number(form.capacity) : undefined;
@@ -307,6 +308,9 @@ export function EditNodeDrawer({ node, onClose }: { node: Node | null; onClose: 
             ) : null}
           </div>
         ) : null}
+        <div className="dr-sec">
+          <SwitchRow className="pt-0" label={t("nodes.autoInclude")} sub={t("nodes.autoIncludeHint")} checked={form.auto_include} onChange={(v) => setForm((f) => ({ ...f, auto_include: v }))} />
+        </div>
         <div className="dr-sec">
           <SwitchRow className="pt-0" label={t("nodes.sniRouter")} sub={t("nodes.sniRouterHint")} checked={form.sni_router} onChange={(v) => setForm((f) => ({ ...f, sni_router: v }))} />
           {node?.sni_router && node.router_error ? (

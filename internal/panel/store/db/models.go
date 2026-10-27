@@ -353,6 +353,7 @@ type Inbound struct {
 	PoolID      sql.NullInt64
 	Listen      string
 	OutboundID  sql.NullInt64
+	AutoInclude int64
 }
 
 type InboundEvent struct {
@@ -422,6 +423,7 @@ type Node struct {
 	FrontPage      string
 	Emergency      bool
 	EmergencySpeed sql.NullInt32
+	AutoInclude    int64
 }
 
 type NodeAssignment struct {

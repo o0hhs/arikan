@@ -108,7 +108,10 @@ type NodeInfo struct {
 	RedirectError string `json:"redirect_error,omitempty" doc:"Почему нода не смогла занять порт 80"`
 	// SNIRouter: the node shares its TCP 443 between the inbounds marked for it;
 	// RouterError says why it could not take the port.
-	SNIRouter   bool   `json:"sni_router" doc:"Порт 443 ноды делят подключения по имени TLS (SNI-роутер)"`
+	SNIRouter bool `json:"sni_router" doc:"Порт 443 ноды делят подключения по имени TLS (SNI-роутер)"`
+	// AutoInclude: the node's servers are in the auto group; off, only in the list and in
+	// the country group.
+	AutoInclude bool   `json:"auto_include" doc:"Серверы ноды участвуют в автовыборе; выключено — остаются в списке и в группе своей страны"`
 	RouterError string `json:"router_error,omitempty" doc:"Почему нода не смогла занять порт 443"`
 	// FrontPage is the built-in page strangers get on the node's own domain through the
 	// shared 443.
@@ -160,6 +163,7 @@ type patchNodeInput struct {
 		ChannelMbps  *int64  `json:"channel_mbps,omitempty" minimum:"1" maximum:"100000" doc:"Ширина канала ноды, Мбит/с в каждую сторону"`
 		HTTPRedirect *bool   `json:"http_redirect,omitempty" doc:"Отвечать на HTTP (порт 80) редиректом 301 на https; не для ноды панели"`
 		SNIRouter    *bool   `json:"sni_router,omitempty" doc:"SNI-роутер на 443: подключения с отметкой «через общий 443» слушают на loopback за ним"`
+		AutoInclude  *bool   `json:"auto_include,omitempty" doc:"Серверы ноды в автовыборе; выключено — только в списке и в группе страны"`
 		FrontPage    *string `json:"front_page,omitempty" enum:",maintenance,cats" doc:"Заглушка для посторонних: протоколы с XHTTP, WebSocket или gRPC отдают её на чужие запросы вместо пустого 404, общий порт 443 — на домене ноды и на запросах без имени (сертификат ноды, TLS 1.2+, HSTS); пусто — нет"`
 		// The node's API for the panel alone, and the networks added to the panel's own.
 		APILockdown *bool     `json:"api_lockdown,omitempty" doc:"API ноды только с адресов панели; не для ноды панели"`
@@ -220,7 +224,7 @@ func (h *handlers) viewNode(ctx context.Context, n db.Node, inbounds []db.Inboun
 	v := NodeInfo{ID: n.ID, Name: n.Name, PublicName: n.PublicName, Local: n.Address == "", Address: n.Address, Host: domain.NodeHost(n), ServerHost: n.PublicHost, Domain: n.Domain,
 		Enabled: n.Enabled != 0, Inbounds: len(domain.NodeInbounds(inbounds, n.ID)), Status: "unknown",
 		FairShare: n.FairShare != 0, ChannelMbps: store.Int64Ptr(n.ChannelMbps), BalanceGroup: n.BalanceGroup, Capacity: store.Int64Ptr(n.Capacity),
-		HTTPRedirect: n.HttpRedirect != 0, SNIRouter: n.SniRouter != 0, FrontPage: n.FrontPage, APILockdown: n.ApiLockdown != 0, APIAllow: n.ApiAllow,
+		HTTPRedirect: n.HttpRedirect != 0, SNIRouter: n.SniRouter != 0, AutoInclude: n.AutoInclude != 0, FrontPage: n.FrontPage, APILockdown: n.ApiLockdown != 0, APIAllow: n.ApiAllow,
 		Emergency: n.Emergency,
 		EmergencySpeed: func() *int64 {
 			if n.EmergencySpeed.Valid {
@@ -419,7 +423,7 @@ func (h *handlers) updateNode(ctx context.Context, in *patchNodeInput) (*nodeInf
 		return nil, err
 	}
 	n, err := domain.UpdateNode(ctx, h.d.Store, in.ID, domain.NodePatch{Name: b.Name, PublicName: b.PublicName, Host: b.Host, Domain: b.Domain,
-		Enabled: b.Enabled, FairShare: b.FairShare, ChannelMbps: b.ChannelMbps, HTTPRedirect: b.HTTPRedirect, SNIRouter: b.SNIRouter, FrontPage: b.FrontPage, APILockdown: b.APILockdown, APIAllow: b.APIAllow,
+		Enabled: b.Enabled, FairShare: b.FairShare, ChannelMbps: b.ChannelMbps, HTTPRedirect: b.HTTPRedirect, SNIRouter: b.SNIRouter, AutoInclude: b.AutoInclude, FrontPage: b.FrontPage, APILockdown: b.APILockdown, APIAllow: b.APIAllow,
 		Emergency: b.Emergency, EmergencySpeed: b.EmergencySpeed, Rules: rules}, h.d.Now())
 	if err != nil {
 		return nil, h.nodeErr(err)
@@ -427,7 +431,7 @@ func (h *handlers) updateNode(ctx context.Context, in *patchNodeInput) (*nodeInf
 	h.nodesChanged()
 	h.d.Changes.SlotsChanged()
 	h.audit(ctx, sessionOf(ctx).AdminID, "node.update", "node", strconv.FormatInt(n.ID, 10), map[string]any{"name": n.Name, "public_name": n.PublicName, "enabled": n.Enabled != 0,
-		"fair_share": n.FairShare != 0, "channel_mbps": n.ChannelMbps.Int64, "http_redirect": n.HttpRedirect != 0, "sni_router": n.SniRouter != 0, "front_page": n.FrontPage, "api_lockdown": n.ApiLockdown != 0, "api_allow": n.ApiAllow})
+		"fair_share": n.FairShare != 0, "channel_mbps": n.ChannelMbps.Int64, "http_redirect": n.HttpRedirect != 0, "sni_router": n.SniRouter != 0, "auto_include": n.AutoInclude != 0, "front_page": n.FrontPage, "api_lockdown": n.ApiLockdown != 0, "api_allow": n.ApiAllow})
 	return h.nodeInfo(ctx, n.ID)
 }
 

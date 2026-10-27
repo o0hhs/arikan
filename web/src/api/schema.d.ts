@@ -4750,6 +4750,8 @@ export interface components {
             name: string;
         };
         CreateInboundInputBody: {
+            /** @description Протокол в автовыборе; выключено — только в списке и в группе страны */
+            auto_include?: boolean;
             /** @description Шаблон листенера (YAML) для preset=custom */
             config?: string;
             /** @description host:port для REALITY */
@@ -5409,6 +5411,8 @@ export interface components {
             /** @description Приложения, которым подключение попадает в подписку: mihomo, xray, singbox, stash, other */
             apps: string[];
             auto: components["schemas"]["AutoView"];
+            /** @description Протокол участвует в автовыборе; выключено — остаётся в списке и в группе своей страны */
+            auto_include: boolean;
             /** @description Панель сама переносит подключение на другой порт, если его блокируют (и включено в настройках) */
             auto_port: boolean;
             /** @description Панель сама меняет сайт маскировки REALITY, если он перестал подходить (и включено в настройках) */
@@ -5915,6 +5919,8 @@ export interface components {
             api_lock_error?: string;
             /** @description API ноды отвечает только адресам панели */
             api_lockdown: boolean;
+            /** @description Серверы ноды участвуют в автовыборе; выключено — остаются в списке и в группе своей страны */
+            auto_include: boolean;
             /** @description Группа балансировки; пусто — вне групп */
             balance_group: string;
             /** @description Нода старее панели */
@@ -6548,6 +6554,8 @@ export interface components {
             name?: string;
         };
         PatchInboundInputBody: {
+            /** @description Протокол в автовыборе; выключено — только в списке и в группе страны */
+            auto_include?: boolean;
             /** @description Нельзя включить, пока у подключения свой адрес (listen) */
             auto_port?: boolean;
             /** @description Нельзя включить, пока у подключения свой адрес (listen) */
@@ -6609,6 +6617,8 @@ export interface components {
             api_allow?: string[];
             /** @description API ноды только с адресов панели; не для ноды панели */
             api_lockdown?: boolean;
+            /** @description Серверы ноды в автовыборе; выключено — только в списке и в группе страны */
+            auto_include?: boolean;
             /**
              * Format: int64
              * @description Ширина канала ноды, Мбит/с в каждую сторону

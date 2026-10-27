@@ -2884,6 +2884,10 @@
       "CreateInboundInputBody": {
         "additionalProperties": false,
         "properties": {
+          "auto_include": {
+            "description": "Протокол в автовыборе; выключено — только в списке и в группе страны",
+            "type": "boolean"
+          },
           "config": {
             "description": "Шаблон листенера (YAML) для preset=custom",
             "maxLength": 65536,
@@ -4751,6 +4755,10 @@
           "auto": {
             "$ref": "#/components/schemas/AutoView"
           },
+          "auto_include": {
+            "description": "Протокол участвует в автовыборе; выключено — остаётся в списке и в группе своей страны",
+            "type": "boolean"
+          },
           "auto_port": {
             "description": "Панель сама переносит подключение на другой порт, если его блокируют (и включено в настройках)",
             "type": "boolean"
@@ -4919,6 +4927,7 @@
           "apps",
           "auto_port",
           "auto_sni",
+          "auto_include",
           "auto",
           "outbound",
           "client",
@@ -6096,6 +6105,10 @@
             "description": "API ноды отвечает только адресам панели",
             "type": "boolean"
           },
+          "auto_include": {
+            "description": "Серверы ноды участвуют в автовыборе; выключено — остаются в списке и в группе своей страны",
+            "type": "boolean"
+          },
           "balance_group": {
             "description": "Группа балансировки; пусто — вне групп",
             "type": "string"
@@ -6357,6 +6370,7 @@
           "balance_group",
           "http_redirect",
           "sni_router",
+          "auto_include",
           "front_page",
           "api_lockdown",
           "api_allow",
@@ -7793,6 +7807,10 @@
       "PatchInboundInputBody": {
         "additionalProperties": false,
         "properties": {
+          "auto_include": {
+            "description": "Протокол в автовыборе; выключено — только в списке и в группе страны",
+            "type": "boolean"
+          },
           "auto_port": {
             "description": "Нельзя включить, пока у подключения свой адрес (listen)",
             "type": "boolean"
@@ -7925,6 +7943,10 @@
           },
           "api_lockdown": {
             "description": "API ноды только с адресов панели; не для ноды панели",
+            "type": "boolean"
+          },
+          "auto_include": {
+            "description": "Серверы ноды в автовыборе; выключено — только в списке и в группе страны",
             "type": "boolean"
           },
           "channel_mbps": {

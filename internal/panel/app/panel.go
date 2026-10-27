@@ -583,7 +583,7 @@ func NewPanel(st *store.Store, o Options) (*Panel, error) {
 			if n.Enabled == 0 {
 				continue
 			}
-			sn := subs.Node{ID: n.ID, Name: n.Name, Endpoint: subs.Endpoint{Host: ep.Host, SNI: domainName}}
+			sn := subs.Node{ID: n.ID, Name: n.Name, Endpoint: subs.Endpoint{Host: ep.Host, SNI: domainName}, AutoInclude: n.AutoInclude != 0}
 			sn.Emergency, sn.EmergencySpeed = n.Emergency, int(n.EmergencySpeed.Int32)
 			if n.Address != "" {
 				sn.Endpoint = subs.Endpoint{Host: domain.NodeHost(n), SNI: n.Domain}

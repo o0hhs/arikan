@@ -149,6 +149,9 @@ type NodePatch struct {
 	HTTPRedirect *bool
 	// SNIRouter shares the node's TCP 443 between the inbounds marked for it.
 	SNIRouter *bool
+	// AutoInclude: the node's servers take part in the auto group and the fastest-pick;
+	// off, they stay in the plain list and in their country's group.
+	AutoInclude *bool
 	// FrontPage is the built-in page (frontpage.Templates) strangers get on the node's own
 	// domain through the shared 443; "" none.
 	FrontPage *string
@@ -258,6 +261,12 @@ func UpdateNode(ctx context.Context, st *store.Store, id int64, p NodePatch, now
 		}
 		if p.SNIRouter != nil {
 			if err := q.SetNodeSNIRouter(ctx, db.SetNodeSNIRouterParams{SniRouter: Flag(*p.SNIRouter), UpdatedAt: now.Unix(), ID: cur.ID}); err != nil {
+				return err
+			}
+		}
+		if p.AutoInclude != nil {
+			cur.AutoInclude = Flag(*p.AutoInclude)
+			if err := q.SetNodeAutoInclude(ctx, db.SetNodeAutoIncludeParams{AutoInclude: cur.AutoInclude, ID: cur.ID}); err != nil {
 				return err
 			}
 		}

@@ -36,6 +36,7 @@ type InboundForm = {
   config: string;
   autoPort: boolean;
   autoSni: boolean;
+  autoInclude: boolean;
   listenMode: ListenAt;
   listenIP: string; // the address of its own for "custom"
   clientServer: string; // what clients get: "" = as now
@@ -62,6 +63,7 @@ function inboundFormOf(i: Inbound | null): InboundForm {
     config: i?.config ?? "",
     autoPort: i?.auto_port ?? true,
     autoSni: i?.auto_sni ?? true,
+    autoInclude: i?.auto_include ?? true,
     listenMode: i ? listenAt(i.listen) : "all",
     listenIP: i && listenAt(i.listen) === "custom" ? i.listen : "",
     clientServer: i?.client.server ?? "",
@@ -81,7 +83,7 @@ export function EditDrawer({ inbound, onClose }: { inbound: Inbound | null; onCl
   const { reset: resetValidate } = validate;
   const [tab, setTab] = useState<"main" | "xhttp" | "config">("main");
   const [form, set, replace] = useFields(() => inboundFormOf(null));
-  const { port, dest, sni, fp, obfs, xhttp, outbound, exitNode, outboundID, poolId, name, config, autoPort, autoSni, listenMode, listenIP, clientServer, clientPort, clientSni, cdn, sni443 } = form;
+  const { port, dest, sni, fp, obfs, xhttp, outbound, exitNode, outboundID, poolId, name, config, autoPort, autoSni, autoInclude, listenMode, listenIP, clientServer, clientPort, clientSni, cdn, sni443 } = form;
   const pools = usePools();
   const allNodes = useNodes();
   const outbounds = useQuery({
@@ -201,6 +203,7 @@ export function EditDrawer({ inbound, onClose }: { inbound: Inbound | null; onCl
     if (autoPortNow !== inbound?.auto_port) body.auto_port = autoPortNow;
     const autoSniNow = autoSni && !behindProxy;
     if (autoSniNow !== inbound?.auto_sni) body.auto_sni = autoSniNow;
+    if (autoInclude !== inbound?.auto_include) body.auto_include = autoInclude;
     if (outbound === "node" && !exitNode) {
       reject({ exit_node_id: t("inbounds.exitPick") });
       return;
@@ -564,6 +567,7 @@ export function EditDrawer({ inbound, onClose }: { inbound: Inbound | null; onCl
                 </>
                 )}
               </Disclosure>
+              <SwitchRow label={t("inbounds.autoInclude")} sub={t("inbounds.autoIncludeSub")} checked={autoInclude} onChange={set.autoInclude} />
               <Disclosure title={t("inbounds.auto")} sub={t("settings.autoSub")}>
                 <AutoSwitch
                   title={t("inbounds.autoPort")}

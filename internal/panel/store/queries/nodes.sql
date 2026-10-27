@@ -40,3 +40,7 @@ UPDATE nodes SET cert_sha256 = $1, updated_at = $2 WHERE id = $3;
 
 -- name: DeleteNode :exec
 DELETE FROM nodes WHERE id = $1 AND id != 1;
+
+-- name: SetNodeAutoInclude :exec
+-- «В автовыборе»: the node's proxies take part in the auto group and the fastest-pick.
+UPDATE nodes SET auto_include = sqlc.arg(auto_include) WHERE id = sqlc.arg(id);

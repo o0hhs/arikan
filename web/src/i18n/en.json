@@ -2975,6 +2975,8 @@
     "httpRedirect": "HTTP → HTTPS",
     "httpRedirectHint": "The node takes port 80 and answers plain HTTP with a 301 to https, as a real site does. HTTP-01 certificates keep working. Leave it off if another web server needs port 80.",
     "httpRedirectBusy": "Port 80 cannot be taken: {error}",
+    "autoInclude": "In auto",
+    "autoIncludeHint": "This node's servers take part in the “Auto” group and in the fastest-pick. Turn it off for a node apps should not choose by themselves (allow-lists, for one): its servers stay in the plain list and in their country's group.",
     "sniRouter": "Shared port 443 (SNI router)",
     "sniRouterHint": "The node listens on 443 and hands each connection to the inbound by the TLS name in its ClientHello. Turn on “Through shared 443” for protocols (VLESS, Trojan, AnyTLS with TLS or REALITY): they move to loopback behind the router, clients connect to 443, and the node still sees the client's real IP. An unknown name goes to the first REALITY one and on to its masking site.",
     "sniRouterBusy": "Port 443 cannot be taken: {error}",

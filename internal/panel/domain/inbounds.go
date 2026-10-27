@@ -88,6 +88,8 @@ type NewInbound struct {
 	Port   string // "": the preset's
 	Dest   string // a REALITY preset's target; "": the default
 	Config string // the template of presets.Custom
+	// AutoInclude: the protocol takes part in the auto group (the default); nil: yes.
+	AutoInclude *bool
 }
 
 // InboundPatch changes an inbound; a nil field stays as it is.
@@ -103,6 +105,8 @@ type InboundPatch struct {
 	XHTTP       *proto.XHTTPTuning // the whole XHTTP tuning, as the form shows it
 	Client      *ClientEndpoint    // replaces all of it, the CDN included
 	SNI443      *bool              // behind the node's SNI router on 443
+	// AutoInclude: the protocol takes part in the auto group and the fastest-pick.
+	AutoInclude *bool
 	DisplayName *string
 	// What only the node uses.
 	Listen   *string
@@ -128,7 +132,8 @@ func (p InboundPatch) EditsTemplate() bool {
 
 // ForClients: the patch changes what clients get.
 func (p InboundPatch) ForClients() bool {
-	return p.EditsTemplate() || p.Port != nil || p.Enabled != nil || p.DisplayName != nil
+	// AutoInclude changes the profile's auto group: the clients refresh for it.
+	return p.EditsTemplate() || p.Port != nil || p.Enabled != nil || p.DisplayName != nil || p.AutoInclude != nil
 }
 
 // ClientEndpoint is where clients connect when a TCP proxy or a CDN stands in front of
@@ -186,7 +191,13 @@ func (s *Inbounds) Create(ctx context.Context, in NewInbound) (db.Inbound, error
 		now := s.now().Unix()
 		row, err = q.CreateInbound(ctx, db.CreateInboundParams{NodeID: node.ID, Name: FreeName(existing, base), Preset: info.ID, Port: port,
 			Config: config, CreatedAt: now, UpdatedAt: now})
-		return err
+		if err != nil {
+			return err
+		}
+		if in.AutoInclude != nil && !*in.AutoInclude {
+			return q.SetInboundAutoInclude(ctx, db.SetInboundAutoIncludeParams{AutoInclude: Flag(false), ID: row.ID})
+		}
+		return nil
 	})
 	return row, err
 }
@@ -248,6 +259,9 @@ func (s *Inbounds) update(ctx context.Context, id int64, p InboundPatch) (prev, 
 		return fail(ErrInboundChanged)
 	}
 	next = prev
+	if p.AutoInclude != nil {
+		next.AutoInclude = Flag(*p.AutoInclude)
+	}
 	if p.Listen != nil {
 		if next.Listen, err = ParseListen(*p.Listen); err != nil {
 			return fail(err)
@@ -385,6 +399,11 @@ func (s *Inbounds) update(ctx context.Context, id int64, p InboundPatch) (prev, 
 		}
 		if next.AutoPort != prev.AutoPort || next.AutoSni != prev.AutoSni {
 			if err := q.SetInboundAuto(ctx, db.SetInboundAutoParams{AutoPort: next.AutoPort, AutoSni: next.AutoSni, ID: id}); err != nil {
+				return err
+			}
+		}
+		if p.AutoInclude != nil {
+			if err := q.SetInboundAutoInclude(ctx, db.SetInboundAutoIncludeParams{AutoInclude: next.AutoInclude, ID: id}); err != nil {
 				return err
 			}
 		}

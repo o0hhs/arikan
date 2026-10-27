@@ -240,3 +240,7 @@ SELECT * FROM users WHERE id = ANY(sqlc.arg(ids)::bigint[]) ORDER BY id;
 -- name: ListTgLinksOfUsers :many
 SELECT l.user_id, l.tg_id, COALESCE(c.username, '') AS username, COALESCE(c.first_name, '') AS first_name
 FROM tg_links l LEFT JOIN tg_chats c ON c.tg_id = l.tg_id WHERE l.user_id = ANY(sqlc.arg(ids)::bigint[]);
+
+-- name: SetInboundAutoInclude :exec
+-- «В автовыборе»: this protocol takes part in the auto group and the fastest-pick.
+UPDATE inbounds SET auto_include = sqlc.arg(auto_include) WHERE id = sqlc.arg(id);

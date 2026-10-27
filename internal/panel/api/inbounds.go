@@ -47,6 +47,7 @@ type InboundView struct {
 	NodeCert    bool           `json:"node_cert,omitempty" doc:"Работает на сертификате ноды (Hysteria2, TUIC, AnyTLS, TrustTunnel, VLESS TLS): с самоподписанным в sing-box приложениях не появится"`
 	AutoPort    bool           `json:"auto_port" doc:"Панель сама переносит подключение на другой порт, если его блокируют (и включено в настройках)"`
 	AutoSNI     bool           `json:"auto_sni" doc:"Панель сама меняет сайт маскировки REALITY, если он перестал подходить (и включено в настройках)"`
+	AutoInclude bool           `json:"auto_include" doc:"Протокол участвует в автовыборе; выключено — остаётся в списке и в группе своей страны"`
 	Auto        AutoView       `json:"auto"`
 	Outbound    string         `json:"outbound" enum:"direct,warp,node,link" doc:"Выход в интернет: напрямую с сервера, через WARP ноды, через другую ноду (каскад) или через исходящую, добавленную по ссылке"`
 	ExitNodeID  *int64         `json:"exit_node_id,omitempty" doc:"Нода, через которую выходит трафик, если outbound=node"`
@@ -111,6 +112,8 @@ type createInboundInput struct {
 		Port   string `json:"port,omitempty" pattern:"^[0-9]{1,5}(-[0-9]{1,5})?$"`
 		Dest   string `json:"dest,omitempty" maxLength:"255" doc:"host:port для REALITY"`
 		Config string `json:"config,omitempty" maxLength:"65536" doc:"Шаблон листенера (YAML) для preset=custom"`
+		// AutoInclude: the protocol takes part in the auto group; on unless said.
+		AutoInclude *bool `json:"auto_include,omitempty" doc:"Протокол в автовыборе; выключено — только в списке и в группе страны"`
 	}
 }
 
@@ -134,8 +137,9 @@ type patchInboundInput struct {
 		OutboundID  *int64          `json:"outbound_id,omitempty" minimum:"1" doc:"Для outbound=link: через какую исходящую"`
 		PoolID      *int64          `json:"pool_id,omitempty" minimum:"0" doc:"Группа серверов; 0 — без группы, основной трафик"`
 
-		XHTTP  *proto.XHTTPTuning `json:"xhttp,omitempty" doc:"Тонкая настройка XHTTP целиком: пустое поле — значение ядра по умолчанию"`
-		SNI443 *bool              `json:"sni443,omitempty" doc:"Поставить за SNI-роутер ноды на 443 (true) или вернуть на свой порт (false)"`
+		XHTTP       *proto.XHTTPTuning `json:"xhttp,omitempty" doc:"Тонкая настройка XHTTP целиком: пустое поле — значение ядра по умолчанию"`
+		SNI443      *bool              `json:"sni443,omitempty" doc:"Поставить за SNI-роутер ноды на 443 (true) или вернуть на свой порт (false)"`
+		AutoInclude *bool              `json:"auto_include,omitempty" doc:"Протокол в автовыборе; выключено — только в списке и в группе страны"`
 	}
 }
 
@@ -257,6 +261,7 @@ func (h *handlers) viewInbound(ctx context.Context, in db.Inbound, last map[int6
 		}
 		v.CDNPossible = proto.CanCDN(t)
 		v.SNI443, v.SNI443Possible = proto.SNI443(t), proto.CanSNI443(t)
+		v.AutoInclude = in.AutoInclude != 0
 		if proto.UsesFingerprint(t) {
 			fp := c.Fingerprint
 			v.Fingerprint = &fp
@@ -349,7 +354,7 @@ func (h *handlers) createInbound(ctx context.Context, in *createInboundInput) (*
 			return nil, err
 		}
 	}
-	row, err := h.d.Inbounds.Create(ctx, domain.NewInbound{NodeID: b.NodeID, Preset: b.Preset, Port: b.Port, Dest: b.Dest, Config: b.Config})
+	row, err := h.d.Inbounds.Create(ctx, domain.NewInbound{NodeID: b.NodeID, Preset: b.Preset, Port: b.Port, Dest: b.Dest, Config: b.Config, AutoInclude: b.AutoInclude})
 	if err != nil {
 		return nil, inboundError(err, false)
 	}
@@ -437,7 +442,7 @@ func (h *handlers) updateInbound(ctx context.Context, in *patchInboundInput) (*i
 	}
 	p := domain.InboundPatch{Port: b.Port, Enabled: b.Enabled, Config: b.Config, Dest: b.Dest, ServerName: b.ServerName, Fingerprint: b.Fingerprint, Obfs: b.Obfs, XHTTP: b.XHTTP,
 		DisplayName: b.DisplayName, Listen: b.Listen, AutoPort: b.AutoPort, AutoSNI: b.AutoSNI, Outbound: b.Outbound, ExitNodeID: b.ExitNodeID, OutboundID: b.OutboundID, PoolID: b.PoolID,
-		SNI443: b.SNI443}
+		SNI443: b.SNI443, AutoInclude: b.AutoInclude}
 	if c := b.Client; c != nil {
 		// The address clients connect to: like the panel's public host, not for a key.
 		if err := requireSession(ctx, "client"); err != nil {

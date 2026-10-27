@@ -45,6 +45,9 @@ type Node struct {
 	EmergencySpeed int
 	// SSOneKey: the node is older than the Shadowsocks-2022 key per user (proto.ClientInput).
 	SSOneKey bool
+	// AutoInclude: the node's servers take part in the auto group and the fastest-pick;
+	// off, they stay in the plain list and in their country's group.
+	AutoInclude bool
 }
 
 // Groups are the proxy-group names Clash-family apps show; the admin can rename them.
@@ -186,6 +189,7 @@ type proxy struct {
 	name string
 	node int64
 	pool int64 // the inbound's server group, 0: none (the main servers)
+	auto bool  // in the auto group: both the node and the protocol are
 	uri  string
 	yaml map[string]any
 }
@@ -268,7 +272,7 @@ func build(p Profile) ([]proxy, error) {
 				continue
 			}
 			used[name] = true
-			out = append(out, proxy{name: name, node: n.ID, pool: in.PoolID.Int64, uri: c.URI, yaml: c.Mihomo})
+			out = append(out, proxy{name: name, node: n.ID, pool: in.PoolID.Int64, auto: n.AutoInclude && in.AutoInclude != 0, uri: c.URI, yaml: c.Mihomo})
 			out = append(out, turnCopies(p, n, in, t, base, used, slot)...)
 		}
 	}
@@ -442,7 +446,19 @@ func mihomoConfigOf(p Profile, g Groups, r Routing, ps []proxy) map[string]any {
 	for _, c := range countries {
 		selector = append(selector, c["name"].(string))
 	}
-	auto := urlTest(g.Auto, names)
+	// The auto group takes only what the admin left in it: a node or a protocol marked
+	// «В автовыборе» off stays in the plain list and in its country's group. All off: the
+	// group takes every server, as it did before the switch existed.
+	autoNames := make([]string, 0, len(ps))
+	for _, x := range ps {
+		if x.auto {
+			autoNames = append(autoNames, x.name)
+		}
+	}
+	if len(autoNames) == 0 {
+		autoNames = names
+	}
+	auto := urlTest(g.Auto, autoNames)
 	switch p.Routes.Servers.Auto {
 	case AutoFallback:
 		auto["type"] = "fallback" // the first that works, in the order of the nodes
