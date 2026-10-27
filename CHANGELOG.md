@@ -3,6 +3,17 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
+## 0.5.2.12
+### en
+**«In auto» on a node and on a protocol, as upstream 0.5.2.1 has it.**
+- A node or a protocol marked **«В автовыборе»** off leaves the «Авто» group and the fastest-pick, while its servers stay in the plain list and in their country's group: an allow-list node or a protocol for old clients no longer takes part in automatic choice. With every switch off the group takes every server, exactly as before the switch existed.
+- The toggle is on the node's drawer and in the protocol editor. A protocol's change refreshes the profiles of its subscribers.
+
+### ru
+**«В автовыборе» у ноды и у протокола — как в апстриме 0.5.2.1.**
+- Нода или протокол с выключенным **«В автовыборе»** пропадают из группы «Авто» и из выбора самого быстрого, но остаются в общем списке и в группе своей страны: нода для белых списков или протокол для старых клиентов больше не участвуют в автоматическом выборе. Если выключить у всех, группа снова берёт все серверы — как было до появления переключателя.
+- Переключатель — в карточке ноды и в редакторе протокола. Изменение протокола обновляет профили его подписчиков.
+
 ## 0.5.2.11
 ### en
 **The admin's Telegram hears of every payment.**
