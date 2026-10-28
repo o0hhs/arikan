@@ -3,6 +3,15 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
+## 0.5.2.14
+### en
+**A restore takes the backup it is given.**
+- Since secrets moved out of `.env`, `arikan backup` keeps them as files in `secrets/`, but the archive check only accepted the directory itself: every real backup with secrets was refused with `the archive has a path an Arikan backup does not: secrets/postgres_password`, which blocked moving a panel to another server. The files inside `secrets/` are accepted now; the database password and address are still fitted to the server being restored on, as before.
+
+### ru
+**Восстановление принимает тот бэкап, который ему дали.**
+- После переезда секретов из `.env` в файлы `arikan backup` кладёт их в `secrets/`, а проверка архива принимала только сам каталог: любой настоящий бэкап с секретами отклонялся с `the archive has a path an Arikan backup does not: secrets/postgres_password`, что блокировало перенос панели на другой сервер. Теперь файлы внутри `secrets/` принимаются; пароль и адрес базы по-прежнему подставляются сервера, на который восстанавливают.
+
 ## 0.5.2.13
 ### en
 **Business analytics, event-driven automation and safer operations.**
