@@ -161,8 +161,8 @@ type PaymentRow struct {
 	TermDays   int64
 	Status     string
 	PaidAt     int64
-	UserName    string
-	TgUsername  string
+	UserName   string
+	TgUsername string
 }
 
 // MTLink is one MTProto proxy as the bot's buttons take it.

@@ -27,7 +27,7 @@ func (b *Bot) tellAdminsOfSale(ctx context.Context, tgID int64, p events.Payment
 		TermDays:   p.TermDays,
 		Created:    p.Created,
 		UserID:     u.ID,
-		UserName:    u.Name,
+		UserName:   u.Name,
 	})
 	for _, chat := range admins {
 		if chat == tgID {

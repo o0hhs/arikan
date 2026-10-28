@@ -35,6 +35,6 @@ func (p *Panel) tellAdminOfSale(ctx context.Context, pay db.Payment, u db.User, 
 		TermDays:   pay.TermDays.Int64,
 		Created:    created,
 		UserID:     u.ID,
-		UserName:    u.Name,
+		UserName:   u.Name,
 	}))
 }
