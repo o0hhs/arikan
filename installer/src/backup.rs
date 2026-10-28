@@ -282,6 +282,9 @@ fn allowed_name(name: &str) -> bool {
         || ["data", "data/panel", "data/node", "addons", "addons/state.json"].contains(&n)
         || n.starts_with("data/panel/")
         || n.starts_with("data/node/")
+        // A backup keeps the secrets as files (a panel's database password and address, a
+        // node's join key); they come with the directory.
+        || n.starts_with("secrets/")
 }
 
 /// Judges the two listings of an archive (`tar -tzf`, names; `tar -tvzf`, with types).
@@ -933,7 +936,7 @@ mod tests {
 
     #[test]
     fn only_mikan_backups_pass_the_listing() {
-        let names = ".env\ncompose.yaml\ndata/\ndata/panel/\ndata/panel/backup.db\ndata/panel/tls/\ndata/panel/tls/panel.key\ndata/node/\ndata/node/state.json\n";
+        let names = ".env\ncompose.yaml\nsecrets/\nsecrets/postgres_password\nsecrets/database_url\ndata/\ndata/panel/\ndata/panel/backup.db\ndata/panel/tls/\ndata/panel/tls/panel.key\ndata/node/\ndata/node/state.json\n";
         let verbose: String = names
             .lines()
             .map(|n| format!("{} root/root 1 2026-10-01 00:00 {n}\n", if n.ends_with('/') { "drwx------" } else { "-rw-------" }))
