@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"mikan/internal/panel/model"
+	"mikan/internal/panel/salenotice"
 	"mikan/internal/tgapi"
 )
 
@@ -78,6 +79,7 @@ func (b *Bot) adminMenu(ctx context.Context, w *words, chat int64) (string, *tga
 	}
 	if role == "superadmin" {
 		rows = append(rows, []tgapi.Button{{Text: w.adm("👥 Админы", "👥 Admins"), CallbackData: "ad:a"}})
+		rows = append(rows, []tgapi.Button{{Text: w.adm("💳 Оплаты", "💳 Payments"), CallbackData: "ad:p"}})
 	}
 	return fmt.Sprintf(w.adm("🛠 Админка · роль: %s", "🛠 Admin · role: %s"), role), &tgapi.Keyboard{InlineKeyboard: rows}
 }
@@ -131,6 +133,11 @@ func (b *Bot) adminPress(ctx context.Context, w *words, chat int64, arg string) 
 		return w.adm("🔍 Пришлите ID подписки, @username или номер платежа.", "🔍 Send the subscription id, an @username or a payment number."), &tgapi.Keyboard{InlineKeyboard: [][]tgapi.Button{{{Text: w.back, CallbackData: "ad"}}}}
 	case "t":
 		return b.sleepingTrials(ctx, w, chat)
+	case "p":
+		if b.adminRole(ctx, chat) != "superadmin" {
+			return "", nil
+		}
+		return b.payments(ctx, w, chat)
 	case "a":
 		if b.adminRole(ctx, chat) != "superadmin" {
 			return "", nil
@@ -271,6 +278,52 @@ func (b *Bot) adminCardOf(ctx context.Context, w *words, u model.User) (string, 
 		{{Text: w.back, CallbackData: "ad"}},
 	}}
 	return strings.Join(lines, "\n"), kb
+}
+
+// payments is the recent payments as a superadmin reads them: what was sold, for how much,
+// by which method, and who bought it.
+func (b *Bot) payments(ctx context.Context, w *words, chat int64) (string, *tgapi.Keyboard) {
+	rows, err := b.d.Backend.AdminPayments(ctx, chat, 0, 20)
+	if err != nil {
+		return "", nil
+	}
+	back := &tgapi.Keyboard{InlineKeyboard: [][]tgapi.Button{{{Text: w.back, CallbackData: "ad"}}}}
+	if len(rows) == 0 {
+		return w.adm("Оплат ещё нет.", "No payments yet."), back
+	}
+	now := b.d.Now()
+	lines := []string{w.adm("<b>💳 Последние оплаты</b>", "<b>💳 Recent payments</b>")}
+	for _, r := range rows {
+		lines = append(lines, paymentLine(w, r, now))
+	}
+	return strings.Join(lines, "\n"), back
+}
+
+// paymentLine is one payment as the admin reads it: its sign by status, the tariff, the
+// kind, the price, the buyer and when it happened.
+func paymentLine(w *words, r PaymentRow, now time.Time) string {
+	sign := map[string]string{"applied": "💸", "refunded": "↩️", "paid": "🕓", "pending": "⏳", "expired": "⏳", "failed": "❌"}[r.Status]
+	name := r.TariffName
+	if name == "" {
+		name = "—"
+	}
+	kind := w.adm(salenotice.KindWord("ru", r.Kind), salenotice.KindWord("en", r.Kind))
+	if kind == "" {
+		kind = r.Kind
+	}
+	buyer := r.TgUsername
+	if buyer != "" {
+		buyer = "@" + buyer
+	} else if r.UserName != "" {
+		buyer = r.UserName
+	} else {
+		buyer = "—"
+	}
+	line := fmt.Sprintf("%s <b>%s</b> · %s · %s · %s", sign, html.EscapeString(name), kind, w.price(r.Amount, r.Currency), html.EscapeString(buyer))
+	if r.PaidAt > 0 {
+		line += " · " + w.ago(model.Time(r.PaidAt), now)
+	}
+	return line
 }
 
 // sleepingTrials lists the accounts that took a trial and could not connect.

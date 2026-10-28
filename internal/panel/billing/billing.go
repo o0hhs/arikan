@@ -1047,6 +1047,7 @@ func (s *Service) openPayment(ctx context.Context, p db.Payment, title, desc str
 				_ = s.d.Promo.ReleasePayment(context.WithoutCancel(ctx), p.ID)
 			}
 			_ = q.SetPaymentError(context.WithoutCancel(ctx), db.SetPaymentErrorParams{Error: errCode(err), ID: p.ID})
+			s.failed(context.WithoutCancel(ctx), p, errCode(err))
 			if !errors.Is(err, ErrBalanceLow) {
 				s.d.Log.Warn("billing: charge a balance payment", "payment", p.ID, "err", err)
 			}
@@ -1068,6 +1069,7 @@ func (s *Service) openPayment(ctx context.Context, p db.Payment, title, desc str
 		// The provider never took the invoice: what the balance held of it is its owner's.
 		s.referralBack(ctx, p.ID)
 		_ = q.SetPaymentError(ctx, db.SetPaymentErrorParams{Error: errCode(err), ID: p.ID})
+		s.failed(ctx, p, errCode(err))
 		s.d.Log.Warn("billing: invoice", "provider", p.Provider, "payment", p.ID, "err", err)
 		return db.Payment{}, fmt.Errorf("%w: %s", ErrProviderOff, errCode(err))
 	}
@@ -1076,6 +1078,14 @@ func (s *Service) openPayment(ctx context.Context, p db.Payment, title, desc str
 	}
 	p.ExternalID, p.PayUrl = ext, url
 	return p, nil
+}
+
+// failed records the feed event for a payment that did not go through. The payment's own
+// status is already written; a feed failure must not turn a failed payment into a retry.
+func (s *Service) failed(ctx context.Context, p db.Payment, reason string) {
+	if err := emitPaymentFailed(ctx, s.d.Store.Q, s.d.Now(), p, reason); err != nil {
+		s.d.Log.Warn("billing: payment failure event", "payment", p.ID, "err", err)
+	}
 }
 
 // openInvoice asks the provider for the invoice: its id (none for Stars until paid) and
@@ -1712,7 +1722,19 @@ func (s *Service) Reconcile(ctx context.Context) {
 			down[p.Provider] = true
 		}
 	}
-	if _, err := q.ExpirePayments(ctx, now.Add(-pendingTTL).Unix()); err != nil {
+	err = s.d.Store.Tx(ctx, func(txq *db.Queries) error {
+		expired, err := txq.ExpirePayments(ctx, now.Add(-pendingTTL).Unix())
+		if err != nil {
+			return err
+		}
+		for _, p := range expired {
+			if err := emitPaymentFailed(ctx, txq, now, p, "expired"); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
 		s.d.Log.Error("billing: expire", "err", err)
 	}
 	if s.d.Referral != nil {

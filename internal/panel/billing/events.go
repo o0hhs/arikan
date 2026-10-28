@@ -19,6 +19,15 @@ func emitPayment(ctx context.Context, q *db.Queries, now time.Time, typ string, 
 		typ+":"+strconv.FormatInt(p.ID, 10))
 }
 
+// emitPaymentFailed tells that p did not go through. A payment has one failure event: a
+// provider that reports the same cancellation twice, or a reconcile pass that sees an
+// expired invoice again, does not repeat it.
+func emitPaymentFailed(ctx context.Context, q *db.Queries, now time.Time, p db.Payment, reason string) error {
+	return feed.Emit(ctx, q, now, events.PaymentFailed, p.UserID.Int64, p.TgID, events.Payment{PaymentID: p.ID, Kind: p.Kind, Provider: p.Provider, Amount: p.Amount,
+		Currency: p.Currency, TariffID: p.TariffID.Int64, TariffName: p.TariffName, PackageID: p.PackageID.Int64, TermDays: p.TermDays.Int64, Reason: reason},
+		events.PaymentFailed+":"+strconv.FormatInt(p.ID, 10))
+}
+
 // emitTrialNotGiven tells that the trial payment p cannot be given, once per payment. refund
 // is events.RefundedAuto or events.RefundedManually.
 func emitTrialNotGiven(ctx context.Context, q *db.Queries, now time.Time, p db.Payment, refund string) error {

@@ -2,6 +2,12 @@
 -- One event for the admin's site, due at next_at: queued in the transaction that made it.
 INSERT INTO webhook_deliveries (event, payload, next_at, created_at) VALUES ($1, $2, $3, $4);
 
+-- name: AddWebhookEventDelivery :exec
+-- One feed event for the admin's site. event_id makes a retried batch a no-op.
+INSERT INTO webhook_deliveries (event, payload, next_at, created_at, event_id)
+VALUES ($1, $2, $3, $4, sqlc.arg(event_id)::BIGINT)
+ON CONFLICT (event_id) DO NOTHING;
+
 -- name: DueWebhookDeliveries :many
 -- What the worker takes now: never delivered, and its next try has come.
 SELECT * FROM webhook_deliveries WHERE delivered_at IS NULL AND next_at <= $1 ORDER BY next_at, id LIMIT $2;

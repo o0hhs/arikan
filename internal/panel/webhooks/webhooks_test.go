@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"mikan/internal/panel/events"
 	"mikan/internal/panel/settings"
 	"mikan/internal/panel/store/db"
 	"mikan/internal/panel/store/storetest"
@@ -144,6 +145,43 @@ func TestNoURLNoDelivery(t *testing.T) {
 	due, err := s.Store.Q.DueWebhookDeliveries(context.Background(), db.DueWebhookDeliveriesParams{NextAt: s.Now().Add(time.Hour).Unix(), Limit: 10})
 	if err != nil || len(due) != 0 {
 		t.Fatalf("queued without an address: %+v %v", due, err)
+	}
+}
+
+func TestFeedPayloadKeepsTheEventData(t *testing.T) {
+	ev := db.AddonEvent{ID: 42, Type: events.UserCreated, UserID: nullInt(7), TgID: nullInt(555),
+		Data: `{"source":"bot","tariff_id":3}`, CreatedAt: 1_800_000_000}
+	p := feedPayload(ev)
+	if p.Event != events.UserCreated || p.ID != 42 || p.UserID != 7 || p.TelegramID != 555 || !p.At.Equal(time.Unix(1_800_000_000, 0).UTC()) {
+		t.Fatalf("payload: %+v", p)
+	}
+	body, err := json.Marshal(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(body), `"data":{"source":"bot","tariff_id":3}`) {
+		t.Fatalf("data is not the feed's own JSON: %s", body)
+	}
+}
+
+func TestSkipFeedEventLeavesSalesToPaid(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		ev   db.AddonEvent
+		want bool
+	}{
+		{"new sale", db.AddonEvent{Type: events.PaymentPaid, Data: `{"kind":"new"}`}, true},
+		{"renewal", db.AddonEvent{Type: events.PaymentPaid, Data: `{"kind":"renew"}`}, true},
+		{"package", db.AddonEvent{Type: events.PaymentPaid, Data: `{"kind":"package"}`}, false},
+		{"trial", db.AddonEvent{Type: events.PaymentPaid, Data: `{"kind":"trial"}`}, false},
+		{"other event", db.AddonEvent{Type: events.UserCreated, Data: `{}`}, false},
+		{"broken data", db.AddonEvent{Type: events.PaymentPaid, Data: `{`}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := skipFeedEvent(tc.ev); got != tc.want {
+				t.Fatalf("skipFeedEvent() = %v, want %v", got, tc.want)
+			}
+		})
 	}
 }
 

@@ -231,6 +231,18 @@ func (r *Remote) AdminList(ctx context.Context, by int64) ([]AdminUser, error) {
 	return out, err
 }
 
+func (r *Remote) Admins(ctx context.Context) ([]int64, error) {
+	var ids []int64
+	err := r.call(ctx, "Admins", nil, &ids)
+	return ids, err
+}
+
+func (r *Remote) AdminPayments(ctx context.Context, by, before, limit int64) ([]PaymentRow, error) {
+	var out []PaymentRow
+	err := r.call(ctx, "AdminPayments", []any{by, before, limit}, &out)
+	return out, err
+}
+
 func (r *Remote) MTProto(ctx context.Context) []MTLink {
 	var out []MTLink
 	_ = r.call(ctx, "MTProto", nil, &out)

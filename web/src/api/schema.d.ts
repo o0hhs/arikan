@@ -334,6 +334,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/analytics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Аналитика: выручка, MRR, конверсия и удержание
+         * @description Считается по применённым оплатам и подпискам. Stars показаны отдельно и не входят в рублёвую выручку.
+         */
+        get: operations["analytics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/api-keys": {
         parameters: {
             query?: never;
@@ -364,6 +384,75 @@ export interface paths {
         post?: never;
         /** Отозвать ключ API */
         delete: operations["delete-api-key"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/approvals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Запросы на опасные действия */
+        get: operations["list-approvals"];
+        put?: never;
+        /** Запросить подтверждение действия */
+        post: operations["create-approval"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/approvals/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Подтвердить действие */
+        post: operations["approve-approval"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/approvals/{id}/execute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Выполнить подтверждённое действие */
+        post: operations["execute-approval"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/approvals/{id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Отклонить действие */
+        post: operations["reject-approval"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -533,6 +622,59 @@ export interface paths {
         put?: never;
         /** Начать настройку 2FA */
         post: operations["totp-setup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/automation/rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Сценарии автоматизации */
+        get: operations["list-automation-rules"];
+        put?: never;
+        /** Создать сценарий */
+        post: operations["create-automation-rule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/automation/rules/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Изменить сценарий */
+        put: operations["update-automation-rule"];
+        post?: never;
+        /** Удалить сценарий */
+        delete: operations["delete-automation-rule"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/automation/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Журнал запусков сценариев */
+        get: operations["list-automation-runs"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2252,6 +2394,78 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/s3-backup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Бэкапы в S3 */
+        get: operations["get-s3-backup"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Настроить S3-бэкапы */
+        patch: operations["update-s3-backup"];
+        trace?: never;
+    };
+    "/api/v1/s3-backup/objects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** История S3-бэкапов */
+        get: operations["list-s3-backup-objects"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/s3-backup/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Восстановить базу из S3
+         * @description Сначала делает свежий pre-restore бэкап, проверяет архив и просит хост перезапустить панель. Восстановление выполняется при следующем старте.
+         */
+        post: operations["restore-s3-backup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/s3-backup/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Сделать S3-бэкап сейчас */
+        post: operations["run-s3-backup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/settings": {
         parameters: {
             query?: never;
@@ -3447,6 +3661,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/users/{id}/diagnose": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Почему у клиента не работает подписка
+         * @description Проверяет срок, трафик, устройства, тариф, протоколы, ноды и последнюю активность. Ничего не меняет.
+         */
+        get: operations["diagnose-user"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/users/{id}/extend": {
         parameters: {
             query?: never;
@@ -3865,20 +4099,23 @@ export interface components {
         };
         AdminCreateInputBody: {
             password: string;
+            permissions?: string[];
             /** @enum {string} */
-            role: "superadmin" | "support" | "tech";
+            role: "superadmin" | "support" | "tech" | "custom";
             username: string;
         };
         AdminRoleInputBody: {
+            permissions?: string[];
             /** @enum {string} */
-            role: "superadmin" | "support" | "tech";
+            role: "superadmin" | "support" | "tech" | "custom";
         };
         AdminRowView: {
             /** Format: int64 */
             id: number;
             last_login_at?: string;
+            permissions: ("users.read" | "users.write" | "billing.read" | "billing.write" | "nodes.read" | "nodes.write" | "settings.read" | "settings.write" | "automation.read" | "automation.write" | "backups.read" | "backups.write" | "approvals.read" | "approvals.decide" | "admins.manage" | "audit.read" | "support.card")[];
             /** @enum {string} */
-            role: "superadmin" | "support" | "tech";
+            role: "superadmin" | "support" | "tech" | "custom";
             totp_enabled: boolean;
             username: string;
         };
@@ -3907,8 +4144,9 @@ export interface components {
             id: number;
             /** Format: date-time */
             last_login_at?: string;
+            permissions: ("users.read" | "users.write" | "billing.read" | "billing.write" | "nodes.read" | "nodes.write" | "settings.read" | "settings.write" | "automation.read" | "automation.write" | "backups.read" | "backups.write" | "approvals.read" | "approvals.decide" | "admins.manage" | "audit.read" | "support.card")[];
             /** @enum {string} */
-            role: "superadmin" | "support" | "tech";
+            role: "superadmin" | "support" | "tech" | "custom";
             totp_enabled: boolean;
             username: string;
         };
@@ -4078,6 +4316,179 @@ export interface components {
             public_enabled?: boolean;
             public_summary?: boolean;
         };
+        AnalyticsCampaign: {
+            /** Format: int64 */
+            bought: number;
+            /** Format: int64 */
+            id: number;
+            name: string;
+            /** Format: int64 */
+            renewed: number;
+            /** Format: int64 */
+            rub: number;
+            tag: string;
+        };
+        AnalyticsCohort: {
+            /** @description YYYY-MM */
+            month: string;
+            /** @description Платили в месяц 0..5 после регистрации */
+            paying: number[];
+            /** @description То же в процентах от когорты */
+            rates: number[];
+            /** Format: int64 */
+            users: number;
+        };
+        AnalyticsOutputBody: {
+            campaigns: components["schemas"]["AnalyticsCampaign"][];
+            cohorts: components["schemas"]["AnalyticsCohort"][];
+            /** Format: date-time */
+            generated_at: string;
+            providers: components["schemas"]["AnalyticsProvider"][];
+            range: string;
+            revenue: components["schemas"]["AnalyticsRevenuePoint"][];
+            summary: components["schemas"]["AnalyticsSummary"];
+            tariffs: components["schemas"]["AnalyticsTariff"][];
+        };
+        AnalyticsProvider: {
+            /** Format: int64 */
+            payments: number;
+            provider: string;
+            /** Format: int64 */
+            rub: number;
+            /**
+             * Format: double
+             * @description Доля в рублёвой выручке периода, проценты
+             */
+            share: number;
+            /** Format: int64 */
+            stars: number;
+        };
+        AnalyticsRevenuePoint: {
+            /** Format: date-time */
+            day: string;
+            /** Format: int64 */
+            payments: number;
+            /** Format: int64 */
+            rub: number;
+            /** Format: int64 */
+            stars: number;
+        };
+        AnalyticsSummary: {
+            /**
+             * Format: int64
+             * @description Активных подписок сейчас
+             */
+            active_users: number;
+            /**
+             * Format: int64
+             * @description MRR на платящего клиента, копейки
+             */
+            arppu_rub: number;
+            /**
+             * Format: int64
+             * @description MRR на активную подписку, копейки
+             */
+            arpu_rub: number;
+            /**
+             * Format: int64
+             * @description MRR × 12, копейки
+             */
+            arr_rub: number;
+            /**
+             * Format: double
+             * @description Отток истёкших подписок, проценты
+             */
+            churn: number;
+            /**
+             * Format: int64
+             * @description Из них не продлили
+             */
+            churned: number;
+            /**
+             * Format: int64
+             * @description Подписок истекло за период
+             */
+            expired: number;
+            /**
+             * Format: int64
+             * @description Средняя выручка на платящего клиента за всё время, копейки
+             */
+            ltv_rub: number;
+            /**
+             * Format: int64
+             * @description Повторяющаяся выручка в месяц, копейки
+             */
+            mrr_rub: number;
+            /**
+             * Format: int64
+             * @description Новых клиентов за период
+             */
+            new_users: number;
+            /**
+             * Format: int64
+             * @description Разных платящих за период
+             */
+            paying_users: number;
+            /**
+             * Format: int64
+             * @description Применённых оплат за период
+             */
+            payments: number;
+            /**
+             * Format: int64
+             * @description Оплачено в рублях за период, копейки
+             */
+            revenue_rub: number;
+            /**
+             * Format: int64
+             * @description Оплачено в Stars за период; в рублёвую выручку не входит
+             */
+            revenue_stars: number;
+            /**
+             * Format: int64
+             * @description Все разные платящие клиенты
+             */
+            total_paying_users: number;
+            /**
+             * Format: int64
+             * @description Вся рублёвая выручка, копейки
+             */
+            total_revenue_rub: number;
+            /**
+             * Format: double
+             * @description Конверсия триала в оплату, проценты
+             */
+            trial_conversion: number;
+            /**
+             * Format: int64
+             * @description Из них дошли до оплаты
+             */
+            trial_converted: number;
+            /**
+             * Format: int64
+             * @description Пробных периодов начато за период
+             */
+            trial_started: number;
+        };
+        AnalyticsTariff: {
+            /**
+             * Format: int64
+             * @description null — тариф удалён, осталось имя, под которым продавали
+             */
+            id?: number;
+            name: string;
+            /** Format: int64 */
+            payments: number;
+            /** Format: int64 */
+            rub: number;
+            /**
+             * Format: double
+             * @description Доля в рублёвой выручке периода, проценты
+             */
+            share: number;
+            /** Format: int64 */
+            stars: number;
+        };
         ApplyTariffInputBody: {
             /** @description Лимит устройств (докупленные остаются сверху) и как он считается */
             devices?: boolean;
@@ -4094,6 +4505,51 @@ export interface components {
              * @description Скольким подпискам тарифа применены его части
              */
             applied: number;
+        };
+        ApprovalCreateInputBody: {
+            /** @enum {string} */
+            action: "user.delete" | "user.reissue" | "payment.refund" | "payment.refunded_by_hand" | "s3.restore";
+            /**
+             * Format: int64
+             * @description Секунды; по умолчанию сутки
+             */
+            expires_in?: number;
+            payload?: unknown;
+            summary?: string;
+            target_id: string;
+            target_type: string;
+        };
+        ApprovalExecuteOutputBody: {
+            action: string;
+            /** Format: int64 */
+            approval_id: number;
+            /** @enum {string} */
+            status: "used";
+            target_id: string;
+            target_type: string;
+        };
+        ApprovalView: {
+            action: string;
+            /** Format: date-time */
+            decided_at?: string;
+            /** Format: int64 */
+            decided_by?: number;
+            /** Format: date-time */
+            expires_at: string;
+            /** Format: int64 */
+            id: number;
+            payload: unknown;
+            /** Format: date-time */
+            requested_at: string;
+            /** Format: int64 */
+            requested_by: number;
+            /** @enum {string} */
+            status: "pending" | "approved" | "executing" | "rejected" | "expired" | "used";
+            summary: string;
+            target_id: string;
+            target_type: string;
+            /** Format: date-time */
+            used_at?: string;
         };
         Attempt: {
             /** Format: date-time */
@@ -4168,6 +4624,75 @@ export interface components {
             stuck?: "off" | "waiting" | "no_port" | "no_target" | "exhausted";
             target_error?: string;
             target_ok?: boolean;
+        };
+        AutomationRuleInputBody: {
+            actions: unknown;
+            conditions?: unknown;
+            /** Format: int64 */
+            cooldown_seconds: number;
+            dry_run: boolean;
+            enabled: boolean;
+            name: string;
+            /** @enum {string} */
+            trigger: "trial.started" | "user.created" | "user.granted" | "user.expiring" | "user.expired" | "user.inactive" | "traffic.90" | "traffic.100" | "payment.paid" | "payment.failed" | "payment.refunded" | "trial.not_given" | "device.bound" | "device.unbound" | "balance.topup" | "discount.ending" | "node.down" | "node.up";
+        };
+        AutomationRuleUpdateInputBody: {
+            actions: unknown;
+            conditions?: unknown;
+            /** Format: int64 */
+            cooldown_seconds: number;
+            dry_run: boolean;
+            enabled: boolean;
+            name: string;
+            /** @enum {string} */
+            trigger: "trial.started" | "user.created" | "user.granted" | "user.expiring" | "user.expired" | "user.inactive" | "traffic.90" | "traffic.100" | "payment.paid" | "payment.failed" | "payment.refunded" | "trial.not_given" | "device.bound" | "device.unbound" | "balance.topup" | "discount.ending" | "node.down" | "node.up";
+        };
+        AutomationRuleView: {
+            /** @description JSON-массив действий: notify_admin, notify_user, extend, grant_traffic, promo, discount */
+            actions: unknown;
+            /** @description JSON: tariff_ids, states, sources, days_left_min/max, traffic_used_min/max */
+            conditions: unknown;
+            /** Format: int64 */
+            cooldown_seconds: number;
+            /** Format: date-time */
+            created_at: string;
+            dry_run: boolean;
+            enabled: boolean;
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            last_run_at?: string;
+            name: string;
+            /** Format: int64 */
+            runs_count: number;
+            /** @enum {string} */
+            trigger: "trial.started" | "user.created" | "user.granted" | "user.expiring" | "user.expired" | "user.inactive" | "traffic.90" | "traffic.100" | "payment.paid" | "payment.failed" | "payment.refunded" | "trial.not_given" | "device.bound" | "device.unbound" | "balance.topup" | "discount.ending" | "node.down" | "node.up";
+            /** Format: date-time */
+            updated_at: string;
+        };
+        AutomationRunView: {
+            /** Format: date-time */
+            created_at: string;
+            detail: string;
+            dry_run: boolean;
+            /** Format: int64 */
+            event_id: number;
+            event_type: string;
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            rule_id: number;
+            /** @enum {string} */
+            status: "ok" | "skipped" | "failed";
+            /** Format: int64 */
+            tg_id?: number;
+            /** Format: int64 */
+            user_id?: number;
+        };
+        AutomationRunsOutputBody: {
+            items: components["schemas"]["AutomationRunView"][];
+            /** Format: int64 */
+            next: number;
         };
         BackupView: {
             /** @description Чат администратора подключён к боту (вкладка «Инфраструктура») */
@@ -4538,8 +5063,8 @@ export interface components {
              * @description Что исправит: кнопка в панели или команда на сервере
              * @enum {string}
              */
-            fix?: "rekey" | "update_node" | "old_node" | "open_port" | "start_node" | "check_host" | "check_dns" | "free_port" | "sync_time" | "update_panel" | "free_disk" | "check_outbound" | "restart_panel" | "exit_node";
-            /** @description Что проверено: link, hello, version, update, skew, listeners, listener, port, relay, cascade, node_dns, node_internet, node_github, node_ghcr, node_disk, node_memory, diagnose, local_node, dns, internet, github, ghcr, disk, memory, clock, updates */
+            fix?: "rekey" | "update_node" | "old_node" | "open_port" | "start_node" | "check_host" | "check_dns" | "free_port" | "sync_time" | "update_panel" | "free_disk" | "check_outbound" | "restart_panel" | "exit_node" | "enable_user" | "extend_user" | "reset_traffic" | "reissue_user" | "set_tariff" | "enable_inbound";
+            /** @description Что проверено: link, hello, version, update, skew, listeners, listener, port, relay, cascade, node_dns, node_internet, node_github, node_ghcr, node_disk, node_memory, diagnose, local_node, dns, internet, github, ghcr, disk, memory, clock, updates, user, subscription, expiry, traffic, devices, tariff, inbounds, node, activity */
             id: string;
             params?: {
                 [key: string]: string;
@@ -6694,6 +7219,23 @@ export interface components {
              */
             trial_tariff_id?: number;
         };
+        PatchS3BackupInputBody: {
+            access_key?: string;
+            bucket?: string;
+            enabled?: boolean;
+            endpoint?: string;
+            /** Format: int64 */
+            hour?: number;
+            /** @description Пароль шифрования архива, не короче 20 символов; не возвращается */
+            password?: string;
+            path_style?: boolean;
+            prefix?: string;
+            region?: string;
+            /** Format: int64 */
+            retention_days?: number;
+            secret_key?: string;
+            session_token?: string;
+        };
         PatchSettingsInputBody: {
             /**
              * @description Смена центра выпускает сертификаты панели и нод заново
@@ -7573,6 +8115,57 @@ export interface components {
             probes: components["schemas"]["ReachProbe"][];
             /** @enum {string} */
             verdict: "ok" | "partial" | "blocked" | "down";
+        };
+        S3BackupObjectView: {
+            /** Format: date-time */
+            created_at: string;
+            error?: string;
+            etag?: string;
+            /** Format: int64 */
+            id: number;
+            key: string;
+            /** @enum {string} */
+            kind: "scheduled" | "manual" | "pre_restore";
+            /** Format: int64 */
+            size: number;
+            /** @enum {string} */
+            status: "ok" | "failed";
+        };
+        S3BackupView: {
+            access_key_set: boolean;
+            bucket: string;
+            configured: boolean;
+            enabled: boolean;
+            endpoint: string;
+            /** Format: int64 */
+            hour: number;
+            last_error?: string;
+            last_key?: string;
+            /** Format: date-time */
+            last_ok?: string;
+            /** Format: int64 */
+            last_size?: number;
+            /** Format: date-time */
+            last_try?: string;
+            password_set: boolean;
+            path_style: boolean;
+            prefix: string;
+            region: string;
+            restore_last_error?: string;
+            restore_last_key?: string;
+            /** Format: date-time */
+            restore_last_ok?: string;
+            /** Format: date-time */
+            restore_last_try?: string;
+            restore_pending: boolean;
+            /** Format: int64 */
+            retention_days: number;
+            secret_key_set: boolean;
+            sending: boolean;
+            session_token_set: boolean;
+        };
+        S3RestoreInputBody: {
+            key: string;
         };
         ScanTargetsOutputBody: {
             /** @description Адрес сервера, вокруг которого искали */
@@ -8678,6 +9271,15 @@ export interface components {
             expiring: number;
             /** Format: int64 */
             limited: number;
+        };
+        UserDiagnosisView: {
+            /** Format: date-time */
+            at: string;
+            items: components["schemas"]["CheckItem"][];
+            /** @enum {string} */
+            summary: "ok" | "warn" | "fail";
+            /** Format: int64 */
+            user_id: number;
         };
         UserNodeView: {
             /**
@@ -9884,6 +10486,38 @@ export interface operations {
             };
         };
     };
+    analytics: {
+        parameters: {
+            query?: {
+                /** @description Период: 30 дней, 90 дней или год */
+                range?: "30d" | "90d" | "365d";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalyticsOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "list-api-keys": {
         parameters: {
             query?: never;
@@ -9963,6 +10597,165 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-approvals": {
+        parameters: {
+            query?: {
+                status?: "pending" | "approved" | "executing" | "rejected" | "expired" | "used" | "";
+                requested_by?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovalView"][];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "create-approval": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApprovalCreateInputBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovalView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "approve-approval": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovalView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "execute-approval": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovalExecuteOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "reject-approval": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovalView"];
+                };
             };
             /** @description Error */
             default: {
@@ -10272,6 +11065,164 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TotpSetupOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-automation-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AutomationRuleView"][];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "create-automation-rule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AutomationRuleInputBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AutomationRuleView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "update-automation-rule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AutomationRuleUpdateInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AutomationRuleView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "delete-automation-rule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-automation-runs": {
+        parameters: {
+            query?: {
+                before?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AutomationRunsOutputBody"];
                 };
             };
             /** @description Error */
@@ -14523,6 +15474,159 @@ export interface operations {
             };
         };
     };
+    "get-s3-backup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["S3BackupView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "update-s3-backup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchS3BackupInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["S3BackupView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-s3-backup-objects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["S3BackupObjectView"][];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "restore-s3-backup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["S3RestoreInputBody"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["S3BackupView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "run-s3-backup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["S3BackupView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "get-settings": {
         parameters: {
             query?: never;
@@ -17275,6 +18379,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DeviceView"][];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "diagnose-user": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserDiagnosisView"];
                 };
             };
             /** @description Error */

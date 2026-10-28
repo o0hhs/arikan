@@ -28,6 +28,7 @@ import (
 	"mikan/internal/panel/agents"
 	"mikan/internal/panel/api"
 	"mikan/internal/panel/auth"
+	"mikan/internal/panel/automation"
 	"mikan/internal/panel/autotune"
 	"mikan/internal/panel/billing"
 	"mikan/internal/panel/botpanel"
@@ -50,6 +51,7 @@ import (
 	"mikan/internal/panel/promo"
 	"mikan/internal/panel/reach"
 	"mikan/internal/panel/referral"
+	"mikan/internal/panel/s3backup"
 	"mikan/internal/panel/server"
 	"mikan/internal/panel/settings"
 	"mikan/internal/panel/store"
@@ -78,14 +80,16 @@ type Panel struct {
 	NodeUpdates *nodeupdate.Service
 	// Gateway is the panel's side of Telegram: the token, polling, Stars, the alerts' way
 	// out; Telegram is the admin's setup of the bot, its notices and broadcasts on top of it.
-	Gateway  *tgate.Gateway
-	Telegram *botpanel.Panel
-	Billing  *billing.Service
-	Webhooks *webhooks.Service
-	Updates  *updates.Checker
-	Alerts   *infraalerts.Monitor
-	Backups  *tgbackup.Service
-	Importer *panelimport.Importer
+	Gateway    *tgate.Gateway
+	Telegram   *botpanel.Panel
+	Billing    *billing.Service
+	Webhooks   *webhooks.Service
+	Updates    *updates.Checker
+	Alerts     *infraalerts.Monitor
+	Backups    *tgbackup.Service
+	S3Backups  *s3backup.Service
+	Automation *automation.Service
+	Importer   *panelimport.Importer
 	// Support keeps the support access grants; the operator's terminal hooks into it.
 	Support   *support.Service
 	Addons    *addons.Manager
@@ -357,6 +361,8 @@ func NewPanel(st *store.Store, o Options) (*Panel, error) {
 		tunnel = p.Nodes.Tunnel
 	}
 	p.Gateway = tgate.New(tgate.Deps{Store: st, Settings: set, API: o.TelegramAPI, Log: o.Log, Now: o.Now, Billing: p.Billing, Tunnel: tunnel})
+	p.Automation = automation.New(st, deps.Users, p.Gateway, promos, o.Now, o.Log)
+	deps.Automation = p.Automation
 	// The bot's screens see the panel through a Backend: over the Panel API now that they
 	// run as an addon, in process in tests.
 	backend := &botpanel.Local{Store: st, Settings: set, Binder: deps.Devices, Users: deps.Users, Billing: p.Billing, Gateway: p.Gateway, SubBase: subBase, Now: o.Now,
@@ -410,6 +416,8 @@ func NewPanel(st *store.Store, o Options) (*Panel, error) {
 	}
 	p.Backups = tgbackup.New(selfDump, set, p.Gateway, o.DataDir, serverName, o.Now, o.Log)
 	deps.Backups = p.Backups
+	p.S3Backups = s3backup.New(selfDump, set, st, o.DataDir, serverName, deps.Host, o.Now, o.Log)
+	deps.S3Backups = p.S3Backups
 	deps.Warp = warp.Client{API: o.WarpAPI}
 	importer := panelimport.NewImporter(st, deps.Users, nil, o.Now, o.Log)
 	// The old links are checked as the panel the users came from signs them.
@@ -772,7 +780,7 @@ func (p *Panel) Run(ctx context.Context) {
 	if p.NodeUpdates != nil {
 		workers = append(workers, p.NodeUpdates.Run)
 	}
-	workers = append(workers, p.Gateway.Run, p.Telegram.Run, p.Billing.Run, p.Webhooks.Run, p.AddonsAPI.Run, p.AddonsAPI.RunPush, (&botAddon{p: p}).Run, p.Updates.Run, p.Alerts.Run, p.Backups.Run, p.Importer.Run,
+	workers = append(workers, p.Gateway.Run, p.Telegram.Run, p.Billing.Run, p.Webhooks.Run, p.Automation.Run, p.AddonsAPI.Run, p.AddonsAPI.RunPush, (&botAddon{p: p}).Run, p.Updates.Run, p.Alerts.Run, p.Backups.Run, p.S3Backups.Run, p.Importer.Run,
 		func(ctx context.Context) {
 			pace.Tick(ctx, 5*time.Second, func(ctx context.Context) {
 				if _, err := p.Apply(ctx); err != nil {

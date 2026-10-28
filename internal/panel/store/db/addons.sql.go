@@ -674,6 +674,17 @@ func (q *Queries) LockAddonValue(ctx context.Context, arg LockAddonValueParams) 
 	return i, err
 }
 
+const maxAddonEventID = `-- name: MaxAddonEventID :one
+SELECT COALESCE(max(id), 0)::BIGINT AS max_id FROM addon_events
+`
+
+func (q *Queries) MaxAddonEventID(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, maxAddonEventID)
+	var max_id int64
+	err := row.Scan(&max_id)
+	return max_id, err
+}
+
 const pruneAddonEvents = `-- name: PruneAddonEvents :execrows
 DELETE FROM addon_events WHERE created_at < $1::BIGINT
 `

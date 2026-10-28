@@ -1,5 +1,5 @@
-// The admin's own site: sold and renewed subscriptions go there as signed webhooks, and
-// the test button shows what that site answers.
+// The admin's own site: the panel's events go there as signed webhooks, and the test
+// button shows what that site answers.
 import { useMutation } from "@tanstack/react-query";
 import { Send } from "lucide-react";
 import { useState, type FormEvent } from "react";

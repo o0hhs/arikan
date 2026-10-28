@@ -24,6 +24,7 @@ import (
 	"mikan/internal/panel/agents"
 	"mikan/internal/panel/audit"
 	"mikan/internal/panel/auth"
+	"mikan/internal/panel/automation"
 	"mikan/internal/panel/autotune"
 	"mikan/internal/panel/billing"
 	"mikan/internal/panel/botpanel"
@@ -40,6 +41,7 @@ import (
 	"mikan/internal/panel/panelimport"
 	"mikan/internal/panel/reach"
 	"mikan/internal/panel/referral"
+	"mikan/internal/panel/s3backup"
 	"mikan/internal/panel/secure"
 	"mikan/internal/panel/server"
 	"mikan/internal/panel/settings"
@@ -114,6 +116,10 @@ type Deps struct {
 	Gateway *tgate.Gateway
 	// Backups send the database to the admin's Telegram chat; nil in tests.
 	Backups *tgbackup.Service
+	// S3Backups keep the database in an S3-compatible bucket; nil in tests.
+	S3Backups *s3backup.Service
+	// Automation runs the admin's event-driven rules; nil in tests that do not need it.
+	Automation *automation.Service
 	// Importer brings users over from another panel; nil in tests that do not need it.
 	Importer *panelimport.Importer
 	// Billing sells tariffs; SubBase is https://host:port/<sub path> ("" without an address).
@@ -348,16 +354,21 @@ func New(d Deps) (http.Handler, huma.API, error) {
 	api.UseMiddleware(h.middleware)
 	h.registerAuth()
 	h.registerUsers()
+	h.registerUserDiagnosis()
 	h.registerFolders()
 	h.registerHapp()
 	h.registerCatalog()
 	h.registerInbounds()
 	h.registerTargets()
 	h.registerStats()
+	h.registerAnalytics()
+	h.registerAutomation()
+	h.registerApprovals()
 	h.registerNodeTraffic()
 	h.registerNodeClients()
 	h.registerMetrics()
 	h.registerBackups()
+	h.registerS3Backups()
 	h.registerImport()
 	h.registerSettings()
 	h.registerSubPage()
@@ -468,12 +479,13 @@ func (h *handlers) middleware(ctx huma.Context, next func(huma.Context)) {
 		return
 	}
 	// The admin's role: what the panel opens to it, the session's own account's.
-	role := h.adminRole(ctx.Context(), sess.AdminID)
-	if !roleAllows(role, ctx.Operation().Method, strings.TrimPrefix(ctx.URL().Path, "/api/v1")) {
+	role, permissions := h.adminAccess(ctx.Context(), sess.AdminID)
+	if !roleAllows(role, permissions, ctx.Operation().Method, strings.TrimPrefix(ctx.URL().Path, "/api/v1")) {
 		roleRefusal(h, ctx)
 		return
 	}
 	ctx = huma.WithValue(ctx, keyRole, role)
+	ctx = huma.WithValue(ctx, keyPermissions, permissions)
 	next(huma.WithValue(ctx, keySession, sess))
 }
 

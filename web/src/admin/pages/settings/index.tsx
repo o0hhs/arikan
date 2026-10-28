@@ -15,6 +15,7 @@ import { AboutCard } from "./about";
 import { AppCard } from "./app";
 import { AuditCard } from "./audit";
 import { BackupCard } from "./backup";
+import { S3BackupCard } from "./s3-backup";
 import { DashboardCard } from "./dashboard";
 import { MonitorCard } from "./monitor";
 import { AutoCard, LanguageCard, ServiceCard, UpdatesCard } from "./general";
@@ -142,6 +143,7 @@ export function SettingsPage() {
                   <AboutCard />
                   <ServerCheckCard />
                   <BackupCard />
+                  <S3BackupCard />
                   <GoalsCard />
                   <AutoCard s={s} />
                   <WebhooksCard s={s} />

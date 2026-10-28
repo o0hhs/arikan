@@ -32,8 +32,34 @@ func (q *Queries) AddWebhookDelivery(ctx context.Context, arg AddWebhookDelivery
 	return err
 }
 
+const addWebhookEventDelivery = `-- name: AddWebhookEventDelivery :exec
+INSERT INTO webhook_deliveries (event, payload, next_at, created_at, event_id)
+VALUES ($1, $2, $3, $4, $5::BIGINT)
+ON CONFLICT (event_id) DO NOTHING
+`
+
+type AddWebhookEventDeliveryParams struct {
+	Event     string
+	Payload   string
+	NextAt    int64
+	CreatedAt int64
+	EventID   int64
+}
+
+// One feed event for the admin's site. event_id makes a retried batch a no-op.
+func (q *Queries) AddWebhookEventDelivery(ctx context.Context, arg AddWebhookEventDeliveryParams) error {
+	_, err := q.db.ExecContext(ctx, addWebhookEventDelivery,
+		arg.Event,
+		arg.Payload,
+		arg.NextAt,
+		arg.CreatedAt,
+		arg.EventID,
+	)
+	return err
+}
+
 const dueWebhookDeliveries = `-- name: DueWebhookDeliveries :many
-SELECT id, event, payload, attempts, next_at, created_at, delivered_at, last_error FROM webhook_deliveries WHERE delivered_at IS NULL AND next_at <= $1 ORDER BY next_at, id LIMIT $2
+SELECT id, event, payload, attempts, next_at, created_at, delivered_at, last_error, event_id FROM webhook_deliveries WHERE delivered_at IS NULL AND next_at <= $1 ORDER BY next_at, id LIMIT $2
 `
 
 type DueWebhookDeliveriesParams struct {
@@ -60,6 +86,7 @@ func (q *Queries) DueWebhookDeliveries(ctx context.Context, arg DueWebhookDelive
 			&i.CreatedAt,
 			&i.DeliveredAt,
 			&i.LastError,
+			&i.EventID,
 		); err != nil {
 			return nil, err
 		}

@@ -82,8 +82,15 @@ DELETE FROM audit_log WHERE ts < $1;
 INSERT INTO admins (username, password_hash, role, created_at) VALUES ($1, $2, $3, $4)
 RETURNING *;
 
+-- name: CreateAdminWithPermissions :one
+INSERT INTO admins (username, password_hash, role, permissions, created_at) VALUES ($1, $2, $3, $4, $5)
+RETURNING *;
+
 -- name: SetAdminRole :execrows
 UPDATE admins SET role = $1 WHERE id = $2;
+
+-- name: SetAdminRoleAndPermissions :execrows
+UPDATE admins SET role = $1, permissions = $2 WHERE id = $3;
 
 -- name: DeleteAdmin :execrows
 DELETE FROM admins WHERE id = $1;

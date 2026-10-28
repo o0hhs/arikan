@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Menu from "@radix-ui/react-dropdown-menu";
 import { Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
-import { Activity, ArrowUpCircle, LayoutDashboard, Link2, LogOut, MoreHorizontal, Network, PanelLeftClose, PanelLeftOpen, Puzzle, ScrollText, Search, Server, SlidersHorizontal, Tag, Users, Wallet } from "lucide-react";
+import { Activity, ArrowUpCircle, BarChart3, ClipboardCheck, LayoutDashboard, Link2, LogOut, MoreHorizontal, Network, PanelLeftClose, PanelLeftOpen, Puzzle, ScrollText, Search, Server, SlidersHorizontal, Tag, Users, Wallet, Workflow } from "lucide-react";
 import { useState } from "react";
 import { api, ApiError, errorText, unwrap } from "../api/client";
 import { meQuery, useNode, useOverview, useUpdates } from "../api/hooks";
@@ -14,23 +14,38 @@ import { Avatar, Bar, Pill } from "../components/ui";
 import { t, useLocale, type Key } from "../i18n";
 import { num, uptime } from "../lib/format";
 import { SupportBar } from "./support-bar";
+import type { Permission } from "./roles";
 
 type NavRoles = readonly ("superadmin" | "support" | "tech")[];
-type NavItem = { to: string; key: string; icon: typeof LayoutDashboard; roles?: NavRoles };
+type NavItem = { to: string; key: string; icon: typeof LayoutDashboard; roles?: NavRoles; permission?: Permission | readonly Permission[] };
 const NAV: NavItem[] = [
-  { to: "/client", key: "client", icon: Search, roles: ["support"] as const },
-  { to: "/", key: "overview", icon: LayoutDashboard, roles: ["superadmin"] as const },
-  { to: "/users", key: "users", icon: Users, roles: ["superadmin"] as const },
-  { to: "/tariffs", key: "tariffs", icon: Tag, roles: ["superadmin"] as const },
-  { to: "/inbounds", key: "inbounds", icon: Server, roles: ["superadmin", "tech"] as const },
-  { to: "/nodes", key: "nodes", icon: Network, roles: ["superadmin", "tech"] as const },
-  { to: "/outbounds", key: "outbounds", icon: Link2, roles: ["superadmin", "tech"] as const },
-  { to: "/payments", key: "payments", icon: Wallet, roles: ["superadmin"] as const },
+  { to: "/client", key: "client", icon: Search, roles: ["support"] as const, permission: "support.card" },
+  { to: "/", key: "overview", icon: LayoutDashboard, roles: ["superadmin"] as const, permission: "nodes.read" },
+  { to: "/analytics", key: "analytics", icon: BarChart3, roles: ["superadmin"] as const, permission: "billing.read" },
+  { to: "/users", key: "users", icon: Users, roles: ["superadmin"] as const, permission: "users.read" },
+  { to: "/tariffs", key: "tariffs", icon: Tag, roles: ["superadmin"] as const, permission: "billing.read" },
+  { to: "/inbounds", key: "inbounds", icon: Server, roles: ["superadmin", "tech"] as const, permission: "nodes.read" },
+  { to: "/nodes", key: "nodes", icon: Network, roles: ["superadmin", "tech"] as const, permission: "nodes.read" },
+  { to: "/outbounds", key: "outbounds", icon: Link2, roles: ["superadmin", "tech"] as const, permission: "nodes.read" },
+  { to: "/payments", key: "payments", icon: Wallet, roles: ["superadmin"] as const, permission: "billing.read" },
+  { to: "/automation", key: "automation", icon: Workflow, roles: ["superadmin"] as const, permission: "automation.read" },
+  { to: "/approvals", key: "approvals", icon: ClipboardCheck, roles: ["superadmin"] as const, permission: ["approvals.read", "approvals.decide"] },
   { to: "/addons", key: "addons", icon: Puzzle, roles: ["superadmin"] as const },
-  { to: "/diagnostics", key: "diagnostics", icon: Activity, roles: ["superadmin"] as const },
-  { to: "/audit", key: "audit", icon: ScrollText, roles: ["superadmin", "tech"] as const },
-  { to: "/settings", key: "settings", icon: SlidersHorizontal, roles: ["superadmin"] as const },
+  { to: "/diagnostics", key: "diagnostics", icon: Activity, roles: ["superadmin"] as const, permission: "nodes.read" },
+  { to: "/audit", key: "audit", icon: ScrollText, roles: ["superadmin", "tech"] as const, permission: "audit.read" },
+  { to: "/settings", key: "settings", icon: SlidersHorizontal, roles: ["superadmin"] as const, permission: "settings.read" },
 ] as const;
+
+function navFor(role: string, permissions: string[]): NavItem[] {
+  if (role === "custom") {
+    return NAV.filter((n) => {
+      const permission = n.permission;
+      if (!permission) return false;
+      return typeof permission === "string" ? permissions.includes(permission) : permission.some((p) => permissions.includes(p));
+    });
+  }
+  return NAV.filter((n) => !n.roles || n.roles.includes(role as "superadmin"));
+}
 
 // The sidebar folded to its icons on a wide screen, as the admin left it; per browser.
 const FOLD_KEY = "mikan.sidebar";
@@ -49,7 +64,7 @@ export function Shell() {
   // The role's menu: what the account may open is what it sees.
   const meShell = useQuery({ ...meQuery });
   const role = meShell.data?.admin.role ?? "superadmin";
-  const nav = NAV.filter((n) => !n.roles || n.roles.includes(role as "superadmin"));
+  const nav = navFor(role, meShell.data?.admin.permissions ?? []);
   const [folded, setFolded] = useState(readFolded);
   const fold = () =>
     setFolded((f) => {
@@ -111,7 +126,7 @@ function MobileNav() {
   const navigate = useNavigate();
   const meMobile = useQuery({ ...meQuery });
   const role = meMobile.data?.admin.role ?? "superadmin";
-  const nav = NAV.filter((n) => !n.roles || n.roles.includes(role as "superadmin"));
+  const nav = navFor(role, meMobile.data?.admin.permissions ?? []);
   const more = nav.slice(MOBILE_MAIN);
   const inMore = more.some((n) => isIn(path, n.to));
   return (

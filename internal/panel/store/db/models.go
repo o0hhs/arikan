@@ -92,6 +92,7 @@ type Admin struct {
 	LastLoginAt   sql.NullInt64
 	TotpStep      int64
 	Role          string
+	Permissions   string
 }
 
 type AdminUser struct {
@@ -155,6 +156,23 @@ type ApiKey struct {
 	LastIp     string
 }
 
+type ApprovalRequest struct {
+	ID          int64
+	Action      string
+	TargetType  string
+	TargetID    string
+	Summary     string
+	Payload     string
+	Status      string
+	RequestedBy int64
+	RequestedAt int64
+	DecidedBy   sql.NullInt64
+	DecidedAt   sql.NullInt64
+	ExpiresAt   int64
+	UsedAt      sql.NullInt64
+	ExecutingAt sql.NullInt64
+}
+
 type AuditLog struct {
 	ID         int64
 	Ts         int64
@@ -164,6 +182,34 @@ type AuditLog struct {
 	TargetID   sql.NullString
 	Ip         sql.NullString
 	Details    sql.NullString
+}
+
+type AutomationRule struct {
+	ID              int64
+	Name            string
+	Enabled         int32
+	Trigger         string
+	Conditions      string
+	Actions         string
+	CooldownSeconds int64
+	DryRun          int32
+	CreatedAt       int64
+	UpdatedAt       int64
+	LastRunAt       sql.NullInt64
+	RunsCount       int64
+}
+
+type AutomationRun struct {
+	ID        int64
+	RuleID    int64
+	EventID   int64
+	EventType string
+	UserID    sql.NullInt64
+	TgID      sql.NullInt64
+	Status    string
+	DryRun    int32
+	Detail    string
+	CreatedAt int64
 }
 
 type Balance struct {
@@ -733,6 +779,17 @@ type RelayUser struct {
 	Uuid       string
 }
 
+type S3Backup struct {
+	ID        int64
+	ObjectKey string
+	Size      int64
+	Etag      string
+	Kind      string
+	Status    string
+	Error     string
+	CreatedAt int64
+}
+
 type Session struct {
 	IDHash         string
 	AdminID        int64
@@ -1058,4 +1115,5 @@ type WebhookDelivery struct {
 	CreatedAt   int64
 	DeliveredAt sql.NullInt64
 	LastError   string
+	EventID     sql.NullInt64
 }

@@ -30,7 +30,9 @@ import (
 	"mikan/internal/panel/domain"
 	"mikan/internal/panel/ipgeo"
 	"mikan/internal/panel/nodesync"
+	"mikan/internal/panel/pgdump"
 	"mikan/internal/panel/reach"
+	"mikan/internal/panel/s3backup"
 	"mikan/internal/panel/settings"
 	"mikan/internal/panel/store"
 	"mikan/internal/panel/store/db"
@@ -51,6 +53,9 @@ func Serve(ctx context.Context, cfg config.Config, version string, web fs.FS) er
 	if err != nil {
 		return err
 	}
+	// An S3 restore prepared by the previous run is loaded before the panel guard is taken
+	// and before the store opens: pg_restore needs the database to itself.
+	restored := restorePending(ctx, dsn, cfg.DataDir, logger)
 	// Held from before the store opens (it migrates) until the panel is down: database
 	// migrate and restore refuse to run under a live panel.
 	unlock, err := store.LockPanel(ctx, dsn)
@@ -101,6 +106,11 @@ func Serve(ctx context.Context, cfg config.Config, version string, web fs.FS) er
 	nodeCerts := tlscert.NewNodeStore(filepath.Join(tlsDir, "custom-nodes"), time.Now)
 	opts.NodeCerts = nodeCerts
 	set := settings.New(st.Q)
+	if restored {
+		if err := s3backup.MarkRestored(ctx, set, time.Now()); err != nil {
+			logger.Warn("pending restore: the restore state was not updated", "err", err)
+		}
+	}
 	var (
 		certs     *acme.Manager
 		subCerts  *acme.Manager
@@ -260,6 +270,48 @@ func Serve(ctx context.Context, cfg config.Config, version string, web fs.FS) er
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	return httpSrv.Shutdown(shutdownCtx)
+}
+
+// restorePending loads data/restore/pending.dump, written by s3backup after a pre-restore
+// backup and a check. A broken archive is moved aside so the panel still starts; a failed
+// restore is reverted by store.RestorePostgres.
+func restorePending(ctx context.Context, dsn, dataDir string, logger *slog.Logger) bool {
+	if dataDir == "" {
+		return false
+	}
+	path := s3backup.PendingRestorePath(dataDir)
+	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
+		return false
+	} else if err != nil {
+		logger.Error("pending restore", "err", err)
+		return false
+	}
+	fail := func(err error) {
+		failed := path + ".failed"
+		_ = os.Remove(failed)
+		if renameErr := os.Rename(path, failed); renameErr != nil {
+			logger.Error("pending restore: could not move the dump aside", "err", errors.Join(err, renameErr))
+			return
+		}
+		logger.Error("pending restore failed; the dump is kept aside", "path", failed, "err", err)
+	}
+	if err := pgdump.Check(ctx, path); err != nil {
+		fail(err)
+		return false
+	}
+	err := store.RestorePostgres(ctx, dsn, dataDir, func(ctx context.Context) error {
+		return pgdump.Tool(ctx, dsn, nil, "pg_restore", "--dbname=", "--clean", "--if-exists", "--single-transaction", "--exit-on-error", "--no-owner", "--no-acl", path)
+	})
+	var leftover *store.LeftoverSchemaError
+	if err != nil && !errors.As(err, &leftover) {
+		fail(err)
+		return false
+	}
+	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+		logger.Warn("pending restore: the dump was not removed", "err", err)
+	}
+	logger.Info("database restored from an S3 backup")
+	return true
 }
 
 // httpServer is the panel's HTTP server, on its own port and on the subscription port.

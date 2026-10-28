@@ -32,11 +32,11 @@ import (
 // CheckItem is one line of "Check node" or "Check server": what was looked at, how it is,
 // and what fixes it. The page words it by id, status and code; params are the facts.
 type CheckItem struct {
-	ID     string            `json:"id" doc:"Что проверено: link, hello, version, update, skew, listeners, listener, port, relay, cascade, node_dns, node_internet, node_github, node_ghcr, node_disk, node_memory, diagnose, local_node, dns, internet, github, ghcr, disk, memory, clock, updates"`
+	ID     string            `json:"id" doc:"Что проверено: link, hello, version, update, skew, listeners, listener, port, relay, cascade, node_dns, node_internet, node_github, node_ghcr, node_disk, node_memory, diagnose, local_node, dns, internet, github, ghcr, disk, memory, clock, updates, user, subscription, expiry, traffic, devices, tariff, inbounds, node, activity"`
 	Status string            `json:"status" enum:"ok,warn,fail,skip"`
 	Code   string            `json:"code,omitempty" doc:"Почему не ok: timeout, refused, pin_mismatch, behind, skew, busy и другие"`
 	Params map[string]string `json:"params,omitempty"`
-	Fix    string            `json:"fix,omitempty" enum:"rekey,update_node,old_node,open_port,start_node,check_host,check_dns,free_port,sync_time,update_panel,free_disk,check_outbound,restart_panel,exit_node" doc:"Что исправит: кнопка в панели или команда на сервере"`
+	Fix    string            `json:"fix,omitempty" enum:"rekey,update_node,old_node,open_port,start_node,check_host,check_dns,free_port,sync_time,update_panel,free_disk,check_outbound,restart_panel,exit_node,enable_user,extend_user,reset_traffic,reissue_user,set_tariff,enable_inbound" doc:"Что исправит: кнопка в панели или команда на сервере"`
 	Detail string            `json:"detail,omitempty" doc:"Слова ошибки как есть, для «подробнее»"`
 }
 

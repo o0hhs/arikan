@@ -3,7 +3,7 @@
 // from Russia (Globalping), the live steps of a node being added, and the same check list for the
 // panel's own server.
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { CircleCheck, CircleMinus, CircleX, ClipboardCopy, Copy, Globe, KeyRound, Pencil, RefreshCw, Stethoscope, TriangleAlert, ArrowUpCircle } from "lucide-react";
+import { ArrowUpCircle, CalendarPlus, CircleCheck, CircleMinus, CircleX, ClipboardCopy, Copy, Globe, KeyRound, Pencil, Power, RefreshCw, RotateCcw, Stethoscope, TriangleAlert } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { api, errorText, unwrap, type Schemas } from "../../api/client";
 import { useNodes } from "../../api/hooks";
@@ -22,7 +22,15 @@ type Status = Item["status"];
 type Params = Record<string, string>;
 
 /** What the buttons of a fix do; a fix without its action shows only its words. */
-export type FixActions = { rekey?: () => void; update?: () => void; edit?: () => void };
+export type FixActions = {
+  rekey?: () => void;
+  update?: () => void;
+  edit?: () => void;
+  enableUser?: () => void;
+  extendUser?: () => void;
+  resetTraffic?: () => void;
+  reissueUser?: () => void;
+};
 
 /** Where an address is: the country with its flag, and the network with its owner. The
  * panel's check fills these from its geo databases (a link to this feature's brief: an
@@ -139,6 +147,22 @@ function Fix({ fix, params, actions, panelServer }: { fix?: string | null; param
       <Button size="sm" onClick={actions.edit}>
         <Pencil size={16} aria-hidden /> {t("nodeCheck.editHost")}
       </Button>
+    ) : fix === "enable_user" && actions?.enableUser ? (
+      <Button size="sm" onClick={actions.enableUser}>
+        <Power size={16} aria-hidden /> {t("nodeCheck.enableUser")}
+      </Button>
+    ) : fix === "extend_user" && actions?.extendUser ? (
+      <Button size="sm" onClick={actions.extendUser}>
+        <CalendarPlus size={16} aria-hidden /> {t("nodeCheck.extendUser")}
+      </Button>
+    ) : fix === "reset_traffic" && actions?.resetTraffic ? (
+      <Button size="sm" onClick={actions.resetTraffic}>
+        <RotateCcw size={16} aria-hidden /> {t("nodeCheck.resetTraffic")}
+      </Button>
+    ) : fix === "reissue_user" && actions?.reissueUser ? (
+      <Button size="sm" onClick={actions.reissueUser}>
+        <RefreshCw size={16} aria-hidden /> {t("nodeCheck.reissueUser")}
+      </Button>
     ) : null;
   const words = tMaybe(`nodeCheck.fix.${fix}`, p);
   return (
@@ -189,7 +213,7 @@ function Summary({ items }: { items: Item[] }) {
 }
 
 /** A check's lines, problems first. */
-function CheckList({ items, actions, panelServer }: { items: Item[]; actions?: FixActions; panelServer?: boolean }) {
+export function CheckList({ items, actions, panelServer }: { items: Item[]; actions?: FixActions; panelServer?: boolean }) {
   const rank: Record<Status, number> = { fail: 0, warn: 1, ok: 2, skip: 3 };
   const sorted = items.map((it, i) => ({ it, i })).sort((a, b) => rank[a.it.status] - rank[b.it.status] || a.i - b.i);
   return (

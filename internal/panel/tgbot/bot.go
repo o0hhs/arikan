@@ -47,10 +47,14 @@ type Bot struct {
 	adminAwait sync.Map
 	// trials: one reactivation campaign at a time, however many admins press the button.
 	trials sync.Mutex
+	// buttons: the last keyboard shown per chat — the pressed button's data to its
+	// label — for the log of who pressed what.
+	buttonsMu sync.Mutex
+	buttons   map[int64]map[string]string
 }
 
 func New(d Deps) *Bot {
-	return &Bot{d: d, transfers: map[int64]transfer{}, refused: map[string]time.Time{}, promos: map[int64]promoState{}}
+	return &Bot{d: d, transfers: map[int64]transfer{}, refused: map[string]time.Time{}, promos: map[int64]promoState{}, buttons: map[int64]map[string]string{}}
 }
 
 func (b *Bot) config(ctx context.Context) Config { return b.d.Backend.Config(ctx) }
@@ -74,12 +78,20 @@ func (b *Bot) Update(ctx context.Context, up tgapi.Update) {
 	ctx = withOffersMemo(ctx)
 	switch {
 	case up.CallbackQuery != nil && up.CallbackQuery.Message != nil:
+		// The log shows who pressed and which button, by the button's own label.
+		label := b.buttonLabel(up.CallbackQuery.Message.Chat.ID, up.CallbackQuery.Data)
+		if label == "" {
+			label = up.CallbackQuery.Data // a stale menu, or a notice sent without a screen
+		}
+		b.d.Log.Info("telegram: a button press", "user", up.CallbackQuery.From.ID, "username", up.CallbackQuery.From.Username, "button", label)
 		if cmd, _, _ := strings.Cut(up.CallbackQuery.Data, ":"); cmd == "ta" || cmd == "tx" {
 			b.onTransfer(ctx, up.CallbackQuery)
 		} else {
 			b.onPress(ctx, up.CallbackQuery)
 		}
 	case up.Message != nil && up.Message.From != nil:
+		// The log shows who talks.
+		b.d.Log.Info("telegram: a message", "user", up.Message.From.ID, "username", up.Message.From.Username)
 		b.onMessage(ctx, up.Message)
 	}
 }

@@ -211,16 +211,58 @@ func (q *Queries) ExpireExtraDevices(ctx context.Context, now int64) ([]ExpireEx
 	return items, nil
 }
 
-const expirePayments = `-- name: ExpirePayments :execrows
-UPDATE payments SET status = 'expired' WHERE status = 'pending' AND created_at < $1
+const expirePayments = `-- name: ExpirePayments :many
+UPDATE payments SET status = 'expired' WHERE status = 'pending' AND created_at < $1 RETURNING id, provider, payload, external_id, tg_id, kind, user_id, tariff_id, package_id, tariff_name, amount, currency, status, error, pay_url, created_at, paid_at, applied_at, refunded_at, term_days, revert, custom, custom_base_id, device_pack_id, partner_bot_id
 `
 
-func (q *Queries) ExpirePayments(ctx context.Context, createdAt int64) (int64, error) {
-	result, err := q.db.ExecContext(ctx, expirePayments, createdAt)
+// The rows are returned so the feed can tell about each one in the same transaction.
+func (q *Queries) ExpirePayments(ctx context.Context, createdAt int64) ([]Payment, error) {
+	rows, err := q.db.QueryContext(ctx, expirePayments, createdAt)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	return result.RowsAffected()
+	defer rows.Close()
+	items := []Payment{}
+	for rows.Next() {
+		var i Payment
+		if err := rows.Scan(
+			&i.ID,
+			&i.Provider,
+			&i.Payload,
+			&i.ExternalID,
+			&i.TgID,
+			&i.Kind,
+			&i.UserID,
+			&i.TariffID,
+			&i.PackageID,
+			&i.TariffName,
+			&i.Amount,
+			&i.Currency,
+			&i.Status,
+			&i.Error,
+			&i.PayUrl,
+			&i.CreatedAt,
+			&i.PaidAt,
+			&i.AppliedAt,
+			&i.RefundedAt,
+			&i.TermDays,
+			&i.Revert,
+			&i.Custom,
+			&i.CustomBaseID,
+			&i.DevicePackID,
+			&i.PartnerBotID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const findOpenPayment = `-- name: FindOpenPayment :one

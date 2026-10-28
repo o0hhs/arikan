@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"mikan/internal/panel/domain"
+	"mikan/internal/panel/secure"
 	"mikan/internal/panel/store"
 	"mikan/internal/panel/store/db"
 )
@@ -169,6 +170,36 @@ func (s *Service) load(ctx context.Context, code string) (db.PromoCode, error) {
 		return db.PromoCode{}, ErrNotFound
 	}
 	return p, err
+}
+
+// CreatePersonalDiscount makes a one-use percentage code for an automation rule. The code
+// is not tied to an account in the database: it is sent privately, can be redeemed once,
+// and expires with the rule's window. A collision is retried, so a generated code never
+// hides a real error from the caller.
+func (s *Service) CreatePersonalDiscount(ctx context.Context, percent, days int64, name string) (db.PromoCode, error) {
+	if percent < 1 || percent > 100 || days < 1 || days > 3650 {
+		return db.PromoCode{}, ErrInvalidValue
+	}
+	now := s.Now()
+	ends := now.Add(time.Duration(days) * 24 * time.Hour)
+	name = strings.TrimSpace(name)
+	if name == "" {
+		name = "Personal discount"
+	}
+	for range 8 {
+		code := "AUTO-" + strings.ToUpper(secure.Token(10))
+		p, err := s.Store.Q.CreatePromoCode(ctx, db.CreatePromoCodeParams{
+			Code: code, Name: "Automation: " + name, Description: "Created by automation",
+			Type: TypePercent, Value: percent, StartsAt: sql.NullInt64{Int64: now.Unix(), Valid: true},
+			EndsAt: sql.NullInt64{Int64: ends.Unix(), Valid: true}, MaxUses: sql.NullInt64{Int64: 1, Valid: true},
+			PerUserLimit: 1, TariffIds: "[]", Enabled: 1, CreatedAt: now.Unix(),
+		})
+		if store.IsUnique(err) {
+			continue
+		}
+		return p, err
+	}
+	return db.PromoCode{}, errors.New("promo_code_collision")
 }
 
 func (s *Service) checkUser(ctx context.Context, q *db.Queries, p db.PromoCode, tgID, userID int64, now time.Time) error {

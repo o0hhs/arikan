@@ -3,6 +3,29 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
+## 0.5.2.13
+### en
+**Business analytics, event-driven automation and safer operations.**
+- **Analytics** (a new page): revenue in rubles and Stars, MRR/ARR, ARPU/ARPPU/LTV, trial conversion, churn, six monthly retention cohorts, and revenue by plan, payment method and ad campaign for 30, 90 or 365 days.
+- **Automation** (a new page): rules on every panel event, with conditions, a per-client cooldown, dry runs and a journal. Actions message an admin or client, extend a subscription, grant traffic, send an existing promo code, or create a one-use personal percentage discount and send its code to the client (or the admin when the client has no Telegram).
+- **`payment.failed`** is now an event: it is emitted when a payment cannot be opened, is canceled or expires, and carries the reason. It is available to webhooks and automation.
+- **Webhooks carry the whole feed**: `subscription.paid` keeps its richer subscription and payment payload, while the other events, including `payment.failed`, go in the common event envelope. The queue is idempotent, starts from the current event on first enable, and does not replay old events after the webhook is switched back on.
+- **Approvals are safe to retry**: an approved action is claimed as `executing`, then marked `used` only after it succeeds; a failure returns it to `approved`. A stale claim is recovered by housekeeping, and approved requests now expire with pending ones.
+- **S3 backups and restore** (Settings → System): scheduled encrypted dumps to an S3-compatible bucket, retention that touches only Arikan archives, history, a manual run, and restore with a fresh pre-restore backup and a second admin's approval.
+- **Client diagnosis** (a client's card): term, traffic, devices, plan, protocols, nodes and the subscription link itself, with a reason and a fix button; the check only reads.
+- **Custom roles and approvals** (Settings → Admins, Approvals): a custom admin gets only the permissions chosen for them, and dangerous actions wait for another admin.
+
+### ru
+**Бизнес-аналитика, автоматизация по событиям и более безопасная эксплуатация.**
+- **Аналитика** (новая страница): выручка в рублях и Stars, MRR/ARR, ARPU/ARPPU/LTV, конверсия триала, отток, шесть месячных когорт удержания и выручка по тарифам, способам оплаты и рекламным кампаниям за 30, 90 или 365 дней.
+- **Автоматизация** (новая страница): правила на все события панели, с условиями, паузой на клиента, пробным запуском и журналом. Действия — сообщение админу или клиенту, продление, трафик, готовый промокод и персональная одноразовая процентная скидка: сценарий создаёт код и отправляет его клиенту (или админу, если у клиента нет Telegram).
+- **`payment.failed`** теперь событие: оно появляется, когда платёж не удалось открыть, он отменён или истёк, и несёт причину. Доступно вебхукам и автоматизации.
+- **Вебхуки отдают весь поток**: у `subscription.paid` остаётся расширенный payload с подпиской и платежом, остальные события, включая `payment.failed`, идут в общем конверте. Очередь идемпотентна, при первом включении начинает с текущего события и не отправляет старые события после повторного включения.
+- **Подтверждения можно безопасно повторять**: подтверждённое действие захватывается статусом `executing` и становится `used` только после успеха; ошибка возвращает его в `approved`. Зависший захват восстанавливает уборка, а подтверждённые запросы теперь истекают вместе с ожидающими.
+- **Бэкапы в S3 и восстановление** (Настройки → Система): зашифрованные дампы по расписанию в S3-совместимое хранилище, срок хранения, который трогает только архивы Arikan, история, ручной запуск и восстановление с предварительным свежим бэкапом и подтверждением второго админа.
+- **Проверка клиента** (карточка клиента): срок, трафик, устройства, тариф, протоколы, ноды и сама ссылка подписки — с причиной и кнопкой исправления; проверка только читает.
+- **Кастомные роли и подтверждения** (Настройки → Админы, Подтверждения): кастомный админ получает только выбранные права, а опасные действия ждут другого админа.
+
 ## 0.5.2.12
 ### en
 **«In auto» on a node and on a protocol, as upstream 0.5.2.1 has it.**
@@ -17,11 +40,15 @@ the signed manifest, and the panel shows the one in its language.
 ## 0.5.2.11
 ### en
 **The admin's Telegram hears of every payment.**
-- A payment that goes through — a subscription bought or renewed, a traffic package, a device, a trial — sends a message to the chat connected for the panel's alerts (the one top-ups and support notices go to): the plan, what kind of payment it was, the amount, the buyer and the subscription's number, and a «new subscription» mark when one was created. The alerts' queue delivers it and retries while Telegram does not answer, so a bot that is down for a minute does not lose the news. No chat connected: the Payments page still has everything.
+- A payment that goes through — a subscription bought or renewed, a traffic package, a device, a trial — sends a message to the bot's admins (the owner and the named superadmins) in their own chats, and to the panel's alerts chat too when one is connected: the plan, what kind of payment it was, the amount, the payment method (Stars, balance or the adapter), how long the term is, the buyer and the subscription's number, and a «new subscription» mark when one was created. Delivery goes through the bot's outbox with retries, so a bot that is down for a minute does not lose the news. Anyone buying from their own admin chat is not told twice.
+- **The bot's /admin reads the recent payments** (superadmins only): a «Payments» button in the admin menu lists the last twenty — each with its state (paid, applied, refunded, ...), the tariff, the kind, the amount, the buyer and when it happened.
+- **A node needs two failed DNS answers before it says it has no internet.** The check retries over TCP to the same server after a lost UDP answer, so a single dropped packet on the uplink no longer logs a false outage.
 
 ### ru
 **Админу в Telegram приходит сообщение о каждой оплате.**
-- Прошедший платёж — купленная или продлённая подписка, пакет трафика, устройство, пробный период — отправляет сообщение в чат, подключённый для оповещений панели (тот же, куда приходят пополнения и уведомления поддержки): тариф, вид платежа, сумма, покупатель и номер подписки, а при создании — пометка «новая подписка». Очередь оповещений доставляет сообщение и повторяет, пока Telegram не ответит, так что бот, который лежит минуту, не теряет новость. Чат не подключён — всё по-прежнему видно на странице «Платежи».
+- Прошедший платёж — купленная или продлённая подписка, пакет трафика, устройство, пробный период — отправляет сообщение админам бота (владельцу и названным суперадминам) в их личные чаты, а также в чат оповещений панели, если он подключён: тариф, вид платежа, сумма, способ оплаты (Звёзды, баланс или адаптер), срок, покупатель и номер подписки, а при создании — пометка «новая подписка». Очередь бота доставляет сообщение и повторяет, пока Telegram не ответит, так что бот, который лежит минуту, не теряет новость. Если админ сам покупает из своего чата — второе сообщение ему не придёт.
+- **/admin бота читает последние оплаты** (только суперадмин): кнопка «Оплаты» в админском меню показывает последние двадцать — каждая со состоянием (оплачена, применена, возвращена, …), тарифом, видом, суммой, покупателем и когда это было.
+- **Ноде нужны два несостоявшихся DNS-ответа, чтобы сказать, что интернета нет.** Проверка после потерянного UDP-ответа повторяется по TCP на тот же сервер, и один упавший пакет на аплинке больше не пишет ложный сбой.
 
 ## 0.5.2.10
 ### en

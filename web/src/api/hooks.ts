@@ -17,6 +17,13 @@ export const qk = {
   outbounds: ["outbounds"] as const,
   presets: ["presets"] as const,
   overview: ["overview"] as const,
+  analytics: (range: string) => ["analytics", range] as const,
+  automationRules: ["automation", "rules"] as const,
+  automationRuns: ["automation", "runs"] as const,
+  approvals: (status: string) => ["approvals", status] as const,
+  s3Backup: ["s3-backup"] as const,
+  s3BackupObjects: ["s3-backup", "objects"] as const,
+  userDiagnosis: (id: number) => ["users", "diagnosis", id] as const,
   traffic: (range: string) => ["traffic", range] as const,
   node: ["node"] as const,
   nodes: ["nodes"] as const,
@@ -188,6 +195,54 @@ export function useOverview(o: { poll?: boolean } = {}) {
     queryKey: qk.overview,
     queryFn: ({ signal }) => unwrap(api.GET("/api/v1/stats/overview", { signal })),
     refetchInterval: o.poll === false ? false : poll(15_000),
+  });
+}
+
+/** The business figures: money, trials, churn and retention for the chosen period. */
+export function useAnalytics(range: "30d" | "90d" | "365d") {
+  return useQuery({
+    queryKey: qk.analytics(range),
+    queryFn: ({ signal }) => unwrap(api.GET("/api/v1/analytics", { params: { query: { range } }, signal })),
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** The automation rules and their journal. */
+export function useAutomationRules() {
+  return useQuery({ queryKey: qk.automationRules, queryFn: ({ signal }) => unwrap(api.GET("/api/v1/automation/rules", { signal })) });
+}
+
+export function useAutomationRuns() {
+  return useQuery({ queryKey: qk.automationRuns, queryFn: ({ signal }) => unwrap(api.GET("/api/v1/automation/runs", { params: { query: { limit: 100 } }, signal })) });
+}
+
+export type ApprovalStatus = "" | "pending" | "approved" | "executing" | "rejected" | "expired" | "used";
+
+/** Dangerous actions waiting for a second admin. */
+export function useApprovals(status: ApprovalStatus) {
+  return useQuery({
+    queryKey: qk.approvals(status),
+    queryFn: ({ signal }) => unwrap(api.GET("/api/v1/approvals", { params: { query: { status: status || undefined, limit: 200 } }, signal })),
+    refetchInterval: poll(15_000),
+  });
+}
+
+/** S3 backups: the settings, the history and what the last run did. */
+export function useS3Backup() {
+  return useQuery({ queryKey: qk.s3Backup, queryFn: ({ signal }) => unwrap(api.GET("/api/v1/s3-backup", { signal })) });
+}
+
+export function useS3BackupObjects() {
+  return useQuery({ queryKey: qk.s3BackupObjects, queryFn: ({ signal }) => unwrap(api.GET("/api/v1/s3-backup/objects", { signal })) });
+}
+
+/** Why a subscriber cannot connect. Asked only when the card opens the check. */
+export function useUserDiagnosis(id: number | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: qk.userDiagnosis(id ?? 0),
+    queryFn: ({ signal }) => unwrap(api.GET("/api/v1/users/{id}/diagnose", { params: { path: { id: id! } }, signal })),
+    enabled: !!id && enabled,
+    staleTime: 15_000,
   });
 }
 

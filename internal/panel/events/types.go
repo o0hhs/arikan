@@ -13,12 +13,14 @@ package events
 // Types of events.
 const (
 	PaymentPaid     = "payment.paid"
+	PaymentFailed   = "payment.failed"
 	PaymentRefunded = "payment.refunded"
 
 	UserCreated  = "user.created"
 	UserGranted  = "user.granted"
 	UserExpiring = "user.expiring"
 	UserExpired  = "user.expired"
+	UserInactive = "user.inactive"
 	Traffic90    = "traffic.90"
 	Traffic100   = "traffic.100"
 
@@ -38,9 +40,9 @@ const (
 	BalanceTopup = "balance.topup"
 )
 
-// Payment is the data of PaymentPaid and PaymentRefunded: enough to thank, notify or count,
-// nothing of the provider's secrets. The envelope's user_id is the subscription the payment
-// gave to (0 on a refund when it is gone), tg_id the buyer.
+// Payment is the data of PaymentPaid, PaymentFailed and PaymentRefunded: enough to thank,
+// notify or count, nothing of the provider's secrets. The envelope's user_id is the
+// subscription the payment gave to (0 on a refund when it is gone), tg_id the buyer.
 type Payment struct {
 	PaymentID  int64  `json:"payment_id"`
 	Kind       string `json:"kind"`     // new | renew | package | trial | device
@@ -53,6 +55,7 @@ type Payment struct {
 	TermDays   int64  `json:"term_days,omitempty"`
 	Created    bool   `json:"created,omitempty"`  // PaymentPaid: the payment made the subscription
 	Disabled   bool   `json:"disabled,omitempty"` // PaymentRefunded: the subscription was turned off
+	Reason     string `json:"reason,omitempty"`   // PaymentFailed: why the payment did not go through
 }
 
 // Notice is the data of UserExpiring, UserExpired, Traffic90 and Traffic100: which
@@ -61,6 +64,13 @@ type Notice struct {
 	Days       int   `json:"days,omitempty"`        // UserExpiring: 3 or 1
 	ExpiresAt  int64 `json:"expires_at,omitempty"`  // unix seconds
 	PeriodFrom int64 `json:"period_from,omitempty"` // traffic: the period it is about
+}
+
+// Inactive is the data of UserInactive: a subscription that has not connected for Days.
+// LastSeen is when it was last seen, or when it was created if it never connected.
+type Inactive struct {
+	Days     int   `json:"days"`
+	LastSeen int64 `json:"last_seen"`
 }
 
 // User is the data of UserCreated, for every way a subscription is made except an import
@@ -181,6 +191,8 @@ type Doc struct {
 var Docs = []Doc{
 	{PaymentPaid, "A payment was applied: the subscription is made or extended, or the package credited.",
 		Payment{PaymentID: 7, Kind: "new", Provider: "stars", Amount: 100, Currency: "XTR", TariffID: 2, TariffName: "Month", TermDays: 30, Created: true}},
+	{PaymentFailed, "A payment did not go through: the provider could not open the invoice, the balance was short, the provider canceled it, or it expired.",
+		Payment{PaymentID: 9, Kind: "new", Provider: "stars", Amount: 100, Currency: "XTR", TariffID: 2, TariffName: "Month", TermDays: 30, Reason: "expired"}},
 	{PaymentRefunded, "A payment was refunded and what it gave is taken back (also a trial that could not be given and went back, or a payment refunded by hand: then user_id is 0).",
 		Payment{PaymentID: 7, Kind: "renew", Provider: "stars", Amount: 100, Currency: "XTR", TariffID: 2, TariffName: "Month", TermDays: 30, Disabled: true}},
 	{UserCreated, "A subscription was made: by the admin, bought, taken as a trial or as the free plan; not by an import.",
@@ -189,6 +201,8 @@ var Docs = []Doc{
 	{UserExpiring, "A subscription ends in 3 or 1 days (the admin's switches decide which are told).",
 		Notice{Days: 3, ExpiresAt: 1_800_000_000}},
 	{UserExpired, "A subscription ended.", Notice{ExpiresAt: 1_800_000_000}},
+	{UserInactive, "A subscription has not connected for a week: a win-back candidate.",
+		Inactive{Days: 7, LastSeen: 1_790_000_000}},
 	{Traffic90, "A subscription used 90% of its traffic.", Notice{PeriodFrom: 1_790_000_000}},
 	{Traffic100, "A subscription used all of its traffic.", Notice{PeriodFrom: 1_790_000_000}},
 	{DiscountEnding, "A sale of the panel ends in 3 or 1 days, and the bot says so to its buyers.",

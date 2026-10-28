@@ -214,12 +214,13 @@ func (h *handlers) bearer(ctx huma.Context, next func(huma.Context), mutating bo
 	}
 	// The key's admin's role: a key of a support or tech account goes no further than the
 	// account itself does.
-	role := h.adminRole(ctx.Context(), key.AdminID)
-	if !roleAllows(role, ctx.Operation().Method, strings.TrimPrefix(ctx.URL().Path, "/api/v1")) {
+	role, permissions := h.adminAccess(ctx.Context(), key.AdminID)
+	if !roleAllows(role, permissions, ctx.Operation().Method, strings.TrimPrefix(ctx.URL().Path, "/api/v1")) {
 		roleRefusal(h, ctx)
 		return
 	}
 	ctx = huma.WithValue(ctx, keyRole, role)
+	ctx = huma.WithValue(ctx, keyPermissions, permissions)
 	if err := h.d.Store.Q.TouchAPIKey(ctx.Context(), db.TouchAPIKeyParams{LastUsedAt: sql.NullInt64{Int64: now.Unix(), Valid: true}, LastIp: c.IP,
 		ID: key.ID, LastUsedAt_2: sql.NullInt64{Int64: now.Unix() - apiKeyTouchSecs, Valid: true}}); err != nil {
 		h.d.Log.Warn("api key touch", "err", err)

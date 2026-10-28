@@ -94,6 +94,19 @@ func TestPaymentEvents(t *testing.T) {
 	}
 }
 
+// A failed payment is told once, with the reason the buyer may act on: a retried provider
+// report or a second reconcile pass must not send the same retry prompt again.
+func TestPaymentFailureEvent(t *testing.T) {
+	e := newEnv(t)
+	p := e.invoice(555, 0, Stars)
+	e.s.failed(context.Background(), p, "balance_low")
+	e.s.failed(context.Background(), p, "balance_low")
+	got := e.told(events.PaymentFailed)
+	if len(got) != 1 || got[0].PaymentID != p.ID || got[0].Reason != "balance_low" || got[0].Kind != p.Kind || got[0].TgID != 555 {
+		t.Fatalf("failure events: %+v", got)
+	}
+}
+
 // A refund of a renewal takes days back and leaves the subscription on: no disabled flag.
 func TestRefundEventOfARenewalKeepsTheSubscription(t *testing.T) {
 	e := newEnv(t)

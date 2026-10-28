@@ -1,8 +1,8 @@
 import * as Menu from "@radix-ui/react-dropdown-menu";
-import { CalendarPlus, MoreHorizontal, Pencil, Power, RefreshCw, RotateCcw, Trash2 } from "lucide-react";
+import { CalendarPlus, MoreHorizontal, Pencil, Power, RefreshCw, RotateCcw, Stethoscope, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { ApiError, errorText, type User } from "../../api/client";
-import { onePeriod, userActions, useUser, useUserMutation } from "../../api/hooks";
+import { onePeriod, userActions, useUser, useUserDiagnosis, useUserMutation } from "../../api/hooks";
 import { Disclosure } from "../../components/layout";
 import { Confirm, Drawer, NameDialog } from "../../components/overlay";
 import { useToast } from "../../components/toast";
@@ -19,6 +19,7 @@ import { ProtocolsUsageSection } from "./user/protocols";
 import { OrganiseSection } from "./user/organise";
 import { TorrentSection } from "./user/torrent";
 import { SitesSection } from "./user/sites";
+import { CheckList, CheckSkeleton } from "./node-check";
 
 export function UserDrawer({ id, onClose }: { id?: number; onClose: () => void }) {
   const user = useUser(id);
@@ -115,8 +116,11 @@ function UserBody({ u, onDeleted, onRename }: { u: User; onDeleted: () => void; 
   const reissue = useUserMutation(userActions.reissue);
   const remove = useUserMutation(userActions.remove);
   const [confirm, setConfirm] = useState<"reissue" | "delete" | null>(null);
+  const [diagnose, setDiagnose] = useState(false);
+  const diagnosis = useUserDiagnosis(u.id, diagnose);
   const fail = (e: unknown) => toast.error(errorText(e));
   const disabled = u.state === "disabled";
+  const afterFix = () => void diagnosis.refetch();
 
   return (
     <>
@@ -126,6 +130,9 @@ function UserBody({ u, onDeleted, onRename }: { u: User; onDeleted: () => void; 
         </Button>
         <Button loading={reset.isPending} onClick={() => reset.mutate(u.id, { onSuccess: () => toast.ok(t("userDrawer.trafficReset")), onError: fail })}>
           <RotateCcw size={18} aria-hidden /> {t("users.resetTraffic")}
+        </Button>
+        <Button loading={diagnosis.isFetching} onClick={() => (diagnose ? void diagnosis.refetch() : setDiagnose(true))}>
+          <Stethoscope size={18} aria-hidden /> {t("userDrawer.diagnose")}
         </Button>
         <Button
           loading={update.isPending && update.variables?.body.disabled !== undefined}
@@ -160,6 +167,33 @@ function UserBody({ u, onDeleted, onRename }: { u: User; onDeleted: () => void; 
           </Menu.Portal>
         </Menu.Root>
       </div>
+
+      {diagnose ? (
+        <section className="mb-4 rounded-2xl border border-[var(--hairline)] p-3" aria-live="polite" aria-busy={diagnosis.isFetching}>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <div>
+              <h3 className="text-[14px] font-semibold">{t("userDrawer.diagnoseTitle")}</h3>
+              <p className="mt-1 text-xs text-[var(--md-on-surface-variant)]">{t("userDrawer.diagnoseSub")}</p>
+            </div>
+            <Button size="sm" variant="ghost" onClick={() => setDiagnose(false)}>{t("common.hide")}</Button>
+          </div>
+          {diagnosis.isPending ? (
+            <CheckSkeleton rows={5} />
+          ) : diagnosis.isError ? (
+            <div className="banner err" role="alert">{errorText(diagnosis.error)}</div>
+          ) : diagnosis.data ? (
+            <CheckList
+              items={diagnosis.data.items}
+              actions={{
+                enableUser: () => update.mutate({ id: u.id, body: { disabled: false } }, { onSuccess: afterFix, onError: fail }),
+                extendUser: () => extend.mutate({ id: u.id, ...onePeriod(u) }, { onSuccess: afterFix, onError: fail }),
+                resetTraffic: () => reset.mutate(u.id, { onSuccess: afterFix, onError: fail }),
+                reissueUser: () => setConfirm("reissue"),
+              }}
+            />
+          ) : null}
+        </section>
+      ) : null}
 
       {/* What a card is opened for comes first: the link to send, the term, the traffic. */}
       <SubscriptionSection u={u} onReissue={() => setConfirm("reissue")} />

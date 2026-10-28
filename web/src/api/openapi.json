@@ -533,11 +533,18 @@
             "minLength": 8,
             "type": "string"
           },
+          "permissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "role": {
             "enum": [
               "superadmin",
               "support",
-              "tech"
+              "tech",
+              "custom"
             ],
             "type": "string"
           },
@@ -557,11 +564,18 @@
       "AdminRoleInputBody": {
         "additionalProperties": false,
         "properties": {
+          "permissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "role": {
             "enum": [
               "superadmin",
               "support",
-              "tech"
+              "tech",
+              "custom"
             ],
             "type": "string"
           }
@@ -581,11 +595,37 @@
           "last_login_at": {
             "type": "string"
           },
+          "permissions": {
+            "items": {
+              "enum": [
+                "users.read",
+                "users.write",
+                "billing.read",
+                "billing.write",
+                "nodes.read",
+                "nodes.write",
+                "settings.read",
+                "settings.write",
+                "automation.read",
+                "automation.write",
+                "backups.read",
+                "backups.write",
+                "approvals.read",
+                "approvals.decide",
+                "admins.manage",
+                "audit.read",
+                "support.card"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          },
           "role": {
             "enum": [
               "superadmin",
               "support",
-              "tech"
+              "tech",
+              "custom"
             ],
             "type": "string"
           },
@@ -600,6 +640,7 @@
           "id",
           "username",
           "role",
+          "permissions",
           "totp_enabled"
         ],
         "type": "object"
@@ -668,11 +709,37 @@
             "format": "date-time",
             "type": "string"
           },
+          "permissions": {
+            "items": {
+              "enum": [
+                "users.read",
+                "users.write",
+                "billing.read",
+                "billing.write",
+                "nodes.read",
+                "nodes.write",
+                "settings.read",
+                "settings.write",
+                "automation.read",
+                "automation.write",
+                "backups.read",
+                "backups.write",
+                "approvals.read",
+                "approvals.decide",
+                "admins.manage",
+                "audit.read",
+                "support.card"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          },
           "role": {
             "enum": [
               "superadmin",
               "support",
-              "tech"
+              "tech",
+              "custom"
             ],
             "type": "string"
           },
@@ -687,6 +754,7 @@
           "id",
           "username",
           "role",
+          "permissions",
           "totp_enabled"
         ],
         "type": "object"
@@ -1088,6 +1156,355 @@
         },
         "type": "object"
       },
+      "AnalyticsCampaign": {
+        "additionalProperties": false,
+        "properties": {
+          "bought": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "renewed": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "rub": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "tag": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tag",
+          "name",
+          "bought",
+          "renewed",
+          "rub"
+        ],
+        "type": "object"
+      },
+      "AnalyticsCohort": {
+        "additionalProperties": false,
+        "properties": {
+          "month": {
+            "description": "YYYY-MM",
+            "type": "string"
+          },
+          "paying": {
+            "description": "Платили в месяц 0..5 после регистрации",
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "rates": {
+            "description": "То же в процентах от когорты",
+            "items": {
+              "format": "double",
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "users": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "month",
+          "users",
+          "paying",
+          "rates"
+        ],
+        "type": "object"
+      },
+      "AnalyticsOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "campaigns": {
+            "items": {
+              "$ref": "#/components/schemas/AnalyticsCampaign"
+            },
+            "type": "array"
+          },
+          "cohorts": {
+            "items": {
+              "$ref": "#/components/schemas/AnalyticsCohort"
+            },
+            "type": "array"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "providers": {
+            "items": {
+              "$ref": "#/components/schemas/AnalyticsProvider"
+            },
+            "type": "array"
+          },
+          "range": {
+            "type": "string"
+          },
+          "revenue": {
+            "items": {
+              "$ref": "#/components/schemas/AnalyticsRevenuePoint"
+            },
+            "type": "array"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/AnalyticsSummary"
+          },
+          "tariffs": {
+            "items": {
+              "$ref": "#/components/schemas/AnalyticsTariff"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "generated_at",
+          "range",
+          "summary",
+          "revenue",
+          "tariffs",
+          "providers",
+          "cohorts",
+          "campaigns"
+        ],
+        "type": "object"
+      },
+      "AnalyticsProvider": {
+        "additionalProperties": false,
+        "properties": {
+          "payments": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "rub": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "share": {
+            "description": "Доля в рублёвой выручке периода, проценты",
+            "format": "double",
+            "type": "number"
+          },
+          "stars": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "provider",
+          "payments",
+          "rub",
+          "stars",
+          "share"
+        ],
+        "type": "object"
+      },
+      "AnalyticsRevenuePoint": {
+        "additionalProperties": false,
+        "properties": {
+          "day": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "payments": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "rub": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "stars": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "day",
+          "rub",
+          "stars",
+          "payments"
+        ],
+        "type": "object"
+      },
+      "AnalyticsSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "active_users": {
+            "description": "Активных подписок сейчас",
+            "format": "int64",
+            "type": "integer"
+          },
+          "arppu_rub": {
+            "description": "MRR на платящего клиента, копейки",
+            "format": "int64",
+            "type": "integer"
+          },
+          "arpu_rub": {
+            "description": "MRR на активную подписку, копейки",
+            "format": "int64",
+            "type": "integer"
+          },
+          "arr_rub": {
+            "description": "MRR × 12, копейки",
+            "format": "int64",
+            "type": "integer"
+          },
+          "churn": {
+            "description": "Отток истёкших подписок, проценты",
+            "format": "double",
+            "type": "number"
+          },
+          "churned": {
+            "description": "Из них не продлили",
+            "format": "int64",
+            "type": "integer"
+          },
+          "expired": {
+            "description": "Подписок истекло за период",
+            "format": "int64",
+            "type": "integer"
+          },
+          "ltv_rub": {
+            "description": "Средняя выручка на платящего клиента за всё время, копейки",
+            "format": "int64",
+            "type": "integer"
+          },
+          "mrr_rub": {
+            "description": "Повторяющаяся выручка в месяц, копейки",
+            "format": "int64",
+            "type": "integer"
+          },
+          "new_users": {
+            "description": "Новых клиентов за период",
+            "format": "int64",
+            "type": "integer"
+          },
+          "paying_users": {
+            "description": "Разных платящих за период",
+            "format": "int64",
+            "type": "integer"
+          },
+          "payments": {
+            "description": "Применённых оплат за период",
+            "format": "int64",
+            "type": "integer"
+          },
+          "revenue_rub": {
+            "description": "Оплачено в рублях за период, копейки",
+            "format": "int64",
+            "type": "integer"
+          },
+          "revenue_stars": {
+            "description": "Оплачено в Stars за период; в рублёвую выручку не входит",
+            "format": "int64",
+            "type": "integer"
+          },
+          "total_paying_users": {
+            "description": "Все разные платящие клиенты",
+            "format": "int64",
+            "type": "integer"
+          },
+          "total_revenue_rub": {
+            "description": "Вся рублёвая выручка, копейки",
+            "format": "int64",
+            "type": "integer"
+          },
+          "trial_conversion": {
+            "description": "Конверсия триала в оплату, проценты",
+            "format": "double",
+            "type": "number"
+          },
+          "trial_converted": {
+            "description": "Из них дошли до оплаты",
+            "format": "int64",
+            "type": "integer"
+          },
+          "trial_started": {
+            "description": "Пробных периодов начато за период",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "revenue_rub",
+          "revenue_stars",
+          "payments",
+          "paying_users",
+          "active_users",
+          "new_users",
+          "mrr_rub",
+          "arr_rub",
+          "arpu_rub",
+          "arppu_rub",
+          "ltv_rub",
+          "total_revenue_rub",
+          "total_paying_users",
+          "trial_started",
+          "trial_converted",
+          "trial_conversion",
+          "expired",
+          "churned",
+          "churn"
+        ],
+        "type": "object"
+      },
+      "AnalyticsTariff": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "null — тариф удалён, осталось имя, под которым продавали",
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "payments": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "rub": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "share": {
+            "description": "Доля в рублёвой выручке периода, проценты",
+            "format": "double",
+            "type": "number"
+          },
+          "stars": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "payments",
+          "rub",
+          "stars",
+          "share"
+        ],
+        "type": "object"
+      },
       "ApplyTariffInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -1121,6 +1538,151 @@
         },
         "required": [
           "applied"
+        ],
+        "type": "object"
+      },
+      "ApprovalCreateInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "user.delete",
+              "user.reissue",
+              "payment.refund",
+              "payment.refunded_by_hand",
+              "s3.restore"
+            ],
+            "type": "string"
+          },
+          "expires_in": {
+            "description": "Секунды; по умолчанию сутки",
+            "format": "int64",
+            "maximum": 604800,
+            "minimum": 60,
+            "type": "integer"
+          },
+          "payload": {},
+          "summary": {
+            "maxLength": 500,
+            "type": "string"
+          },
+          "target_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "target_type": {
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "action",
+          "target_type",
+          "target_id"
+        ],
+        "type": "object"
+      },
+      "ApprovalExecuteOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "approval_id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "used"
+            ],
+            "type": "string"
+          },
+          "target_id": {
+            "type": "string"
+          },
+          "target_type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "approval_id",
+          "action",
+          "target_type",
+          "target_id",
+          "status"
+        ],
+        "type": "object"
+      },
+      "ApprovalView": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "decided_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "decided_by": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "payload": {},
+          "requested_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "requested_by": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "approved",
+              "executing",
+              "rejected",
+              "expired",
+              "used"
+            ],
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "target_id": {
+            "type": "string"
+          },
+          "target_type": {
+            "type": "string"
+          },
+          "used_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "action",
+          "target_type",
+          "target_id",
+          "summary",
+          "payload",
+          "status",
+          "requested_by",
+          "requested_at",
+          "expires_at"
         ],
         "type": "object"
       },
@@ -1314,6 +1876,276 @@
           "cut_off",
           "blocked",
           "reached"
+        ],
+        "type": "object"
+      },
+      "AutomationRuleInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "actions": {},
+          "conditions": {},
+          "cooldown_seconds": {
+            "format": "int64",
+            "maximum": 31536000,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "dry_run": {
+            "type": "boolean"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "type": "string"
+          },
+          "trigger": {
+            "enum": [
+              "trial.started",
+              "user.created",
+              "user.granted",
+              "user.expiring",
+              "user.expired",
+              "user.inactive",
+              "traffic.90",
+              "traffic.100",
+              "payment.paid",
+              "payment.failed",
+              "payment.refunded",
+              "trial.not_given",
+              "device.bound",
+              "device.unbound",
+              "balance.topup",
+              "discount.ending",
+              "node.down",
+              "node.up"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "enabled",
+          "trigger",
+          "actions",
+          "cooldown_seconds",
+          "dry_run"
+        ],
+        "type": "object"
+      },
+      "AutomationRuleUpdateInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "actions": {},
+          "conditions": {},
+          "cooldown_seconds": {
+            "format": "int64",
+            "maximum": 31536000,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "dry_run": {
+            "type": "boolean"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "type": "string"
+          },
+          "trigger": {
+            "enum": [
+              "trial.started",
+              "user.created",
+              "user.granted",
+              "user.expiring",
+              "user.expired",
+              "user.inactive",
+              "traffic.90",
+              "traffic.100",
+              "payment.paid",
+              "payment.failed",
+              "payment.refunded",
+              "trial.not_given",
+              "device.bound",
+              "device.unbound",
+              "balance.topup",
+              "discount.ending",
+              "node.down",
+              "node.up"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "enabled",
+          "trigger",
+          "actions",
+          "cooldown_seconds",
+          "dry_run"
+        ],
+        "type": "object"
+      },
+      "AutomationRuleView": {
+        "additionalProperties": false,
+        "properties": {
+          "actions": {
+            "description": "JSON-массив действий: notify_admin, notify_user, extend, grant_traffic, promo, discount"
+          },
+          "conditions": {
+            "description": "JSON: tariff_ids, states, sources, days_left_min/max, traffic_used_min/max"
+          },
+          "cooldown_seconds": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "dry_run": {
+            "type": "boolean"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "last_run_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "runs_count": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "trigger": {
+            "enum": [
+              "trial.started",
+              "user.created",
+              "user.granted",
+              "user.expiring",
+              "user.expired",
+              "user.inactive",
+              "traffic.90",
+              "traffic.100",
+              "payment.paid",
+              "payment.failed",
+              "payment.refunded",
+              "trial.not_given",
+              "device.bound",
+              "device.unbound",
+              "balance.topup",
+              "discount.ending",
+              "node.down",
+              "node.up"
+            ],
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "enabled",
+          "trigger",
+          "conditions",
+          "actions",
+          "cooldown_seconds",
+          "dry_run",
+          "created_at",
+          "updated_at",
+          "runs_count"
+        ],
+        "type": "object"
+      },
+      "AutomationRunView": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "dry_run": {
+            "type": "boolean"
+          },
+          "event_id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "event_type": {
+            "type": "string"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "rule_id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "skipped",
+              "failed"
+            ],
+            "type": "string"
+          },
+          "tg_id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "user_id": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "rule_id",
+          "event_id",
+          "event_type",
+          "status",
+          "dry_run",
+          "detail",
+          "created_at"
+        ],
+        "type": "object"
+      },
+      "AutomationRunsOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AutomationRunView"
+            },
+            "type": "array"
+          },
+          "next": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "next"
         ],
         "type": "object"
       },
@@ -2311,12 +3143,18 @@
               "free_disk",
               "check_outbound",
               "restart_panel",
-              "exit_node"
+              "exit_node",
+              "enable_user",
+              "extend_user",
+              "reset_traffic",
+              "reissue_user",
+              "set_tariff",
+              "enable_inbound"
             ],
             "type": "string"
           },
           "id": {
-            "description": "Что проверено: link, hello, version, update, skew, listeners, listener, port, relay, cascade, node_dns, node_internet, node_github, node_ghcr, node_disk, node_memory, diagnose, local_node, dns, internet, github, ghcr, disk, memory, clock, updates",
+            "description": "Что проверено: link, hello, version, update, skew, listeners, listener, port, relay, cascade, node_dns, node_internet, node_github, node_ghcr, node_disk, node_memory, diagnose, local_node, dns, internet, github, ghcr, disk, memory, clock, updates, user, subscription, expiry, traffic, devices, tariff, inbounds, node, activity",
             "type": "string"
           },
           "params": {
@@ -8096,6 +8934,56 @@
         },
         "type": "object"
       },
+      "PatchS3BackupInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "access_key": {
+            "type": "string"
+          },
+          "bucket": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "endpoint": {
+            "type": "string"
+          },
+          "hour": {
+            "format": "int64",
+            "maximum": 23,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "password": {
+            "description": "Пароль шифрования архива, не короче 20 символов; не возвращается",
+            "maxLength": 256,
+            "type": "string"
+          },
+          "path_style": {
+            "type": "boolean"
+          },
+          "prefix": {
+            "type": "string"
+          },
+          "region": {
+            "type": "string"
+          },
+          "retention_days": {
+            "format": "int64",
+            "maximum": 3650,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "secret_key": {
+            "type": "string"
+          },
+          "session_token": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "PatchSettingsInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -10519,6 +11407,172 @@
           "verdict",
           "probes",
           "cached"
+        ],
+        "type": "object"
+      },
+      "S3BackupObjectView": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          },
+          "etag": {
+            "type": "string"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "key": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "scheduled",
+              "manual",
+              "pre_restore"
+            ],
+            "type": "string"
+          },
+          "size": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "failed"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "key",
+          "size",
+          "kind",
+          "status",
+          "created_at"
+        ],
+        "type": "object"
+      },
+      "S3BackupView": {
+        "additionalProperties": false,
+        "properties": {
+          "access_key_set": {
+            "type": "boolean"
+          },
+          "bucket": {
+            "type": "string"
+          },
+          "configured": {
+            "type": "boolean"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "endpoint": {
+            "type": "string"
+          },
+          "hour": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "last_error": {
+            "type": "string"
+          },
+          "last_key": {
+            "type": "string"
+          },
+          "last_ok": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "last_size": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "last_try": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "password_set": {
+            "type": "boolean"
+          },
+          "path_style": {
+            "type": "boolean"
+          },
+          "prefix": {
+            "type": "string"
+          },
+          "region": {
+            "type": "string"
+          },
+          "restore_last_error": {
+            "type": "string"
+          },
+          "restore_last_key": {
+            "type": "string"
+          },
+          "restore_last_ok": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "restore_last_try": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "restore_pending": {
+            "type": "boolean"
+          },
+          "retention_days": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "secret_key_set": {
+            "type": "boolean"
+          },
+          "sending": {
+            "type": "boolean"
+          },
+          "session_token_set": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled",
+          "configured",
+          "endpoint",
+          "region",
+          "bucket",
+          "prefix",
+          "access_key_set",
+          "secret_key_set",
+          "session_token_set",
+          "path_style",
+          "hour",
+          "retention_days",
+          "password_set",
+          "sending",
+          "restore_pending"
+        ],
+        "type": "object"
+      },
+      "S3RestoreInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "key"
         ],
         "type": "object"
       },
@@ -13382,6 +14436,40 @@
         ],
         "type": "object"
       },
+      "UserDiagnosisView": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CheckItem"
+            },
+            "type": "array"
+          },
+          "summary": {
+            "enum": [
+              "ok",
+              "warn",
+              "fail"
+            ],
+            "type": "string"
+          },
+          "user_id": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "at",
+          "user_id",
+          "summary",
+          "items"
+        ],
+        "type": "object"
+      },
       "UserNodeView": {
         "additionalProperties": false,
         "properties": {
@@ -15488,6 +16576,56 @@
         "x-session-only": true
       }
     },
+    "/api/v1/analytics": {
+      "get": {
+        "description": "Считается по применённым оплатам и подпискам. Stars показаны отдельно и не входят в рублёвую выручку.",
+        "operationId": "analytics",
+        "parameters": [
+          {
+            "description": "Период: 30 дней, 90 дней или год",
+            "explode": false,
+            "in": "query",
+            "name": "range",
+            "schema": {
+              "default": "30d",
+              "description": "Период: 30 дней, 90 дней или год",
+              "enum": [
+                "30d",
+                "90d",
+                "365d"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Аналитика: выручка, MRR, конверсия и удержание",
+        "tags": [
+          "stats"
+        ]
+      }
+    },
     "/api/v1/api-keys": {
       "get": {
         "operationId": "list-api-keys",
@@ -15594,6 +16732,247 @@
         "summary": "Отозвать ключ API",
         "tags": [
           "api-keys"
+        ]
+      }
+    },
+    "/api/v1/approvals": {
+      "get": {
+        "operationId": "list-approvals",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "enum": [
+                "pending",
+                "approved",
+                "executing",
+                "rejected",
+                "expired",
+                "used",
+                ""
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "requested_by",
+            "schema": {
+              "default": 0,
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 100,
+              "format": "int64",
+              "maximum": 200,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ApprovalView"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Запросы на опасные действия",
+        "tags": [
+          "approvals"
+        ]
+      },
+      "post": {
+        "operationId": "create-approval",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApprovalCreateInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovalView"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Запросить подтверждение действия",
+        "tags": [
+          "approvals"
+        ]
+      }
+    },
+    "/api/v1/approvals/{id}/approve": {
+      "post": {
+        "operationId": "approve-approval",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovalView"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Подтвердить действие",
+        "tags": [
+          "approvals"
+        ]
+      }
+    },
+    "/api/v1/approvals/{id}/execute": {
+      "post": {
+        "operationId": "execute-approval",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovalExecuteOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Выполнить подтверждённое действие",
+        "tags": [
+          "approvals"
+        ]
+      }
+    },
+    "/api/v1/approvals/{id}/reject": {
+      "post": {
+        "operationId": "reject-approval",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovalView"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Отклонить действие",
+        "tags": [
+          "approvals"
         ]
       }
     },
@@ -15986,6 +17365,220 @@
         "summary": "Начать настройку 2FA",
         "tags": [
           "auth"
+        ]
+      }
+    },
+    "/api/v1/automation/rules": {
+      "get": {
+        "operationId": "list-automation-rules",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AutomationRuleView"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Сценарии автоматизации",
+        "tags": [
+          "automation"
+        ]
+      },
+      "post": {
+        "operationId": "create-automation-rule",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AutomationRuleInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutomationRuleView"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Создать сценарий",
+        "tags": [
+          "automation"
+        ]
+      }
+    },
+    "/api/v1/automation/rules/{id}": {
+      "delete": {
+        "operationId": "delete-automation-rule",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Удалить сценарий",
+        "tags": [
+          "automation"
+        ]
+      },
+      "put": {
+        "operationId": "update-automation-rule",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AutomationRuleUpdateInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutomationRuleView"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Изменить сценарий",
+        "tags": [
+          "automation"
+        ]
+      }
+    },
+    "/api/v1/automation/runs": {
+      "get": {
+        "operationId": "list-automation-runs",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "before",
+            "schema": {
+              "default": 0,
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "format": "int64",
+              "maximum": 200,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutomationRunsOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Журнал запусков сценариев",
+        "tags": [
+          "automation"
         ]
       }
     },
@@ -21770,6 +23363,183 @@
         "x-session-only": true
       }
     },
+    "/api/v1/s3-backup": {
+      "get": {
+        "operationId": "get-s3-backup",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/S3BackupView"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Бэкапы в S3",
+        "tags": [
+          "backups"
+        ]
+      },
+      "patch": {
+        "operationId": "update-s3-backup",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchS3BackupInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/S3BackupView"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Настроить S3-бэкапы",
+        "tags": [
+          "backups"
+        ]
+      }
+    },
+    "/api/v1/s3-backup/objects": {
+      "get": {
+        "operationId": "list-s3-backup-objects",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/S3BackupObjectView"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "История S3-бэкапов",
+        "tags": [
+          "backups"
+        ]
+      }
+    },
+    "/api/v1/s3-backup/restore": {
+      "post": {
+        "description": "Сначала делает свежий pre-restore бэкап, проверяет архив и просит хост перезапустить панель. Восстановление выполняется при следующем старте.",
+        "operationId": "restore-s3-backup",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/S3RestoreInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/S3BackupView"
+                }
+              }
+            },
+            "description": "Accepted"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Восстановить базу из S3",
+        "tags": [
+          "backups"
+        ]
+      }
+    },
+    "/api/v1/s3-backup/run": {
+      "post": {
+        "operationId": "run-s3-backup",
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/S3BackupView"
+                }
+              }
+            },
+            "description": "Accepted"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Сделать S3-бэкап сейчас",
+        "tags": [
+          "backups"
+        ]
+      }
+    },
     "/api/v1/settings": {
       "get": {
         "operationId": "get-settings",
@@ -25449,6 +27219,50 @@
           }
         },
         "summary": "Адреса, с которых заходил пользователь",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/v1/users/{id}/diagnose": {
+      "get": {
+        "description": "Проверяет срок, трафик, устройства, тариф, протоколы, ноды и последнюю активность. Ничего не меняет.",
+        "operationId": "diagnose-user",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserDiagnosisView"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Почему у клиента не работает подписка",
         "tags": [
           "users"
         ]

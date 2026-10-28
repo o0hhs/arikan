@@ -57,6 +57,7 @@ func (b *Bot) HandleEvent(ctx context.Context, e events.Event) error {
 				return nil // a subscription that is gone has nothing to be thanked for
 			}
 			b.paid(ctx, e.TgID, p, u)
+			b.tellAdminsOfSale(ctx, e.TgID, p, u)
 		} else {
 			b.refunded(ctx, e.TgID, p, u)
 		}

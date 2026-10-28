@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -358,6 +359,9 @@ func (h *handlers) updatePaymentSettings(ctx context.Context, in *patchPaymentSe
 // refundedByHand closes a payment the admin refunded in the provider's dashboard: paid
 // through an adapter and never applied (billing.RefundedByHand).
 func (h *handlers) refundedByHand(ctx context.Context, in *userIDInput) (*paymentOutput, error) {
+	if err := h.requireApproval(ctx, "payment.refunded_by_hand", "payment", strconv.FormatInt(in.ID, 10), approvalSummary("payment.refunded_by_hand", "payment", strconv.FormatInt(in.ID, 10)), nil); err != nil {
+		return nil, err
+	}
 	err := h.d.Billing.RefundedByHand(ctx, in.ID)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
@@ -437,6 +441,9 @@ func (h *handlers) listPayments(ctx context.Context, in *listPaymentsInput) (*pa
 }
 
 func (h *handlers) refundPayment(ctx context.Context, in *userIDInput) (*paymentOutput, error) {
+	if err := h.requireApproval(ctx, "payment.refund", "payment", strconv.FormatInt(in.ID, 10), approvalSummary("payment.refund", "payment", strconv.FormatInt(in.ID, 10)), nil); err != nil {
+		return nil, err
+	}
 	reverted, err := h.d.Billing.Refund(ctx, in.ID)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):

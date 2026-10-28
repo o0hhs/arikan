@@ -24,7 +24,35 @@ import (
 // labels and emoji on the bot's own buttons.
 func (b *Bot) screen(ctx context.Context, cfg Config, chat int64, data, notice string) (string, *tgapi.Keyboard) {
 	text, kb := b.screenRaw(ctx, cfg, chat, data, notice)
-	return text, applyLabels(cfg, wordsFor(cfg.Lang), kb)
+	kb = applyLabels(cfg, wordsFor(cfg.Lang), kb)
+	b.rememberButtons(chat, kb)
+	return text, kb
+}
+
+// rememberButtons keeps the keyboard just drawn for the log of the next press: its buttons'
+// data to their labels. A press whose button is not here — a stale menu, a notice that went
+// out without a screen — is logged by its data.
+func (b *Bot) rememberButtons(chat int64, kb *tgapi.Keyboard) {
+	m := map[string]string{}
+	if kb != nil {
+		for _, row := range kb.InlineKeyboard {
+			for _, btn := range row {
+				if btn.CallbackData != "" {
+					m[btn.CallbackData] = btn.Text
+				}
+			}
+		}
+	}
+	b.buttonsMu.Lock()
+	b.buttons[chat] = m
+	b.buttonsMu.Unlock()
+}
+
+// buttonLabel is the label of the button the chat last saw with this data.
+func (b *Bot) buttonLabel(chat int64, data string) string {
+	b.buttonsMu.Lock()
+	defer b.buttonsMu.Unlock()
+	return b.buttons[chat][data]
 }
 
 // screenRaw draws one screen.

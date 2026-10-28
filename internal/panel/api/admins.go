@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -20,11 +21,12 @@ import (
 // removes themselves: the panel must always keep someone who can name admins.
 
 type adminRowView struct {
-	ID          int64   `json:"id"`
-	Username    string  `json:"username"`
-	Role        string  `json:"role" enum:"superadmin,support,tech"`
-	TOTPEnabled bool    `json:"totp_enabled"`
-	LastLoginAt *string `json:"last_login_at,omitempty"`
+	ID          int64    `json:"id"`
+	Username    string   `json:"username"`
+	Role        string   `json:"role" enum:"superadmin,support,tech,custom"`
+	Permissions []string `json:"permissions" enum:"users.read,users.write,billing.read,billing.write,nodes.read,nodes.write,settings.read,settings.write,automation.read,automation.write,backups.read,backups.write,approvals.read,approvals.decide,admins.manage,audit.read,support.card"`
+	TOTPEnabled bool     `json:"totp_enabled"`
+	LastLoginAt *string  `json:"last_login_at,omitempty"`
 }
 
 type adminListOutput struct{ Body []adminRowView }
@@ -32,16 +34,18 @@ type adminRowOutput struct{ Body adminRowView }
 
 type adminCreateInput struct {
 	Body struct {
-		Username string `json:"username" minLength:"3" maxLength:"64"`
-		Password string `json:"password" minLength:"8" maxLength:"200"`
-		Role     string `json:"role" enum:"superadmin,support,tech"`
+		Username    string   `json:"username" minLength:"3" maxLength:"64"`
+		Password    string   `json:"password" minLength:"8" maxLength:"200"`
+		Role        string   `json:"role" enum:"superadmin,support,tech,custom"`
+		Permissions []string `json:"permissions,omitempty"`
 	}
 }
 
 type adminRoleInput struct {
 	ID   int64 `path:"id"`
 	Body struct {
-		Role string `json:"role" enum:"superadmin,support,tech"`
+		Role        string   `json:"role" enum:"superadmin,support,tech,custom"`
+		Permissions []string `json:"permissions,omitempty"`
 	}
 }
 
@@ -54,7 +58,10 @@ func (h *handlers) registerAdmins() {
 }
 
 func adminRow(a db.Admin) adminRowView {
-	v := adminRowView{ID: a.ID, Username: a.Username, Role: a.Role, TOTPEnabled: a.TotpSecret.Valid}
+	v := adminRowView{ID: a.ID, Username: a.Username, Role: a.Role, Permissions: parsePermissions(a.Permissions), TOTPEnabled: a.TotpSecret.Valid}
+	if v.Permissions == nil {
+		v.Permissions = []string{}
+	}
 	if a.LastLoginAt.Valid {
 		s := timeText(a.LastLoginAt.Int64)
 		v.LastLoginAt = &s
@@ -63,7 +70,7 @@ func adminRow(a db.Admin) adminRowView {
 }
 
 func (h *handlers) listAdmins(ctx context.Context, _ *struct{}) (*adminListOutput, error) {
-	if err := h.requireSuperadmin(ctx); err != nil {
+	if err := h.requirePermission(ctx, PermAdminsManage); err != nil {
 		return nil, err
 	}
 	rows, err := h.d.Store.Q.ListAdmins(ctx)
@@ -78,7 +85,17 @@ func (h *handlers) listAdmins(ctx context.Context, _ *struct{}) (*adminListOutpu
 }
 
 func (h *handlers) createAdmin(ctx context.Context, in *adminCreateInput) (*adminRowOutput, error) {
-	if err := h.requireSuperadmin(ctx); err != nil {
+	if err := h.requirePermission(ctx, PermAdminsManage); err != nil {
+		return nil, err
+	}
+	permissions := []string{}
+	if in.Body.Role == RoleCustom {
+		permissions = normalizePermissions(in.Body.Permissions)
+		if len(permissions) == 0 {
+			return nil, fieldErr("body.permissions", "permissions_required")
+		}
+	}
+	if err := h.checkAdminGrant(ctx, in.Body.Role, permissions); err != nil {
 		return nil, err
 	}
 	name := strings.TrimSpace(in.Body.Username)
@@ -89,16 +106,16 @@ func (h *handlers) createAdmin(ctx context.Context, in *adminCreateInput) (*admi
 	if err != nil {
 		return nil, huma.Error400BadRequest("bad_password")
 	}
-	a, err := h.d.Store.Q.CreateAdminWithRole(ctx, db.CreateAdminWithRoleParams{Username: name, PasswordHash: hash, Role: in.Body.Role, CreatedAt: h.d.Now().Unix()})
+	a, err := h.d.Store.Q.CreateAdminWithPermissions(ctx, db.CreateAdminWithPermissionsParams{Username: name, PasswordHash: hash, Role: in.Body.Role, Permissions: permissionsJSON(permissions), CreatedAt: h.d.Now().Unix()})
 	if err != nil {
 		return nil, huma.Error400BadRequest("admin_exists")
 	}
-	h.audit(ctx, sessionOf(ctx).AdminID, "admin.create", "admin", strconv.FormatInt(a.ID, 10), map[string]any{"username": a.Username, "role": a.Role})
+	h.audit(ctx, sessionOf(ctx).AdminID, "admin.create", "admin", strconv.FormatInt(a.ID, 10), map[string]any{"username": a.Username, "role": a.Role, "permissions": permissions})
 	return &adminRowOutput{Body: adminRow(a)}, nil
 }
 
 func (h *handlers) setAdminRole(ctx context.Context, in *adminRoleInput) (*adminRowOutput, error) {
-	if err := h.requireSuperadmin(ctx); err != nil {
+	if err := h.requirePermission(ctx, PermAdminsManage); err != nil {
 		return nil, err
 	}
 	cur, err := h.d.Store.Q.GetAdmin(ctx, in.ID)
@@ -106,6 +123,19 @@ func (h *handlers) setAdminRole(ctx context.Context, in *adminRoleInput) (*admin
 		return nil, huma.Error404NotFound("not_found")
 	}
 	if err != nil {
+		return nil, err
+	}
+	permissions := []string{}
+	if in.Body.Role == RoleCustom {
+		permissions = normalizePermissions(in.Body.Permissions)
+		if len(permissions) == 0 {
+			return nil, fieldErr("body.permissions", "permissions_required")
+		}
+	}
+	if err := h.checkAdminGrant(ctx, in.Body.Role, permissions); err != nil {
+		return nil, err
+	}
+	if err := h.checkAdminTarget(ctx, cur); err != nil {
 		return nil, err
 	}
 	if cur.Role == RoleSuperadmin && in.Body.Role != RoleSuperadmin {
@@ -117,7 +147,7 @@ func (h *handlers) setAdminRole(ctx context.Context, in *adminRoleInput) (*admin
 			return nil, huma.Error400BadRequest("last_superadmin")
 		}
 	}
-	if n, err := h.d.Store.Q.SetAdminRole(ctx, db.SetAdminRoleParams{Role: in.Body.Role, ID: in.ID}); err != nil || n != 1 {
+	if n, err := h.d.Store.Q.SetAdminRoleAndPermissions(ctx, db.SetAdminRoleAndPermissionsParams{Role: in.Body.Role, Permissions: permissionsJSON(permissions), ID: in.ID}); err != nil || n != 1 {
 		if err != nil {
 			return nil, err
 		}
@@ -127,12 +157,12 @@ func (h *handlers) setAdminRole(ctx context.Context, in *adminRoleInput) (*admin
 	if err != nil {
 		return nil, err
 	}
-	h.audit(ctx, sessionOf(ctx).AdminID, "admin.role", "admin", strconv.FormatInt(a.ID, 10), map[string]any{"role": a.Role})
+	h.audit(ctx, sessionOf(ctx).AdminID, "admin.role", "admin", strconv.FormatInt(a.ID, 10), map[string]any{"role": a.Role, "permissions": parsePermissions(a.Permissions)})
 	return &adminRowOutput{Body: adminRow(a)}, nil
 }
 
 func (h *handlers) deleteAdmin(ctx context.Context, in *userIDInput) (*struct{}, error) {
-	if err := h.requireSuperadmin(ctx); err != nil {
+	if err := h.requirePermission(ctx, PermAdminsManage); err != nil {
 		return nil, err
 	}
 	sess := sessionOf(ctx)
@@ -144,6 +174,9 @@ func (h *handlers) deleteAdmin(ctx context.Context, in *userIDInput) (*struct{},
 		return nil, huma.Error404NotFound("not_found")
 	}
 	if err != nil {
+		return nil, err
+	}
+	if err := h.checkAdminTarget(ctx, cur); err != nil {
 		return nil, err
 	}
 	if cur.Role == RoleSuperadmin {
@@ -164,6 +197,32 @@ func (h *handlers) deleteAdmin(ctx context.Context, in *userIDInput) (*struct{},
 	}
 	h.audit(ctx, sess.AdminID, "admin.delete", "admin", strconv.FormatInt(in.ID, 10), map[string]any{"username": cur.Username})
 	return &struct{}{}, nil
+}
+
+// checkAdminGrant stops a custom admin from creating a role or a permission set wider than
+// its own: admins.manage is not a way to become a superadmin.
+func (h *handlers) checkAdminGrant(ctx context.Context, role string, permissions []string) error {
+	actorRole, actorPerms := h.adminAccess(ctx, sessionOf(ctx).AdminID)
+	if actorRole == RoleSuperadmin || actorRole == "" {
+		return nil
+	}
+	if role != RoleCustom {
+		return huma.Error403Forbidden("role_forbidden")
+	}
+	for _, p := range permissions {
+		if !slices.Contains(actorPerms, p) {
+			return huma.Error403Forbidden("role_forbidden")
+		}
+	}
+	return nil
+}
+
+func (h *handlers) checkAdminTarget(ctx context.Context, target db.Admin) error {
+	actorRole, _ := h.adminAccess(ctx, sessionOf(ctx).AdminID)
+	if actorRole != RoleSuperadmin && actorRole != "" && target.Role == RoleSuperadmin {
+		return huma.Error403Forbidden("role_forbidden")
+	}
+	return nil
 }
 
 // timeText is a unix time as the row shows it.

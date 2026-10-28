@@ -55,6 +55,9 @@ ORDER BY id LIMIT sqlc.arg(lim)::INT;
 -- name: GetAddonCursor :one
 SELECT COALESCE((SELECT last_id FROM addon_cursors WHERE addon_id = $1), 0)::BIGINT AS last_id;
 
+-- name: MaxAddonEventID :one
+SELECT COALESCE(max(id), 0)::BIGINT AS max_id FROM addon_events;
+
 -- name: AckAddonEvents :exec
 INSERT INTO addon_cursors (addon_id, last_id, updated_at)
 VALUES ($1, LEAST(sqlc.arg(last_id)::BIGINT, (SELECT COALESCE(max(id), 0) FROM addon_events)), $2)

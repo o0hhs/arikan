@@ -89,9 +89,255 @@
     "hide": "Hide",
     "confirm": "Sure?"
   },
+  "analytics": {
+    "title": "Analytics",
+    "subtitle": "Money, customers and retention",
+    "range": "Period",
+    "ranges": {
+      "30d": "30 days",
+      "90d": "90 days",
+      "365d": "Year"
+    },
+    "kpi": {
+      "mrr": "MRR",
+      "mrrHint": "Recurring revenue per month",
+      "revenue": "Revenue for the period",
+      "revenueHint": "Applied payments in rubles",
+      "arpu": "ARPU",
+      "arpuHint": "MRR per active subscription",
+      "ltv": "LTV",
+      "ltvHint": "Average revenue per paying customer",
+      "trial": "Trial conversion",
+      "trialHint": "{converted} of {started}",
+      "churn": "Churn",
+      "churnHint": "{churned} of {expired} expired",
+      "stars": "Stars for the period",
+      "starsHint": "Separate from rubles",
+      "paying": "Paying",
+      "payingHint": "of {active} active",
+      "newUsers": "New: {n}"
+    },
+    "revenue": {
+      "title": "Revenue",
+      "sub": "By day, in rubles",
+      "rub": "Rubles",
+      "stars": "Stars",
+      "total": "Total",
+      "payments": "Payments: {n}",
+      "empty": "No payments in this period.",
+      "note": "Stars are shown separately and are not part of ruble revenue.",
+      "chartLabel": "Revenue by day from {from} to {to}"
+    },
+    "tariffs": {
+      "title": "Revenue by tariff",
+      "sub": "New subscriptions and renewals",
+      "name": "Tariff",
+      "payments": "Payments",
+      "rub": "Rubles",
+      "stars": "Stars",
+      "share": "Share",
+      "empty": "No tariff payments yet."
+    },
+    "providers": {
+      "title": "Payment methods",
+      "sub": "How customers pay",
+      "name": "Method",
+      "payments": "Payments",
+      "rub": "Rubles",
+      "stars": "Stars",
+      "share": "Share",
+      "empty": "No payments yet."
+    },
+    "trials": {
+      "title": "Trial",
+      "sub": "How many trials reached a payment",
+      "started": "Started",
+      "converted": "Paid",
+      "conversion": "Conversion",
+      "empty": "No trials in this period."
+    },
+    "churn": {
+      "title": "Churn",
+      "sub": "Expired subscriptions that did not renew",
+      "expired": "Expired",
+      "churned": "Churned",
+      "rate": "Churn",
+      "empty": "No subscriptions expired in this period."
+    },
+    "cohorts": {
+      "title": "Retention by cohort",
+      "sub": "Share of customers who paid in month N after signup",
+      "month": "Cohort",
+      "users": "Customers",
+      "empty": "No cohort data yet.",
+      "cell": "{paying} of {users} ({rate}%)"
+    },
+    "campaigns": {
+      "title": "Ad campaigns",
+      "sub": "What the links brought",
+      "name": "Campaign",
+      "bought": "Bought",
+      "renewed": "Renewed",
+      "rub": "Rubles",
+      "empty": "No campaigns with payments yet."
+    },
+    "note": "Ruble sums come from applied payments; Stars are not converted to rubles."
+  },
+  "noAccess": {
+    "title": "No sections open",
+    "sub": "This admin's permissions do not open any page",
+    "text": "Ask a superadmin to grant permissions in Settings → Security → Admins."
+  },
+  "automation": {
+    "title": "Automation",
+    "subtitle": "Event-driven rules: renewal, traffic, messages and promo codes",
+    "new": "New rule",
+    "edit": "Edit rule",
+    "saved": "Rule saved",
+    "removed": "Rule removed",
+    "rules": "Rules",
+    "rulesSub": "An event, conditions and actions. A rule runs once per event.",
+    "emptyTitle": "No rules yet",
+    "emptyText": "Create the first one: for example, remind a client three days before the subscription ends.",
+    "dryRun": "Dry run",
+    "cooldownShort": "cooldown {s} s",
+    "runsCount": "runs: {n}",
+    "lastRun": "last {ago}",
+    "toggle": "Enable or disable “{name}”",
+    "editLabel": "Edit “{name}”",
+    "removeLabel": "Remove “{name}”",
+    "removeTitle": "Remove “{name}”?",
+    "removeText": "The rule and its run journal are removed. Actions already performed stay.",
+    "journal": "Run journal",
+    "journalSub": "What the rules did, skipped or could not do",
+    "noRuns": "No runs yet.",
+    "run": {
+      "rule": "Rule",
+      "event": "Event",
+      "status": "Result",
+      "detail": "Details",
+      "at": "When",
+      "ok": "done",
+      "skipped": "skipped",
+      "failed": "failed"
+    },
+    "name": "Name",
+    "trigger": "Event",
+    "enabled": "Rule is on",
+    "enabledSub": "A disabled rule does not run but stays in the list",
+    "dryRunSub": "Check conditions and write to the journal without performing actions",
+    "cooldown": "Cooldown, seconds",
+    "cooldownHint": "How long not to repeat the rule for one client. 0 — no cooldown",
+    "conditions": "Conditions",
+    "conditionsSub": "An empty condition means “any”. Conditions are checked against the event's client.",
+    "daysMin": "Days left, minimum",
+    "daysMax": "Days left, maximum",
+    "trafficMin": "Traffic used, % minimum",
+    "trafficMax": "Traffic used, % maximum",
+    "tariffs": "Plan IDs",
+    "idsHint": "Comma-separated; empty — any",
+    "sources": "Sources",
+    "sourcesHint": "Comma-separated, e.g. bot, partner",
+    "states": "Client states",
+    "actionsTitle": "Actions",
+    "actionsSub": "Run in order. Text understands {name}, {id}, {days_left}, {tariff}, {event} and {code} (for an automatic discount).",
+    "addAction": "Add action",
+    "actionType": "Action type",
+    "removeAction": "Remove action",
+    "days": "Days",
+    "daysHint": "1 to 3650",
+    "gb": "Gigabytes",
+    "grantDays": "Grant term, days",
+    "promoCode": "Promo code",
+    "promoCodeHint": "A code that already exists in the promo codes section",
+    "percent": "Discount, %",
+    "percentHint": "From 1 to 100",
+    "discountDays": "Discount validity, days",
+    "discountDaysHint": "The code can be used once and stops working after this period",
+    "text": "Message text",
+    "textHint": "Messaging the client needs Telegram on the event; otherwise the action is reported as an error",
+    "formHint": "A rule cannot run commands or call arbitrary addresses.",
+    "triggers": {
+      "trial": "Trial started",
+      "created": "Client created",
+      "granted": "Client was given days or traffic",
+      "expiring": "Subscription is ending",
+      "expired": "Subscription ended",
+      "inactive": "Client has not connected for 7 days",
+      "traffic90": "90% of traffic used",
+      "traffic100": "Traffic exhausted",
+      "paid": "Payment received",
+      "paymentFailed": "Payment failed",
+      "refunded": "Payment refunded",
+      "trialNotGiven": "Paid trial was not given",
+      "deviceBound": "Device bound",
+      "deviceUnbound": "Device unbound",
+      "balanceTopup": "Balance top-up",
+      "discountEnding": "Sale is ending",
+      "nodeDown": "Node is down",
+      "nodeUp": "Node is back"
+    },
+    "actions": {
+      "notifyAdmin": "Message the admin",
+      "notifyUser": "Message the client",
+      "extend": "Extend the subscription",
+      "grant": "Grant traffic",
+      "promo": "Send a promo code",
+      "discount": "Create a personal discount"
+    }
+  },
+  "approvals": {
+    "title": "Approvals",
+    "subtitle": "Dangerous actions waiting for a second admin",
+    "filter": "Status",
+    "listTitle": "Requests",
+    "listSub": "Deletion, reissue, refund and database restore",
+    "emptyTitle": "No requests",
+    "emptyText": "Actions that needed confirmation will appear here.",
+    "approved": "Request approved",
+    "rejected": "Request rejected",
+    "executed": "Action performed",
+    "own": "own request",
+    "requestedBy": "requested by #{id}, {ago}",
+    "expires": "valid until {at}",
+    "decidedBy": "decided by #{id}",
+    "usedAt": "performed {at}",
+    "payload": "Request payload",
+    "approve": "Approve",
+    "reject": "Reject",
+    "execute": "Execute",
+    "note": "You cannot approve your own request. Client deletion, link reissue, payment refund and database restore wait for a second admin.",
+    "filters": {
+      "all": "All",
+      "pending": "Pending",
+      "approved": "Approved",
+      "executing": "Executing",
+      "rejected": "Rejected",
+      "used": "Used",
+      "expired": "Expired"
+    },
+    "status": {
+      "pending": "pending",
+      "approved": "approved",
+      "executing": "executing",
+      "rejected": "rejected",
+      "expired": "expired",
+      "used": "used"
+    },
+    "actions": {
+      "userDelete": "Client deletion",
+      "userReissue": "Link reissue",
+      "paymentRefund": "Payment refund",
+      "paymentRefundedByHand": "Manual refund",
+      "s3Restore": "Database restore from S3"
+    }
+  },
   "nav": {
     "outbounds": "Outbounds",
     "overview": "Overview",
+    "analytics": "Analytics",
+    "automation": "Automation",
+    "approvals": "Approvals",
     "users": "Clients",
     "tariffs": "Plans",
     "inbounds": "Protocols",
@@ -108,6 +354,9 @@
   "navShort": {
     "outbounds": "Outbounds",
     "overview": "Overview",
+    "analytics": "Analytics",
+    "automation": "Automation",
+    "approvals": "Approvals",
     "users": "Clients",
     "tariffs": "Plans",
     "inbounds": "Protocols",
@@ -746,7 +995,40 @@
       "admin_self": "You cannot remove yourself",
       "last_superadmin": "The last superadmin cannot be demoted or removed",
       "bad_username": "At least 3 characters",
-      "bad_password": "At least 8 characters"
+      "bad_password": "At least 8 characters",
+      "permissions_required": "Pick at least one permission",
+      "approval_required": "A second admin must approve this",
+      "self_approval": "You cannot approve your own request",
+      "approval_not_pending": "The request is already decided or expired",
+      "approval_not_approved": "The request is not approved yet",
+      "approval_expired": "The request has expired",
+      "approval_not_executing": "The request is no longer executing",
+      "approval_finish_failed": "The action ran, but the request status was not saved",
+      "bad_target": "The request target is invalid",
+      "bad_payload": "The request payload is not JSON",
+      "bad_action": "Unknown action",
+      "bad_name": "Give the rule a name",
+      "bad_trigger": "Unknown event",
+      "bad_conditions": "The conditions do not parse",
+      "bad_actions": "The actions do not parse",
+      "no_actions": "Add at least one action",
+      "no_code": "Enter a promo code",
+      "no_telegram": "The event has no client's Telegram account",
+      "s3_not_configured": "Fill in the S3 endpoint, bucket and keys first",
+      "s3_endpoint_required": "Enter the S3 endpoint",
+      "s3_bucket_required": "Enter the bucket",
+      "s3_access_key_required": "Enter the access key",
+      "s3_secret_key_required": "Enter the secret key",
+      "s3_object_required": "Choose an object to restore",
+      "restore_pending": "A restore is already prepared and waits for a restart",
+      "s3_forbidden": "The storage denied access: check the keys and bucket permissions",
+      "s3_not_found": "The object is not in the bucket",
+      "s3_error": "The S3 storage answered with an error",
+      "backup_timeout": "The S3 storage did not answer in time",
+      "restore_unpack_failed": "Could not unpack the archive",
+      "restore_check_failed": "The archive does not look like a panel database dump",
+      "restore_failed": "The restore failed",
+      "restart_failed": "The archive is ready, but the panel could not be asked to restart"
     },
     "acme": {
       "port80_busy": "Port 80 is held by another program, and the certificate authority checks the server through it. If it is nginx or Caddy, the command below lets the check through to mikan; otherwise free the port",
@@ -1051,6 +1333,9 @@
     "shownToast": "{name} is back in the list",
     "source": "From",
     "fallbackTitle": "Client",
+    "diagnose": "Check connection",
+    "diagnoseTitle": "Why it does not connect",
+    "diagnoseSub": "Term, traffic, devices, plan, protocols and nodes. The check changes nothing.",
     "created": "created {date}",
     "online": "online",
     "seen": "seen {ago}",
@@ -1498,7 +1783,7 @@
     "nodeEmptyText": "Add protocols: they appear in the subscription with the node's flag.",
     "newOn": "Node «{name}»",
     "autoInclude": "In auto",
-    "autoIncludeSub": "The protocol takes part in the “Auto” group and in the fastest-pick. Turn it off to keep it in the list and in its country's group while apps do not choose it by themselves.",
+    "autoIncludeSub": "The protocol takes part in the “Auto” group and in the fastest-pick. Turn it off to keep it in the list and its country's group while apps do not choose it themselves.",
     "auto": "Automatic fixes",
     "autoPort": "Move to another port when it is blocked",
     "autoPortSub": "If your provider starts blocking the port, the panel moves the connection to another one by itself. Same if another program takes the port.",
@@ -1742,6 +2027,61 @@
     "backupPreparing": "Preparing the archive…",
     "backupHint": "The file is a pg_dump archive (custom format). Restoring stops the panel; the installer says so.",
     "backupFailed": "Could not get the archive: {error}",
+    "s3": {
+      "title": "S3 backups",
+      "sub": "The same encrypted database archive, kept in your S3-compatible storage. Secrets are never shown back.",
+      "pending": "A restore is prepared: the database loads on the next panel start.",
+      "lastError": "The last backup failed: {error}",
+      "restoreError": "The last restore failed: {error}",
+      "enabled": "Backups are on",
+      "enabledSub": "Once a day at the chosen hour the archive goes to the bucket",
+      "endpoint": "Endpoint",
+      "endpointHint": "For example https://s3.example.com or https://storage.yandexcloud.net",
+      "region": "Region",
+      "regionHint": "Many storages accept an empty value",
+      "bucket": "Bucket",
+      "prefix": "Prefix",
+      "prefixHint": "A folder inside the bucket; empty — the root",
+      "accessKey": "Access key",
+      "secretKey": "Secret key",
+      "sessionToken": "Session token",
+      "sessionTokenHint": "For temporary keys; usually empty",
+      "password": "Archive password",
+      "passwordSaved": "The password is saved. Empty keeps the current one",
+      "passwordHint": "At least 20 characters. The same password unpacks the archive on restore",
+      "keepSecret": "Saved. Empty keeps the current one",
+      "hour": "Run hour (UTC)",
+      "hourHint": "When to make the daily archive",
+      "retention": "Keep, days",
+      "retentionHint": "0 — never delete old archives",
+      "pathStyle": "Path-style addressing",
+      "pathStyleSub": "For MinIO and some S3-compatible storages; usually off for AWS",
+      "run": "Back up now",
+      "status": "State: {state}",
+      "configured": "configured",
+      "notConfigured": "not configured",
+      "lastOk": "Last backup: {ago}, {size}",
+      "lastKey": "Object: {key}",
+      "restoreLastOk": "Last restore prepared: {ago}",
+      "restoreLastKey": "Restore from object: {key}",
+      "history": "History",
+      "restoreTitle": "Restore the database from S3?",
+      "restoreText": "The panel first makes a fresh pre-restore backup, downloads and checks {key}, then asks the server to restart. The current database will be replaced.",
+      "restore": "Restore",
+      "noHistory": "No backups yet.",
+      "object": "Object",
+      "kind": "Kind",
+      "size": "Size",
+      "when": "When",
+      "kinds": {
+        "scheduled": "scheduled",
+        "manual": "manual",
+        "pre_restore": "pre-restore"
+      },
+      "saved": "S3 settings saved",
+      "started": "Backup started",
+      "restoreStarted": "Restore prepared; the panel will restart"
+    },
     "themesAll": "All themes · {n}",
     "themesLess": "Show fewer",
     "saved": "Settings saved",
@@ -1871,9 +2211,9 @@
     "autoSub": "The panel fixes protocols that stopped working on its own",
     "webhooks": {
       "title": "Webhooks to your site",
-      "sub": "When a client buys or renews a subscription, the panel POSTs to your site: the subscription shows up in the site's account right away. Delivery runs in the background and is retried when the site does not answer.",
+      "sub": "The panel POSTs to your site about purchases and renewals, payments, traffic, devices and nodes. Delivery runs in the background and is retried when the site does not answer.",
       "url": "Site URL",
-      "urlHint": "HTTPS only. The panel sends a JSON body to this address after every subscription payment.",
+      "urlHint": "HTTPS only. The panel sends a JSON body to this address after panel events.",
       "secret": "Secret key",
       "secretSaved": "The key is saved. Leave the field empty to keep it.",
       "secretHint": "8 characters or more: every request is signed with it (HMAC-SHA256), so the site can tell the panel sent it.",
@@ -1885,7 +2225,7 @@
       "testFail": "The site did not take it: {error} (status {status}).",
       "how": "What exactly arrives",
       "howSub": "The headers, the signature and the JSON fields",
-      "howBody": "The subscription.paid event comes with every purchase and renewal. The signature is HMAC-SHA256 of “timestamp.body” with your secret; compare it on the site and refuse the request when it does not match.",
+      "howBody": "The subscription.paid event comes with every purchase and renewal, with the subscription and payment details. Other events — user.created, payment.failed, payment.refunded, traffic.100, device.bound, node.down and more — arrive in a common envelope with event, at, id, user_id, telegram_id and data. The signature is HMAC-SHA256 of “timestamp.body” with your secret; compare it on the site and refuse the request when it does not match.",
       "howCheck": "X-Arikan-Delivery is the delivery number: retries repeat it. The panel retries with a growing pause and keeps the delivery history for 7 days. Answer 2xx, or the panel tries again."
     },
     "autoPort": "Move to another port when it is blocked",
@@ -4508,6 +4848,10 @@
     "rekey": "Reissue key",
     "updateNode": "Update node",
     "editHost": "Change address",
+    "enableUser": "Enable client",
+    "extendUser": "Extend",
+    "resetTraffic": "Reset traffic",
+    "reissueUser": "Reissue link",
     "lastSeen": "Last seen {ago}",
     "neverSeen": "Not seen since the panel started",
     "lostAgo": "Lost {ago}",
@@ -4549,7 +4893,17 @@
       "clock": "Clock",
       "disk": "Disk",
       "memory": "Memory",
-      "updates": "Updates"
+      "updates": "Updates",
+      "user": "Client state",
+      "subscription": "Subscription link",
+      "link": "Link availability",
+      "expiry": "Term",
+      "traffic": "Traffic",
+      "devices": "Devices",
+      "tariff": "Plan",
+      "inbounds": "Protocols",
+      "node": "Node",
+      "activity": "Last activity"
     },
     "code": {
       "timeout": "Port {port} does not answer: packets get lost on the way. Usually the hoster's firewall or ufw closes it, or the server is off",
@@ -4693,6 +5047,62 @@
         "ok": "{version}, the latest",
         "available": "{version} is out",
         "check_failed": "Could not check for updates"
+      },
+      "user": {
+        "ok": "The client is active",
+        "disabled": "The client is disabled: connections are closed",
+        "expired": "The subscription has expired",
+        "traffic_exhausted": "Traffic is exhausted",
+        "expiring": "The subscription is ending soon"
+      },
+      "subscription": {
+        "ok": "The subscription token and slot are present",
+        "no_token": "The subscription link has no token",
+        "no_slot": "No subscription slot is assigned to the client"
+      },
+      "link": {
+        "ok": "The panel opened the link and received the subscription",
+        "no_link": "The panel has no subscription address: there is nowhere to open the link",
+        "no_token": "The subscription link has no token",
+        "link_bad": "Could not build the link address",
+        "link_unreachable": "The panel could not open the link: check the subscription address and certificate",
+        "link_status": "The link answered with error {status}",
+        "link_empty": "The link answered with an empty response"
+      },
+      "expiry": {
+        "ok": "Valid until {expires_at}, {days_left} days left",
+        "expired": "Expired on {expires_at}",
+        "expiring": "Ends on {expires_at}, {days_left} days left"
+      },
+      "traffic": {
+        "ok": "{used} of {limit} used, {grants_left} left with grants",
+        "traffic_exhausted": "The limit and grants are used up",
+        "base_exhausted": "The base limit is used up; grants are working"
+      },
+      "devices": {
+        "ok": "Bound devices: {bound}, mode: {mode}",
+        "device_limit": "All device places are taken: {bound} of {limit}"
+      },
+      "tariff": {
+        "ok": "Plan “{name}”",
+        "tariff_missing": "The client's plan was deleted",
+        "tariff_archived": "Plan “{name}” is archived"
+      },
+      "inbounds": {
+        "ok": "Protocols available: {usable}",
+        "no_inbounds": "No enabled protocol is available to the client",
+        "some_disabled": "Some protocols are off: {usable} available, {disabled} disabled"
+      },
+      "node": {
+        "ok": "Node {node_id} is fine",
+        "no_health": "Node {node_id} has not reported its state yet",
+        "node_down": "Node {node_id} is down",
+        "listener_down": "Node {node_id} is up, but {listeners_bad} protocol(s) did not start"
+      },
+      "activity": {
+        "ok": "Last activity: {online_at}",
+        "stale": "Not connected since {online_at}",
+        "never_online": "Never connected yet"
       }
     },
     "fix": {
@@ -4709,7 +5119,13 @@
       "free_disk": "Free some disk space:",
       "check_outbound": "The server cannot reach the internet, or its DNS does not work. The full check on the server:",
       "restart_panel": "See what is wrong with mikan on the panel's server and restart it:",
-      "exit_node": "Open the exit node's card and check it."
+      "exit_node": "Open the exit node's card and check it.",
+      "enable_user": "Enable the client: its connections are closed now.",
+      "extend_user": "Extend the client's subscription.",
+      "reset_traffic": "Reset the used traffic or grant more.",
+      "reissue_user": "Reissue the subscription link: the old keys stop working.",
+      "set_tariff": "Move the client to an existing plan.",
+      "enable_inbound": "Enable at least one protocol available to the client in the Protocols section."
     },
     "russia": {
       "button": "Check from Russia",
@@ -5609,7 +6025,58 @@
     "roles": {
       "superadmin": "Superadmin",
       "support": "Support",
-      "tech": "Tech"
+      "tech": "Tech",
+      "custom": "Custom permissions"
+    },
+    "permissionsTitle": "Permissions",
+    "permissionGroups": {
+      "users": "Clients",
+      "billing": "Money and plans",
+      "nodes": "Nodes and protocols",
+      "settings": "Settings",
+      "automation": "Automation",
+      "backups": "Backups",
+      "approvals": "Approvals",
+      "other": "Other"
+    },
+    "permissions": {
+      "users": {
+        "read": "View clients",
+        "write": "Change clients"
+      },
+      "billing": {
+        "read": "View payments and plans",
+        "write": "Change payments and plans"
+      },
+      "nodes": {
+        "read": "View nodes and protocols",
+        "write": "Change nodes and protocols"
+      },
+      "settings": {
+        "read": "View settings",
+        "write": "Change settings"
+      },
+      "automation": {
+        "read": "View rules",
+        "write": "Change rules"
+      },
+      "backups": {
+        "read": "View backups",
+        "write": "Make and restore backups"
+      },
+      "approvals": {
+        "read": "View approvals",
+        "decide": "Approve and reject"
+      },
+      "admins": {
+        "manage": "Manage admins"
+      },
+      "audit": {
+        "read": "View the log"
+      },
+      "support": {
+        "card": "Support client card"
+      }
     }
   }
 }

@@ -612,6 +612,9 @@ func (h *handlers) updateUser(ctx context.Context, in *patchUserInput) (*userOut
 }
 
 func (h *handlers) deleteUser(ctx context.Context, in *userIDInput) (*struct{}, error) {
+	if err := h.requireApproval(ctx, "user.delete", "user", strconv.FormatInt(in.ID, 10), approvalSummary("user.delete", "user", strconv.FormatInt(in.ID, 10)), nil); err != nil {
+		return nil, err
+	}
 	if err := h.d.Users.Delete(ctx, in.ID); err != nil {
 		return nil, mapDomainErr(err)
 	}
@@ -808,6 +811,9 @@ func (h *handlers) resetUserTraffic(ctx context.Context, in *userIDInput) (*user
 }
 
 func (h *handlers) reissueUser(ctx context.Context, in *userIDInput) (*userOutput, error) {
+	if err := h.requireApproval(ctx, "user.reissue", "user", strconv.FormatInt(in.ID, 10), approvalSummary("user.reissue", "user", strconv.FormatInt(in.ID, 10)), nil); err != nil {
+		return nil, err
+	}
 	u, err := h.d.Users.Reissue(ctx, in.ID)
 	if err == nil {
 		h.audit(ctx, sessionOf(ctx).AdminID, "user.reissue", "user", strconv.FormatInt(in.ID, 10), nil)

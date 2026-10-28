@@ -72,8 +72,9 @@ SELECT * FROM payments WHERE status = 'paid' ORDER BY id;
 -- name: CountRecentInvoices :one
 SELECT count(*) FROM payments WHERE tg_id = $1 AND status IN ('pending', 'paid') AND created_at > $2;
 
--- name: ExpirePayments :execrows
-UPDATE payments SET status = 'expired' WHERE status = 'pending' AND created_at < $1;
+-- name: ExpirePayments :many
+-- The rows are returned so the feed can tell about each one in the same transaction.
+UPDATE payments SET status = 'expired' WHERE status = 'pending' AND created_at < $1 RETURNING *;
 
 -- name: ListPayments :many
 SELECT sqlc.embed(payments), CAST(COALESCE(users.name, '') AS TEXT) AS user_name, CAST(COALESCE(tg_chats.username, '') AS TEXT) AS tg_username

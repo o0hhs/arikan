@@ -57,6 +57,8 @@ var botRPC = map[string]rpcRule{
 	"AdminSetRole":        rule("users:write", []int{2}, nil),
 	"AdminDelRole":        rule("users:write", []int{1}, nil),
 	"AdminList":           rule("users:read", []int{0}, nil),
+	"AdminPayments":       rule("users:read", []int{0}, nil),
+	"Admins":              rule("", nil, nil),
 	// Accounts and their subscriptions.
 	"Context":       rule("users:read", []int{0}, nil),
 	"Chat":          rule("users:read", []int{0}, nil),

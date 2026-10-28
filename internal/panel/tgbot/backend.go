@@ -103,6 +103,12 @@ type Backend interface {
 	AdminSetRole(ctx context.Context, tgID int64, role string, by int64) error
 	AdminDelRole(ctx context.Context, tgID, by int64) error
 	AdminList(ctx context.Context, by int64) ([]AdminUser, error)
+	// Admins are the accounts that may run the bot's admin side — the owner and the named
+	// superadmins — as their Telegram ids, for notices the bot sends them itself.
+	Admins(ctx context.Context) ([]int64, error)
+	// AdminPayments is the recent payments as a superadmin reads them: before is the last
+	// id seen (0 from the newest), at most limit.
+	AdminPayments(ctx context.Context, by, before, limit int64) ([]PaymentRow, error)
 
 	// BotUsername is the bot's own @name, for the invite links; "" while it is unknown.
 	BotUsername(ctx context.Context) string
@@ -141,6 +147,22 @@ type AdminUser struct {
 	TgID     int64
 	Username string
 	Role     string
+}
+
+// PaymentRow is one payment as the bot's admin side reads it: what was sold, for how much,
+// by which method, and who bought it.
+type PaymentRow struct {
+	ID         int64
+	Kind       string
+	Provider   string
+	Amount     int64
+	Currency   string
+	TariffName string
+	TermDays   int64
+	Status     string
+	PaidAt     int64
+	UserName    string
+	TgUsername  string
 }
 
 // MTLink is one MTProto proxy as the bot's buttons take it.

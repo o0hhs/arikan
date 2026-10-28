@@ -56,7 +56,8 @@ export function createAppRouter(queryClient: QueryClient) {
         // The role's own pages: support keeps the client card alone, tech the nodes, the
         // protocols and the log; anything else lands where the role may be.
         const role = me.admin.role;
-        if (!roleAllows(role, location.pathname)) throw redirect({ to: roleHome(role) });
+        const permissions = me.admin.permissions;
+        if (!roleAllows(role, permissions, location.pathname)) throw redirect({ to: roleHome(role, permissions) });
       } catch (e) {
         if (e instanceof ApiError && e.status === 401) {
           throw redirect({ to: "/login", search: { next: location.href } });
@@ -79,6 +80,10 @@ export function createAppRouter(queryClient: QueryClient) {
   });
 
   const dashboard = createRoute({ getParentRoute: () => app, path: "/", component: page(() => import("./pages/dashboard"), "Dashboard") });
+  const analytics = createRoute({ getParentRoute: () => app, path: "/analytics", component: page(() => import("./pages/analytics"), "AnalyticsPage") });
+  const automation = createRoute({ getParentRoute: () => app, path: "/automation", component: page(() => import("./pages/automation"), "AutomationPage") });
+  const approvals = createRoute({ getParentRoute: () => app, path: "/approvals", component: page(() => import("./pages/approvals"), "ApprovalsPage") });
+  const noAccess = createRoute({ getParentRoute: () => app, path: "/no-access", component: page(() => import("./pages/no-access"), "NoAccessPage") });
   const users = createRoute({
     getParentRoute: () => app,
     path: "/users",
@@ -217,7 +222,7 @@ export function createAppRouter(queryClient: QueryClient) {
   // The API section lived in the sidebar until 0.4.2: old links land on its new place.
   const apiDocsOld = createRoute({ getParentRoute: () => app, path: "/api-docs", beforeLoad: () => { throw redirect({ to: "/settings/api" }); } });
 
-  const routeTree = root.addChildren([login, supportEnter, app.addChildren([dashboard, users, tariffs, inbounds, nodes, outbounds, diagnostics, promocodes, payments, addons, client, audit, telegram, torrent, filters, market, addonApp, telegramOld, apiDocs, apiDocsOld, settings])]);
+  const routeTree = root.addChildren([login, supportEnter, app.addChildren([dashboard, analytics, automation, approvals, noAccess, users, tariffs, inbounds, nodes, outbounds, diagnostics, promocodes, payments, addons, client, audit, telegram, torrent, filters, market, addonApp, telegramOld, apiDocs, apiDocsOld, settings])]);
   return createRouter({
     routeTree,
     basepath: basePath || "/",

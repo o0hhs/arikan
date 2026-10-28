@@ -13,7 +13,7 @@
 
 **English** · [Русский](README.ru.md) · [简体中文](README.zh-CN.md) · [فارسی](README.fa.md) · [Türkçe](README.tr.md) · [Español](README.es.md)
 
-<sub>A fork of [mikan](https://github.com/Miroshka000/mikan): everything upstream has, plus a built-in referral programme, ad campaign tags, a subscription domain and a few other things of its own. This fork releases on its own, signed with its own key.</sub>
+<sub>A fork of [mikan](https://github.com/Miroshka000/mikan): everything upstream has, plus a referral programme, ad agents, tariffs and a bot of its own, CDN presets, node diagnostics and much more — see [What this fork adds](#what-this-fork-adds). This fork releases on its own, signed with its own key.</sub>
 
 </div>
 
@@ -88,16 +88,56 @@ curl -fsSL https://raw.githubusercontent.com/o0hhs/arikan/main/scripts/install-f
 
 ## What this fork adds
 
-The official mikan lives at [Miroshka000/mikan](https://github.com/Miroshka000/mikan). This repository is a fork: the upstream panel with everything it does, plus a few things of its own. Upstream is followed closely — its releases are carried over here, so the upstream fixes and features appear here too (0.5.1.0 is in).
+The official mikan lives at [Miroshka000/mikan](https://github.com/Miroshka000/mikan). This repository is a fork: the upstream panel with everything it does, plus the additions below. Upstream is followed closely — its releases are carried over here, so the upstream fixes and features appear here too (0.5.2.0 is in). What upstream has is left as it is; the fork only adds to it.
 
-The fork's own additions:
+### Money, sales and subscribers
 
-- **Referral programme** (Payments → Referrals): invites by a bot link, a referrer's internal balance, reward rules per plan. More below.
-- **Ad campaign tags** (Payments → Campaigns): a tagged link per ad and the counters behind it. More below.
-- **Subscription domain** (Settings → Subscription): subscription links on a domain or subdomain of their own, apart from the panel's address. The panel's TLS certificate is issued with that name in it, or you can serve the domain through your own proxy or CDN — it does not even have to point at the server. Moving the panel no longer breaks the links: only the DNS follows.
-- **Protocol copies** (Protocols → a protocol → Copy): raise the same protocol — the same keys, passwords and camouflage — on another port of the node or on another node, changing only the port and, for REALITY, the camouflage site.
+- **Referral programme** (Payments → Referrals): invites by a bot link, a referrer's internal balance, reward rules per plan. A reward is a run of ten days of the tariff the referee bought — the dearest payment first, never a cheaper tariff downgrading a dearer one — and Stars earn at the programme's `stars_rate`. More below.
+- **Ad campaigns and agents** (Payments → Advertising): a tagged link per ad with the counters behind it, and an agent — a login and password of their own — earns a percent you set (1–100, snapshotted per payment) of the sales of the campaigns pinned to them. Agents see their own panel under a secret path of its own; payouts are a written record: a mistake is fixed by another record, never deleted. More below.
+- **Access codes** (Payments → Promo codes): a code can open a tariff the shop hides — bought at its price, or given for free, as the code says.
+- **A tariff of one's own**: the buyer assembles a plan — the term, the traffic, the devices — and the panel prices it from the tariff's base and the coefficients the admin set (Payments → Tariffs → the constructor card).
+- **Device packs**: extra places are sold as packs (+2, +7), priced by the term; while a pack is on sale, the single-device purchase is not offered and not invoiced.
+- **Partners** (Payments → Partners): the franchise's ground — a partner's sign-up code (`/start partner_<code>`), a commission percent and a balance with a ledger; every paid ruble order of a subscriber who came with the code credits the share, and a refund takes it back.
+- **Plans deleted for good**: «Удалить навсегда» beside archiving; payments keep the plan's name, and a plan subscriptions are on is refused with the reason.
+- **The admin hears of every payment**: a successful payment tells the bot's admins in their own chats — and the panel's alerts chat when one is connected — who bought, what, for how much, by which method and for how long.
+- **Business analytics** (Analytics): revenue in rubles and Stars, MRR/ARR, ARPU/ARPPU/LTV, trial conversion, churn, retention cohorts, and revenue by plan, payment method and ad campaign for 30, 90 or 365 days.
+- **Automation scenarios** (Automation): event → conditions → actions rules for every panel event, with a per-client cooldown, dry runs and a journal. Actions message an admin or client, extend a subscription, grant traffic, send an existing promo code, or create and send a one-use personal discount.
+- **Webhooks to your site** (Settings → System): the panel sends signed events to your URL — `subscription.paid` with the subscription and payment, and the rest of the feed in a common envelope, including `payment.failed`. Delivery is retried with backoff, with a test button and a 7-day history.
+
+### The bot
+
+- **The bot ships with the panel**: the fork's own bot addon (`arikan-telegram`) is built into the image as a built-in source, signed with the release key the panel trusts anyway; the panel installs it and hands the bot over by itself, taking it over from the marketplace's bot where it set that one.
+- **Colored buttons, premium emoji, per-button labels** (Telegram → Menu and texts): every built-in button takes Telegram's color (plain, blue, green, red), a premium emoji id, and an emoji or a label of its own.
+- **The bot the buyer understands**: four buttons in the main menu; connecting hands the subscription to the app first — the one-tap import (`happ://`, `incy://`, `kabosu://` deeplinks) is the primary button and installing the apps is a screen of its own; the whole connect screen is the admin's (Telegram → Menu and texts → Connect screen).
+- **/admin in the bot**, with roles: superadmin, support (finds a subscription by id/@username/payment and gives days, resets sessions, blocks), tech; sleeping trials go out as one mailing.
+- **Promo codes are entered in the chat**; a term is measured in months; one way to sell device places; the community addon `mikan-subs-bot` works here.
+
+### The panel
+
+- **Material 3 Expressive**: the admin panel and the subscription page (the Mini App) are rebuilt on the new design language — color roles, shape, type and motion — and the picker gained twelve more themes (six light/dark pairs built with Google's tonal-palette algorithm) and Roboto Flex.
+- **Performance mode**: the interface drops animations and the glass blur for a flat, instant look, and background polling slows — the browser's own choice.
+- **The dashboard as the admin sets it up**: every card has its own switch; the date is written compact, with the time, or large with ticking seconds, in the reader's own zone.
+- **A public monitoring page** (Settings → Security): an address of its own behind a password of its own (only its hash is stored), service-wide and never a subscriber; each block has its own switch, the sensitive ones are off until turned on.
+- **Where clients go**: the panel sums each subscription's traffic by site and keeps it by day; a site is blocked from the client's card, and one button clears everything collected. It lives in Settings → Routing, beside the DNS.
+- **The node's disk in the panel**: what the data directory takes, how much junk piled up, and a one-button clean; the updater prunes old release images itself after every successful update.
+- **Permissions and approvals** (Settings → Admins, Approvals): custom roles with a set of permissions; client deletion, link reissue, refunds and database restore wait for a second admin. An approved action is claimed as «executing», so two admins cannot run it twice, and a failure returns it to «approved» for a safe retry.
+- **S3 backups and restore from the panel** (Settings → System): an encrypted dump on a schedule to an S3-compatible bucket, retention, history, a manual run, and restore with a fresh pre-restore backup and a second admin's approval.
+- **Client diagnosis** (a client's card → «Check connection»): term, traffic, devices, plan, available protocols, nodes and the subscription link itself — with the reason and a fix button. The check only reads and changes nothing.
+- **The client's card tells more**: «Ноды и протоколы» names the node behind each protocol with the usage of the last hour; the card is as wide as the users list, sorts, and carries an «Open in Telegram» button.
+
+### Nodes, network and blocking
+
+- **CDN presets**: VLESS · TLS · XHTTP · CDN (the `stream-one` mode, with the client address in Behind a proxy) and the **GET-uplink** variant for the CDNs that refuse POST — Yandex included — which rides a small fork of the mihomo core. `scripts/cdn-check.sh` checks the chain layer by layer.
 - **VK TURN** (a node card → ⋯ → VK TURN): where a whitelist lets only calls through, the node carries one of its protocols over the TURN servers of VK calls; in the subscription it appears once more — an ordinary-looking server at the client's own address.
-- **Finishing a panel move**: after a restore on a new server, `arikan admin migrate` sets the new address, keeps the subscription links and checks the nodes — they accept the moved panel without re-joining.
+- **Protocol copies** (Protocols → a protocol → Copy): raise the same protocol — the same keys, passwords and camouflage — on another port of the node or on another node, changing only the port and, for REALITY, the camouflage site.
+- **Closed protocols per tariff**: an inbound switched off in the tariff stays out of every that-tariff client's subscription — off the nodes, so the app does not even try it — and the client's own per-user switches cannot open it.
+- **Load balancing**: the subscription's auto group gained a third mode that spreads clients over the servers while keeping a destination on one server, so a session keeps its exit address.
+- **The node says what is wrong**: its own internet check (egress) and uptime on the card, failed listeners with the reason and the busy-port hint, health transitions in the panel's log, and canceled requests logged quietly.
+- **Emergency node and MTProto**: an expired subscription keeps the emergency node's servers alone — speed-capped, so Telegram stays reachable — and MTProto proxies for Telegram itself are one setting.
+- **Anti-RKN hardening**: the node's API answers the panel alone (and `arikan doctor` says when it does not), port 80 answers 301, the node serves its own HTTPS page (also a REALITY camouflage target), and the docs have a hardening page.
+- **Exit DNS on the node** for every client — domain rules and routing presets (Gemini among them) work for Xray-family apps too; a way out can be a share link; and a check shows where an exit really is by geobase.
+- **Who goes through a node**: per-node clients with their traffic and last seen, and per-user nodes.
+- **Finishing a panel move**: after a restore on a new server, `arikan admin migrate` sets the new address, keeps the subscription links and checks the nodes — they accept the moved panel without re-joining. The panel also hands out its own backup (Settings → System): the database dump downloads right from the panel.
 - **An update channel of its own**: the image is `ghcr.io/o0hhs/arikan`, releases live on this page, the manifest is signed with the fork's key, and `arikan update` and the **Update** button fetch from here, not from upstream. Docs: [o0hhs.github.io/arikan](https://o0hhs.github.io/arikan).
 
 How upstream feels about builds from other sources is said plainly in [Forks and third-party builds](#-forks-and-third-party-builds): check what you run, and run what you can read.
@@ -201,6 +241,8 @@ Seventeen protocols, each a preset with keys generated for you. The subscription
 | VLESS PQ (post-quantum encryption) | ✅ | ✅ | — |
 | Trojan · REALITY | ✅ | ✅ | ✅ |
 | VLESS · TLS · XHTTP | ✅ | ✅ | — |
+| VLESS · TLS · XHTTP · CDN | ✅ | ✅ | — |
+| VLESS · TLS · XHTTP · CDN · GET uplink ² | ✅ | ✅ | — |
 | VLESS · TLS · Vision | ✅ | ✅ | ✅ |
 | Hysteria2 | ✅ | ✅ | ✅ |
 | TUIC v5 | ✅ | — | ✅ |
@@ -213,7 +255,8 @@ Seventeen protocols, each a preset with keys generated for you. The subscription
 | Snell ¹ | ✅ | — | — |
 | VMess (custom config) | ✅ | ✅ | ✅ |
 
-<sub>¹ One key for all users in mihomo: no per-user accounting or limits on these. Newer protocols are sent to Clash apps only when their core is new enough.</sub>
+<sub>¹ One key for all users in mihomo: no per-user accounting or limits on these. Newer protocols are sent to Clash apps only when their core is new enough.
+² The CDN presets are the fork's own, for operators where only a CDN's address is whitelisted: the client dials the CDN, the CDN's network reaches the node's origin over a separate connection. The GET uplink variant is for the CDNs that refuse POST (Yandex included): mihomo apps need 1.19.32+, the Xray family 26.3.27+.</sub>
 
 ## How it works
 

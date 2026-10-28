@@ -6,6 +6,7 @@ import (
 
 	"mikan/internal/panel/domain"
 	"mikan/internal/panel/settings"
+	"mikan/internal/panel/store/db"
 )
 
 // What only grows is cut here, every ten minutes with the rest of the housekeeping. The
@@ -16,6 +17,9 @@ const (
 	trafficDailyKeep = 400 * 24 * time.Hour
 	// auditKeep is how long the admin's journal reaches back.
 	auditKeep = 180 * 24 * time.Hour
+	// approvalExecutingLease is how long an action may stay claimed before housekeeping
+	// assumes the panel that ran it has stopped and returns it to approved.
+	approvalExecutingLease = 5 * time.Minute
 )
 
 // maintain forgets what is too old to matter: daily traffic, the audit journal and devices
@@ -33,6 +37,14 @@ func (p *Panel) maintain(ctx context.Context) {
 	}
 	if _, err := p.st.Q.PruneAudit(ctx, now.Add(-auditKeep).Unix()); err != nil {
 		p.log.Error("prune audit log", "err", err)
+	}
+	if _, err := p.st.Q.RecoverStaleExecutingApprovals(ctx, db.RecoverStaleExecutingApprovalsParams{
+		Now: now.Unix(), StaleBefore: now.Add(-approvalExecutingLease).Unix(),
+	}); err != nil {
+		p.log.Error("recover stale approvals", "err", err)
+	}
+	if _, err := p.st.Q.ExpireApprovals(ctx, now.Unix()); err != nil {
+		p.log.Error("expire approvals", "err", err)
 	}
 	if n, err := p.devices.ForgetIdle(ctx); err != nil {
 		p.log.Error("forget idle devices", "err", err)

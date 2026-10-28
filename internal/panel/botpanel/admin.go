@@ -184,6 +184,64 @@ func (l *Local) AdminDelRole(ctx context.Context, tgID, by int64) error {
 	return err
 }
 
+// Admins is every account that may run the bot's admin side: the owner and the named
+// superadmins. Not gated: the bot asks for who to tell itself.
+func (l *Local) Admins(ctx context.Context) ([]int64, error) {
+	owner, _, err := settings.Get[int64](ctx, l.Settings, KeyAdminOwner)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := l.Store.Q.ListAdminUsers(ctx)
+	if err != nil {
+		return nil, err
+	}
+	seen := map[int64]bool{}
+	add := func(id int64) {
+		if id != 0 && !seen[id] {
+			seen[id] = true
+		}
+	}
+	add(owner)
+	for _, r := range rows {
+		if r.Role == "superadmin" {
+			add(r.TgID)
+		}
+	}
+	out := make([]int64, 0, len(seen))
+	for id := range seen {
+		out = append(out, id)
+	}
+	return out, nil
+}
+
+// AdminPayments is the recent payments as a superadmin reads them: the Payments page of
+// the panel, in the bot. before is the last id seen (0 from the newest).
+func (l *Local) AdminPayments(ctx context.Context, by, before, limit int64) ([]tgbot.PaymentRow, error) {
+	if l.adminRank(ctx, by) < 2 {
+		return nil, errNoAdmin
+	}
+	if before == 0 {
+		before = 1 << 62
+	}
+	if limit <= 0 || limit > 50 {
+		limit = 20
+	}
+	rows, err := l.Store.Q.ListPayments(ctx, db.ListPaymentsParams{BeforeID: before, Lim: limit})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]tgbot.PaymentRow, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, tgbot.PaymentRow{
+			ID: r.Payment.ID, Kind: r.Payment.Kind, Provider: r.Payment.Provider,
+			Amount: r.Payment.Amount, Currency: r.Payment.Currency, TariffName: r.Payment.TariffName,
+			TermDays: r.Payment.TermDays.Int64, Status: r.Payment.Status, PaidAt: r.Payment.PaidAt.Int64,
+			UserName: r.UserName, TgUsername: r.TgUsername,
+		})
+	}
+	return out, nil
+}
+
 // AdminList is the bot's admin side as the superadmin sees it.
 func (l *Local) AdminList(ctx context.Context, by int64) ([]tgbot.AdminUser, error) {
 	if l.adminRank(ctx, by) < 2 {

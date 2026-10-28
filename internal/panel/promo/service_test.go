@@ -80,6 +80,15 @@ func TestNormalize(t *testing.T) {
 		t.Fatalf("got %q", got)
 	}
 }
+
+func TestCreatePersonalDiscountRejectsInvalidWindow(t *testing.T) {
+	s := &Service{}
+	for _, tc := range []struct{ percent, days int64 }{{0, 1}, {101, 1}, {10, 0}, {10, 3651}} {
+		if _, err := s.CreatePersonalDiscount(context.Background(), tc.percent, tc.days, "test"); !errors.Is(err, ErrInvalidValue) {
+			t.Errorf("percent=%d days=%d: err = %v, want %v", tc.percent, tc.days, err, ErrInvalidValue)
+		}
+	}
+}
 func TestReserveDiscountAndLimit(t *testing.T) {
 	st := newTestStore(t)
 	defer st.Close()

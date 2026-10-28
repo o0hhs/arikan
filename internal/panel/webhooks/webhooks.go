@@ -1,6 +1,7 @@
-// Package webhooks tells the admin's own site about sold and renewed subscriptions: a
-// delivery is queued in the payment's transaction and sent by the worker, signed with the
-// admin's secret. A site that is down is retried; a purchase never waits for it.
+// Package webhooks tells the admin's own site about the panel's events: a subscription
+// sale is queued in the payment's transaction, the rest of the feed is queued by the
+// worker, and every delivery is signed with the admin's secret. A site that is down is
+// retried; a purchase never waits for it.
 package webhooks
 
 import (
@@ -21,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"mikan/internal/panel/events"
 	"mikan/internal/panel/settings"
 	"mikan/internal/panel/store"
 	"mikan/internal/panel/store/db"
@@ -41,6 +43,10 @@ const (
 	// every few hours, and the row is pruned with the retention.
 	maxAttempts = 10
 	dueBatch    = 50
+	eventBatch  = 200
+	// feedCursor is the addon cursor the worker uses for the panel's own feed. It is not
+	// an addon: the name only keeps the cursor in the same table as the addons' cursors.
+	feedCursor = "webhooks"
 )
 
 // Payload is what the site gets, as it is: the subscription's id and the key its apps use
@@ -51,6 +57,17 @@ type Payload struct {
 	Subscription SubscriptionInfo `json:"subscription"`
 	Payment      PaymentInfo      `json:"payment"`
 	TelegramID   int64            `json:"telegram_id,omitempty"`
+}
+
+// EventPayload is every feed event except a subscription sale, which keeps the richer
+// Payload above. Data is the event's own JSON, as the addon protocol defines it.
+type EventPayload struct {
+	Event      string          `json:"event"`
+	At         time.Time       `json:"at"`
+	ID         int64           `json:"id"`
+	UserID     int64           `json:"user_id,omitempty"`
+	TelegramID int64           `json:"telegram_id,omitempty"`
+	Data       json.RawMessage `json:"data"`
 }
 
 // SubscriptionInfo is the subscription as the payment left it.
@@ -191,6 +208,9 @@ func (s *Service) Run(ctx context.Context) {
 	defer t.Stop()
 	pruned := time.Time{}
 	for {
+		if err := s.queueEvents(ctx); err != nil && ctx.Err() == nil {
+			s.Log.Error("webhooks: queue events", "err", err)
+		}
 		if err := s.sweep(ctx); err != nil && ctx.Err() == nil {
 			s.Log.Error("webhooks", "err", err)
 		}
@@ -205,6 +225,112 @@ func (s *Service) Run(ctx context.Context) {
 			return
 		case <-t.C:
 		}
+	}
+}
+
+// queueEvents copies the feed after the webhook cursor into deliveries. A sale is already
+// queued by Paid in the payment's transaction, so payment.paid for a new or renewed
+// subscription is skipped here; every other event, including package and device payments,
+// is delivered as its own event.
+func (s *Service) queueEvents(ctx context.Context) error {
+	url, on, err := s.Enabled(ctx)
+	if err != nil {
+		return err
+	}
+	if !on {
+		return s.advanceCursor(ctx)
+	}
+	if !ValidURL(url) {
+		return nil
+	}
+	for {
+		n, err := s.queueEventBatch(ctx)
+		if err != nil {
+			return err
+		}
+		if n < eventBatch {
+			return nil
+		}
+	}
+}
+
+// advanceCursor keeps the feed cursor moving while webhooks are off: turning them on later
+// starts with what happens next, not with a week of old events.
+func (s *Service) advanceCursor(ctx context.Context) error {
+	return s.Store.Tx(ctx, func(q *db.Queries) error {
+		cursor, err := q.GetAddonCursor(ctx, feedCursor)
+		if err != nil {
+			return err
+		}
+		max, err := q.MaxAddonEventID(ctx)
+		if err != nil || max <= cursor {
+			return err
+		}
+		return q.AckAddonEvents(ctx, db.AckAddonEventsParams{AddonID: feedCursor, LastID: max, UpdatedAt: s.Now().Unix()})
+	})
+}
+
+func (s *Service) queueEventBatch(ctx context.Context) (int, error) {
+	read := 0
+	err := s.Store.Tx(ctx, func(q *db.Queries) error {
+		cursor, err := q.GetAddonCursor(ctx, feedCursor)
+		if err != nil {
+			return err
+		}
+		if cursor == 0 {
+			max, err := q.MaxAddonEventID(ctx)
+			if err != nil || max == 0 {
+				return err
+			}
+			return q.AckAddonEvents(ctx, db.AckAddonEventsParams{AddonID: feedCursor, LastID: max, UpdatedAt: s.Now().Unix()})
+		}
+		rows, err := q.ListAddonEvents(ctx, db.ListAddonEventsParams{After: cursor, Lim: eventBatch})
+		if err != nil {
+			return err
+		}
+		read = len(rows)
+		if read == 0 {
+			return nil
+		}
+		now := s.Now().Unix()
+		for _, ev := range rows {
+			if skipFeedEvent(ev) {
+				continue
+			}
+			body, err := json.Marshal(feedPayload(ev))
+			if err != nil {
+				return err
+			}
+			if err := q.AddWebhookEventDelivery(ctx, db.AddWebhookEventDeliveryParams{
+				Event: ev.Type, Payload: string(body), NextAt: now, CreatedAt: now, EventID: ev.ID,
+			}); err != nil {
+				return err
+			}
+		}
+		return q.AckAddonEvents(ctx, db.AckAddonEventsParams{
+			AddonID: feedCursor, LastID: rows[read-1].ID, UpdatedAt: now,
+		})
+	})
+	return read, err
+}
+
+// skipFeedEvent leaves the sale to Paid, which has the subscription and payment details.
+// A package, device or trial payment has no such delivery and goes through the feed.
+func skipFeedEvent(ev db.AddonEvent) bool {
+	if ev.Type != events.PaymentPaid {
+		return false
+	}
+	var p events.Payment
+	if err := json.Unmarshal([]byte(ev.Data), &p); err != nil {
+		return false
+	}
+	return p.Kind == "new" || p.Kind == "renew"
+}
+
+func feedPayload(ev db.AddonEvent) EventPayload {
+	return EventPayload{
+		Event: ev.Type, At: time.Unix(ev.CreatedAt, 0).UTC(), ID: ev.ID,
+		UserID: ev.UserID.Int64, TelegramID: ev.TgID.Int64, Data: json.RawMessage(ev.Data),
 	}
 }
 

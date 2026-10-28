@@ -426,6 +426,7 @@ func (s *Service) checkAddonPayment(ctx context.Context, pay db.Payment) error {
 		if err != nil {
 			return err
 		}
+		s.failed(ctx, pay, "canceled")
 		if pay.Status == PaymentPending || pay.Status == PaymentExpired || pay.Status == PaymentFailed {
 			if s.d.Promo != nil {
 				if err := s.d.Promo.ReleasePayment(ctx, pay.ID); err != nil {
