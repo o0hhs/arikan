@@ -6525,6 +6525,8 @@ export interface components {
             http_redirect: boolean;
             /** Format: int64 */
             id: number;
+            /** @description Нода слушает свой API-порт; выключено — панель ходит к ней только через обратный туннель */
+            inbound_api: boolean;
             /** Format: int64 */
             inbounds: number;
             /**
@@ -6569,6 +6571,8 @@ export interface components {
              * @description Сколько унесла нода за последние сутки (вверх и вниз вместе), байты; у только что добавленной ноды 0
              */
             traffic_24h: number;
+            /** @description Обратный туннель: нода сама подключилась к панели, и панель ходит к ней по этому соединению; нет, если нода ещё не подключалась */
+            tunnel?: components["schemas"]["NodeTunnelView"];
             /** @description Как идёт или прошло обновление ноды */
             update?: components["schemas"]["UpdateStatus"];
             /**
@@ -6682,6 +6686,34 @@ export interface components {
             t: string;
             /** Format: int64 */
             up: number;
+        };
+        NodeTunnelView: {
+            /** @description Нода подключена к панели сейчас */
+            connected: boolean;
+            /**
+             * Format: date-time
+             * @description Когда закрылось последнее соединение; нет — ни одного ещё не было
+             */
+            ended?: string;
+            /** @description Почему закрылось последнее соединение */
+            error?: string;
+            /**
+             * Format: date-time
+             * @description Когда через него последний раз шёл запрос
+             */
+            last?: string;
+            /** @description С какого адреса подключилась нода */
+            remote?: string;
+            /**
+             * Format: date-time
+             * @description Когда открыто это соединение
+             */
+            since?: string;
+            /**
+             * Format: int64
+             * @description Запросов через туннель сейчас
+             */
+            streams: number;
         };
         NodeView: {
             /** Format: date-time */
@@ -7168,6 +7200,8 @@ export interface components {
             host?: string;
             /** @description Отвечать на HTTP (порт 80) редиректом 301 на https; не для ноды панели */
             http_redirect?: boolean;
+            /** @description Слушать API на своём порту; выключено — панель ходит только через обратный туннель (если он не поднялся, нода станет недоступна) */
+            inbound_api?: boolean;
             name?: string;
             /** @description Публичное имя ноды; пустое — не публиковать её в канале */
             public_name?: string;

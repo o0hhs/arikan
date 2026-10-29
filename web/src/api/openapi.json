@@ -7085,6 +7085,10 @@
             "format": "int64",
             "type": "integer"
           },
+          "inbound_api": {
+            "description": "Нода слушает свой API-порт; выключено — панель ходит к ней только через обратный туннель",
+            "type": "boolean"
+          },
           "inbounds": {
             "format": "int64",
             "type": "integer"
@@ -7168,6 +7172,10 @@
             "format": "int64",
             "type": "integer"
           },
+          "tunnel": {
+            "$ref": "#/components/schemas/NodeTunnelView",
+            "description": "Обратный туннель: нода сама подключилась к панели, и панель ходит к ней по этому соединению; нет, если нода ещё не подключалась"
+          },
           "update": {
             "$ref": "#/components/schemas/UpdateStatus",
             "description": "Как идёт или прошло обновление ноды"
@@ -7212,6 +7220,7 @@
           "front_page",
           "api_lockdown",
           "api_allow",
+          "inbound_api",
           "capacity",
           "channel_mbps",
           "emergency"
@@ -7477,6 +7486,48 @@
           "down",
           "cascade_up",
           "cascade_down"
+        ],
+        "type": "object"
+      },
+      "NodeTunnelView": {
+        "additionalProperties": false,
+        "properties": {
+          "connected": {
+            "description": "Нода подключена к панели сейчас",
+            "type": "boolean"
+          },
+          "ended": {
+            "description": "Когда закрылось последнее соединение; нет — ни одного ещё не было",
+            "format": "date-time",
+            "type": "string"
+          },
+          "error": {
+            "description": "Почему закрылось последнее соединение",
+            "type": "string"
+          },
+          "last": {
+            "description": "Когда через него последний раз шёл запрос",
+            "format": "date-time",
+            "type": "string"
+          },
+          "remote": {
+            "description": "С какого адреса подключилась нода",
+            "type": "string"
+          },
+          "since": {
+            "description": "Когда открыто это соединение",
+            "format": "date-time",
+            "type": "string"
+          },
+          "streams": {
+            "description": "Запросов через туннель сейчас",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "connected",
+          "streams"
         ],
         "type": "object"
       },
@@ -8831,6 +8882,10 @@
           },
           "http_redirect": {
             "description": "Отвечать на HTTP (порт 80) редиректом 301 на https; не для ноды панели",
+            "type": "boolean"
+          },
+          "inbound_api": {
+            "description": "Слушать API на своём порту; выключено — панель ходит только через обратный туннель (если он не поднялся, нода станет недоступна)",
             "type": "boolean"
           },
           "name": {

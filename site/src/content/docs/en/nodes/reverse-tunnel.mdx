@@ -1,0 +1,46 @@
+---
+title: Reverse tunnel
+description: The node connects out to the panel and serves its API over that connection — for when the panel cannot reach the node.
+---
+
+Normally the panel connects to the node's API port itself. Sometimes that direction does not work while the other one does: the panel in one country, the node in another, and the panel's packets never arrive ("Port N does not answer: packets are lost on the way").
+
+Then the node connects to the panel itself and serves its API over that connection. The node's card says **through the reverse tunnel, the node connected N ago**.
+
+## How it works
+
+- The node opens an HTTPS connection to the panel's address from the join key, on the panel's own port: `GET /node/tunnel`. No extra port, no firewall rule.
+- The node presents its own certificate — the one whose fingerprint the panel already keeps for it. The panel takes the connection only if the fingerprint matches: a foreign certificate, one of a removed node or of a reissued key is refused (and the panel logs it without addresses or keys).
+- Inside the connection is a multiplexer (yamux): the panel opens a stream per request, the node answers with its ordinary API. The panel opens streams; the node cannot.
+- The API inside a stream runs over TLS with the same pins as on a direct connection: the panel checks the node's certificate, the node checks the panel's. The tunnel reads none of that traffic.
+- One connection per node: a new one takes over from the old (the node reconnected, a second process started on its server). The panel's log says so.
+- On a break the node reconnects with a growing pause (2 seconds to 5 minutes) and a random addition, so a returning panel is not hit by every node at once. While there is no tunnel, the panel tries the direct path.
+
+## A node with no open API port
+
+For new nodes the panel by default **does not let the node listen on its API port**: the reverse tunnel is the only way to it. That removes the open port from the node's server altogether and makes the "node API from the panel's IP only" rule unnecessary.
+
+The switch is in the node's settings, **Listen on its own API port**. It brings the port back for an older node too: nodes added before the tunnel existed keep their port open, as they always had it.
+
+:::caution
+A closed port means: if the reverse tunnel does not come up, the node becomes unreachable. The port can be reopened on the node's server:
+
+```
+MIKAN_NODE_INBOUND_API=on
+```
+
+in its environment (or `MIKAN_NODE_API_LISTEN=off` → `on`), then restart the node. The node remembers the panel's answer and does not open the port by itself after a restart, until the panel says so.
+:::
+
+## What the tunnel needs
+
+- **The panel answers over HTTPS at its own address.** The node verifies the panel's certificate as any client would: a panel on a bare IP with a certificate for a domain fails the check. The node's hello at install behaves the same way.
+- **The join key carries the panel's address.** Keys issued by a panel before hellos carry none: the node connects to the panel only — reissue the key.
+- **The node's certificate is the one the panel knows.** Reissuing the key or removing the node breaks the tunnel: a new node connects with a new certificate, a removed one is refused.
+
+## When it does not work
+
+- The card says "No reverse tunnel": the node has not connected. Check its log on the node's server: `reverse tunnel: the panel does not take it`, with the reason.
+- `403` in the node's log — the panel does not know the certificate: the key was reissued, the node removed, or it is not its certificate.
+- `x509` in the node's log — the panel answered with a certificate the node cannot verify (an IP address with a certificate for a domain; or the panel's self-signed certificate).
+- The tunnel is up but requests fail — read the panel's log: `node tunnel: the tunnel is over` says why the connection closed.

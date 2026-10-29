@@ -3339,6 +3339,16 @@
     "emergencyHint": "Ended subscriptions see its servers alone: Telegram keeps working while the buyer finds the bot",
     "emergencySpeed": "Speed for ended",
     "emergencySpeedHint": "Mbit/s on this node; empty — no cap",
+    "inboundAPI": "Listen on its own API port",
+    "inboundAPIHint": "Off, the panel reaches the node over its reverse tunnel alone: the node connects out to the panel. New nodes start with the port closed",
+    "inboundAPIOffHint": "If the reverse tunnel does not come up, the node becomes unreachable. The port can be reopened on its server: MIKAN_NODE_INBOUND_API=on",
+    "inboundOff": "The API port of the node is closed on purpose: the panel reaches it over the reverse tunnel alone",
+    "tunnelConnected": "Through the reverse tunnel",
+    "tunnelOn": "Through the reverse tunnel: the node connected {since} ago",
+    "tunnelLast": "last exchange {last} ago",
+    "tunnelFrom": "Connected from {host}",
+    "tunnelNone": "No reverse tunnel: the node has not connected to the panel",
+    "tunnelEnded": "The reverse tunnel closed {ago} ago: {error}",
     "emergencySpeedErr": "1 to 10000 Mbit/s"
   },
   "telegram": {
