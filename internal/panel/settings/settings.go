@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -385,10 +386,19 @@ type Endpoint struct {
 	Port int
 }
 
-// URL is https://host:port, the panel's base address; "" while it has no host or port.
+// URL is https://host[:port], the panel's base address; "" while it has no host or port.
+// HTTPS's own port is left out, so a subscription on 443 reads https://sub.example.com/
+// and opens on 443 by itself.
 func (e Endpoint) URL() string {
 	if e.Host == "" || e.Port <= 0 {
 		return ""
+	}
+	if e.Port == 443 {
+		host := e.Host
+		if strings.Contains(host, ":") && !strings.HasPrefix(host, "[") {
+			host = "[" + host + "]"
+		}
+		return "https://" + host
 	}
 	return "https://" + net.JoinHostPort(e.Host, strconv.Itoa(e.Port))
 }

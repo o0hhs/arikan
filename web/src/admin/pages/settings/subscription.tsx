@@ -82,7 +82,8 @@ export function SubPortCard({ s }: { s: Schemas["SettingsView"] }) {
   const nodes = useNodes();
   const { draft: port, setDraft: setPort } = useDraft(s.sub_port ? String(s.sub_port) : "");
   const error = fieldErrors(save.error).sub_port;
-  const own = nodes.data?.find((n) => n.local)?.id;
+  const local = nodes.data?.find((n) => n.local);
+  const own = local?.id;
   // Who holds a port over TCP on the panel's own server.
   const holder = (p: number) => (inbounds.data ?? []).find((i) => i.node_id === own && i.enabled && i.network === "tcp" && i.port === String(p))?.name;
   const value = Number(port);
@@ -94,6 +95,9 @@ export function SubPortCard({ s }: { s: Schemas["SettingsView"] }) {
     if (valid) save.mutate({ sub_port: next });
   };
   const current = s.sub_port || s.panel_port;
+  // 443 is the node's shared port: the SNI router hands the subscription domain to the
+  // panel, and links carry no port. It cannot answer without that router.
+  const viaRouter = s.sub_port === 443;
   return (
     <section className="card glass reveal" style={{ "--i": 1 } as React.CSSProperties}>
       <form onSubmit={submit} noValidate>
@@ -101,6 +105,16 @@ export function SubPortCard({ s }: { s: Schemas["SettingsView"] }) {
         {s.sub_port_error ? (
           <div className="banner err mb-4" role="alert">
             {t("settings.subPortBusy", { port: s.sub_port, panel: s.panel_port })}
+          </div>
+        ) : null}
+        {viaRouter ? (
+          <div className="banner info mb-4" role="status">
+            {t("settings.subPort443", { domain: s.sub_domain || s.domain })}
+          </div>
+        ) : null}
+        {next === 443 && local && !local.sni_router ? (
+          <div className="banner warn mb-4" role="status">
+            {t("settings.subPort443Router")}
           </div>
         ) : null}
         <Field label={t("settings.subPortField")} htmlFor="s-sub-port" hint={t("settings.subPortHint", { panel: s.panel_port })} error={error ?? (valid ? undefined : t("settings.subPortInvalid"))}>
@@ -133,7 +147,7 @@ export function SubPortCard({ s }: { s: Schemas["SettingsView"] }) {
             );
           })}
         </div>
-        <p className="text-xs text-[var(--md-on-surface-variant)]">{t("settings.subPortNote")}</p>
+        {next === 443 ? null : <p className="text-xs text-[var(--md-on-surface-variant)]">{t("settings.subPortNote")}</p>}
         <FormActions saving={save.isPending && save.variables?.sub_port === next} disabled={!changed || !valid}>
           {s.sub_port ? (
             <Button variant="ghost" loading={save.isPending && save.variables?.sub_port === 0} onClick={() => save.mutate({ sub_port: 0 })}>

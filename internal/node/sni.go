@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net"
 	"net/netip"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -23,7 +24,9 @@ import (
 // TLS ClientHello, picks the inbound by the name it asks for and hands the connection over
 // with a PROXY v2 header carrying the client's address, so devices, limits and filters see
 // the client and not 127.0.0.1. A name no route has goes to the default inbound (a REALITY
-// one passes it to its target, as any stranger's).
+// one passes it to its target, as any stranger's). A web route (the panel's listener on
+// loopback) gets the client the same way: with the header in front, so the panel sees the
+// client's address too.
 
 const (
 	// helloWait bounds the wait for the ClientHello; helloMax what is read of it (a
@@ -38,6 +41,7 @@ type sniRouter struct {
 	log    *slog.Logger
 	mu     sync.RWMutex
 	routes map[string]string // name (lowercase) → backend address
+	web    map[string]string // name (lowercase) → the panel's listener on loopback
 	def    string            // backend for any other name; "": closed
 	stub   map[string]bool   // names that get the front page instead ("": no name)
 	front  *frontPage        // the node's front page; nil: none
@@ -49,14 +53,29 @@ type sniRouter struct {
 	err    error
 }
 
-// route is where a name goes.
-func (r *sniRouter) route(name string) string {
+// nameOf is a ClientHello name as the maps keep it.
+func nameOf(name string) string { return strings.ToLower(strings.TrimSuffix(name, ".")) }
+
+// warn logs a route the router had to drop; a router built by a test may have no logger.
+func (r *sniRouter) warn(msg string, args ...any) {
+	if r.log != nil {
+		r.log.Warn(msg, args...)
+	}
+}
+
+// target is where a name goes: an inbound behind the router, or a web server on loopback
+// (web=true, the panel and the subscriptions); otherwise the default inbound.
+func (r *sniRouter) target(name string) (to string, web bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	if to, ok := r.routes[strings.ToLower(strings.TrimSuffix(name, "."))]; ok {
-		return to
+	n := strings.ToLower(strings.TrimSuffix(name, "."))
+	if to, ok := r.routes[n]; ok {
+		return to, false
 	}
-	return r.def
+	if to, ok := r.web[n]; ok {
+		return to, true
+	}
+	return r.def, false
 }
 
 // stubbed says whether name gets the front page: a name of the stub's, or with no default
@@ -67,15 +86,21 @@ func (r *sniRouter) stubbed(name string) bool {
 	}
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	n := strings.ToLower(strings.TrimSuffix(name, "."))
+	n := nameOf(name)
 	if _, ok := r.routes[n]; ok {
+		return false
+	}
+	if _, ok := r.web[n]; ok {
 		return false
 	}
 	return r.stub[n] || r.def == "" && len(r.stub) > 0
 }
 
-// set replaces the routes: names to inbound ports on loopback, by the ports the inbounds run.
-// subs are the names of the subscription domain, handed to the subscription server.
+// set replaces the routes: names to inbound ports on loopback, by the ports the inbounds run;
+// names to a web server on loopback (the panel's listener); and the subscription domain's
+// names, handed to the node's own subscription server before any of them. A web name an
+// inbound route already takes is no web route: the inbound wins, and the whole route is
+// dropped with a log line rather than guessed at.
 func (r *sniRouter) set(rt *nodeapi.SNIRouter, ports map[string]string, subs map[string]bool) {
 	routes := map[string]string{}
 	for _, x := range rt.Routes {
@@ -84,12 +109,34 @@ func (r *sniRouter) set(rt *nodeapi.SNIRouter, ports map[string]string, subs map
 			continue
 		}
 		for _, n := range x.Names {
-			routes[strings.ToLower(strings.TrimSuffix(n, "."))] = net.JoinHostPort("127.0.0.1", p)
+			routes[nameOf(n)] = net.JoinHostPort("127.0.0.1", p)
+		}
+	}
+	web := map[string]string{}
+	for _, w := range rt.Web {
+		if w.Port <= 0 || w.Port > 65535 {
+			r.warn("sni router: web route with a bad port", "port", w.Port)
+			continue
+		}
+		conflict := ""
+		for _, n := range w.Names {
+			if _, ok := routes[nameOf(n)]; ok {
+				conflict = nameOf(n)
+				break
+			}
+		}
+		if conflict != "" {
+			r.warn("sni router: web route rejected, an inbound takes its name", "name", conflict, "port", w.Port)
+			continue
+		}
+		to := net.JoinHostPort("127.0.0.1", strconv.Itoa(w.Port))
+		for _, n := range w.Names {
+			web[nameOf(n)] = to
 		}
 	}
 	stub := map[string]bool{}
 	for _, n := range rt.Stub {
-		stub[strings.ToLower(strings.TrimSuffix(n, "."))] = true
+		stub[nameOf(n)] = true
 	}
 	def := ""
 	if p, ok := ports[rt.Default]; ok {
@@ -97,8 +144,7 @@ func (r *sniRouter) set(rt *nodeapi.SNIRouter, ports map[string]string, subs map
 	}
 	r.mu.Lock()
 	r.routes, r.def = routes, def
-	r.stub = stub
-	r.subs = subs
+	r.web, r.stub, r.subs = web, stub, subs
 	r.mu.Unlock()
 }
 
@@ -146,7 +192,7 @@ func (r *sniRouter) handle(c net.Conn, admit func(netip.Addr) bool) {
 		r.front.take(c, hello)
 		return
 	}
-	to := r.route(name)
+	to, _ := r.target(name)
 	if to == "" {
 		return
 	}

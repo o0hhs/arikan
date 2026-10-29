@@ -118,7 +118,9 @@ If certbot or nginx is already installed on the server and holds port 80, it get
 
 ## Subscription port
 
-**Settings → Subscription → Subscription port** moves subscription links and the subscription page to a separate port, for example 443 or 2053. It applies immediately, with no restart. The admin UI does not open on this port, and old links on the panel port keep working, so clients do not need to change anything.
+**Settings → Subscription → Subscription port** moves subscription links and the subscription page to a separate port, for example 2053 or 8443. It applies immediately, with no restart. The admin UI does not open on this port, and old links on the panel port keep working, so clients do not need to change anything.
+
+A port of **443** is different: it goes through the node's shared port. The panel's own node holds 443 with its SNI router (see **Shared port 443 (SNI router)** in the node's settings), which hands the panel's domain and the subscription domain to the panel over loopback with the client's real address in front. The links then carry no port at all — `https://sub.example.com/…` — and the admin panel opens on 443 too. It needs a domain: the router picks the panel out of the TLS name, so a link by address cannot use 443 this way.
 
 The panel suggests the ports opened at install time and marks the ones used by protocols. Open any other port in the firewall yourself: `ufw allow PORT/tcp`.
 

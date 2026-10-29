@@ -46,7 +46,7 @@ type SettingsView struct {
 	// SubCertificate is the subscription domain's own certificate; absent in development.
 	SubCertificate *acme.Status `json:"sub_certificate,omitempty" doc:"Сертификат домена подписки: kind off — домен не задан"`
 	PanelPort      int          `json:"panel_port"`
-	SubPort        int          `json:"sub_port" doc:"Отдельный порт подписок; 0 — порт панели. Порт панели отдаёт подписки в любом случае"`
+	SubPort        int          `json:"sub_port" doc:"Отдельный порт подписок; 0 — порт панели. 443 — через общий 443 ноды (SNI-роутер), ссылки без порта. Порт панели отдаёт подписки в любом случае"`
 	SubPortError   string       `json:"sub_port_error,omitempty" doc:"sub_port_busy — сохранённый порт занят на сервере, подписки пока идут через порт панели"`
 	// SubsFromNodes: the nodes that answer the links themselves; SubNodes is how each one
 	// is doing it.
@@ -148,7 +148,7 @@ type patchSettingsBody = struct {
 	DeviceUnbind   *domain.UnbindRules  `json:"device_unbind,omitempty"`
 	LinkReissue    *domain.ReissueRules `json:"link_reissue,omitempty"`
 	DefaultLang    *string              `json:"default_lang,omitempty" enum:"auto,ru,en"`
-	SubPort        *int                 `json:"sub_port,omitempty" minimum:"0" maximum:"65535" doc:"Отдельный порт подписок на сервере панели; 0 — убрать. Ссылки переезжают на него, старые продолжают работать"`
+	SubPort        *int                 `json:"sub_port,omitempty" minimum:"0" maximum:"65535" doc:"Отдельный порт подписок на сервере панели; 0 — убрать. 443 — через общий 443 ноды (SNI-роутер), без отдельного слушателя и без порта в ссылках. Ссылки переезжают на порт, старые продолжают работать"`
 	ACMECA         *string              `json:"acme_ca,omitempty" enum:"letsencrypt,zerossl,google" doc:"Смена центра выпускает сертификаты панели и нод заново"`
 	ACMEEmail      *string              `json:"acme_email,omitempty" maxLength:"254"`
 	ACMEEABKID     *string              `json:"acme_eab_kid,omitempty" maxLength:"256"`
@@ -532,7 +532,22 @@ func (h *handlers) updateSettings(ctx context.Context, in *patchSettingsInput) (
 		}
 	}
 	if b.SubPort != nil {
-		if d, err := h.checkSubPort(ctx, *b.SubPort); err != nil {
+		// The names the port will be served by: the request's own may come with it.
+		dom, err := h.d.Settings.String(ctx, settings.KeyDomain)
+		if err != nil {
+			return nil, err
+		}
+		if b.Domain != nil {
+			dom = strings.TrimSpace(*b.Domain)
+		}
+		subDom, err := h.d.Settings.String(ctx, settings.KeySubDomain)
+		if err != nil {
+			return nil, err
+		}
+		if b.SubDomain != nil {
+			subDom = strings.TrimSpace(*b.SubDomain)
+		}
+		if d, err := h.checkSubPort(ctx, *b.SubPort, dom, subDom); err != nil {
 			return nil, err
 		} else if d != nil {
 			details = append(details, d)
@@ -676,6 +691,12 @@ func (h *handlers) updateSettings(ctx context.Context, in *patchSettingsInput) (
 	if caChanged && h.d.WakeNodeCerts != nil {
 		h.d.WakeNodeCerts()
 	}
+	// The panel's own node routes the panel's domain and the subscription domain to the
+	// panel over its shared 443: a name that changed (or a subscription port of 443 now in
+	// use) changes that node's state.
+	if b.Domain != nil || b.SubDomain != nil || b.SubPort != nil {
+		h.d.Changes.SlotsChanged()
+	}
 	// Support access turned off ends the live grant now, its terminals too, not at the next sweep.
 	if b.SupportAccess != nil && !*b.SupportAccess && h.d.Support != nil {
 		if err := h.d.Support.Sweep(ctx); err != nil {
@@ -712,13 +733,19 @@ var subPortReserved = map[int]bool{22: true, 80: true}
 
 // checkSubPort says what is wrong with port as the subscription port, or nil: it has to
 // differ from the panel's port and stay clear of what the panel's own node listens on
-// over TCP (an inbound or the cascade relay), which shares the panel's server.
-func (h *handlers) checkSubPort(ctx context.Context, port int) (*huma.ErrorDetail, error) {
+// over TCP (an inbound or the cascade relay), which shares the panel's server. 443 is the
+// node's shared port, held by its SNI router: no listener of the panel's own goes there,
+// the router picks the subscription out of the TLS name, and the link carries no port — so
+// a name is required (a link by address has no SNI to route by).
+func (h *handlers) checkSubPort(ctx context.Context, port int, dom, subDom string) (*huma.ErrorDetail, error) {
 	if port == 0 {
 		return nil, nil
 	}
 	if subPortReserved[port] {
 		return fieldDetail("body.sub_port", "sub_port_reserved", port), nil
+	}
+	if port == 443 && dom == "" && subDom == "" {
+		return fieldDetail("body.sub_port", "sub_port_443_domain", nil), nil
 	}
 	nodes, err := h.d.Store.Q.ListNodes(ctx)
 	if err != nil {
