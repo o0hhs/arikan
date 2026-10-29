@@ -67,6 +67,9 @@ type DesiredState struct {
 	// same rule; both lift by themselves after APILockStale without the panel. Nodes older
 	// than it ignore it.
 	APIAllow []string `json:"api_allow,omitzero"`
+	// Subs is the node answering subscription links on its 443 from the records the panel
+	// hands it (PUT /v1/subs); nil: it does not. Nodes older than it ignore the field.
+	Subs *SubsServer `json:"subs,omitempty"`
 }
 
 // APILockStale is how long the panel may stay away before a node with APIAllow opens its
@@ -276,6 +279,9 @@ type Health struct {
 	// panel while its uplink or DNS is down serves nobody, and that must not look like a
 	// healthy node. nil: not checked (older nodes, or the first seconds after the start).
 	Egress *EgressStatus `json:"egress,omitempty"`
+	// Subs is the subscription store: what it keeps and whether the node answers links on
+	// its 443. nil on nodes older than it.
+	Subs *SubsStatus `json:"subs,omitempty"`
 }
 
 // EgressStatus is one check of the node's own way out: a direct TCP connect to a public

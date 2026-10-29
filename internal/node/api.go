@@ -72,6 +72,9 @@ func Handler(e *Engine, log *slog.Logger) http.Handler {
 	mux.HandleFunc("GET /v1/health", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, e.Health())
 	})
+	// The subscription records the panel renders and this node answers while the panel is
+	// away (subsrv.go has the paths themselves).
+	subsMux(mux, e.subs)
 	mux.HandleFunc("POST /v1/update", func(w http.ResponseWriter, r *http.Request) {
 		var req nodeapi.UpdateRequest
 		// A request is one short version: nothing here is as large as the other calls' bodies.

@@ -56,6 +56,7 @@ type Site struct {
 	mu        sync.Mutex
 	started   bool
 	cert      *tls.Certificate
+	subs      *subServer // the subscription answers the page hands a record's path to
 	srv       *http.Server
 	ln        net.Listener // the page's own listener: loopback, or the address the admin named
 	public    net.Listener // :443 while the state leaves the public port to the page
@@ -107,9 +108,16 @@ func (s *Site) Start(public bool) {
 		TLSConfig: &tls.Config{
 			MinVersion: tls.VersionTLS12,
 			NextProtos: []string{"h2", "http/1.1"},
-			GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
+			GetCertificate: func(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
 				s.mu.Lock()
 				defer s.mu.Unlock()
+				// The subscription domain may differ from the node's own: it gets the
+				// certificate the panel ordered for it.
+				if s.subs != nil && hello != nil && s.subs.handles(hello.ServerName) {
+					if c := s.subs.cert.Load(); c != nil {
+						return c, nil
+					}
+				}
 				if s.cert == nil {
 					// Before the panel sends its certificate the page has nothing to present:
 					// the handshake fails, which is what a client of a node without a
@@ -299,7 +307,25 @@ func (s *Site) writeStatus() {
 	}
 }
 
+// SetSubs gives the page the subscription answers: a request whose first path segment is a
+// record the panel left is answered from the store, the page's own files otherwise. On the
+// node's domain the page is what holds 443 when no router does.
+func (s *Site) SetSubs(sub *subServer) {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	s.subs = sub
+	s.mu.Unlock()
+}
+
 func (s *Site) serve(w http.ResponseWriter, r *http.Request) {
+	s.mu.Lock()
+	subs := s.subs
+	s.mu.Unlock()
+	if subs != nil && subs.Handle(w, r) {
+		return
+	}
 	root, err := os.OpenRoot(s.dir) // no way out of dir, symlinks included
 	if err != nil {
 		http.NotFound(w, r)
