@@ -219,8 +219,8 @@ fn gather(install: &Install, report: &mut Report) {
     let engine = docker::version();
     report.add([docker_item(engine.as_deref())]);
     if engine.is_some() {
-        let services = docker::services();
-        report.add(containers(services.clone().map_err(|e| format!("{e:#}"))));
+        let services = docker::services().map_err(|e| format!("{e:#}"));
+        report.add(containers(services.clone()));
         if let Ok(list) = &services {
             report.add(role_items(install, list));
             report.add(image_items(install, list));
