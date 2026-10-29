@@ -140,13 +140,40 @@ func TestReverseTunnelServesTheAPI(t *testing.T) {
 		t.Fatalf("health over the tunnel: %+v %v", health, err)
 	}
 
-	// A tunnel is the API, not a proxy: a CONNECT over it is refused.
+	// A tunnel is the API, not a proxy: a CONNECT to anything else is refused.
 	req, _ = http.NewRequest(http.MethodConnect, "https://node", nil)
 	req.Host = "example.com:443"
 	resp = panel.api(t, sess, req, panelClient, nodePin)
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusForbidden {
 		t.Fatalf("a CONNECT over the reverse tunnel: %d", resp.StatusCode)
+	}
+
+	// ...but the bot's Telegram path is the one exception: the panel's "Telegram through a
+	// node" sends CONNECT to a TunnelHosts address, and it must reach the API's relay.
+	echo, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = echo.Close() })
+	go func() {
+		for {
+			c, err := echo.Accept()
+			if err != nil {
+				return
+			}
+			_ = c.Close()
+		}
+	}()
+	saved := nodeapi.TunnelHosts
+	nodeapi.TunnelHosts = []string{echo.Addr().String()}
+	t.Cleanup(func() { nodeapi.TunnelHosts = saved })
+	req, _ = http.NewRequest(http.MethodConnect, "https://node", nil)
+	req.Host = echo.Addr().String()
+	resp = panel.api(t, sess, req, panelClient, nodePin)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("the bot's CONNECT over the reverse tunnel: %d", resp.StatusCode)
 	}
 
 	// A stream that is not the API's is closed without an answer.

@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -73,11 +74,13 @@ func RunReverseTunnel(ctx context.Context, o ReverseTunnel) {
 		return
 	}
 	api := o.Handler
-	// A tunnel carries the API, not a proxy: nothing asked of the node here is forwarded to a
-	// third address (a nested tunnel would only loop).
+	// A tunnel carries the API, not a proxy. The one exception is the API's own CONNECT:
+	// the bot reaches Telegram through the node when the panel's server cannot, and its
+	// targets are fixed in nodeapi.TunnelHosts. Everything else is refused here, before the
+	// API sees it; the API checks the same list again.
 	o.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodConnect {
-			writeJSON(w, http.StatusForbidden, nodeapi.Error{Code: "tunnel_forbidden", Message: "the reverse tunnel serves the API alone"})
+		if r.Method == http.MethodConnect && !slices.Contains(nodeapi.TunnelHosts, r.Host) {
+			writeJSON(w, http.StatusForbidden, nodeapi.Error{Code: "tunnel_forbidden", Message: "the reverse tunnel carries the API alone"})
 			return
 		}
 		api.ServeHTTP(w, r)
