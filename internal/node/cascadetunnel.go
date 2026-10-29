@@ -673,18 +673,12 @@ func (c *cascade) knock(ctx context.Context, u *url.URL) (net.Conn, error) {
 	}
 	_ = conn.SetDeadline(time.Time{})
 	if br.Buffered() > 0 {
+		// The same wrapper the reverse tunnel uses: what the 101 left buffered before the
+		// connection itself (reverse.go).
 		return &bufferedConn{Conn: conn, r: br}, nil
 	}
 	return conn, nil
 }
-
-// bufferedConn reads what the 101 left in the buffer before the connection itself.
-type bufferedConn struct {
-	net.Conn
-	r *bufio.Reader
-}
-
-func (c *bufferedConn) Read(p []byte) (int, error) { return c.r.Read(p) }
 
 // serveExit is one stream the panel opened: the target, then the client's bytes, which the
 // core takes the connection over with. The exit's own rules, its ExitDNS and its ways out
