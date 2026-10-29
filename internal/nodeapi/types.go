@@ -67,6 +67,13 @@ type DesiredState struct {
 	// same rule; both lift by themselves after APILockStale without the panel. Nodes older
 	// than it ignore it.
 	APIAllow []string `json:"api_allow,omitzero"`
+	// TunnelTo are the addresses ("203.0.113.5:8443") this node opens a tunnel to for the
+	// panel: the API of the panel's other nodes, so a panel that cannot reach a node itself
+	// reaches it through this one (HTTP CONNECT on the Node API, authenticated by the panel's
+	// pinned certificate). Only these and the bot's TunnelHosts go through: a node is no open
+	// proxy. Loopback, private addresses and the node's own API port are refused whatever the
+	// list says. Nodes older than it ignore it.
+	TunnelTo []string `json:"tunnel_to,omitzero"`
 }
 
 // APILockStale is how long the panel may stay away before a node with APIAllow opens its

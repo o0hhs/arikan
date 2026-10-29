@@ -4,11 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"io"
 	"log/slog"
 	"net"
 	"net/http"
-	"slices"
+	"net/netip"
 	"strconv"
 	"sync"
 	"time"
@@ -234,50 +233,32 @@ func Handler(e *Engine, log *slog.Logger) http.Handler {
 			e.PanelContact(r.RemoteAddr)
 		}
 		if r.Method == http.MethodConnect {
-			connectTunnel(w, r)
+			// The panel's way through this node to another one it cannot reach itself; the
+			// bot's fixed hosts go the same way. No engine (a test's bare handler) allows
+			// TunnelHosts alone.
+			relay := newTunnelRelay(log, time.Now)
+			if e != nil {
+				relay = e.tunnelRelay()
+			}
+			if p := apiPortOf(r); p != 0 {
+				relay.setAPIPort(p)
+			}
+			relay.serve(w, r)
 			return
 		}
 		mux.ServeHTTP(w, r)
 	})
 }
 
-// connectTunnel is HTTP CONNECT for the panel: the bot reaches Telegram through this node when
-// the panel's own server cannot. Only nodeapi.TunnelHosts go through.
-func connectTunnel(w http.ResponseWriter, r *http.Request) {
-	if !slices.Contains(nodeapi.TunnelHosts, r.Host) {
-		writeJSON(w, http.StatusForbidden, nodeapi.Error{Code: "tunnel_forbidden", Message: r.Host + " is not a tunnel host"})
-		return
+// apiPortOf is the port the CONNECT was asked on when the Node API listens on TCP: a tunnel
+// to the node's own API would loop, so it is refused whatever the panel's state says.
+func apiPortOf(r *http.Request) int {
+	if a, ok := r.Context().Value(http.LocalAddrContextKey).(net.Addr); ok {
+		if ap, err := netip.ParseAddrPort(a.String()); err == nil {
+			return int(ap.Port())
+		}
 	}
-	up, err := (&net.Dialer{Timeout: 10 * time.Second}).DialContext(r.Context(), "tcp", r.Host)
-	if err != nil {
-		writeJSON(w, http.StatusBadGateway, nodeapi.Error{Code: "tunnel_unreachable", Message: err.Error()})
-		return
-	}
-	hj, ok := w.(http.Hijacker)
-	if !ok {
-		up.Close()
-		writeJSON(w, http.StatusInternalServerError, nodeapi.Error{Code: "tunnel_unsupported"})
-		return
-	}
-	conn, buf, err := hj.Hijack()
-	if err != nil {
-		up.Close()
-		return
-	}
-	// Long polling keeps the stream idle for most of a minute: no deadlines from here on.
-	_ = conn.SetDeadline(time.Time{})
-	if _, err := conn.Write([]byte("HTTP/1.1 200 Connection established\r\n\r\n")); err != nil {
-		conn.Close()
-		up.Close()
-		return
-	}
-	done := make(chan struct{}, 2)
-	go func() { _, _ = io.Copy(up, buf.Reader); done <- struct{}{} }()
-	go func() { _, _ = io.Copy(conn, up); done <- struct{}{} }()
-	<-done
-	conn.Close()
-	up.Close()
-	<-done
+	return 0
 }
 
 // decode reads a request body of at most 64 MiB. Fields the node does not know are

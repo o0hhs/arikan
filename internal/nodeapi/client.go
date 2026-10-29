@@ -13,16 +13,57 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"sync/atomic"
 	"time"
 )
 
 // Client talks to a node: the local one over its unix socket, a remote one over TLS.
 type Client struct {
-	hc   *http.Client
-	base string
+	hc      *http.Client
+	base    string
+	address string // the API's host:port; "" for the local node's socket
 	// dial opens a bare connection to the Node API, for Tunnel.
 	dial func(ctx context.Context) (net.Conn, error)
+	// route opens the TCP stream to the node when the client has one (SetRoute): the panel
+	// through another node, when its own path to this one does not answer.
+	route atomic.Pointer[Route]
 }
+
+// Route opens a bare TCP stream to a node's API at addr: the direct path, or a stream
+// through another node of the panel when the direct one does not answer. addr is always the
+// node's own address, so a route that carries the stream elsewhere does so on purpose.
+type Route func(ctx context.Context, addr string) (net.Conn, error)
+
+// SetRoute makes the client open its connections with route; call it before the client is
+// used. nil is the direct path, as without it.
+func (c *Client) SetRoute(route Route) {
+	if route == nil {
+		c.route.Store(nil)
+		return
+	}
+	c.route.Store(&route)
+}
+
+// stream opens one connection's TCP stream: through the route when there is one, directly
+// otherwise.
+func (c *Client) stream(ctx context.Context, base func(ctx context.Context, addr string) (net.Conn, error)) (net.Conn, error) {
+	if r := c.route.Load(); r != nil && c.address != "" && !carriesStream(ctx) {
+		return (*r)(ctx, c.address)
+	}
+	return base(ctx, c.address)
+}
+
+// noFallbackKey marks a dial that goes through a transport: a tunnel is never carried by
+// another tunnel, which would loop two nodes that name each other.
+type noFallbackKey struct{}
+
+// NoFallback is ctx as it reaches a node that carries another node's stream: that node's
+// own route is not taken inside it.
+func NoFallback(ctx context.Context) context.Context {
+	return context.WithValue(ctx, noFallbackKey{}, true)
+}
+
+func carriesStream(ctx context.Context) bool { return ctx.Value(noFallbackKey{}) != nil }
 
 func NewUnixClient(socket string) *Client {
 	dial := func(ctx context.Context) (net.Conn, error) {
@@ -36,24 +77,47 @@ func NewUnixClient(socket string) *Client {
 	}}}
 }
 
+// directPlain is a bare TCP connection to a node's API; the HTTP transport adds TLS itself.
+func directPlain(ctx context.Context, address string) (net.Conn, error) {
+	return (&net.Dialer{Timeout: 5 * time.Second, KeepAlive: 30 * time.Second}).DialContext(ctx, "tcp", address)
+}
+
 // NewTLSClient reaches a remote node at host:port; cfg pins both sides (see nodetls).
 func NewTLSClient(address string, cfg *tls.Config) *Client {
-	// A tunnel takes over the connection, which HTTP/2 does not allow.
-	h1 := cfg.Clone()
-	h1.NextProtos = []string{"http/1.1"}
-	dial := func(ctx context.Context) (net.Conn, error) {
-		d := tls.Dialer{NetDialer: &net.Dialer{Timeout: 5 * time.Second, KeepAlive: 30 * time.Second}, Config: h1}
-		return d.DialContext(ctx, "tcp", address)
-	}
-	return &Client{base: "https://" + address, dial: dial, hc: &http.Client{Transport: &http.Transport{
-		DialContext:         (&net.Dialer{Timeout: 5 * time.Second, KeepAlive: 30 * time.Second}).DialContext,
+	c := &Client{base: "https://" + address, address: address}
+	c.hc = &http.Client{Transport: &http.Transport{
+		// Plain TCP, from the route when it has one: the transport's own TLS handshake on
+		// top, with the pin, is what makes it a node's API either way.
+		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+			return c.stream(ctx, directPlain)
+		},
 		TLSClientConfig:     cfg,
 		TLSHandshakeTimeout: 5 * time.Second,
 		ForceAttemptHTTP2:   true,
 		MaxIdleConns:        4,
 		IdleConnTimeout:     90 * time.Second,
-	}}}
+	}}
+	// A CONNECT tunnel is asked on a bare connection: TLS, then the request.
+	h1 := cfg.Clone()
+	h1.NextProtos = []string{"http/1.1"}
+	c.dial = func(ctx context.Context) (net.Conn, error) {
+		raw, err := c.stream(ctx, directPlain)
+		if err != nil {
+			return nil, err
+		}
+		tlsConn := tls.Client(raw, h1)
+		if err := tlsConn.HandshakeContext(ctx); err != nil {
+			raw.Close()
+			return nil, err
+		}
+		return tlsConn, nil
+	}
+	return c
 }
+
+// CloseIdleConnections ends the client's pooled connections: the next call dials afresh, which
+// is how the panel learns whether a node is still there and by which way it answers.
+func (c *Client) CloseIdleConnections() { c.hc.CloseIdleConnections() }
 
 var ErrUnavailable = errors.New("node unavailable")
 

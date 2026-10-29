@@ -79,6 +79,10 @@ type Engine struct {
 	// lock keeps the TCP API for the panel alone (apilock.go); made on first use.
 	lockOnce sync.Once
 	lock     *apiLock
+	// relay answers the panel's HTTP CONNECT (tunnelrelay.go): its stream to another node
+	// the panel cannot reach itself. Made on first use.
+	relayOnce sync.Once
+	relay     *tunnelRelay
 
 	Reg *Registry
 	tun *Tunnel
@@ -417,6 +421,7 @@ func (e *Engine) apply(st nodeapi.DesiredState) (nodeapi.ApplyResult, error) {
 	e.Reg.SetIngress(st.Filters)
 	e.setRedirect(st.HTTPRedirect)
 	e.apiLock().set(st.APIAllow)
+	e.tunnelRelay().set(st.TunnelTo)
 	e.Reg.SetDetail(st.Detail)
 	// The TURN server is a child process of this agent, not a mihomo listener: it is
 	// started, restarted and stopped here, beside the rest of the state.
