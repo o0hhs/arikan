@@ -65,6 +65,10 @@ case "$*" in
   "$db"*' panel database restore /data/panel/restore.dump')
     [ ! -f "$TEST_STATE/restore-fail" ] || { echo 'pg_restore failed' >&2; exit 1; }
     cp /opt/mikan/data/panel/restore.dump "$TEST_STATE/pg" ;;
+  # What a restored database says the panel's address is: a scenario names it, and the
+  # server's own port is the answer otherwise.
+  "$db"*' panel database address')
+    cat "$TEST_STATE/address" 2>/dev/null || printf '{"domain":"","public_host":"203.0.113.5","panel_port":21355}\n' ;;
   'up -d --wait --wait-timeout 120 postgres')
     [ ! -f "$TEST_STATE/pg-fail" ] || { echo 'database startup failed' >&2; exit 1; }
     if [ -f "$TEST_STATE/pg-fail-new" ] && new; then echo "database startup failed" >&2; exit 1; fi ;;
@@ -103,7 +107,7 @@ fixture() {
   printf 'original users, payment42\n' >/opt/mikan/data/panel/mikan.db
   printf 'last WAL transaction\n' >/opt/mikan/data/panel/mikan.db-wal
   rm -f "$tmp/pg" "$tmp/trace" "$tmp/healthy" "$tmp/start-fail" "$tmp/pg-fail" "$tmp/migrate-fail" \
-    "$tmp/schema" "$tmp/pg-fail-new" "$tmp/start-fail-new" "$tmp/start-fail-old" "$tmp/dump-fail" "$tmp/restore-fail"
+    "$tmp/schema" "$tmp/pg-fail-new" "$tmp/start-fail-new" "$tmp/start-fail-old" "$tmp/dump-fail" "$tmp/restore-fail" "$tmp/address"
 }
 
 # A server already on PostgreSQL (0.5.0.0 and later).
@@ -269,15 +273,22 @@ grep -q 'live users, payment77' "$tmp/pg"
 
 # A database-only archive (what the panel sends to Telegram, after age -d) puts the dump
 # back and keeps the server's own settings (moved from .env to config.json and secrets/ as
-# the panel starts on them), certificates and node data.
+# the panel starts on them), certificates and node data. The address inside the database is
+# the archive's: its port is taken when it is free here, so a moved panel comes up at the
+# address every link and every node already has.
 pg_fixture
 mkdir -p "$tmp/dbonly/data/panel"
 echo 'telegram users, payment99' >"$tmp/dbonly/data/panel/backup.dump"
 tar -czf "$tmp/dbonly.tar.gz" -C "$tmp/dbonly" data
+printf '{"domain":"","public_host":"203.0.113.5","panel_port":2053}\n' >"$tmp/address"
 "$bin" restore -y "$tmp/dbonly.tar.gz" >"$tmp/output" 2>&1
 grep -q 'telegram users, payment99' "$tmp/pg"
 grep -q "holds only the panel's database" "$tmp/output"
 grep -q '"MIKAN_IMAGE": "old-image"' /opt/mikan/config.json
+# the database's port, not this server's 21355: set, opened, and composed into the panel
+sed -n 's/.*"PANEL_PORT": "\([0-9]*\)".*/\1/p' /opt/mikan/config.json | grep -qx 2053
+grep -q '^      MIKAN_PANEL_LISTEN: 0.0.0.0:2053$' /opt/mikan/compose.yaml
+grep -q 'The panel answers at https://203.0.113.5:2053' "$tmp/output"
 [ "$(cat /opt/mikan/secrets/postgres_password)" = livepassword ]
 grep -q 'postgresql://mikan:livepassword@' /opt/mikan/secrets/database_url
 [ ! -e /opt/mikan/data/panel/restore.dump ]

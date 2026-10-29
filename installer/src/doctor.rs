@@ -3,18 +3,19 @@
 //! local ones, so that the whole run stays short.
 
 use std::io::Read;
-use std::net::{IpAddr, ToSocketAddrs};
+use std::net::{IpAddr, Ipv4Addr, ToSocketAddrs};
 use std::path::Path;
 use std::process::{Command, Stdio};
 use std::sync::mpsc;
 use std::thread;
 use std::time::{Duration, Instant, SystemTime};
 
-use anyhow::{Result, bail};
+use anyhow::{Error, Result, bail};
 use serde::{Deserialize, Serialize};
 
 use crate::docker::{self, Service};
 use crate::ops::Install;
+use crate::panelsettings::Address;
 use crate::setup::mark;
 use crate::system::{self, Level, Proto};
 use crate::{DIR, acme, addon, clock, hello, host, hostreq, net, redact};
@@ -236,6 +237,21 @@ fn gather(install: &Install, report: &mut Report) {
     report.add([port80_item(system::port_owner(80, Proto::Tcp).as_deref(), install.config.get("MIKAN_ACME_LISTEN"))]);
     report.add(firewall(install));
 
+    // The panel's own address from its database (a container start), and beside the other
+    // network checks where public DNS sends its domain. Without the image there is nothing
+    // to run the read in, and `compose run` would pull it: the missing panel is said above.
+    let address = (!install.node && engine.is_some() && install.config.get("MIKAN_IMAGE").is_some_and(docker::image_present))
+        .then(|| crate::panelsettings::read(Duration::from_secs(30)));
+    let address_net = address.as_ref().and_then(|a| a.as_ref().ok()).map(|a| {
+        let a = a.clone();
+        background(move || {
+            let server = net::public_ipv4()?;
+            let name = a.host().to_owned();
+            let dns = name.parse::<IpAddr>().is_err().then(|| net::check_domain(&name, server));
+            Some((server, dns))
+        })
+    });
+
     let github = answer(&github, deadline);
     let skew = github
         .as_ref()
@@ -254,6 +270,11 @@ fn gather(install: &Install, report: &mut Report) {
         report.add(contact(install.node_port(), engine.is_some()));
         let lock = crate::apilock::report(install);
         report.add([Item { level: lock.level, label: "API lockdown".into(), detail: lock.detail, fix: lock.fix }]);
+    } else if let Some(address) = &address {
+        // The DNS for the domain gets its time from now: the local checks above may have
+        // taken most of the shared deadline the network checks had.
+        let until = Instant::now() + NET_DEADLINE;
+        report.add(address_items(address, install, address_net.and_then(|rx| answer(&rx, until)).flatten()));
     }
 }
 
@@ -460,6 +481,97 @@ fn ports(install: &Install, engine: bool) -> Vec<Item> {
         };
         Item::error("Panel", detail, "arikan logs panel; arikan restart")
     }]
+}
+
+/// The panel's own address as its database keeps it, against what this server serves: the
+/// port the panel listens on (PANEL_PORT in config.json) and the address every link, the
+/// admin path and each node's address are built from. A restore from another server and
+/// `arikan admin migrate --port` are what leave the two apart; no other check reads the
+/// panel's settings.
+fn address_items(address: &Result<Address, Error>, install: &Install, seen: Option<(Ipv4Addr, Option<net::DomainCheck>)>) -> Vec<Item> {
+    let address = match address {
+        Ok(a) => a,
+        Err(e) => {
+            return vec![Item::warn(
+                "Panel address",
+                format!("the address the database keeps cannot be read: {e:#}"),
+                "arikan update: the panel's image reads its own address",
+            )];
+        }
+    };
+    let mut items = Vec::new();
+    let own = install.config.get("PANEL_PORT").and_then(|p| p.parse::<u16>().ok()).filter(|p| *p > 0);
+    match (own, (address.panel_port > 0).then_some(address.panel_port)) {
+        (Some(own), Some(db)) if own == db => items.push(Item::ok("Panel port", format!("{own}, as the database says"))),
+        (Some(own), Some(db)) => items.push(Item::warn(
+            "Panel port",
+            format!(
+                "the panel listens on {own}, while every link, the admin path and each node's address are built with {db} from the database"
+            ),
+            format!("arikan restart: the setting follows the listener; if the links must keep {db}, put PANEL_PORT={db} in /opt/mikan/config.json first"),
+        )),
+        (Some(own), None) => items.push(Item::warn(
+            "Panel port",
+            format!("the database names no port, and the panel listens on {own}: its links are built without a port"),
+            format!(
+                "a new panel: arikan admin bootstrap; a restored one: arikan admin migrate --public-host <this server's address> --port {own}"
+            ),
+        )),
+        (None, Some(db)) => items.push(Item::error(
+            "Panel port",
+            format!("PANEL_PORT is not set in /opt/mikan/config.json, and the database names {db}"),
+            format!("put PANEL_PORT={db} in /opt/mikan/config.json and run arikan restart"),
+        )),
+        (None, None) => {}
+    }
+    // Where the links send clients: the domain, which public DNS is asked about, or the
+    // public address, which must be this server's.
+    let host = address.host();
+    if host.is_empty() {
+        return items;
+    }
+    let server = seen.as_ref().map(|(ip, _)| *ip);
+    match (host.parse::<IpAddr>(), server) {
+        (Ok(ip), Some(server)) if ip == IpAddr::V4(server) => items.push(Item::ok("Panel address", format!("{host} is this server"))),
+        (Ok(IpAddr::V6(ip)), _) => {
+            if system::global_ipv6().contains(&ip) {
+                items.push(Item::ok("Panel address", format!("{host} is this server")));
+            } else {
+                items.push(Item::error(
+                    "Panel address",
+                    format!("every link is built from {host}, which is not an address of this server"),
+                    "arikan admin migrate --public-host <this server's address>",
+                ));
+            }
+        }
+        (Ok(_), Some(server)) => items.push(Item::error(
+            "Panel address",
+            format!("every link is built from {host}, not from this server ({server})"),
+            format!("arikan admin migrate --public-host {server}"),
+        )),
+        (Ok(_), None) => {}
+        (Err(_), _) => match seen.as_ref().and_then(|(_, dns)| dns.as_ref()) {
+            Some(dns) => items.extend(dns.notes.iter().map(|note| match note.level {
+                Level::Ok => Item::ok("Panel domain", note.text.clone()),
+                _ => Item { level: note.level, label: "Panel domain".into(), detail: note.text.clone(), fix: Some(dns_fix(host, server)) },
+            })),
+            None => items.push(Item::warn(
+                "Panel domain",
+                format!("{host} is the address every link is built from, and this server's own address cannot be asked to check it"),
+                "check the outbound network: curl -s https://api.ipify.org; then arikan doctor",
+            )),
+        },
+    }
+    items
+}
+
+/// What to do about a domain that does not lead to this server: the record is changed at
+/// the DNS host, not here.
+fn dns_fix(domain: &str, server: Option<Ipv4Addr>) -> String {
+    match server {
+        Some(ip) => format!("make the A record of {domain} point to {ip} at the DNS host, then arikan doctor"),
+        None => format!("make the A record of {domain} point to this server at the DNS host"),
+    }
 }
 
 /// Port 80, where Let's Encrypt checks the server before it gives a certificate: free for
@@ -1115,6 +1227,92 @@ Anywhere                   ALLOW       10.0.0.0/8
         assert_eq!(closed.fix.as_deref(), Some("ufw allow in on mikan-addons to 172.18.0.1 port 21355 proto tcp comment mikan-addons"));
         // the rule of the gateway before it moved does not open the new one
         assert_eq!(addons_item(&open, "172.19.0.1:21355").unwrap().level, Level::Warn);
+    }
+
+    fn panel_install(port: Option<u16>) -> Install {
+        let text = match port {
+            Some(p) => format!("MIKAN_VERSION=0.5.2.15\nPANEL_PORT={p}\n"),
+            None => "MIKAN_VERSION=0.5.2.15\n".to_owned(),
+        };
+        Install { config: crate::config::Config::from_env_text("/nonexistent", &text), node: false }
+    }
+
+    fn dns(level: Level, text: &str) -> net::DomainCheck {
+        net::DomainCheck { notes: vec![net::Note { level, text: text.into() }] }
+    }
+
+    // The panel's address in the database against what the server serves: the listener
+    // (PANEL_PORT), where public DNS sends the domain, and the public address. A restore from
+    // another server or `arikan admin migrate --port` leaves the setting and the server
+    // apart, and every line that is not fine carries the command that fits them.
+    #[test]
+    fn the_panel_address_is_compared_with_what_the_server_serves() {
+        let a = |domain: &str, host: &str, port: u16| -> Result<Address, Error> {
+            Ok(Address { domain: domain.into(), public_host: host.into(), panel_port: port })
+        };
+        let ip = |s: &str| s.parse::<Ipv4Addr>().unwrap();
+
+        // The setting and the listener agree.
+        let items = address_items(&a("", "", 2053), &panel_install(Some(2053)), None);
+        assert_eq!(items.len(), 1);
+        assert_eq!((items[0].level, items[0].detail.as_str()), (Level::Ok, "2053, as the database says"));
+
+        // The setting was changed after the panel started: every link would use a port
+        // nothing answers on, until a restart fits the setting to the listener.
+        let items = address_items(&a("", "", 2053), &panel_install(Some(21355)), None);
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].level, Level::Warn);
+        assert!(items[0].detail.contains("21355") && items[0].detail.contains("2053"), "{}", items[0].detail);
+        let fix = items[0].fix.as_deref().unwrap();
+        assert!(fix.contains("arikan restart") && fix.contains("PANEL_PORT=2053"), "{fix}");
+
+        // A database without the port: links are built without one, and the command that
+        // sets it names the listener.
+        let items = address_items(&a("", "203.0.113.5", 0), &panel_install(Some(21355)), None);
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].level, Level::Warn);
+        assert!(items[0].fix.as_deref().unwrap().contains("--port 21355"), "{:?}", items[0].fix);
+
+        // A server whose config.json lost PANEL_PORT cannot listen where the database says.
+        let items = address_items(&a("", "", 2053), &panel_install(None), None);
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].level, Level::Error);
+        assert!(items[0].fix.as_deref().unwrap().contains("PANEL_PORT=2053"), "{:?}", items[0].fix);
+
+        // The domain every link is built from, against the public resolvers.
+        let seen = |level: Level, text: &str| Some((ip("198.51.100.9"), Some(dns(level, text))));
+        let items = address_items(
+            &a("vpn.example.com", "", 2053),
+            &panel_install(Some(2053)),
+            seen(Level::Error, "vpn.example.com points to 203.0.113.5, not to this server (198.51.100.9): fix the A record"),
+        );
+        assert_eq!(items.len(), 2);
+        assert_eq!((items[1].level, items[1].label.as_str()), (Level::Error, "Panel domain"));
+        assert!(items[1].fix.as_deref().unwrap().contains("198.51.100.9"), "{:?}", items[1].fix);
+        let items = address_items(
+            &a("vpn.example.com", "", 2053),
+            &panel_install(Some(2053)),
+            seen(Level::Ok, "vpn.example.com → 198.51.100.9, this server"),
+        );
+        assert_eq!(items[1].level, Level::Ok);
+        // A domain nobody could ask about: said, not passed over.
+        let items = address_items(&a("vpn.example.com", "", 2053), &panel_install(Some(2053)), None);
+        assert_eq!(items[1].level, Level::Warn);
+        assert!(items[1].detail.contains("vpn.example.com"), "{}", items[1].detail);
+
+        // Without a domain, the public address itself must be this server's.
+        let own = |dns: Option<net::DomainCheck>| Some((ip("198.51.100.9"), dns));
+        let items = address_items(&a("", "198.51.100.9", 2053), &panel_install(Some(2053)), own(None));
+        assert_eq!((items[1].level, items[1].detail.as_str()), (Level::Ok, "198.51.100.9 is this server"));
+        let items = address_items(&a("", "203.0.113.5", 2053), &panel_install(Some(2053)), own(None));
+        assert_eq!(items[1].level, Level::Error);
+        assert_eq!(items[1].fix.as_deref(), Some("arikan admin migrate --public-host 198.51.100.9"));
+
+        // An image that cannot read the address says so, with the update that gives it the
+        // command.
+        let items = address_items(&Err(anyhow::anyhow!("no such command")), &panel_install(Some(2053)), None);
+        assert_eq!(items[0].level, Level::Warn);
+        assert!(items[0].detail.contains("cannot be read") && items[0].fix.as_deref().unwrap().starts_with("arikan update"), "{items:?}");
     }
 
     #[test]

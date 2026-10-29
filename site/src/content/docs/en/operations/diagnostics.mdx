@@ -11,7 +11,7 @@ The last 2000 lines of the panel's log and of each node's. Tokens, keys, passwor
 
 ## Check
 
-**Run the check** runs `mikan doctor` on the server itself, not in a container: Docker and the containers, ports, ufw rules, port 80, the clock, DNS, access to GitHub and GHCR, disk and memory. Every line has a hint on what to do. Waiting for the report takes up to a minute.
+**Run the check** runs `mikan doctor` on the server itself, not in a container: Docker and the containers, ports, ufw rules, port 80, the clock, DNS, access to GitHub and GHCR, disk and memory, and on a panel's server also its own address — the port from the database against the listener, and the domain against this server's addresses. Every line has a hint on what to do. Waiting for the report takes up to a minute.
 
 **Restart** restarts the containers of the panel's server or of a node. The panel or the node is unreachable for a couple of seconds.
 
