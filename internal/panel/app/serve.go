@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"syscall"
 	"time"
@@ -172,9 +173,27 @@ func Serve(ctx context.Context, cfg config.Config, version string, web fs.FS) er
 	if !cfg.Dev {
 		panelTLS = &tls.Config{MinVersion: tls.VersionTLS12, GetCertificate: names.Get, NextProtos: []string{"h2", "http/1.1"}}
 	}
-	listenHost, _, err := net.SplitHostPort(cfg.Listen)
+	listenHost, listenPortText, err := net.SplitHostPort(cfg.Listen)
 	if err != nil {
 		return fmt.Errorf("listen %q: %w", cfg.Listen, err)
+	}
+	// The listener is this server's own (PANEL_PORT in config.json); the panel_port setting
+	// is what every link, the admin path and each node's address are built from. A database
+	// restored from another server (a .dump, the Telegram backup) brings that server's
+	// panel_port, while the listen port stays the one this server was installed with: the
+	// panel would advertise a port nothing answers on, and every node would be given the
+	// wrong address. The panel cannot move itself onto the setting, so the setting follows
+	// the listener.
+	if !cfg.Dev {
+		if listenPort, err := strconv.Atoi(listenPortText); err == nil {
+			set := settings.New(st.Q)
+			if port, _, err := settings.Get[int](ctx, set, settings.KeyPanelPort); err == nil && port != 0 && port != listenPort {
+				logger.Warn("the panel port setting does not match the listener; correcting the setting", "setting", port, "listen", listenPort)
+				if err := settings.Set(ctx, set, settings.KeyPanelPort, listenPort); err != nil {
+					logger.Error("correct the panel port setting", "err", err)
+				}
+			}
+		}
 	}
 	subPort := NewSubPort(listenHost, panelTLS, logger)
 	defer subPort.Close()

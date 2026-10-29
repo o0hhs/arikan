@@ -3,6 +3,17 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
+## Unreleased
+### en
+**A panel never advertises a port it does not serve.**
+- A database restored from another server (a `.dump` downloaded from the panel, the Telegram backup) brings that server's `panel_port` setting, while the listen port stays the one this server was installed with. Every link, the admin path and each node's address were then built from a port nothing answered on, and nodes were told the wrong address. The panel now corrects the setting to its own listener at start, with a log line naming both ports.
+- `arikan restore` of a database-only archive now says what that actually changes: the address, port and subscription settings come from the database, every node must join again, and certificates and adapters stay this server's. The docs say the same.
+
+### ru
+**Панель больше не рекламирует порт, который не слушает.**
+- База, восстановленная с другого сервера (скачанный из панели `.dump`, бэкап из Telegram), приносит настройку `panel_port` того сервера, а слушающий порт остаётся тот, с которым этот сервер установлен. Все ссылки, путь админки и адрес для каждой ноды строились тогда по порту, на котором никто не отвечает, и ноды получали неверный адрес. Теперь панель при старте исправляет настройку на свой слушающий порт и пишет в лог оба значения.
+- `arikan restore` архива только с базой теперь говорит, что именно меняется: адрес, порт и подписочные настройки приезжают из базы, каждой ноде нужно присоединиться заново, а сертификаты и адаптеры остаются здешние. В документации — то же самое.
+
 ## 0.5.2.15
 ### en
 **The node's page stops taking the public 443 from the router, and a port range stops eating the memory.**
