@@ -130,7 +130,7 @@ func TestSubStoreExpiryRevocationAndPrune(t *testing.T) {
 	if err := store.put(6, testRecord("AnotherToken00000000001", clock.now().Add(time.Hour))); err != nil {
 		t.Fatal(err)
 	}
-	if n := store.prune(6); n != 1 { // the one of generation 5 goes
+	if n := store.prune(6); n != 2 { // the short-lived one of generation 1 and the long one of 5
 		t.Fatalf("pruned %d", n)
 	}
 	if _, ok := store.lookup(long.Path); ok {
