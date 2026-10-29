@@ -15,6 +15,7 @@ import (
 	"log/slog"
 	"mikan/internal/panel/subs"
 	"net"
+	"net/netip"
 	"slices"
 	"sort"
 	"strconv"
@@ -286,7 +287,11 @@ func (s *Syncer) desiredPin(ctx context.Context) (st nodeapi.DesiredState, pin s
 	// with the shared 443 what the node's own domain gives.
 	st.FrontPage = n.FrontPage
 	if n.SniRouter != 0 {
-		st.Router = sniRouter(st.Inbounds, n.Domain, n.FrontPage != "")
+		web, err := s.webRoutes(ctx)
+		if err != nil {
+			return st, "", err
+		}
+		st.Router = sniRouter(st.Inbounds, n.Domain, n.FrontPage != "", web)
 	}
 	if n.FairShare != 0 && n.ChannelMbps.Valid {
 		st.Shaping = &nodeapi.Shaping{ChannelMbps: int(n.ChannelMbps.Int64)}
@@ -1289,11 +1294,13 @@ func countSites(ctx context.Context, q *db.Queries, c nodeapi.Counters, owner ma
 
 // sniRouter is the node's SNI router for the inbounds marked for it: each by the names its
 // clients ask for, the first REALITY one taking any other name (it passes a stranger on to
-// its target, as on a port of its own). With front, the node's front page takes the node's
-// own domain, unless an inbound asks for it, and a ClientHello with no name. nil when no
-// inbound is marked, and with only the page when an inbound of its own holds TCP 443.
-func sniRouter(inbounds []nodeapi.Inbound, nodeDomain string, front bool) *nodeapi.SNIRouter {
-	r := &nodeapi.SNIRouter{}
+// its target, as on a port of its own). web are the names that go to the panel's listener on
+// the node's own server instead (its domain and the subscription domain). With front, the
+// node's front page takes the node's own domain, unless an inbound asks for it, and a
+// ClientHello with no name. nil when no inbound is marked and there is nothing else to route,
+// and with only the page when an inbound of its own holds TCP 443.
+func sniRouter(inbounds []nodeapi.Inbound, nodeDomain string, front bool, web []nodeapi.WebRoute) *nodeapi.SNIRouter {
+	r := &nodeapi.SNIRouter{Web: web}
 	taken := map[string]bool{}
 	busy := false // TCP 443 held by an inbound outside the router
 	for _, in := range inbounds {
@@ -1320,10 +1327,39 @@ func sniRouter(inbounds []nodeapi.Inbound, nodeDomain string, front bool) *nodea
 		}
 		r.Stub = append(r.Stub, "")
 	}
-	if len(r.Routes) == 0 && (len(r.Stub) == 0 || busy) {
+	if len(r.Routes) == 0 && len(r.Web) == 0 && (len(r.Stub) == 0 || busy) {
 		return nil
 	}
 	return r
+}
+
+// webRoutes are the panel's own names the node's router may hand to the panel's listener:
+// its domain and the subscription domain. Only the panel's own node: a remote node's
+// 127.0.0.1 is not this server's, and an address has no SNI to route by. nil when the panel
+// runs no loopback listener (the CLI, a panel without a server).
+func (s *Syncer) webRoutes(ctx context.Context) ([]nodeapi.WebRoute, error) {
+	port := int(s.m.webPort.Load())
+	if !s.local || port <= 0 {
+		return nil, nil
+	}
+	var out []nodeapi.WebRoute
+	seen := map[string]bool{}
+	for _, key := range []string{settings.KeyDomain, settings.KeySubDomain} {
+		v, err := s.m.set.String(ctx, key)
+		if err != nil {
+			return nil, err
+		}
+		name := strings.ToLower(strings.TrimSuffix(strings.TrimSpace(v), "."))
+		if name == "" || seen[name] {
+			continue
+		}
+		if _, err := netip.ParseAddr(name); err == nil {
+			continue
+		}
+		seen[name] = true
+		out = append(out, nodeapi.WebRoute{Names: []string{name}, Port: port})
+	}
+	return out, nil
 }
 
 // routesDNS puts the admin's Routing → DNS onto the state's exit DNS: the resolvers, the

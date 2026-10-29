@@ -21,6 +21,9 @@ the signed manifest, and the panel shows the one in its language.
 - The database address in `config.json` and `secrets/` now follows `secrets/postgres_password` (the volume was initialized from it), and a lost password file comes back from the address. Before, a cross-server or hand-edited pair left the panel unable to open the database at all.
 - `arikan doctor` now compares the running container's image with `MIKAN_IMAGE`, the server role in `config.json` with the containers compose runs, the database address with the password, and a node's `NODE_API_PORT` with the port inside its join key. Each mismatch says what to do.
 
+**A subscription opens on 443 without a port in the link.**
+- A subscription port of 443 no longer tries to take 443 from the node: the node's SNI router holds it, and now hands the panel's own names — its domain and the subscription domain — to the panel's listener on loopback, with the client's real address in front (PROXY protocol v2). Links read `https://sub.example.com/…`, the panel opens on 443 too, and the panel records the client's address, not 127.0.0.1. A name an inbound already takes stays the inbound's, and the web route is dropped with a log line. Old links on other ports keep working; 443 needs a domain and the node's shared 443 turned on.
+
 ### ru
 **Панель больше не рекламирует порт, который не слушает, а восстановленная панель поднимается по прежнему адресу.**
 - База, восстановленная с другого сервера (скачанный из панели `.dump`, бэкап из Telegram), приносит настройку `panel_port` того сервера, а слушающий порт остаётся тот, с которым этот сервер установлен. Все ссылки, путь админки и адрес для каждой ноды строились тогда по порту, на котором никто не отвечает, и ноды получали неверный адрес.
@@ -37,6 +40,9 @@ the signed manifest, and the panel shows the one in its language.
 **Учётные данные и контейнеры следуют за своим владельцем.**
 - Адрес базы в `config.json` и `secrets/` теперь следует за `secrets/postgres_password` (том базы инициализирован им), а потерянный файл пароля восстанавливается из адреса. Раньше пара, приехавшая с другого сервера или правленная руками, оставляла панель без доступа к базе.
 - `arikan doctor` теперь сравнивает образ работающего контейнера с `MIKAN_IMAGE`, роль сервера в `config.json` с контейнерами из compose, адрес базы с паролем и `NODE_API_PORT` ноды с портом внутри её ключа. К каждому расхождению — что делать.
+
+**Подписка открывается на 443 без порта в ссылке.**
+- Порт подписки 443 больше не пытается занять 443 у ноды: его держит SNI-роутер, и теперь он передаёт свои имена — домен панели и домен подписки — слушателю панели на loopback вместе с настоящим адресом клиента (PROXY protocol v2). Ссылки выглядят как `https://sub.example.com/…`, админка тоже открывается на 443, а панель видит адрес клиента, а не 127.0.0.1. Имя, которое уже занял протокол, остаётся его, а веб-маршрут отбрасывается с записью в лог. Старые ссылки на других портах продолжают работать; для 443 нужен домен и включённый общий 443 ноды.
 
 ## 0.5.2.15
 ### en

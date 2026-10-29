@@ -1,6 +1,7 @@
 package node
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -16,12 +17,15 @@ import (
 	"net/http"
 	"net/netip"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/metacubex/mihomo/common/proxyproto"
 
 	"mikan/internal/nodeapi"
+	"mikan/internal/panel/webproxy"
 )
 
 // backend is an inbound behind the router: it reads the PROXY header and the first bytes
@@ -223,4 +227,90 @@ func TestFrontPageOnTheRouter(t *testing.T) {
 	c = helloTo(t, ln.Addr().String(), "node.example.com")
 	hitBy(t, aHits, c, "the page off")
 	c.Close()
+}
+
+// The router's web route: a name that is the panel's goes to the panel's listener on
+// loopback, with the client's address in the PROXY header in front, so the panel records
+// the client and not 127.0.0.1. A name an inbound takes stays the inbound's: the web route
+// is dropped with a log line, and the inbound gets the connection.
+func TestSNIRouterWebRoute(t *testing.T) {
+	var webHits atomic.Int64
+	web, err := webproxy.Listen("127.0.0.1:0", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer web.Close()
+	certPEM, keyPEM := testCertPEM(t, "sub.example.com")
+	cert, err := tls.X509KeyPair([]byte(certPEM), []byte(keyPEM))
+	if err != nil {
+		t.Fatal(err)
+	}
+	webSrv := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		webHits.Add(1)
+		_, _ = io.WriteString(w, r.RemoteAddr+"|"+r.TLS.ServerName)
+	})}
+	go func() { _ = webSrv.Serve(tls.NewListener(web, &tls.Config{Certificates: []tls.Certificate{cert}})) }()
+	defer webSrv.Close()
+
+	var logs bytes.Buffer
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := &sniRouter{ln: ln, log: slog.New(slog.NewTextHandler(&logs, nil))}
+	r.set(&nodeapi.SNIRouter{Web: []nodeapi.WebRoute{{Names: []string{"Sub.Example.com."}, Port: web.Port()}}}, nil)
+	go r.serve(nil)
+	defer r.close()
+
+	var mu sync.Mutex
+	var clientAddr string
+	// The name comes from the URL: the transport sends it as the SNI (the certificate is the
+	// test's own, hence unchecked).
+	client := &http.Client{Timeout: 5 * time.Second, Transport: &http.Transport{
+		TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
+		DisableKeepAlives: true,
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			c, err := (&net.Dialer{}).DialContext(ctx, "tcp", ln.Addr().String())
+			if err == nil {
+				mu.Lock()
+				clientAddr = c.LocalAddr().String()
+				mu.Unlock()
+			}
+			return c, err
+		},
+	}}
+	resp, err := client.Get("https://sub.example.com/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	mu.Lock()
+	want := clientAddr + "|sub.example.com"
+	mu.Unlock()
+	if got := string(body); got != want {
+		t.Fatalf("the panel saw %q, want %q", got, want)
+	}
+	if webHits.Load() != 1 {
+		t.Fatalf("hits %d", webHits.Load())
+	}
+	if _, err := client.Get("https://other.example.com/"); err == nil {
+		t.Fatal("a name with nowhere to go was answered")
+	}
+
+	// An inbound that takes the name wins: the web route is no route at all.
+	backPort, backHits := backend(t)
+	r.set(&nodeapi.SNIRouter{
+		Routes: []nodeapi.SNIRoute{{Inbound: "panel", Names: []string{"sub.example.com"}}},
+		Web:    []nodeapi.WebRoute{{Names: []string{"sub.example.com"}, Port: web.Port()}},
+	}, map[string]string{"panel": backPort})
+	if !strings.Contains(logs.String(), "web route rejected") {
+		t.Fatalf("no log line about the rejected route: %q", logs.String())
+	}
+	c := helloTo(t, ln.Addr().String(), "sub.example.com")
+	hitBy(t, backHits, c, "a name an inbound takes")
+	c.Close()
+	if webHits.Load() != 1 {
+		t.Fatalf("the panel answered a name an inbound takes: %d", webHits.Load())
+	}
 }

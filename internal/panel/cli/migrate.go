@@ -6,7 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"net"
 	"sort"
 	"strconv"
 	"strings"
@@ -103,7 +102,8 @@ func migrateCmd(ctx context.Context, st *store.Store, set *settings.Settings, cf
 	fmt.Fprintf(stderr, "Address updated: %s -> %s (domain %q -> %q, port %d -> %d).\n",
 		oldHost, *host, oldDomain, newDomain, oldPort, newPort)
 	fmt.Fprintf(stderr, "Subscription tokens and the path %q are unchanged: clients keep their links, only the host moves.\n", paths.Sub)
-	fmt.Fprintln(stdout, "Subscriptions: https://"+net.JoinHostPort(subHost, strconv.Itoa(subPort))+"/"+paths.Sub+"/<token>")
+	sub := settings.Endpoint{Host: subHost, Port: subPort}
+	fmt.Fprintln(stdout, "Subscriptions: "+sub.URL()+"/"+paths.Sub+"/<token>")
 	if u, err := panelURL(ctx, set); err == nil {
 		fmt.Fprintln(stdout, "Panel: "+u)
 	}

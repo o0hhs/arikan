@@ -587,7 +587,7 @@ func TestSNIRouterRoutes(t *testing.T) {
 		in("reality", `{"type":"vless","reality-config":{"server-names":["www.microsoft.com","microsoft.com"]},"mikan":{"sni443":true}}`),
 		in("tls", `{"type":"trojan","mikan":{"tls":"node","sni443":true}}`),
 		in("udp", `{"type":"hysteria2","mikan":{"sni443":true}}`),
-	}, "node.example.net", false)
+	}, "node.example.net", false, nil)
 	if r == nil || len(r.Routes) != 2 || r.Default != "reality" {
 		t.Fatalf("router: %+v", r)
 	}
@@ -600,7 +600,7 @@ func TestSNIRouterRoutes(t *testing.T) {
 	if !r.Routed("tls") || r.Routed("plain") {
 		t.Fatal("Routed")
 	}
-	if sniRouter([]nodeapi.Inbound{in("plain", `{"type":"vless","reality-config":{}}`)}, "", false) != nil {
+	if sniRouter([]nodeapi.Inbound{in("plain", `{"type":"vless","reality-config":{}}`)}, "", false, nil) != nil {
 		t.Fatal("a router with nothing behind it")
 	}
 }
@@ -613,22 +613,88 @@ func TestSNIRouterFrontPage(t *testing.T) {
 		return nodeapi.Inbound{Name: name, Port: port, Config: []byte(cfg)}
 	}
 	reality := in("reality", "8443", `{"type":"vless","reality-config":{"server-names":["www.microsoft.com"]},"mikan":{"sni443":true}}`)
-	r := sniRouter([]nodeapi.Inbound{reality}, "Node.Example.net.", true)
+	r := sniRouter([]nodeapi.Inbound{reality}, "Node.Example.net.", true, nil)
 	if r == nil || !slices.Equal(r.Stub, []string{"node.example.net", ""}) || r.Default != "reality" {
 		t.Fatalf("page on the domain and with no name: %+v", r)
 	}
 	tls := in("tls", "8443", `{"type":"trojan","mikan":{"tls":"node","sni443":true}}`)
-	if r := sniRouter([]nodeapi.Inbound{reality, tls}, "node.example.net", true); r == nil || !slices.Equal(r.Stub, []string{""}) {
+	if r := sniRouter([]nodeapi.Inbound{reality, tls}, "node.example.net", true, nil); r == nil || !slices.Equal(r.Stub, []string{""}) {
 		t.Fatalf("a domain an inbound asks for stays the inbound's: %+v", r)
 	}
-	if r := sniRouter(nil, "node.example.net", true); r == nil || len(r.Routes) != 0 || len(r.Stub) != 2 {
+	if r := sniRouter(nil, "node.example.net", true, nil); r == nil || len(r.Routes) != 0 || len(r.Stub) != 2 {
 		t.Fatalf("the page alone: %+v", r)
 	}
-	if r := sniRouter([]nodeapi.Inbound{in("own", "443", `{"type":"vless","reality-config":{}}`)}, "node.example.net", true); r != nil {
+	if r := sniRouter([]nodeapi.Inbound{in("own", "443", `{"type":"vless","reality-config":{}}`)}, "node.example.net", true, nil); r != nil {
 		t.Fatalf("an inbound of its own on 443 leaves the page no port: %+v", r)
 	}
-	if r := sniRouter([]nodeapi.Inbound{in("hy", "443", `{"type":"hysteria2"}`)}, "node.example.net", true); r == nil {
+	if r := sniRouter([]nodeapi.Inbound{in("hy", "443", `{"type":"hysteria2"}`)}, "node.example.net", true, nil); r == nil {
 		t.Fatal("443 over UDP leaves TCP 443 free")
+	}
+	// A web route alone keeps the router: the panel's names answer on 443 with no inbound
+	// behind the router at all.
+	web := []nodeapi.WebRoute{{Names: []string{"panel.example.net"}, Port: 41234}}
+	if r := sniRouter(nil, "", false, web); r == nil || len(r.Web) != 1 || len(r.Routes) != 0 {
+		t.Fatalf("the panel's names alone: %+v", r)
+	}
+	if r := sniRouter(nil, "", false, nil); r != nil {
+		t.Fatalf("nothing to route: %+v", r)
+	}
+}
+
+// The panel's own node sends its router the names that are the panel's: its domain and the
+// subscription domain, and only while the panel has a listener on loopback. A remote node
+// has no such listener, and an address has no name for a ClientHello to carry.
+func TestWebRoutesToThePanel(t *testing.T) {
+	s, _, st, _, _ := setup(t)
+	ctx := context.Background()
+	set := settings.New(st.Q)
+	// No listener (the panel without a server, the CLI): nothing to route.
+	if err := settings.Set(ctx, set, settings.KeyDomain, "panel.example.com"); err != nil {
+		t.Fatal(err)
+	}
+	if web, err := s.webRoutes(ctx); err != nil || len(web) != 0 {
+		t.Fatalf("no listener: %+v %v", web, err)
+	}
+	s.m.SetWebPort(41234)
+	// The same name twice (a subscription domain equal to the panel's) is routed once.
+	if err := settings.Set(ctx, set, settings.KeySubDomain, "Panel.Example.com."); err != nil {
+		t.Fatal(err)
+	}
+	web, err := s.webRoutes(ctx)
+	if err != nil || len(web) != 1 || len(web[0].Names) != 1 || web[0].Names[0] != "panel.example.com" || web[0].Port != 41234 {
+		t.Fatalf("the panel's names: %+v %v", web, err)
+	}
+	if err := settings.Set(ctx, set, settings.KeySubDomain, "sub.example.com"); err != nil {
+		t.Fatal(err)
+	}
+	web, _ = s.webRoutes(ctx)
+	if len(web) != 2 || web[1].Names[0] != "sub.example.com" || web[1].Port != 41234 {
+		t.Fatalf("the subscription domain: %+v", web)
+	}
+	// A public host that is an address is no name: the router would never see it as an SNI.
+	if err := settings.Set(ctx, set, settings.KeyDomain, "203.0.113.10"); err != nil {
+		t.Fatal(err)
+	}
+	web, _ = s.webRoutes(ctx)
+	if len(web) != 1 || web[0].Names[0] != "sub.example.com" {
+		t.Fatalf("an address among the names: %+v", web)
+	}
+	// Only the panel's own node: a remote node's loopback is not this server's.
+	s.local = false
+	if web, err := s.webRoutes(ctx); err != nil || len(web) != 0 {
+		t.Fatalf("a remote node: %+v %v", web, err)
+	}
+	s.local = true
+	// And the state carries the routes to the node once its router is on.
+	if _, err := st.DB.ExecContext(ctx, "UPDATE nodes SET sni_router = 1 WHERE id = $1", s.id); err != nil {
+		t.Fatal(err)
+	}
+	state, err := s.desired(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.Router == nil || len(state.Router.Web) != 1 || state.Router.Web[0].Port != 41234 {
+		t.Fatalf("the state's web routes: %+v", state.Router)
 	}
 }
 
@@ -640,6 +706,7 @@ func TestStateKeyHoldsTheNodeSwitches(t *testing.T) {
 		"redirect": {HTTPRedirect: true},
 		"detail":   {Detail: true},
 		"router":   {Router: &nodeapi.SNIRouter{Routes: []nodeapi.SNIRoute{{Inbound: "a", Names: []string{"x"}}}}},
+		"web":      {Router: &nodeapi.SNIRouter{Web: []nodeapi.WebRoute{{Names: []string{"sub.example.com"}, Port: 41234}}}},
 		"front":    {FrontPage: "cats"},
 	} {
 		if stateKey(st) == stateKey(base) {

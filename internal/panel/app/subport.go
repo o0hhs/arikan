@@ -47,12 +47,20 @@ func (s *SubPort) SetHandler(h http.Handler) {
 }
 
 // Set moves the listener to port; 0 closes it. SubPortRouter opens no listener at all: the
-// node's router answers 443, and the panel must not try to take the port from it. Otherwise
-// the new port opens before the old one closes, so a port that cannot be had changes nothing.
+// node's SNI router holds 443 and hands the subscription domain to the panel's loopback
+// listener (internal/panel/webproxy) with the client's address in front. Otherwise the new
+// port opens before the old one closes, so a port that cannot be had changes nothing.
 func (s *SubPort) Set(port int) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if port == s.port && (port == 0 || port == SubPortRouter || s.srv != nil) {
+	if port == SubPortRouter {
+		if s.srv != nil {
+			_ = s.srv.Close()
+		}
+		s.srv, s.port, s.err = nil, SubPortRouter, ""
+		return nil
+	}
+	if port == s.port && (port == 0 || s.srv != nil) {
 		return nil
 	}
 	var srv *http.Server
