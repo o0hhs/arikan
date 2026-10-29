@@ -79,6 +79,12 @@ func newPanel(t *testing.T, nodeConn net.Conn, refuse ...int64) *panel {
 // the other end of a pipe.
 func bridge(t *testing.T, password string, routes ...nodeapi.CascadeRoute) (*cascade, *entryBridge, *panel) {
 	t.Helper()
+	return bridgeRefusing(t, password, nil, routes...)
+}
+
+// bridgeRefusing is a bridge whose panel refuses the exits in refuse.
+func bridgeRefusing(t *testing.T, password string, refuse []int64, routes ...nodeapi.CascadeRoute) (*cascade, *entryBridge, *panel) {
+	t.Helper()
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	c := newCascade(log, nodetls.Key{}, &Tunnel{})
 	panelConn, nodeConn := net.Pipe()
@@ -90,7 +96,7 @@ func bridge(t *testing.T, password string, routes ...nodeapi.CascadeRoute) (*cas
 	}
 	c.bridge = &cascadeBridge{conn: nodeConn, sess: sess, since: time.Now()}
 	t.Cleanup(func() { _ = sess.Close() })
-	p := newPanel(t, panelConn)
+	p := newPanel(t, panelConn, refuse...)
 	b := c.newEntry(&nodeapi.CascadeEntry{Listen: "127.0.0.1:0", Password: password, Routes: routes})
 	if b.ln == nil {
 		t.Fatalf("the bridge does not listen: %s", b.err)
@@ -116,6 +122,18 @@ func dial(t *testing.T, b *entryBridge, user, password, target string) (net.Conn
 		return conn, err
 	}
 	return conn, nil
+}
+
+// refused says the bridge took the SOCKS5 exchange and carried nothing: the core's own
+// client does not look at the reply code, so a refusal shows as the connection ending.
+func refused(t *testing.T, conn net.Conn) {
+	t.Helper()
+	_ = conn.SetDeadline(time.Now().Add(5 * time.Second))
+	_, _ = conn.Write([]byte("x"))
+	buf := make([]byte, 1)
+	if _, err := conn.Read(buf); err == nil {
+		t.Fatal("a refused connection carried bytes")
+	}
 }
 
 func echo(t *testing.T, conn net.Conn) {
@@ -161,7 +179,7 @@ func TestTheEntryBridgeCarriesAClientConnection(t *testing.T) {
 // The exit the inbound named is asked for first; a tunnel that is down costs one refused
 // stream, and the reserve takes the connection.
 func TestTheEntryBridgeFallsBackToAReserve(t *testing.T) {
-	_, b, p := bridge(t, "pw", nodeapi.CascadeRoute{Name: "NODE-7", Exits: []int64{7, 9}})
+	_, b, p := bridgeRefusing(t, "pw", []int64{7}, nodeapi.CascadeRoute{Name: "NODE-7", Exits: []int64{7, 9}})
 	conn, err := dial(t, b, "NODE-7", "pw", "example.com:443")
 	if err != nil {
 		t.Fatalf("the bridge's handshake: %v", err)
@@ -198,9 +216,11 @@ func TestTheEntryBridgeRefusesAForeignPassword(t *testing.T) {
 // A user the state does not name is no exit: the connection is refused, not guessed at.
 func TestTheEntryBridgeRefusesAnUnknownExit(t *testing.T) {
 	_, b, p := bridge(t, "pw", nodeapi.CascadeRoute{Name: "NODE-7", Exits: []int64{7}})
-	if _, err := dial(t, b, "NODE-99", "pw", "example.com:443"); err == nil {
-		t.Fatal("an exit the state does not name passed")
+	conn, err := dial(t, b, "NODE-99", "pw", "example.com:443")
+	if err != nil {
+		t.Fatalf("the handshake: %v", err)
 	}
+	refused(t, conn)
 	select {
 	case exit := <-p.asks:
 		t.Fatalf("an unknown exit reached the panel: exit %d", exit)
@@ -218,9 +238,11 @@ func TestTheEntryBridgeRefusesWithoutATunnel(t *testing.T) {
 		t.Fatalf("the bridge does not listen: %s", b.err)
 	}
 	t.Cleanup(func() { _ = b.ln.Close() })
-	if _, err := dial(t, b, "NODE-7", "pw", "example.com:443"); err == nil {
-		t.Fatal("a connection without a bridge passed")
+	conn, err := dial(t, b, "NODE-7", "pw", "example.com:443")
+	if err != nil {
+		t.Fatalf("the handshake: %v", err)
 	}
+	refused(t, conn)
 }
 
 // A bridge anywhere but loopback would be a SOCKS proxy for the server, and the world: the

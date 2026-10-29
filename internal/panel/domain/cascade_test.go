@@ -71,10 +71,16 @@ func TestCascadeReservesSkipNodesThatLeaveThroughThisOne(t *testing.T) {
 		return db.Node{ID: id, Name: host, Address: host + ":40000", CertSha256: cert, Enabled: 1}
 	}
 	exit := func(id int64) sql.NullInt64 { return sql.NullInt64{Int64: id, Valid: true} }
-	nodes := []db.Node{remote(2, "198.51.100.2", "aa"), remote(3, "198.51.100.3", "bb"), remote(4, "198.51.100.4", "cc")}
+	nodes := []db.Node{
+		remote(2, "198.51.100.2", "aa"), // A
+		remote(3, "198.51.100.3", "bb"), // B, leaving through A in turn
+		remote(4, "198.51.100.4", "cc"), // C, D's exit
+		remote(5, "198.51.100.5", "dd"), // D
+	}
 	inbounds := []db.Inbound{
 		{ID: 1, NodeID: 2, Name: "a", Enabled: 1, ExitNodeID: exit(3)},
 		{ID: 2, NodeID: 3, Name: "b", Enabled: 1, ExitNodeID: exit(2)},
+		{ID: 3, NodeID: 5, Name: "d", Enabled: 1, ExitNodeID: exit(4)},
 	}
 	plans := CascadePlans(nodes, inbounds, nil)
 	reserves := plans[2].Routes[0].Reserves
