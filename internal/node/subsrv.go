@@ -56,8 +56,8 @@ type subsView struct {
 	listen string
 }
 
-func newSubServer(store *subStore, log *slog.Logger) *subServer {
-	s := &subServer{store: store, log: log, names: map[string]bool{}, ln: newHandover()}
+func newSubServer(store *subStore, logger *slog.Logger) *subServer {
+	s := &subServer{store: store, log: logger, names: map[string]bool{}, ln: newHandover()}
 	s.srv = &http.Server{
 		Handler:           http.HandlerFunc(s.serve),
 		ReadHeaderTimeout: 10 * time.Second,
