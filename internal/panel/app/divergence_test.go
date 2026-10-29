@@ -20,6 +20,8 @@ func TestReconcileSubPort(t *testing.T) {
 		{9053, 0, 9053, false},     // no panel port known (development): nothing to compare
 		{9053, -1, 9053, false},    // a broken value is not the listener's
 		{443, 443, 0, true},        // the same rule on the default port
+		{443, 21355, 443, false},   // through the node's router: a state, not a divergence
+		{443, 0, 443, false},       // and it survives a database without a panel port
 	} {
 		got, changed := ReconcileSubPort(c.sub, c.panel)
 		if got != c.want || changed != c.changed {
@@ -54,6 +56,25 @@ func TestApplyCorrectsASubPortOfThePanelsOwn(t *testing.T) {
 	}
 	if sub, _, err := settings.Get[int](ctx, h.p.Settings, settings.KeySubPort); err != nil || sub != 9443 {
 		t.Fatalf("a distinct subscription port: %d %v", sub, err)
+	}
+}
+
+// 443 through the node's router must survive the start with a database from another server:
+// it is not the panel's own port, so the reconciler leaves it, and the listener opens nothing.
+func TestApplyKeepsTheRouterSubPort(t *testing.T) {
+	h := newHarness(t)
+	ctx := t.Context()
+	if err := settings.Set(ctx, h.p.Settings, settings.KeyPanelPort, 21355); err != nil {
+		t.Fatal(err)
+	}
+	if err := settings.Set(ctx, h.p.Settings, settings.KeySubPort, SubPortRouter); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.p.Apply(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if sub, _, err := settings.Get[int](ctx, h.p.Settings, settings.KeySubPort); err != nil || sub != SubPortRouter {
+		t.Fatalf("the router's 443 was rewritten: %d %v", sub, err)
 	}
 }
 

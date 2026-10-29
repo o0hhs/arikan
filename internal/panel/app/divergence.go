@@ -23,7 +23,10 @@ import (
 // the panel's own port (which follows the listener, see the panel-port correction at
 // start). A sub_port equal to the panel's would take the panel's address before the
 // panel's own listener opens, and the panel would not start at all; the panel's port
-// serves subscriptions anyway, so the subscription port is 0 then.
+// serves subscriptions anyway, so the subscription port is 0 then. SubPortRouter (443) is
+// a state of its own — the node's router answers the subscription domain there, and the
+// panel opens nothing — so it is never a divergence, unless it is also the panel's own
+// port (then there is no 443 left for a router and the panel's port serves the links).
 func ReconcileSubPort(subPort, panelPort int) (port int, changed bool) {
 	if subPort > 0 && subPort == panelPort {
 		return 0, true

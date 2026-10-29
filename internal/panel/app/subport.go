@@ -14,6 +14,12 @@ import (
 // ErrSubPortBusy: something else on the server holds the port.
 var ErrSubPortBusy = errors.New("sub_port_busy")
 
+// SubPortRouter is the sub_port setting that means "the subscription domain is answered on
+// 443 through the node's SNI router": no listener of the panel's own is opened for it. The
+// panel cannot bind 443 there — the router holds it, and the panel's own address is another
+// port — so this state must never be attempted as a bind or reported as a taken port.
+const SubPortRouter = 443
+
 // SubPort serves subscriptions on a port of their own, beside the panel's, and moves at
 // runtime when Settings change it. The panel's port keeps serving subscriptions too, so
 // links already handed out keep working whatever the port becomes.
@@ -24,7 +30,7 @@ type SubPort struct {
 
 	mu      sync.Mutex
 	handler http.Handler
-	port    int
+	port    int // the setting in effect, SubPortRouter included
 	srv     *http.Server
 	err     string
 }
@@ -40,16 +46,17 @@ func (s *SubPort) SetHandler(h http.Handler) {
 	s.mu.Unlock()
 }
 
-// Set moves the listener to port; 0 closes it. The new port opens before the old one
-// closes, so a port that cannot be had changes nothing.
+// Set moves the listener to port; 0 closes it. SubPortRouter opens no listener at all: the
+// node's router answers 443, and the panel must not try to take the port from it. Otherwise
+// the new port opens before the old one closes, so a port that cannot be had changes nothing.
 func (s *SubPort) Set(port int) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if port == s.port && (port == 0 || s.srv != nil) {
+	if port == s.port && (port == 0 || port == SubPortRouter || s.srv != nil) {
 		return nil
 	}
 	var srv *http.Server
-	if port > 0 {
+	if port > 0 && port != SubPortRouter {
 		ln, err := net.Listen("tcp", net.JoinHostPort(s.host, strconv.Itoa(port)))
 		if err != nil {
 			return fmt.Errorf("%w: %v", ErrSubPortBusy, err)
@@ -72,7 +79,8 @@ func (s *SubPort) Set(port int) error {
 }
 
 // Start opens the saved port when the panel starts. A port taken meanwhile is reported
-// in Settings, not fatal: the panel's own port still serves subscriptions.
+// in Settings, not fatal: the panel's own port still serves subscriptions. SubPortRouter
+// is not a listener of the panel's: nothing is opened and nothing can be busy.
 func (s *SubPort) Start(port int) {
 	if port <= 0 {
 		return
