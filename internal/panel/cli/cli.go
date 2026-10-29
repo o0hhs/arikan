@@ -42,6 +42,8 @@ Commands:
   database migrate              bring the database schema up to date while the panel is stopped
   database backup FILE          write a PostgreSQL archive (pg_dump)
   database restore FILE         restore a PostgreSQL backup offline
+  database address              print the panel's address from the database as JSON:
+                                domain, public_host, panel_port (for the installer)
   admin inbound list            inbounds: node, name, preset, port
   admin inbound add PRESET [--port PORT] [--node NODE]
                                 add an inbound from a preset with fresh keys

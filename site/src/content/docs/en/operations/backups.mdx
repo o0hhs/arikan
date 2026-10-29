@@ -36,7 +36,13 @@ Before restoring, the program checks the archive, stops the containers and saves
 - `-y` asks no questions.
 - `--no-db-snapshot` does not copy the current database before replacing it: for a PostgreSQL that is so broken it cannot be dumped. If the restore fails, the current data is lost.
 
-An archive with only the database (like a backup from Telegram) restores only the database: the server's files — `config.json`, `secrets/`, certificates and adapters — stay as they are. The settings **inside the database** do come from the archive, though: the panel's address and port, the subscription domain and paths, the bot token. The port the panel actually listens on is a property of the server (`PANEL_PORT` in `config.json`), so when the two disagree the panel corrects the `panel_port` setting to its own port at start. The join key stays this server's too: after such a restore every node has to join again (issue a new key on the Nodes page, then `mikan join` on the node). Old SQLite backups restore onto a PostgreSQL panel too. A restore replaces the whole database.
+An archive with only the database (like a backup from Telegram) restores only the database: the server's files — `config.json`, `secrets/`, certificates and adapters — stay as they are. The settings **inside the database** do come from the archive, though: the panel's address and port, the subscription domain and paths, the bot token.
+
+After a restore Arikan compares the database's `panel_port` setting with the port the panel listens on (`PANEL_PORT` in `config.json`). When the database's port is free here, the panel comes up on it — at the address it had, with the old links and every node's address: `PANEL_PORT` is rewritten, the port is opened in ufw, and `arikan restore` says which address it ended with. When the port is held, the panel stays on its own listener and corrects the `panel_port` setting at start (both ports are in the log); `arikan restore` names both ports and the one that stayed. A full archive is fitted the same way: its `PANEL_PORT` and the database's `panel_port` must agree, and otherwise the restore says what is left and what to do about it.
+
+The join key stays this server's too: after such a restore every node has to join again (issue a new key on the Nodes page, then `mikan join` on the node). Old SQLite backups restore onto a PostgreSQL panel too. A restore replaces the whole database.
+
+`arikan doctor` shows the same comparison: the port from the database against the listener, and the panel's domain against this server's addresses.
 
 ## Backups to Telegram
 

@@ -1,7 +1,9 @@
 package cli
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -17,6 +19,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"mikan/internal/panel/pgdump"
+	"mikan/internal/panel/settings"
 	"mikan/internal/panel/store"
 	"mikan/internal/panel/store/db"
 	"mikan/internal/panel/store/storetest"
@@ -86,6 +89,56 @@ func TestPostgresArchiveActuallyRestores(t *testing.T) {
 	}
 	if v, err := st.Q.GetSetting(ctx, "preserved"); err != nil || v != "42" {
 		t.Fatal("failed restore changed data", v, err)
+	}
+}
+
+// `mikan database address` is what the installer reads after a restore and from arikan
+// doctor: where the panel says it answers, one JSON object, from a connection of its own.
+func TestDatabaseAddressPrintsWhereThePanelSaysItAnswers(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	st, err := storetest.Open(ctx, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	dsn := fixtureDSN(t, st)
+	set := settings.New(st.Q)
+	for k, v := range map[string]any{settings.KeyDomain: "vpn.example.com", settings.KeyPublicHost: "203.0.113.5", settings.KeyPanelPort: 2053} {
+		if err := settings.Set(ctx, set, k, v); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var out bytes.Buffer
+	if err := addressCmd(ctx, dsn, &out); err != nil {
+		t.Fatal(err)
+	}
+	if n := strings.Count(strings.TrimSpace(out.String()), "\n"); n != 0 {
+		t.Fatalf("%d lines, want one JSON object: %s", n+1, out.String())
+	}
+	var a Address
+	if err := json.Unmarshal(out.Bytes(), &a); err != nil {
+		t.Fatal("not JSON:", err, out.String())
+	}
+	want := Address{Domain: "vpn.example.com", PublicHost: "203.0.113.5", PanelPort: 2053}
+	if a != want {
+		t.Fatalf("%+v, want %+v", a, want)
+	}
+
+	// A database that never had the settings prints zeros rather than an error: the address
+	// is unset, and the installer says what that means.
+	empty := t.TempDir()
+	st2, err := storetest.Open(ctx, empty)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st2.Close()
+	out.Reset()
+	if err := addressCmd(ctx, fixtureDSN(t, st2), &out); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.TrimSpace(out.String()); got != `{"domain":"","public_host":"","panel_port":0}` {
+		t.Fatalf("%s", got)
 	}
 }
 

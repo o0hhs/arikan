@@ -519,7 +519,7 @@ pub fn database(args: &[&str]) -> Result<Output> {
 
 /// A database command that outlives limit is stopped with its container (killing `compose
 /// run` alone leaves the container running); PostgreSQL rolls its transaction back.
-fn database_within(args: &[&str], limit: Duration) -> Result<Output> {
+pub(crate) fn database_within(args: &[&str], limit: Duration) -> Result<Output> {
     let name = format!("mikan-database-{}-{}", std::process::id(), crate::clock::Utc::now().stamp());
     let mut full = vec!["run", "--rm", "--no-deps", "-T", "--name", name.as_str(), "panel", "database"];
     full.extend_from_slice(args);
