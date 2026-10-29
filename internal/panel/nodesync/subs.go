@@ -124,6 +124,10 @@ func (m *Manager) pushSubs(ctx context.Context) {
 	}
 	m.subsMu.Lock()
 	m.subsLast = m.now()
+	// The generation only ever grows: a clock that stands still (a test's) or steps back
+	// must not let the prune keep records of an older sync.
+	gen := max(m.now().UnixMilli(), m.subsGen+1)
+	m.subsGen = gen
 	m.subsMu.Unlock()
 	for _, id := range cfg.Nodes {
 		if err := ctx.Err(); err != nil {
@@ -137,7 +141,7 @@ func (m *Manager) pushSubs(ctx context.Context) {
 		if !ok {
 			continue // a node client that predates the feature
 		}
-		p := m.pushSubsTo(ctx, id, c, render)
+		p := m.pushSubsTo(ctx, id, c, render, gen)
 		m.subsMu.Lock()
 		m.subsPushed[id] = p
 		m.subsMu.Unlock()
@@ -151,8 +155,7 @@ type subsNode interface {
 }
 
 // pushSubsTo renders and sends one node's whole set.
-func (m *Manager) pushSubsTo(ctx context.Context, id int64, c subsNode, render SubsRenderer) SubsPush {
-	gen := m.now().UnixMilli()
+func (m *Manager) pushSubsTo(ctx context.Context, id int64, c subsNode, render SubsRenderer, gen int64) SubsPush {
 	p := SubsPush{At: m.now(), Generation: gen}
 	users, err := m.st.Q.ListUsers(ctx)
 	if err != nil {

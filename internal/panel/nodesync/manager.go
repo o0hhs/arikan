@@ -110,6 +110,7 @@ type Manager struct {
 	subsRender SubsRenderer
 	subsPushed map[int64]SubsPush
 	subsLast   time.Time // when a push last started: two are never closer than subsMinGap
+	subsGen    int64     // the newest generation a push carried; only grows
 }
 
 type running struct {
