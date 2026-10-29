@@ -173,11 +173,14 @@ enum Cmd {
     /// (a systemd path unit runs this; it listens on no port and ends with the grant)
     #[command(hide = true)]
     TerminalAgent,
-    /// Stop Arikan and remove the command; the data stays in /opt/mikan
+    /// Stop Arikan and remove the command; the data stays in /opt/mikan unless --purge
     Uninstall {
         /// Do not ask
         #[arg(long, short = 'y')]
         yes: bool,
+        /// Remove everything: containers, images, volumes, /opt/mikan (data, secrets, backups), firewall rules
+        #[arg(long)]
+        purge: bool,
     },
 }
 
@@ -285,10 +288,17 @@ fn main() -> ExitCode {
         Some(Cmd::Restart { requested: true }) => ops::restart_requested(),
         Some(Cmd::Restart { requested: false }) => ops::restart(),
         Some(Cmd::TerminalAgent) => terminal::agent(),
-        Some(Cmd::Uninstall { yes }) => {
-            if yes || ops::confirm("Stop Arikan and remove the Arikan command? The data stays in /opt/mikan.") {
-                ops::uninstall().map(|panel| {
-                    if panel {
+        Some(Cmd::Uninstall { yes, purge }) => {
+            let ask = if purge {
+                "Remove Arikan COMPLETELY? Containers, images, the database volume, /opt/mikan (data, secrets, backups), the firewall rules and the command will be deleted. This cannot be undone."
+            } else {
+                "Stop Arikan and remove the Arikan command? The data stays in /opt/mikan."
+            };
+            if yes || ops::confirm(ask) {
+                ops::uninstall(purge).map(|panel| {
+                    if purge {
+                        out("Done. Arikan is gone: containers, images, volumes, /opt/mikan (data, secrets, backups) and its firewall rules are removed; the stock mikan command, if there was one, is back.");
+                    } else if panel {
                         out(&format!(
                             "Done. The data and backups stay in {DIR}, the database in the Docker volume {}; remove them with: rm -rf {DIR} && docker volume rm {}",
                             docker::PG_VOLUME,

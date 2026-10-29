@@ -171,6 +171,10 @@ services:
       MIKAN_DATA_DIR: /data/node
       MIKAN_NODE_SOCKET: /run/mikan/node.sock
       MIKAN_NODE_JOIN_FILE: /run/secrets/node_join
+      # The node's own API port: off keeps it closed whatever the panel says, on lets it be
+      # opened again; a blank value leaves the panel's answer in charge.
+      MIKAN_NODE_INBOUND_API: "${MIKAN_NODE_INBOUND_API:-}"
+      MIKAN_NODE_API_LISTEN: "${MIKAN_NODE_API_LISTEN:-}"
       MIKAN_ACME_LISTEN: "${MIKAN_ACME_LISTEN:-:80}"
       # A node of its own server holds port 80: the challenge, and a 301 to HTTPS for the
       # rest. MIKAN_HTTP_REDIRECT=0 in config.json gives the port back to something else.
@@ -445,6 +449,17 @@ pub fn pull(reference: &str, mut progress: impl FnMut(f64)) -> Result<()> {
 /// Whether the engine has the image already (a pulled one, or one loaded from an archive).
 pub fn image_present(reference: &str) -> bool {
     crate::system::succeeds("docker", &["image", "inspect", reference])
+}
+
+/// Removes an image by name; false when Docker did not have it (or another container still
+/// uses it). Best effort: a purge must finish even when `compose down` took it already.
+pub fn image_rm(reference: &str) -> bool {
+    crate::system::succeeds("docker", &["image", "rm", "-f", reference])
+}
+
+/// Removes a volume by name; false when it was not there.
+pub fn volume_rm(name: &str) -> bool {
+    crate::system::succeeds("docker", &["volume", "rm", "-f", name])
 }
 
 /// Removes the images no container references any more: the releases an update replaced,

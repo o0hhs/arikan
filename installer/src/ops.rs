@@ -450,25 +450,66 @@ pub fn join(key: &str, panel_ip: Option<IpAddr>) -> Result<()> {
     Ok(())
 }
 
-/// Stops Arikan and removes what it put on the host; the data stays, a panel's database in
-/// its volume too. True for a panel.
-pub fn uninstall() -> Result<bool> {
+/// Stops Arikan and removes what it put on the host. Without purge the data stays, a
+/// panel's database in its volume too; with purge the containers, images, volumes, the
+/// firewall rules and /opt/mikan (data, secrets, backups) go as well, and nothing of the
+/// install is left. True for a panel.
+pub fn uninstall(purge: bool) -> Result<bool> {
     let install = Install::load()?;
     let panel = !install.node;
     let _lock = lock::acquire(lock::Wait::Block, &mut crate::out)?;
-    docker::compose_run(&["down"])?;
+    if purge {
+        // The compose file still names the services, their images and their volumes: one
+        // call takes the containers, the named volumes and the images. A missing compose
+        // (an install that never finished) must not stop the purge.
+        let _ = docker::compose_run(&["down", "--volumes", "--rmi", "all", "--remove-orphans"]);
+    } else {
+        docker::compose_run(&["down"])?;
+    }
     // Nothing answers on a node's API port any more: the rule that kept it for the panel goes.
     if let Some(port) = install.node_port() {
         crate::paneladdr::forget_port(port);
     }
     addon::down();
     addon::drop_network();
+    if purge {
+        addon::drop_images();
+        if let Some(image) = install.config.get("MIKAN_IMAGE") {
+            let _ = docker::image_rm(image);
+        }
+        // compose down --volumes does these; a compose file that never ran or a volume a
+        // container still held would leave them behind.
+        let _ = docker::volume_rm(docker::PG_VOLUME);
+        let _ = docker::volume_rm("mikan_run");
+        // The ports this install opened for the panel or the node's API, 80, 443 and the
+        // pool; a rule ufw does not have is no error.
+        let rules = if panel {
+            host::rules(install.config.get("PANEL_PORT").and_then(|p| p.parse().ok()), None)
+        } else {
+            host::rules(None, install.node_port())
+        };
+        let _ = host::close(&rules);
+    }
     host::remove_units();
     crate::apilock::remove();
     if fs::remove_file(host::SYSCTL).is_ok() {
         let _ = system::succeeds("sysctl", &["--system"]);
     }
     let _ = fs::remove_file(host::BIN);
+    if purge {
+        // Everything Arikan kept: config.json, secrets, data, backups, addons, the update
+        // queue. A link in its place goes as a link, not as whatever it points at.
+        match fs::symlink_metadata(DIR) {
+            Ok(m) if m.is_dir() => {
+                fs::remove_dir_all(DIR).with_context(|| format!("remove {DIR}"))?;
+            }
+            Ok(_) => {
+                fs::remove_file(DIR).with_context(|| format!("remove {DIR}"))?;
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => return Err(e).with_context(|| format!("look at {DIR}")),
+        }
+    }
     // The stock command this fork took the name from goes back, so a server whose admin
     // returns to stock mikan has its own command; its update units stay off (nothing
     // updates a server that has just been uninstalled), with the line below saying how to

@@ -1306,6 +1306,19 @@ pub fn drop_network() {
     let _ = crate::system::succeeds("docker", &["network", "rm", NETWORK]);
 }
 
+/// Removes the images of the addons the state lists: a full uninstall leaves none behind.
+/// Best effort, and only for the adapters this host runs (an external one has no image).
+pub fn drop_images() {
+    let Ok(state) = load_state() else { return };
+    for a in state.adapters.values() {
+        if a.image.is_empty() {
+            continue;
+        }
+        let reference = if a.digest.is_empty() { a.image.clone() } else { format!("{}@{}", a.image, a.digest) };
+        let _ = docker_output(&["image", "rm", "-f", reference.as_str()]);
+    }
+}
+
 /// Writes this command's version into the state the panel reads when it is not there yet:
 /// the panel offers addons of protocol 2 only to a host that says it runs them, and a host
 /// that never installed one would otherwise never say so.

@@ -68,6 +68,19 @@ pub fn open(rules: &[String]) -> Result<bool> {
     Ok(true)
 }
 
+/// Removes the rules this install opened, when ufw is on: a full uninstall leaves no port
+/// open behind it. A rule ufw does not have is not an error — an install may have taken one
+/// away by hand, and the purge must still finish.
+pub fn close(rules: &[String]) -> Result<bool> {
+    if !system::ufw_active() {
+        return Ok(false);
+    }
+    for rule in rules {
+        let _ = delete_spec(rule);
+    }
+    Ok(true)
+}
+
 /// Whether a rule is a port or a range of ports over tcp or udp, like 8443/tcp or
 /// 20000:20010/udp: all `ufw allow` takes from here, so that nothing a container printed
 /// can become an option or another command.
