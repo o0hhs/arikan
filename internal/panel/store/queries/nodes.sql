@@ -44,3 +44,8 @@ DELETE FROM nodes WHERE id = $1 AND id != 1;
 -- name: SetNodeAutoInclude :exec
 -- «В автовыборе»: the node's proxies take part in the auto group and the fastest-pick.
 UPDATE nodes SET auto_include = sqlc.arg(auto_include) WHERE id = sqlc.arg(id);
+
+-- name: SetNodeInboundAPI :exec
+-- Whether the node listens on its own API port: the panel reaches a node with it closed over
+-- the tunnel the node opens out to it.
+UPDATE nodes SET inbound_api = sqlc.arg(inbound_api), updated_at = sqlc.arg(updated_at) WHERE id = sqlc.arg(id);

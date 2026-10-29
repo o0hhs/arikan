@@ -106,6 +106,9 @@ func Serve(ctx context.Context, cfg config.Config, version string, web fs.FS) er
 	nodesDir := filepath.Join(tlsDir, "nodes")
 	nodeCerts := tlscert.NewNodeStore(filepath.Join(tlsDir, "custom-nodes"), time.Now)
 	opts.NodeCerts = nodeCerts
+	// The nodes' reverse tunnels: a node the panel cannot reach connects out to it and serves
+	// its API over that connection (reverse.go).
+	tunnels := newTunnels(st, logger, time.Now)
 	set := settings.New(st.Q)
 	if restored {
 		if err := s3backup.MarkRestored(ctx, set, time.Now()); err != nil {
@@ -151,7 +154,7 @@ func Serve(ctx context.Context, cfg config.Config, version string, web fs.FS) er
 				if own, _, _ := nodeCerts.Get(n.ID, t.Host); own != nil {
 					t.HasOwn = true
 				}
-				if c, err := NodeClient(cfg, n); err == nil {
+				if c, err := nodeClient(cfg, n, tunnels); err == nil {
 					t.Client = c
 				}
 				out = append(out, t)
@@ -162,16 +165,31 @@ func Serve(ctx context.Context, cfg config.Config, version string, web fs.FS) er
 	}
 	opts.TLS = NewNodeTLS(cfg.DataDir, nodeCerts, certs, nodesACME, set, logger, time.Now)
 	opts.PanelCert = func() (nodetls.Pair, error) { return nodetls.LoadOrCreate(nodesDir, time.Now()) }
+	opts.Tunnel = tunnels.serve
 	opts.Connect = func(n db.Node) (nodesync.Target, error) {
-		c, err := NodeClient(cfg, n)
+		c, err := nodeClient(cfg, n, tunnels)
 		if err != nil {
 			return nodesync.Target{}, err
 		}
-		return nodesync.Target{Node: c, TLS: opts.TLS.Source(n), Local: n.Address == "", Address: n.Address}, nil
+		return nodesync.Target{Node: c, TLS: opts.TLS.Source(n), Local: n.Address == "", Address: n.Address,
+			Tunnel: func() (nodesync.TunnelView, bool) { return tunnels.View(n.ID) }}, nil
 	}
 	var panelTLS *tls.Config
 	if !cfg.Dev {
 		panelTLS = &tls.Config{MinVersion: tls.VersionTLS12, GetCertificate: names.Get, NextProtos: []string{"h2", "http/1.1"}}
+		// A node's reverse tunnel asks for its own ALPN, and only then is a client certificate
+		// requested: a browser is never prompted for one. The certificate is checked against the
+		// nodes' pins in the route itself, where the database is.
+		tunnelTLS := &tls.Config{MinVersion: tls.VersionTLS12, GetCertificate: names.Get,
+			NextProtos: []string{nodeapi.TunnelALPN}, ClientAuth: tls.RequireAnyClientCert}
+		panelTLS.GetConfigForClient = func(hello *tls.ClientHelloInfo) (*tls.Config, error) {
+			for _, p := range hello.SupportedProtos {
+				if p == nodeapi.TunnelALPN {
+					return tunnelTLS, nil
+				}
+			}
+			return nil, nil
+		}
 	}
 	listenHost, listenPortText, err := net.SplitHostPort(cfg.Listen)
 	if err != nil {
@@ -336,6 +354,12 @@ func restorePending(ctx context.Context, dsn, dataDir string, logger *slog.Logge
 // httpServer is the panel's HTTP server, on its own port and on the subscription port.
 func httpServer(h http.Handler) *http.Server {
 	return &http.Server{
+		// A node's reverse tunnel negotiates its own ALPN, and net/http serves nothing on such
+		// a connection: the hook serves HTTP/1.1 on it, and the panel's routes take it from
+		// there (see reverse.go).
+		TLSNextProto: map[string]func(*http.Server, *tls.Conn, http.Handler){
+			nodeapi.TunnelALPN: serveTunnelProto,
+		},
 		Handler:           h,
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
@@ -350,8 +374,18 @@ func httpServer(h http.Handler) *http.Server {
 
 // NodeClient reaches a node's API as the running panel does: the local node over its
 // socket, a remote one over TLS with the panel's client certificate and the node's pin.
-// The CLI uses it too, from inside the panel's container.
+// The CLI uses it too, from inside the panel's container: it takes the direct path, as a
+// process of its own has no node tunnels.
 func NodeClient(cfg config.Config, n db.Node) (*nodeapi.Client, error) {
+	return nodeClient(cfg, n, nil)
+}
+
+// nodeClient is NodeClient, and takes the node's reverse tunnel when it is connected: the
+// node opened the connection out to the panel, and the panel asks over that. The TLS inside
+// the stream is the same as on a direct connection — the node's certificate pinned by the
+// panel, the panel's by the node — so a node that listens on no port at all is reached just
+// the same.
+func nodeClient(cfg config.Config, n db.Node, tn *tunnels) (*nodeapi.Client, error) {
 	if n.Address == "" {
 		if cfg.NodeSocket == "" {
 			return nil, nodesync.ErrNoNode
@@ -366,7 +400,19 @@ func NodeClient(cfg config.Config, n db.Node) (*nodeapi.Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return nodeapi.NewTLSClient(n.Address, tc), nil
+	if tn == nil {
+		return nodeapi.NewTLSClient(n.Address, tc), nil
+	}
+	dial := func(ctx context.Context) (net.Conn, error) {
+		if stream, ok := tn.Open(ctx, n.ID); ok {
+			return stream, nil
+		}
+		// No tunnel now (or it cannot take another stream): the direct path, which is the only
+		// one a node that listens on its API port has.
+		var d net.Dialer
+		return d.DialContext(ctx, "tcp", n.Address)
+	}
+	return nodeapi.NewDialClient(n.Address, tc, dial), nil
 }
 
 // Internet scanners produce a constant stream of failed TLS handshakes; they are not actionable.

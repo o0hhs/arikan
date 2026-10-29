@@ -160,7 +160,10 @@ type NodePatch struct {
 	// which the panel reaches over its socket.
 	APILockdown *bool
 	APIAllow    *[]string
-	Rules       NodeRules
+	// InboundAPI: false keeps the node from listening on its own API port; the panel reaches it
+	// over the tunnel the node opens out to it then.
+	InboundAPI *bool
+	Rules      NodeRules
 }
 
 // UpdateNode changes the fields p names and returns the node. Errors: ErrUnknownNode,
@@ -275,6 +278,11 @@ func UpdateNode(ctx context.Context, st *store.Store, id int64, p NodePatch, now
 				return fieldErr("front_page", "bad_front_page")
 			}
 			if err := q.SetNodeFrontPage(ctx, db.SetNodeFrontPageParams{FrontPage: *p.FrontPage, UpdatedAt: now.Unix(), ID: cur.ID}); err != nil {
+				return err
+			}
+		}
+		if p.InboundAPI != nil {
+			if err := q.SetNodeInboundAPI(ctx, db.SetNodeInboundAPIParams{InboundApi: Flag(*p.InboundAPI), UpdatedAt: now.Unix(), ID: cur.ID}); err != nil {
 				return err
 			}
 		}
