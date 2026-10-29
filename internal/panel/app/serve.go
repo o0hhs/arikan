@@ -20,6 +20,8 @@ import (
 	"syscall"
 	"time"
 
+	"golang.org/x/net/http2"
+
 	"mikan/internal/logbuf"
 	"mikan/internal/nodeapi"
 	"mikan/internal/nodetls"
@@ -386,7 +388,7 @@ func restorePending(ctx context.Context, dsn, dataDir string, logger *slog.Logge
 
 // httpServer is the panel's HTTP server, on its own port and on the subscription port.
 func httpServer(h http.Handler) *http.Server {
-	return &http.Server{
+	srv := &http.Server{
 		// A node's reverse tunnel negotiates its own ALPN, and net/http serves nothing on such
 		// a connection: the hook serves HTTP/1.1 on it, and the panel's routes take it from
 		// there (see reverse.go).
@@ -403,6 +405,14 @@ func httpServer(h http.Handler) *http.Server {
 		MaxHeaderBytes: 64 << 10,
 		ErrorLog:       log.New(dropHandshakeNoise{}, "", log.LstdFlags),
 	}
+	// A non-nil TLSNextProto turns net/http's automatic HTTP/2 off, while the panel's TLS
+	// config still advertises h2: a browser would pick h2, be read as HTTP/1.1 and get its
+	// connection dropped ("the server unexpectedly disconnected"). The h2 handler goes in
+	// beside the tunnel's own protocol.
+	if err := http2.ConfigureServer(srv, &http2.Server{}); err != nil {
+		srv.ErrorLog.Printf("http2: %v", err)
+	}
+	return srv
 }
 
 // NodeClient reaches a node's API as the running panel does: the local node over its
