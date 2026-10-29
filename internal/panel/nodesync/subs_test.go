@@ -21,6 +21,9 @@ type fakeSubsNode struct {
 	subs   map[string]int64 // path → the generation it was sent with
 	prunes []int64
 	fail   error
+	// reject is how many records of each Put the node refuses (0: none): the panel must
+	// not take a refusal for a deletion and prune the record that works.
+	reject int
 }
 
 func (f *fakeSubsNode) PutSubs(_ context.Context, gen int64, records []nodeapi.SubRecord) (nodeapi.SubsResult, error) {
@@ -30,10 +33,18 @@ func (f *fakeSubsNode) PutSubs(_ context.Context, gen int64, records []nodeapi.S
 	if f.subs == nil {
 		f.subs = map[string]int64{}
 	}
-	for _, r := range records {
+	stored := records
+	if f.reject > 0 && len(records) > f.reject {
+		stored = records[:len(records)-f.reject]
+	}
+	for _, r := range stored {
 		f.subs[r.Path] = gen
 	}
-	return nodeapi.SubsResult{Stored: len(records), Bytes: int64(len(f.subs))}, nil
+	res := nodeapi.SubsResult{Stored: len(stored), Bytes: int64(len(f.subs))}
+	if len(stored) < len(records) {
+		res.Rejected, res.Reason = len(records)-len(stored), "too_big"
+	}
+	return res, nil
 }
 
 func (f *fakeSubsNode) PruneSubs(_ context.Context, gen int64) (nodeapi.SubsResult, error) {
@@ -200,5 +211,64 @@ func TestSubsPushSkipsAUserItCannotRender(t *testing.T) {
 	}
 	if p := m.SubsStatus()[LocalNode]; p.Records != 1 {
 		t.Fatalf("status: %+v", p)
+	}
+}
+
+// A record that did not render for a reason other than "no slot", or one the node refused,
+// is not a deleted user: the copy on the node may be the one that still works, so no prune
+// runs and the link keeps answering. The next successful full push prunes what is gone.
+func TestSubsPushKeepsRecordsItCannotRefresh(t *testing.T) {
+	s, fake, users, _ := subsTest(t)
+	ctx := context.Background()
+	m := s.m
+	tariffs, err := m.st.Q.ListTariffs(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	u, err := users.Create(ctx, domain.CreateInput{Name: "a", TariffID: tariffs[1].ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	render := func(_ context.Context, u db.User) (nodeapi.SubRecord, error) {
+		return nodeapi.SubRecord{Path: u.SubToken, Expires: m.now().Add(time.Hour),
+			Bodies: []nodeapi.SubBody{{Format: nodeapi.SubFormatURI, Body: []byte("links")}}}, nil
+	}
+	m.SetSubsRenderer(render)
+	m.pushSubs(ctx)
+	if _, ok := fake.subs[u.SubToken]; !ok || len(fake.prunes) != 1 {
+		t.Fatalf("the first push: %v, prunes %v", fake.subs, fake.prunes)
+	}
+
+	// A transient render error: the record stays, nothing is pruned.
+	m.SetSubsRenderer(func(context.Context, db.User) (nodeapi.SubRecord, error) {
+		return nodeapi.SubRecord{}, errors.New("the database did not answer")
+	})
+	m.pushSubs(ctx)
+	if _, ok := fake.subs[u.SubToken]; !ok {
+		t.Fatal("a transient render error revoked a record that works")
+	}
+	if len(fake.prunes) != 1 {
+		t.Fatalf("a transient render error pruned: %v", fake.prunes)
+	}
+
+	// A node that refuses the record: the old copy stays too.
+	m.SetSubsRenderer(render)
+	fake.reject = 1
+	m.pushSubs(ctx)
+	if _, ok := fake.subs[u.SubToken]; !ok || len(fake.prunes) != 1 {
+		t.Fatalf("a refused record pruned the old one: %v, prunes %v", fake.subs, fake.prunes)
+	}
+
+	// The next full push that goes through prunes what is really gone.
+	fake.reject = 0
+	if err := users.Delete(ctx, u.ID); err != nil {
+		t.Fatal(err)
+	}
+	m.pushSubs(ctx)
+	if _, ok := fake.subs[u.SubToken]; ok {
+		t.Fatal("a deleted user stayed after a successful push")
+	}
+	if len(fake.prunes) != 2 {
+		t.Fatalf("the successful push did not prune: %v", fake.prunes)
 	}
 }

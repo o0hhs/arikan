@@ -2,6 +2,7 @@ package nodesync
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"mikan/internal/nodeapi"
@@ -166,6 +167,7 @@ func (m *Manager) pushSubsTo(ctx context.Context, id int64, c subsNode, render S
 	var chunk []nodeapi.SubRecord
 	var skipped int
 	var firstErr string
+	var failed error // a render error that is not "this user has no slot"
 	flush := func() bool {
 		if len(chunk) == 0 {
 			return true
@@ -186,6 +188,12 @@ func (m *Manager) pushSubsTo(ctx context.Context, id int64, c subsNode, render S
 	for _, u := range users {
 		rec, err := render(ctx, u)
 		if err != nil {
+			// A user without a slot has nothing to serve and is dropped by the prune; any
+			// other error is transient (a slot read, a config), and pruning would revoke a
+			// link that works. It is retried at the next push instead.
+			if !errors.Is(err, subs.ErrNoSlot) {
+				failed = err
+			}
 			skipped++
 			continue
 		}
@@ -199,6 +207,19 @@ func (m *Manager) pushSubsTo(ctx context.Context, id int64, c subsNode, render S
 		m.log.Warn("subscriptions: a push broke off", "node", id, "err", p.Err)
 		return p
 	}
+	// No prune when a record did not render for a reason other than a missing slot, or when
+	// the node refused one: the record on the node may be the one that still works, and a
+	// deletion is a decision, not a transient error. The next successful full push prunes.
+	if failed != nil || firstErr != "" {
+		switch {
+		case failed != nil:
+			p.Err = failed.Error()
+		default:
+			p.Err = firstErr
+		}
+		m.log.Warn("subscriptions: records left in place, no prune", "node", id, "skipped", skipped, "reason", p.Err)
+		return p
+	}
 	res, err := c.PruneSubs(ctx, gen)
 	if err != nil {
 		p.Err = err.Error()
@@ -207,9 +228,6 @@ func (m *Manager) pushSubsTo(ctx context.Context, id int64, c subsNode, render S
 	}
 	p.Bytes = res.Bytes
 	p.At = m.now()
-	if firstErr != "" {
-		m.log.Warn("subscriptions: records the node refused", "node", id, "n", skipped, "reason", firstErr)
-	}
 	m.log.Info("subscriptions pushed", "node", id, "records", p.Records, "bytes", p.Bytes, "skipped", skipped)
 	return p
 }

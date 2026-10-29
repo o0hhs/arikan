@@ -450,6 +450,8 @@
     "api": {
     "subs_nodes_many": "Too many nodes: at most 8 serve a subscription",
     "subs_node_unknown": "No such node",
+    "subs_nodes_domain": "A subscription served by nodes needs a subscription domain: point that name at the nodes, the link's host is it",
+    "subs_nodes_port": "A subscription served by nodes opens on 443 without a port: set the subscription port to 443 first",
     "port_range_wide": "The port range is too wide: the node listens on every port of it and eats memory. Use one port or a range of at most 256",
     "webhook_url_invalid": "The webhook address must be https:// without a login",
     "webhook_secret_invalid": "The secret key is 8 to 200 characters",

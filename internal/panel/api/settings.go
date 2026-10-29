@@ -569,6 +569,31 @@ func (h *handlers) updateSettings(ctx context.Context, in *patchSettingsInput) (
 		}
 		if err := b.SubsFromNodes.Check(exists); err != nil {
 			details = append(details, fieldDetail("body.subs_from_nodes", err.Error(), nil))
+		} else if b.SubsFromNodes.Enabled {
+			// A node answers on its public 443, and the link has to point there: a
+			// subscription domain of its own and sub_port = 443 (the node's SNI router,
+			// app.SubPortRouter). Anything else builds links to the panel's own port,
+			// which the nodes do not serve.
+			subDom, err := h.d.Settings.String(ctx, settings.KeySubDomain)
+			if err != nil {
+				return nil, err
+			}
+			if b.SubDomain != nil {
+				subDom = strings.TrimSpace(*b.SubDomain)
+			}
+			subPort, _, err := settings.Get[int](ctx, h.d.Settings, settings.KeySubPort)
+			if err != nil {
+				return nil, err
+			}
+			if b.SubPort != nil {
+				subPort = *b.SubPort
+			}
+			if subDom == "" {
+				details = append(details, fieldDetail("body.subs_from_nodes", "subs_nodes_domain", nil))
+			}
+			if subPort != 443 {
+				details = append(details, fieldDetail("body.subs_from_nodes", "subs_nodes_port", subPort))
+			}
 		}
 	}
 	if b.SubTemplate != nil && strings.TrimSpace(*b.SubTemplate) != "" && h.d.CheckTemplate != nil {
