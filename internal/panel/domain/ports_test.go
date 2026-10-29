@@ -201,14 +201,14 @@ func TestPortsWithoutTheNode(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := st.Q.CreateInbound(ctx, db.CreateInboundParams{NodeID: 1, Name: "hopping", Preset: "hysteria2", Port: "20000-30000", Config: config,
+	if _, err := st.Q.CreateInbound(ctx, db.CreateInboundParams{NodeID: 1, Name: "hopping", Preset: "hysteria2", Port: "20000-20100", Config: config,
 		CreatedAt: now.Unix(), UpdatedAt: now.Unix()}); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := s.Update(ctx, find(t, s, 1, "tuic").ID, InboundPatch{Port: ptr("25000")}); !errors.As(err, &busy) || busy.Name != "hopping" {
+	if _, _, err := s.Update(ctx, find(t, s, 1, "tuic").ID, InboundPatch{Port: ptr("20050")}); !errors.As(err, &busy) || busy.Name != "hopping" {
 		t.Fatalf("move into a hopping range: %v", err)
 	}
-	if _, err := s.Create(ctx, NewInbound{Preset: "tuic_v5", Port: "29000-31000"}); !errors.As(err, &busy) || busy.Name != "hopping" {
+	if _, err := s.Create(ctx, NewInbound{Preset: "tuic_v5", Port: "20050-20200"}); !errors.As(err, &busy) || busy.Name != "hopping" {
 		t.Fatalf("a range over a hopping range: %v", err)
 	}
 }
