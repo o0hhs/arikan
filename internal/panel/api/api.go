@@ -235,6 +235,9 @@ type NodeRuntime interface {
 	Recordings(ctx context.Context, id int64) (nodeapi.RecordingList, error)
 	// Recording returns one of them.
 	Recording(ctx context.Context, id int64, name string) ([]byte, error)
+	// RouteOf is how the panel's last contact with a node went: directly, or through another
+	// node when its own path does not answer.
+	RouteOf(id int64) nodesync.RouteView
 }
 
 type ctxKey int

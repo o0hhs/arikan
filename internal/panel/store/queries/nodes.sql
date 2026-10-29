@@ -35,6 +35,15 @@ UPDATE nodes SET front_page = $1, updated_at = $2 WHERE id = $3;
 -- name: SetNodeAPILockdown :exec
 UPDATE nodes SET api_lockdown = $1, api_allow = $2, updated_at = $3 WHERE id = $4;
 
+-- name: SetNodeTransport :exec
+-- The node the panel reaches this one through when its direct path does not answer; 0 is the
+-- panel's choice.
+UPDATE nodes SET transport_id = sqlc.arg(transport_id), updated_at = sqlc.arg(updated_at) WHERE id = sqlc.arg(id);
+
+-- name: ClearNodeTransport :exec
+-- A removed node is no one's transport any more: they go back to the panel's choice.
+UPDATE nodes SET transport_id = 0 WHERE transport_id = $1;
+
 -- name: SetNodeCert :exec
 UPDATE nodes SET cert_sha256 = $1, updated_at = $2 WHERE id = $3;
 

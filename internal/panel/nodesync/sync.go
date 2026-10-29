@@ -122,6 +122,9 @@ type HealthView struct {
 	// have moved since.
 	Ports     map[string]string
 	CheckedAt time.Time
+	// Route is how this check reached the node: directly, or through another node of the
+	// panel when the direct path does not answer (transport.go).
+	Route RouteView
 	// Relay is the relay's open connections by the source node's relay user, as of the
 	// last counters (the other nodes' cascades through this one); none from older nodes.
 	Relay map[string]int
@@ -281,7 +284,10 @@ func (s *Syncer) desiredPin(ctx context.Context) (st nodeapi.DesiredState, pin s
 	st.DNS = routesDNS(snap.exitDNS.State(), snap.routes)
 	st.Detail = snap.detail
 	st.HTTPRedirect = n.HttpRedirect != 0 && n.Address != ""
-	st.APIAllow = s.apiAllow(ctx, n)
+	st.APIAllow = s.apiAllow(ctx, n, snap.nodes)
+	// What this node carries for the panel: the API of the other nodes, so a panel that cannot
+	// reach one of them reaches it through this one (transport.go).
+	st.TunnelTo = tunnelTo(snap.nodes, s.id)
 	// The front page: what the inbounds on an HTTP transport give a stranger's request, and
 	// with the shared 443 what the node's own domain gives.
 	st.FrontPage = n.FrontPage
@@ -900,8 +906,14 @@ func (s *Syncer) noteUplink(prev *HealthView, h nodeapi.Health) {
 
 func (s *Syncer) refreshHealth(ctx context.Context) {
 	sent := s.m.now()
+	// Every check dials afresh: a pooled connection would keep answering through a transport
+	// long after the direct path came back, and the route this check reports would be old.
+	if c, ok := s.node.(interface{ CloseIdleConnections() }); ok {
+		c.CloseIdleConnections()
+	}
 	h, err := s.node.Health(ctx)
 	view := &HealthView{CheckedAt: s.m.now()}
+	view.Route = s.m.RouteOf(s.id)
 	prev := s.health.Load()
 	view.LastOK = prev.LastOK
 	if err != nil {
@@ -920,6 +932,12 @@ func (s *Syncer) refreshHealth(ctx context.Context) {
 	// What changed on a node that answers goes to the log: an outage with the server itself
 	// up is what the admin reads it for.
 	s.noteUplink(prev, h)
+	switch {
+	case view.Route.ViaID != 0 && view.Route.ViaID != prev.Route.ViaID:
+		s.log.Info("the direct path to the node does not answer: it is reached through another node", "via", view.Route.ViaID, "reason", view.Route.DirectCode)
+	case view.Route.ViaID == 0 && prev.Route.ViaID != 0:
+		s.log.Info("the node answers directly again", "via", prev.Route.ViaID)
+	}
 	if !h.Time.IsZero() {
 		// The node read its clock about halfway through the round trip.
 		d := h.Time.Sub(sent.Add(view.CheckedAt.Sub(sent) / 2))

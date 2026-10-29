@@ -160,6 +160,10 @@ type NodePatch struct {
 	// which the panel reaches over its socket.
 	APILockdown *bool
 	APIAllow    *[]string
+	// TransportID is the node the panel reaches this one through when its direct path does
+	// not answer: 0 lets the panel choose (a healthy node it reaches directly), another id is
+	// the admin's choice.
+	TransportID *int64
 	Rules       NodeRules
 }
 
@@ -289,6 +293,14 @@ func UpdateNode(ctx context.Context, st *store.Store, id int64, p NodePatch, now
 				return err
 			}
 		}
+		if p.TransportID != nil {
+			if err := checkNodeTransport(ctx, q, cur.ID, *p.TransportID); err != nil {
+				return err
+			}
+			if err := q.SetNodeTransport(ctx, db.SetNodeTransportParams{TransportID: *p.TransportID, UpdatedAt: now.Unix(), ID: cur.ID}); err != nil {
+				return err
+			}
+		}
 		if p.HTTPRedirect != nil {
 			if err := q.SetNodeHTTPRedirect(ctx, db.SetNodeHTTPRedirectParams{HttpRedirect: Flag(*p.HTTPRedirect), UpdatedAt: now.Unix(), ID: cur.ID}); err != nil {
 				return err
@@ -320,6 +332,28 @@ func UpdateNode(ctx context.Context, st *store.Store, id int64, p NodePatch, now
 		return err
 	})
 	return out, err
+}
+
+// checkNodeTransport: the node the panel reaches this one through must be another node, and
+// not one that itself goes through this one (a circle carries neither).
+func checkNodeTransport(ctx context.Context, q *db.Queries, id, transport int64) error {
+	if transport == 0 {
+		return nil // the panel's choice
+	}
+	if transport == id {
+		return fieldErr("transport_id", "transport_self")
+	}
+	other, err := q.GetNode(ctx, transport)
+	if errors.Is(err, sql.ErrNoRows) {
+		return fieldErr("transport_id", "transport_unknown")
+	}
+	if err != nil {
+		return err
+	}
+	if other.TransportID == id {
+		return fieldErr("transport_id", "transport_cycle")
+	}
+	return nil
 }
 
 // Readdress is a node's API address moved to host, its port kept.

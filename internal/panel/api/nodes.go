@@ -41,6 +41,18 @@ type EgressView struct {
 	Error     string    `json:"error,omitempty"`
 }
 
+// NodeTransportView is how the panel reached a node it cannot reach itself: through another
+// node of the panel, because the direct path does not answer.
+type NodeTransportView struct {
+	ID   int64  `json:"id" doc:"Нода, через которую панель ходит к этой"`
+	Name string `json:"name" doc:"Её имя"`
+	// Direct says why the panel's own path to the node does not answer.
+	DirectCode  string `json:"direct_error_code,omitempty" enum:"timeout,refused,unreachable,dns,pin_mismatch,tls,http_status,unknown" doc:"Почему свой путь к ноде не отвечает"`
+	DirectError string `json:"direct_error,omitempty" doc:"Слова ошибки своего пути"`
+	// Error says why the transport failed too, when it did: the node is unreachable both ways.
+	Error string `json:"error,omitempty" doc:"Почему не вышло и через транспорт"`
+}
+
 type NodeInfo struct {
 	ID         int64  `json:"id"`
 	Name       string `json:"name" doc:"Группа в подписке, например «🇳🇱 Нидерланды»; её флаг — префикс имён подключений"`
@@ -122,8 +134,12 @@ type NodeInfo struct {
 	APILockdown  bool     `json:"api_lockdown" doc:"API ноды отвечает только адресам панели"`
 	APIAllow     []string `json:"api_allow" doc:"Сети и адреса, которые админ добавил к адресам панели"`
 	APILockError string   `json:"api_lock_error,omitempty" doc:"Почему на сервере ноды нет правила файрвола для API"`
-	Capacity     *int64   `json:"capacity" doc:"Мест для клиентов в группе; null — без ограничения"`
-	ChannelMbps  *int64   `json:"channel_mbps" doc:"Ширина канала ноды, Мбит/с в каждую сторону; null — не задана"`
+	// TransportID is the node the panel reaches this one through when its own path does not
+	// answer (0: the panel chooses); Transport is how the last contact actually went.
+	TransportID int64              `json:"transport_id" doc:"Нода-транспорт: через неё панель ходит к этой ноде, когда свой путь не отвечает; 0 — панель выбирает сама"`
+	Transport   *NodeTransportView `json:"transport,omitempty" doc:"Как прошёл последний контакт: свой путь не отвечает, идёт через другую ноду"`
+	Capacity    *int64             `json:"capacity" doc:"Мест для клиентов в группе; null — без ограничения"`
+	ChannelMbps *int64             `json:"channel_mbps" doc:"Ширина канала ноды, Мбит/с в каждую сторону; null — не задана"`
 	// The emergency node keeps Telegram reachable for ended subscriptions: their profiles
 	// list its servers alone, the sync lets them in here with EmergencySpeed.
 	Emergency      bool   `json:"emergency" doc:"Аварийная нода: закончившие подписку видят только её"`
@@ -168,6 +184,8 @@ type patchNodeInput struct {
 		// The node's API for the panel alone, and the networks added to the panel's own.
 		APILockdown *bool     `json:"api_lockdown,omitempty" doc:"API ноды только с адресов панели; не для ноды панели"`
 		APIAllow    *[]string `json:"api_allow,omitempty" maxItems:"16" doc:"Ещё сети или адреса (203.0.113.5, 198.51.100.0/24), с которых панель ходит к ноде"`
+		// The node the panel reaches this one through when its own path does not answer.
+		TransportID *int64 `json:"transport_id,omitempty" minimum:"0" doc:"Нода-транспорт: через неё панель ходит к этой ноде, когда свой путь не отвечает; 0 — панель выбирает сама (первая здоровая нода, до которой достаёт напрямую)"`
 		// The emergency node: ended subscriptions keep its servers alone, Telegram stays
 		// reachable while they renew.
 		Emergency      *bool  `json:"emergency,omitempty" doc:"Аварийная нода: закончившие подписку видят только её"`
@@ -225,7 +243,8 @@ func (h *handlers) viewNode(ctx context.Context, n db.Node, inbounds []db.Inboun
 		Enabled: n.Enabled != 0, Inbounds: len(domain.NodeInbounds(inbounds, n.ID)), Status: "unknown",
 		FairShare: n.FairShare != 0, ChannelMbps: store.Int64Ptr(n.ChannelMbps), BalanceGroup: n.BalanceGroup, Capacity: store.Int64Ptr(n.Capacity),
 		HTTPRedirect: n.HttpRedirect != 0, SNIRouter: n.SniRouter != 0, AutoInclude: n.AutoInclude != 0, FrontPage: n.FrontPage, APILockdown: n.ApiLockdown != 0, APIAllow: n.ApiAllow,
-		Emergency: n.Emergency,
+		TransportID: n.TransportID,
+		Emergency:   n.Emergency,
 		EmergencySpeed: func() *int64 {
 			if n.EmergencySpeed.Valid {
 				v := int64(n.EmergencySpeed.Int32)
@@ -247,6 +266,15 @@ func (h *handlers) viewNode(ctx context.Context, n db.Node, inbounds []db.Inboun
 	v.TLS = h.nodeTLSView(ctx, n)
 	if h.d.Nodes == nil {
 		return v
+	}
+	// A node the panel cannot reach itself is reached through another one: say which, and why
+	// the direct path does not answer.
+	if r := h.d.Nodes.RouteOf(n.ID); r.ViaID != 0 && !v.Local {
+		tv := &NodeTransportView{ID: r.ViaID, DirectCode: r.DirectCode, DirectError: r.DirectError, Error: r.ViaError}
+		if via, err := h.d.Store.Q.GetNode(ctx, r.ViaID); err == nil {
+			tv.Name = via.Name
+		}
+		v.Transport = tv
 	}
 	hv, ok := h.d.Nodes.Health(n.ID)
 	if !ok || hv.CheckedAt.IsZero() {
@@ -424,14 +452,14 @@ func (h *handlers) updateNode(ctx context.Context, in *patchNodeInput) (*nodeInf
 	}
 	n, err := domain.UpdateNode(ctx, h.d.Store, in.ID, domain.NodePatch{Name: b.Name, PublicName: b.PublicName, Host: b.Host, Domain: b.Domain,
 		Enabled: b.Enabled, FairShare: b.FairShare, ChannelMbps: b.ChannelMbps, HTTPRedirect: b.HTTPRedirect, SNIRouter: b.SNIRouter, AutoInclude: b.AutoInclude, FrontPage: b.FrontPage, APILockdown: b.APILockdown, APIAllow: b.APIAllow,
-		Emergency: b.Emergency, EmergencySpeed: b.EmergencySpeed, Rules: rules}, h.d.Now())
+		TransportID: b.TransportID, Emergency: b.Emergency, EmergencySpeed: b.EmergencySpeed, Rules: rules}, h.d.Now())
 	if err != nil {
 		return nil, h.nodeErr(err)
 	}
 	h.nodesChanged()
 	h.d.Changes.SlotsChanged()
 	h.audit(ctx, sessionOf(ctx).AdminID, "node.update", "node", strconv.FormatInt(n.ID, 10), map[string]any{"name": n.Name, "public_name": n.PublicName, "enabled": n.Enabled != 0,
-		"fair_share": n.FairShare != 0, "channel_mbps": n.ChannelMbps.Int64, "http_redirect": n.HttpRedirect != 0, "sni_router": n.SniRouter != 0, "auto_include": n.AutoInclude != 0, "front_page": n.FrontPage, "api_lockdown": n.ApiLockdown != 0, "api_allow": n.ApiAllow})
+		"fair_share": n.FairShare != 0, "channel_mbps": n.ChannelMbps.Int64, "http_redirect": n.HttpRedirect != 0, "sni_router": n.SniRouter != 0, "auto_include": n.AutoInclude != 0, "front_page": n.FrontPage, "api_lockdown": n.ApiLockdown != 0, "api_allow": n.ApiAllow, "transport_id": n.TransportID})
 	return h.nodeInfo(ctx, n.ID)
 }
 
@@ -588,6 +616,10 @@ func (h *handlers) deleteNode(ctx context.Context, in *nodeIDInput) (*struct{}, 
 			return err
 		}
 		if err := q.DeleteNode(ctx, n.ID); err != nil {
+			return err
+		}
+		// A node that went through this one goes back to the panel's choice.
+		if err := q.ClearNodeTransport(ctx, n.ID); err != nil {
 			return err
 		}
 		// The bot's route may still name it from when it went through it: the admin

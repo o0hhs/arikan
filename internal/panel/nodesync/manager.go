@@ -94,6 +94,11 @@ type Manager struct {
 	helloMu sync.Mutex
 	hellos  map[int64]HelloView
 
+	// How the panel's last connection to each node went (transport.go): directly, or through
+	// another node.
+	routeMu sync.Mutex
+	routes  map[int64]routeState
+
 	// The panel's own addresses for the nodes' API locks (apilock.go), looked up at most
 	// every panelAddrsTTL; lookup is the resolver, which tests replace.
 	addrMu sync.Mutex
@@ -111,7 +116,7 @@ type running struct {
 
 func NewManager(st *store.Store, set *settings.Settings, pool *domain.Pool, connect Connect, log *slog.Logger, now func() time.Time) *Manager {
 	return &Manager{st: st, set: set, pool: pool, connect: connect, log: log, now: now,
-		nodesDirty: make(chan struct{}, 1), running: map[int64]*running{}, batches: map[int64]uint64{}, storeInterval: storeEvery}
+		nodesDirty: make(chan struct{}, 1), running: map[int64]*running{}, batches: map[int64]uint64{}, routes: map[int64]routeState{}, storeInterval: storeEvery}
 }
 
 // SetEvents connects the hub that wakes the addons reading the feed; call it before Run.
@@ -273,9 +278,13 @@ func (m *Manager) reconcile(ctx context.Context) {
 	m.mu.Lock()
 	var stop []*running
 	for id, r := range m.running {
-		if n, ok := want[id]; !ok || nodeKey(n) != r.key {
+		n, ok := want[id]
+		if !ok || nodeKey(n) != r.key {
 			stop = append(stop, r)
 			delete(m.running, id)
+			if !ok {
+				m.forgetRoute(id)
+			}
 		}
 	}
 	m.mu.Unlock()
@@ -297,6 +306,10 @@ func (m *Manager) reconcile(ctx context.Context) {
 			}
 			continue
 		}
+		// A node the panel cannot reach itself is reached through another one (transport.go).
+		if c, ok := t.Node.(*nodeapi.Client); ok && !t.Local {
+			c.SetRoute(m.route(n))
+		}
 		s := newSyncer(m, n.ID, t)
 		sctx, cancel := context.WithCancel(ctx)
 		r := &running{s: s, key: nodeKey(n), cancel: cancel, done: make(chan struct{})}
@@ -310,10 +323,10 @@ func (m *Manager) reconcile(ctx context.Context) {
 	}
 }
 
-// nodeKey changes when the syncer must restart: a new address or key, or a new name
-// in the node's Hysteria2/TUIC certificate.
+// nodeKey changes when the syncer must restart: a new address or key, a new name in the
+// node's Hysteria2/TUIC certificate, or another transport node.
 func nodeKey(n db.Node) string {
-	return strings.Join([]string{n.Address, n.CertSha256, n.PublicHost, n.Domain}, "|")
+	return strings.Join([]string{n.Address, n.CertSha256, n.PublicHost, n.Domain, strconv.FormatInt(n.TransportID, 10)}, "|")
 }
 
 func (m *Manager) stopAll() {
@@ -490,6 +503,7 @@ func clientOf[T any](m *Manager, id int64) (T, error) {
 // old state back, and reconcile does not start it again.
 func (m *Manager) Retire(ctx context.Context, id int64) error {
 	m.forgetHello(id)
+	m.forgetRoute(id)
 	m.mu.Lock()
 	r, ok := m.running[id]
 	delete(m.running, id)

@@ -28,8 +28,11 @@ type snapshot struct {
 	owners   []db.ListSlotUsersRow
 	inbounds []db.Inbound
 	slots    []db.Slot
-	grants   domain.GrantsLeft
-	pools    []db.UserPool
+	// nodes is every node of the panel: what a node may carry a tunnel to, and whose
+	// addresses its API lock must let in (transport.go).
+	nodes  []db.Node
+	grants domain.GrantsLeft
+	pools  []db.UserPool
 	// closed is what every tariff keeps out of its users' subscriptions (the tariff's
 	// own "protocols off"), by the tariff's id.
 	closed  map[int64][]int64
@@ -88,14 +91,15 @@ func (m *Manager) readSnapshot(ctx context.Context) (s *snapshot, err error) {
 	if s.owners, err = q.ListSlotUsers(ctx); err != nil {
 		return nil, err
 	}
-	if ns, err := q.ListNodes(ctx); err == nil {
-		for _, n := range ns {
-			if n.Emergency {
-				if s.emergency == nil {
-					s.emergency = map[int64]int{}
-				}
-				s.emergency[n.ID] = int(n.EmergencySpeed.Int32)
+	if s.nodes, err = q.ListNodes(ctx); err != nil {
+		return nil, err
+	}
+	for _, n := range s.nodes {
+		if n.Emergency {
+			if s.emergency == nil {
+				s.emergency = map[int64]int{}
 			}
+			s.emergency[n.ID] = int(n.EmergencySpeed.Int32)
 		}
 	}
 	if s.inbounds, err = q.ListInbounds(ctx); err != nil {
