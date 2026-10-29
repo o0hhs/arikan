@@ -36,7 +36,7 @@ Before restoring, the program checks the archive, stops the containers and saves
 - `-y` asks no questions.
 - `--no-db-snapshot` does not copy the current database before replacing it: for a PostgreSQL that is so broken it cannot be dumped. If the restore fails, the current data is lost.
 
-An archive with only the database (like a backup from Telegram) restores only the database, while settings, certificates and adapters stay as they are. Old SQLite backups restore onto a PostgreSQL panel too. A restore replaces the whole database.
+An archive with only the database (like a backup from Telegram) restores only the database: the server's files — `config.json`, `secrets/`, certificates and adapters — stay as they are. The settings **inside the database** do come from the archive, though: the panel's address and port, the subscription domain and paths, the bot token. The port the panel actually listens on is a property of the server (`PANEL_PORT` in `config.json`), so when the two disagree the panel corrects the `panel_port` setting to its own port at start. The join key stays this server's too: after such a restore every node has to join again (issue a new key on the Nodes page, then `mikan join` on the node). Old SQLite backups restore onto a PostgreSQL panel too. A restore replaces the whole database.
 
 ## Backups to Telegram
 

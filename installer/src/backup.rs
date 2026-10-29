@@ -632,6 +632,13 @@ pub fn restore(file: &Path, no_db_snapshot: bool, say: &mut dyn FnMut(&str)) -> 
         }
         let items = plan_database(&stage.0)?;
         say("The archive holds only the panel's database: the settings, certificates, adapters and node data stay as they are");
+        // What the database alone does change is not obvious, and every item below has
+        // bitten a move already: the panel's address and port and the subscription
+        // addresses come from the database, so they are the archive's, while this server
+        // keeps its own listen port, its own join key and its own certificates.
+        say("The panel's address and port and the subscription settings now come from the database: the panel corrects a port that does not match its listener at the next start");
+        say("Every node must join again: this server's join key is its own (Nodes -> issue a new key, then mikan join on the node)");
+        say("The certificates and the payment adapters are this server's: a certificate is issued again for the domain the database names");
         items
     };
 
