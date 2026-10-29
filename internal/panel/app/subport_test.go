@@ -94,6 +94,49 @@ func TestSubPortListener(t *testing.T) {
 	}
 }
 
+// sub_port = 443 is the node's router answering the subscription domain: the panel opens no
+// listener for it and never reports the port as taken — even where binding 443 is not even
+// allowed (a non-root test process would get a permission error and a wrong sub_port_busy).
+func TestSubPortRouterState(t *testing.T) {
+	sp := NewSubPort("127.0.0.1", nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	sp.SetHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = io.WriteString(w, "sub") }))
+	t.Cleanup(sp.Close)
+
+	if err := sp.Set(SubPortRouter); err != nil {
+		t.Fatalf("443 through the router: %v", err)
+	}
+	if sp.Error() != "" || sp.srv != nil || sp.port != SubPortRouter {
+		t.Fatalf("443 opened a listener: err %q, srv %v, port %d", sp.Error(), sp.srv, sp.port)
+	}
+	// The panel's own start, with a database from another server: the same state.
+	sp.Start(SubPortRouter)
+	if sp.Error() != "" || sp.srv != nil {
+		t.Fatalf("start on 443: err %q, srv %v", sp.Error(), sp.srv)
+	}
+
+	// A port of its own still opens, and moving back to 443 closes it.
+	a := freePort(t)
+	if err := sp.Set(a); err != nil {
+		t.Fatal(err)
+	}
+	if code, _, err := get(a, "/"); err != nil || code != http.StatusOK {
+		t.Fatalf("the subscription port: %d %v", code, err)
+	}
+	if err := sp.Set(SubPortRouter); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := get(a, "/"); err == nil {
+		t.Fatal("the port still listens after going back to the router")
+	}
+	// 0 is off; 443 after it still opens nothing and sets no error.
+	if err := sp.Set(0); err != nil {
+		t.Fatal(err)
+	}
+	if err := sp.Set(SubPortRouter); err != nil || sp.srv != nil || sp.Error() != "" {
+		t.Fatalf("443 after off: %v, srv %v, err %q", err, sp.srv, sp.Error())
+	}
+}
+
 // The subscription port over the admin API: refused where it would clash, links move to
 // it, and the panel's own node cannot put a TCP inbound there afterwards.
 func TestSubPortOverHTTP(t *testing.T) {

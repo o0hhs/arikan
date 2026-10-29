@@ -18,6 +18,7 @@ mod net;
 mod ops;
 mod paneladdr;
 mod panelfs;
+mod panelsettings;
 mod redact;
 mod release;
 mod setup;

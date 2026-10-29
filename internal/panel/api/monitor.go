@@ -173,7 +173,16 @@ func (h *handlers) rotateMonitorPath(ctx context.Context, in *rotateMonitorInput
 	if err := (monitor.Config{Path: in.Body.Path}).Validate(); err != nil {
 		return nil, monitorFieldErr(err, in.Body.Path)
 	}
-	err := h.d.Store.TxRC(ctx, func(q *db.Queries) error {
+	// The router checks the admin, subscription and agent paths first: a shared segment
+	// would leave the monitoring page advertised at a URL that answers something else.
+	paths, err := h.d.Settings.Paths(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if in.Body.Path == paths.Admin || in.Body.Path == paths.Sub || in.Body.Path == paths.Agent {
+		return nil, fieldErr("body.path", "monitor_path_taken")
+	}
+	err = h.d.Store.TxRC(ctx, func(q *db.Queries) error {
 		c, err := monitor.Load(ctx, settings.New(q))
 		if err != nil {
 			return err

@@ -12,6 +12,7 @@ import (
 	"mikan/internal/hostchan"
 	"mikan/internal/logbuf"
 	"mikan/internal/nodeapi"
+	"mikan/internal/panel/monitor"
 	"mikan/internal/textutil"
 )
 
@@ -58,13 +59,19 @@ func (h *handlers) registerHostOps() {
 		Tags:        []string{"node"}, DefaultStatus: http.StatusAccepted}, h.restartNode)
 }
 
-// secretWords are what only the panel knows to cut out of its logs: the secret paths.
+// secretWords are what only the panel knows to cut out of its logs: every secret path. The
+// agent panel's path and the monitoring page's are links of their own, as secret as the
+// admin's and the subscription's: a line with one in it says where to log in.
 func (h *handlers) secretWords(ctx context.Context) []string {
 	paths, err := h.d.Settings.Paths(ctx)
 	if err != nil {
 		return nil
 	}
-	return []string{paths.Admin, paths.Sub}
+	words := []string{paths.Admin, paths.Sub, paths.Agent}
+	if mon, err := monitor.Load(ctx, h.d.Settings); err == nil {
+		words = append(words, mon.Path)
+	}
+	return words
 }
 
 func (h *handlers) getLogs(ctx context.Context, in *logsInput) (*logsOutput, error) {

@@ -12,7 +12,7 @@ use std::time::{Duration, Instant, SystemTime};
 
 use anyhow::{Context, Result, anyhow, bail};
 
-use crate::config::{Config, write_private};
+use crate::config::{Config, dsn_password, dsn_with_password, write_private};
 use crate::lock::{self, Wait};
 use crate::system::{self, Proto};
 use crate::{DIR, acme, docker, hello, host, panelfs, release};
@@ -418,7 +418,7 @@ fn run(plan: &Plan, tx: &Sender<Event>) -> StepResult<()> {
                 v = docker::PG_VOLUME
             );
         }
-        write_files(plan, &image, &version, api_port, acme_port)?;
+        write_files(plan, &image, &version, api_port, acme_port, tx)?;
         note(tx, Step::Files, DIR);
         Ok(api_port)
     })?;
@@ -654,9 +654,11 @@ pub fn node_port(image: &str, key: &str) -> Result<u16> {
     }
 }
 
-fn write_files(plan: &Plan, image: &str, version: &str, api_port: Option<u16>, acme_port: Option<u16>) -> Result<()> {
+fn write_files(plan: &Plan, image: &str, version: &str, api_port: Option<u16>, acme_port: Option<u16>, tx: &Sender<Event>) -> Result<()> {
     let root = Path::new(DIR);
-    write_files_in(root, plan, image, version, api_port, acme_port)?;
+    if let Some(text) = write_files_in(root, plan, image, version, api_port, acme_port)? {
+        note(tx, Step::Files, text);
+    }
     // The containers run as 65532 and each mounts its own directory of data/, which a bind
     // mount does not give that owner; data/ itself stays root's (the compose file written
     // above mounts nothing else).
@@ -666,8 +668,16 @@ fn write_files(plan: &Plan, image: &str, version: &str, api_port: Option<u16>, a
 
 /// The files of an install. A first install makes them; a continued one finds the settings
 /// there and keeps what it chose, writing only what is missing or has changed. acme_port is
-/// where the panel answers Let's Encrypt when a web server holds port 80.
-fn write_files_in(root: &Path, plan: &Plan, image: &str, version: &str, api_port: Option<u16>, acme_port: Option<u16>) -> Result<()> {
+/// where the panel answers Let's Encrypt when a web server holds port 80. The Some(text) is
+/// a divergence that was repaired, for the log.
+fn write_files_in(
+    root: &Path,
+    plan: &Plan,
+    image: &str,
+    version: &str,
+    api_port: Option<u16>,
+    acme_port: Option<u16>,
+) -> Result<Option<String>> {
     use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
     if crate::config::installed(root) && !(plan.resume && unfinished(root)) {
         bail!("Arikan is already installed in {}", root.display());
@@ -702,25 +712,48 @@ fn write_files_in(root: &Path, plan: &Plan, image: &str, version: &str, api_port
             false
         }
     };
-    if !node {
-        postgres_env(&mut env)?;
-    }
+    let repaired = if !node { postgres_env(&mut env)? } else { None };
     // The settings, then the compose.yaml made of them, which mounts the secrets they wrote.
     docker::ensure_compose(root, &env)?;
-    env.retire_legacy()
+    env.retire_legacy()?;
+    Ok(repaired)
 }
 
 /// Credentials persist across updates and resumed installs; never rotate a live database.
-pub fn postgres_env(env: &mut Config) -> Result<()> {
-    if env.get("MIKAN_POSTGRES_PASSWORD").is_none() {
-        env.set("MIKAN_POSTGRES_PASSWORD", &token(48, ALNUM))?;
-    }
-    if env.get("MIKAN_DATABASE_URL").is_none() {
-        let password = env.get("MIKAN_POSTGRES_PASSWORD").context("postgres password missing")?;
-        let url = format!("postgresql://mikan:{password}@localhost/mikan?host=/run/postgresql");
+/// The password is the owner: the PostgreSQL volume was initialized from it, and the
+/// address is built from it. A pair that disagrees — a database from another server, a
+/// hand-copied file — leaves the panel unable to open the database at all, so the address
+/// follows the password; a lost password file comes back from the address, the only other
+/// copy of the password the volume knows. Some(text) says which repair was made.
+pub fn postgres_env(env: &mut Config) -> Result<Option<String>> {
+    let mut note = None;
+    let password = match env.get("MIKAN_POSTGRES_PASSWORD").map(str::to_owned) {
+        Some(p) => p,
+        None => match env.get("MIKAN_DATABASE_URL").and_then(dsn_password).map(str::to_owned) {
+            Some(p) => {
+                env.set("MIKAN_POSTGRES_PASSWORD", &p)?;
+                note = Some("the database password file was missing: it is taken back from the database address".to_owned());
+                p
+            }
+            None => {
+                let p = token(48, ALNUM);
+                env.set("MIKAN_POSTGRES_PASSWORD", &p)?;
+                p
+            }
+        },
+    };
+    if env.get("MIKAN_DATABASE_URL").and_then(dsn_password) != Some(password.as_str()) {
+        let url = env
+            .get("MIKAN_DATABASE_URL")
+            .and_then(|u| dsn_with_password(u, &password))
+            .unwrap_or_else(|| format!("postgresql://mikan:{password}@localhost/mikan?host=/run/postgresql"));
         env.set("MIKAN_DATABASE_URL", &url)?;
+        note.get_or_insert_with(|| {
+            "the database address carried another password: it follows secrets/postgres_password, which the database was initialized from"
+                .to_owned()
+        });
     }
-    Ok(())
+    Ok(note)
 }
 
 /// Waits for the panel to answer, or for a node's API port to listen.
@@ -938,6 +971,35 @@ mod tests {
         );
         postgres_env(&mut env).unwrap();
         assert_eq!(env.to_env_text(), before, "live credentials must never rotate");
+    }
+
+    // The password is the owner: the volume was initialized from it, so an address that
+    // carries another one follows it. A panel that ran on the address would not open the
+    // database at all.
+    #[test]
+    fn a_database_address_follows_the_password() {
+        let mut env = Config::new("unused");
+        env.set("MIKAN_POSTGRES_PASSWORD", "pw-one").unwrap();
+        env.set("MIKAN_DATABASE_URL", "postgresql://mikan:pw-two@localhost/mikan?host=/run/postgresql").unwrap();
+        let note = postgres_env(&mut env).unwrap();
+        assert!(note.is_some_and(|n| n.contains("another password")), "the repair must say it happened");
+        assert_eq!(env.get("MIKAN_DATABASE_URL"), Some("postgresql://mikan:pw-one@localhost/mikan?host=/run/postgresql"));
+        // The host and query of a server's own address stay.
+        env.set("MIKAN_DATABASE_URL", "postgresql://mikan:pw-two@10.0.0.2:5432/mikan?sslmode=require").unwrap();
+        assert!(postgres_env(&mut env).unwrap().is_some_and(|n| n.contains("another password")));
+        assert_eq!(env.get("MIKAN_DATABASE_URL"), Some("postgresql://mikan:pw-one@10.0.0.2:5432/mikan?sslmode=require"));
+    }
+
+    // The password file went, the address stayed: the address is the only copy of the
+    // password the volume knows, and a new one would lock the panel out for good.
+    #[test]
+    fn a_lost_password_comes_back_from_the_address() {
+        let mut env = Config::new("unused");
+        env.set("MIKAN_DATABASE_URL", "postgresql://mikan:pw-keep@localhost/mikan?host=/run/postgresql").unwrap();
+        assert!(postgres_env(&mut env).unwrap().is_some_and(|n| n.contains("password file was missing")));
+        assert_eq!(env.get("MIKAN_POSTGRES_PASSWORD"), Some("pw-keep"));
+        assert_eq!(env.get("MIKAN_DATABASE_URL"), Some("postgresql://mikan:pw-keep@localhost/mikan?host=/run/postgresql"));
+        assert_eq!(postgres_env(&mut env).unwrap(), None, "a repaired pair needs no second repair");
     }
 
     #[test]
