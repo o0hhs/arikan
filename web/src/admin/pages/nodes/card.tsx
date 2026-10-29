@@ -10,7 +10,7 @@ import { useToast } from "../../../components/toast";
 import { Bar, Button, Pill } from "../../../components/ui";
 import { t, tMaybe } from "../../../i18n";
 import { useCopy } from "../../../lib/copy";
-import { bytes, duration, num } from "../../../lib/format";
+import { ago, bytes, duration, num } from "../../../lib/format";
 import { nodeLabel } from "../../../lib/node-label";
 import { HelloLine, NodeProblem, SkewLine } from "../node-check";
 import type { Node } from "../nodes";
@@ -123,6 +123,7 @@ export function NodeCard({
         </div>
       ) : null}
       <HelloLine n={n} actions={{ edit: onEdit }} />
+      <TunnelLine n={n} />
       <dl className="mt-4 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-x-4 gap-y-3 text-[13px] [&>div]:min-w-0">
         <div>
           <dt className="text-xs text-[var(--ink-500)]">{t("nodes.protocols")}</dt>
@@ -263,6 +264,21 @@ export function NodeCard({
  * it, the panel's, or a pinned self-signed one, with why a public one is not there yet and
  * a button to get it now.
  */
+/** The node's reverse tunnel: the node connected out to the panel, and the panel's calls go
+ * over that connection — the API port may be closed altogether. */
+export function TunnelLine({ n }: { n: Node }) {
+  const tv = n.tunnel;
+  if (!tv?.connected) return null;
+  const since = tv.since ? ago(tv.since) : "";
+  const last = tv.last ? ago(tv.last) : "";
+  return (
+    <p className="mt-2 text-xs text-[var(--md-on-surface-variant)]" role="status" title={tv.remote ? t("nodes.tunnelFrom", { host: tv.remote }) : undefined}>
+      {since ? t("nodes.tunnelOn", { since }) : t("nodes.tunnelConnected")}
+      {last ? ` · ${t("nodes.tunnelLast", { ago: last })}` : ""}
+    </p>
+  );
+}
+
 /** The other nodes' cascades through this one, open now: their sum, and by whom in the hint.
  * The source counts these users and their traffic; here they are the node's load. */
 function CascadeConnsLine({ cascade }: { cascade: Node["cascade"] }) {

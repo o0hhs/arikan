@@ -470,6 +470,7 @@ type Node struct {
 	Emergency      bool
 	EmergencySpeed sql.NullInt32
 	AutoInclude    int64
+	InboundApi     int64
 }
 
 type NodeAssignment struct {

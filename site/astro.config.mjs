@@ -82,6 +82,7 @@ export default defineConfig({
 						{ slug: 'nodes/shared-443' },
 						{ slug: 'nodes/hardening' },
 						{ slug: 'nodes/cascades' },
+						{ slug: 'nodes/reverse-tunnel' },
 						{ slug: 'nodes/warp' },
 						{ slug: 'nodes/turn' },
 					],

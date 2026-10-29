@@ -70,6 +70,23 @@ type DesiredState struct {
 	// Subs is the node answering subscription links on its 443 from the records the panel
 	// hands it (PUT /v1/subs); nil: it does not. Nodes older than it ignore the field.
 	Subs *SubsServer `json:"subs,omitempty"`
+	// InboundAPI: false tells the node not to listen on its API port at all — the panel reaches
+	// it over the node's reverse tunnel (TunnelPath) alone. nil is on, as every node was before
+	// the field, so a panel older than it can never close a node's port. Nodes older than it
+	// ignore it. The node keeps the answer: one that was told to close the port does not open it
+	// again on a restart, before the panel says otherwise.
+	InboundAPI *bool `json:"inbound_api,omitempty"`
+}
+
+// InboundAPINeeded says whether the state has the node listen on its API port: true unless the
+// panel said otherwise, and so true for a state from before the field.
+func (s DesiredState) InboundAPINeeded() bool { return s.InboundAPI == nil || *s.InboundAPI }
+
+// InboundAPIStatus is the node's own API port as Health reports it: On while it listens, Error
+// why one it should listen on does not (another program holds the port).
+type InboundAPIStatus struct {
+	On    bool   `json:"on"`
+	Error string `json:"error,omitempty"`
 }
 
 // APILockStale is how long the panel may stay away before a node with APIAllow opens its
@@ -295,6 +312,10 @@ type Health struct {
 	// Subs is the subscription store: what it keeps and whether the node answers links on
 	// its 443. nil on nodes older than it.
 	Subs *SubsStatus `json:"subs,omitempty"`
+	// InboundAPI is the node's own API port: On while it listens, and nil on a node older than
+	// the field. A node the panel keeps on its reverse tunnel alone says Off, so the Nodes page
+	// can explain a refused direct port instead of calling the node down.
+	InboundAPI *InboundAPIStatus `json:"inbound_api,omitempty"`
 }
 
 // EgressStatus is one check of the node's own way out: a direct TCP connect to a public

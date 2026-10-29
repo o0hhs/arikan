@@ -134,6 +134,9 @@ type Options struct {
 	NodesACME *acme.Nodes
 	// PanelCert is the client certificate remote nodes pin; join keys carry its hash.
 	PanelCert func() (nodetls.Pair, error)
+	// Tunnel answers a node's request to open its reverse tunnel, on the panel's own HTTPS
+	// listener; nil: no node can open one.
+	Tunnel func(w http.ResponseWriter, r *http.Request) bool
 	// NodeCerts keeps the nodes' own certificates; nil: nodes have none.
 	NodeCerts *tlscert.NodeStore
 	// Certs manages the panel's public certificate; nil in development.
@@ -710,6 +713,7 @@ func NewPanel(st *store.Store, o Options) (*Panel, error) {
 	if p.Nodes != nil && o.PanelCert != nil {
 		p.server.SetHello(nodeHello(st, p.Nodes, o).Serve)
 	}
+	p.server.SetTunnel(o.Tunnel)
 	p.Handler = p.server
 	return p, nil
 }

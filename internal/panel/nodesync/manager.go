@@ -40,6 +40,21 @@ type Target struct {
 	Local bool
 	// Address is the node's API host:port, for the words of a failure; "" for the local node.
 	Address string
+	// Tunnel is the node's reverse tunnel, when the panel has one for it (the node opened the
+	// connection out to the panel): the panel's calls take it while it is up. nil: none.
+	Tunnel func() (TunnelView, bool)
+}
+
+// TunnelView is a node's reverse tunnel as the panel sees it: the node connected out to the
+// panel, and the panel's calls go over that connection while it is up.
+type TunnelView struct {
+	Connected bool
+	Since     time.Time // when the connection was opened
+	Last      time.Time // when the last call went through it
+	Ended     time.Time // when the last one closed; zero: never had one
+	Streams   int       // calls in flight over it now
+	Remote    string    // the address the node connected from
+	Error     string    // why the last connection ended ("" while it runs)
 }
 
 // Connect builds the client for a node row; the app knows the socket and certificates.
