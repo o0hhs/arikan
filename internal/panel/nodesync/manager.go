@@ -33,6 +33,9 @@ const LocalNode int64 = 1
 type Target struct {
 	Node Node
 	TLS  TLSSource
+	// SubsTLS is the certificate the subscription answers present (the subscription
+	// domain's); nil: the node's own.
+	SubsTLS SubsTLSSource
 	// Local is the panel's own node: only it may use the panel as its REALITY target.
 	Local bool
 	// Address is the node's API host:port, for the words of a failure; "" for the local node.
@@ -100,6 +103,13 @@ type Manager struct {
 	addrs  []string
 	addrAt time.Time
 	lookup func(ctx context.Context, host string) ([]netip.Addr, error)
+
+	// The subscriptions the nodes answer on the panel's behalf (subs.go).
+	subsDirty  chan struct{}
+	subsMu     sync.Mutex
+	subsRender SubsRenderer
+	subsPushed map[int64]SubsPush
+	subsLast   time.Time // when a push last started: two are never closer than subsMinGap
 }
 
 type running struct {
@@ -111,13 +121,15 @@ type running struct {
 
 func NewManager(st *store.Store, set *settings.Settings, pool *domain.Pool, connect Connect, log *slog.Logger, now func() time.Time) *Manager {
 	return &Manager{st: st, set: set, pool: pool, connect: connect, log: log, now: now,
-		nodesDirty: make(chan struct{}, 1), running: map[int64]*running{}, batches: map[int64]uint64{}, storeInterval: storeEvery}
+		nodesDirty: make(chan struct{}, 1), running: map[int64]*running{}, batches: map[int64]uint64{}, storeInterval: storeEvery,
+		subsDirty: make(chan struct{}, 1), subsPushed: map[int64]SubsPush{}}
 }
 
 // SetEvents connects the hub that wakes the addons reading the feed; call it before Run.
 func (m *Manager) SetEvents(h *events.Hub) { m.hub = h }
 
 func (m *Manager) Run(ctx context.Context) {
+	go m.runSubs(ctx)
 	m.reconcile(ctx)
 	maintain := time.NewTicker(30 * time.Second)
 	defer maintain.Stop()
@@ -140,6 +152,9 @@ func (m *Manager) PoliciesChanged() {
 	for _, s := range m.Syncers() {
 		s.PoliciesChanged()
 	}
+	// A user was made, blocked, moved or ended: their subscription the nodes keep must
+	// follow within a minute, not at the next full reconcile.
+	m.SubsChanged()
 }
 
 func (m *Manager) SlotsChanged() {
@@ -147,6 +162,7 @@ func (m *Manager) SlotsChanged() {
 	for _, s := range m.Syncers() {
 		s.SlotsChanged()
 	}
+	m.SubsChanged()
 }
 
 // NodesChanged restarts syncers after a node was added, removed or re-keyed.
@@ -154,6 +170,7 @@ func (m *Manager) NodesChanged() {
 	m.generation.Add(1)
 	m.changes.Add(1)
 	signal(m.nodesDirty)
+	m.SubsChanged()
 }
 
 // Generation moves with every NodesChanged, and when a node took a certificate with another

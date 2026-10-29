@@ -645,6 +645,11 @@ func NewPanel(st *store.Store, o Options) (*Panel, error) {
 	subHandler.SetShop(p.Billing)
 	subHandler.SetPromo(promos)
 	subHandler.SetPages(pages)
+	// The nodes answer the links themselves when the admin has it so (subs.FromNodes): the
+	// panel renders each subscription once per sync and hands the node the bytes.
+	if p.Nodes != nil {
+		p.Nodes.SetSubsRenderer(subHandler.NodeRecord)
+	}
 
 	adminMux := http.NewServeMux()
 	adminMux.Handle("/api/", apiHandler)
