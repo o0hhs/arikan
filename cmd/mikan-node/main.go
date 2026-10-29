@@ -15,12 +15,14 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
 	"mikan/internal/acmechallenge"
 	"mikan/internal/logbuf"
 	"mikan/internal/node"
+	"mikan/internal/nodeapi"
 	"mikan/internal/nodetls"
 	"mikan/internal/panel/config"
 )
@@ -134,19 +136,54 @@ func run() error {
 		}()
 		eng.Restore()
 	}()
-	// A remote node also serves the Node API over TCP to its panel (see nodetls).
+	// A remote node also serves the Node API to its panel (see nodetls): on its own port, and
+	// over the tunnel it opens out to the panel.
+	var inbound *node.InboundAPI
 	if raw != "" {
 		cfg, err := join.ServerConfig()
 		if err != nil {
 			return fmt.Errorf("MIKAN_NODE_JOIN: %w", err)
 		}
-		tcp, err := net.Listen("tcp", net.JoinHostPort(envOr("MIKAN_NODE_API_LISTEN", ""), strconv.Itoa(join.Port)))
-		if err != nil {
-			return err
+		// The node's own port for the panel. The panel may tell the node to keep it closed and
+		// reach it over the reverse tunnel alone (DesiredState.InboundAPI), and the node keeps
+		// that answer across restarts; its server's admin can keep the port closed whatever the
+		// panel says (MIKAN_NODE_INBOUND_API=off, or MIKAN_NODE_API_LISTEN=off).
+		addr := net.JoinHostPort(envOr("MIKAN_NODE_API_LISTEN", ""), strconv.Itoa(join.Port))
+		inbound = node.NewInboundAPI(addr, cfg, node.Handler(eng, log), eng.APIListener, log)
+		eng.UseInboundAPI(inbound)
+		if inboundAPIAllowed() && node.SavedInboundAPI(dataDir) {
+			inbound.Set(true)
+		} else {
+			log.Info("the API port stays closed: the reverse tunnel is the panel's only way in", "port", join.Port)
 		}
-		// With the panel's API lock on, strangers are closed before the TLS handshake.
-		go serve(tls.NewListener(eng.APIListener(tcp), cfg))
 		log.Info("node api for the panel", "port", join.Port)
+		// The tunnel the node opens out to its panel: the way round that works when the panel
+		// cannot reach the node at all. It needs the panel's address from the join key.
+		if join.PanelURL != "" {
+			if pair, err := tls.X509KeyPair([]byte(join.CertPEM), []byte(join.KeyPEM)); err != nil {
+				log.Error("reverse tunnel: the node's certificate is unreadable", "err", err)
+			} else {
+				go func() {
+					defer func() {
+						if r := recover(); r != nil {
+							log.Error("node: the reverse tunnel panicked", "panic", r)
+						}
+					}()
+					node.RunReverseTunnel(ctx, node.ReverseTunnel{
+						URL: join.PanelURL,
+						// The node's own certificate as a client certificate: the panel accepts it
+						// by the pin it holds, and only a client that asks for the tunnel's ALPN is
+						// asked for a certificate at all.
+						Client:  &tls.Config{MinVersion: tls.VersionTLS12, Certificates: []tls.Certificate{pair}, NextProtos: []string{nodeapi.TunnelALPN}},
+						Server:  cfg,
+						Handler: node.Handler(eng, log),
+						Log:     log,
+					})
+				}()
+			}
+		} else {
+			log.Info("no reverse tunnel: the join key comes from a panel before them")
+		}
 		go func() {
 			defer func() {
 				if r := recover(); r != nil {
@@ -167,12 +204,23 @@ func run() error {
 			}
 			eng.TickAPILock()
 		case <-ctx.Done():
+			if inbound != nil {
+				inbound.Close()
+			}
 			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			_ = srv.Shutdown(shutdownCtx)
 			return eng.PersistCounters()
 		}
 	}
+}
+
+// inboundAPIAllowed says whether the node's own API port may be opened at all: the server's
+// admin keeps it closed whatever the panel says (MIKAN_NODE_INBOUND_API=off, or
+// MIKAN_NODE_API_LISTEN=off), and the panel then has the reverse tunnel alone.
+func inboundAPIAllowed() bool {
+	return !strings.EqualFold(os.Getenv("MIKAN_NODE_INBOUND_API"), "off") &&
+		!strings.EqualFold(os.Getenv("MIKAN_NODE_API_LISTEN"), "off")
 }
 
 func envOr(key, def string) string {

@@ -38,15 +38,44 @@ func NewUnixClient(socket string) *Client {
 
 // NewTLSClient reaches a remote node at host:port; cfg pins both sides (see nodetls).
 func NewTLSClient(address string, cfg *tls.Config) *Client {
+	direct := func(ctx context.Context) (net.Conn, error) {
+		return (&net.Dialer{Timeout: 5 * time.Second, KeepAlive: 30 * time.Second}).DialContext(ctx, "tcp", address)
+	}
+	return newTLSClient(address, cfg, direct)
+}
+
+// NewDialClient is NewTLSClient whose connections the caller opens: the panel's stream through
+// a node's reverse tunnel, when the node cannot be reached any other way (TunnelPath). dial
+// returns the raw stream; the TLS handshake on it, with cfg's pin, is the client's own, as it
+// is on a direct connection, and the node checks the panel's certificate inside it.
+func NewDialClient(address string, cfg *tls.Config, dial func(ctx context.Context) (net.Conn, error)) *Client {
+	if dial == nil {
+		return NewTLSClient(address, cfg)
+	}
+	return newTLSClient(address, cfg, dial)
+}
+
+// newTLSClient builds the client over raw, which opens every TCP stream to the node's API.
+func newTLSClient(address string, cfg *tls.Config, raw func(ctx context.Context) (net.Conn, error)) *Client {
 	// A tunnel takes over the connection, which HTTP/2 does not allow.
 	h1 := cfg.Clone()
 	h1.NextProtos = []string{"http/1.1"}
 	dial := func(ctx context.Context) (net.Conn, error) {
-		d := tls.Dialer{NetDialer: &net.Dialer{Timeout: 5 * time.Second, KeepAlive: 30 * time.Second}, Config: h1}
-		return d.DialContext(ctx, "tcp", address)
+		conn, err := raw(ctx)
+		if err != nil {
+			return nil, err
+		}
+		tlsConn := tls.Client(conn, h1)
+		if err := tlsConn.HandshakeContext(ctx); err != nil {
+			conn.Close()
+			return nil, err
+		}
+		return tlsConn, nil
 	}
 	return &Client{base: "https://" + address, dial: dial, hc: &http.Client{Transport: &http.Transport{
-		DialContext:         (&net.Dialer{Timeout: 5 * time.Second, KeepAlive: 30 * time.Second}).DialContext,
+		// The transport dials the raw stream and does its own TLS handshake on it, the pin
+		// included: the connection is the node's API either way it was reached.
+		DialContext:         func(ctx context.Context, _, _ string) (net.Conn, error) { return raw(ctx) },
 		TLSClientConfig:     cfg,
 		TLSHandshakeTimeout: 5 * time.Second,
 		ForceAttemptHTTP2:   true,

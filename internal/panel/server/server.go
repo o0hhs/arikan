@@ -38,6 +38,9 @@ type Server struct {
 	// cascade answers the cascade's exit nodes' knocks (internal/panel/cascade); whatever
 	// it does not answer is served like any unknown path. nil: none.
 	cascade func(w http.ResponseWriter, r *http.Request) bool
+	// tunnel answers a node's request to open a reverse tunnel and says so (see the panel's
+	// app); whatever it does not answer is served like any unknown path. nil: none.
+	tunnel func(w http.ResponseWriter, r *http.Request) bool
 }
 
 // SetSubDomain points the host-only routing at the subscription domain's host ("" when
@@ -73,6 +76,9 @@ func (s *Server) SetHello(h func(w http.ResponseWriter, r *http.Request) bool) {
 // SetCascade takes the handler of the cascade's exit nodes' knocks. It is served on the
 // panel's own listener alone, not on the subscription port.
 func (s *Server) SetCascade(h func(w http.ResponseWriter, r *http.Request) bool) { s.cascade = h }
+
+// SetTunnel takes the handler of the nodes' reverse tunnels.
+func (s *Server) SetTunnel(h func(w http.ResponseWriter, r *http.Request) bool) { s.tunnel = h }
 
 // SetLegacy takes the handler of the old panel's subscription links.
 func (s *Server) SetLegacy(h http.Handler) { s.legacy = h }
@@ -152,6 +158,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request, admin bool) {
 		s.legacy.ServeHTTP(w, r2)
 	case admin && s.cascade != nil && s.cascade(w, r):
 	case s.hello != nil && s.hello(w, r):
+	case s.tunnel != nil && s.tunnel(w, r):
 	default:
 		s.other(w, r)
 	}

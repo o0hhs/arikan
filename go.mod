@@ -12,6 +12,7 @@ require (
 	github.com/lib/pq v1.12.3
 	github.com/metacubex/age v0.0.0-20260603010618-28d156b4ea78
 	github.com/metacubex/mihomo v1.19.32
+	github.com/metacubex/yamux v0.0.0-20250918083631-dd5f17c0be49
 	github.com/miekg/dns v1.1.72
 	github.com/oschwald/maxminddb-golang v1.12.0
 	github.com/pquerna/otp v1.5.0
@@ -111,7 +112,6 @@ require (
 	github.com/metacubex/utls v1.8.8 // indirect
 	github.com/metacubex/wazero v0.0.0-20260628025728-9ae6bdcf2a7d // indirect
 	github.com/metacubex/wireguard-go v0.0.0-20250820062549-a6cecdd7f57f // indirect
-	github.com/metacubex/yamux v0.0.0-20250918083631-dd5f17c0be49 // indirect
 	github.com/metacubex/zerotier-go v0.0.0-20260813124750-13fa6f45da5f // indirect
 	github.com/mfridman/interpolate v0.0.2 // indirect
 	github.com/mitchellh/go-ps v1.0.0 // indirect

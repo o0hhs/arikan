@@ -16,6 +16,7 @@ import (
 
 	"mikan/internal/nodeapi"
 	"mikan/internal/panel/domain"
+	"mikan/internal/panel/nodesync"
 	"mikan/internal/panel/nodeupdate"
 	"mikan/internal/panel/settings"
 	"mikan/internal/panel/store"
@@ -39,6 +40,35 @@ type EgressView struct {
 	CheckedAt time.Time `json:"checked_at"`
 	LatencyMS int64     `json:"latency_ms,omitempty"`
 	Error     string    `json:"error,omitempty"`
+}
+
+// NodeTunnelView is the panel's side of a node's reverse tunnel: the node connected out to
+// the panel, and its calls go over that connection while it is up.
+type NodeTunnelView struct {
+	Connected bool `json:"connected" doc:"Нода подключена к панели сейчас"`
+	// The timestamps are absent when they mean nothing: a tunnel that just came up has no last
+	// exchange yet, and a node that never connected has no ended one.
+	Since   *time.Time `json:"since,omitempty" doc:"Когда открыто это соединение"`
+	Last    *time.Time `json:"last,omitempty" doc:"Когда через него последний раз шёл запрос"`
+	Ended   *time.Time `json:"ended,omitempty" doc:"Когда закрылось последнее соединение; нет — ни одного ещё не было"`
+	Streams int        `json:"streams" doc:"Запросов через туннель сейчас"`
+	Remote  string     `json:"remote,omitempty" doc:"С какого адреса подключилась нода"`
+	Error   string     `json:"error,omitempty" doc:"Почему закрылось последнее соединение"`
+}
+
+func tunnelView(tv *nodesync.TunnelView) *NodeTunnelView {
+	if tv == nil {
+		return nil
+	}
+	v := &NodeTunnelView{Connected: tv.Connected, Streams: tv.Streams, Remote: tv.Remote, Error: tv.Error}
+	at := func(t time.Time) *time.Time {
+		if t.IsZero() {
+			return nil
+		}
+		return &t
+	}
+	v.Since, v.Last, v.Ended = at(tv.Since), at(tv.Last), at(tv.Ended)
+	return v
 }
 
 type NodeInfo struct {
@@ -122,8 +152,14 @@ type NodeInfo struct {
 	APILockdown  bool     `json:"api_lockdown" doc:"API ноды отвечает только адресам панели"`
 	APIAllow     []string `json:"api_allow" doc:"Сети и адреса, которые админ добавил к адресам панели"`
 	APILockError string   `json:"api_lock_error,omitempty" doc:"Почему на сервере ноды нет правила файрвола для API"`
-	Capacity     *int64   `json:"capacity" doc:"Мест для клиентов в группе; null — без ограничения"`
-	ChannelMbps  *int64   `json:"channel_mbps" doc:"Ширина канала ноды, Мбит/с в каждую сторону; null — не задана"`
+	// InboundAPI: the node listens on its own API port; off, the panel reaches it over the
+	// tunnel the node opens out to the panel (Tunnel).
+	InboundAPI bool `json:"inbound_api" doc:"Нода слушает свой API-порт; выключено — панель ходит к ней только через обратный туннель"`
+	// Tunnel is the node's reverse tunnel as the panel sees it: the node connected out to the
+	// panel, and the calls go over that connection. nil while the node never had one.
+	Tunnel      *NodeTunnelView `json:"tunnel,omitempty" doc:"Обратный туннель: нода сама подключилась к панели, и панель ходит к ней по этому соединению; нет, если нода ещё не подключалась"`
+	Capacity    *int64          `json:"capacity" doc:"Мест для клиентов в группе; null — без ограничения"`
+	ChannelMbps *int64          `json:"channel_mbps" doc:"Ширина канала ноды, Мбит/с в каждую сторону; null — не задана"`
 	// The emergency node keeps Telegram reachable for ended subscriptions: their profiles
 	// list its servers alone, the sync lets them in here with EmergencySpeed.
 	Emergency      bool   `json:"emergency" doc:"Аварийная нода: закончившие подписку видят только её"`
@@ -168,6 +204,8 @@ type patchNodeInput struct {
 		// The node's API for the panel alone, and the networks added to the panel's own.
 		APILockdown *bool     `json:"api_lockdown,omitempty" doc:"API ноды только с адресов панели; не для ноды панели"`
 		APIAllow    *[]string `json:"api_allow,omitempty" maxItems:"16" doc:"Ещё сети или адреса (203.0.113.5, 198.51.100.0/24), с которых панель ходит к ноде"`
+		// The node's own API port: off, only the tunnel the node opens out to the panel remains.
+		InboundAPI *bool `json:"inbound_api,omitempty" doc:"Слушать API на своём порту; выключено — панель ходит только через обратный туннель (если он не поднялся, нода станет недоступна)"`
 		// The emergency node: ended subscriptions keep its servers alone, Telegram stays
 		// reachable while they renew.
 		Emergency      *bool  `json:"emergency,omitempty" doc:"Аварийная нода: закончившие подписку видят только её"`
@@ -225,7 +263,8 @@ func (h *handlers) viewNode(ctx context.Context, n db.Node, inbounds []db.Inboun
 		Enabled: n.Enabled != 0, Inbounds: len(domain.NodeInbounds(inbounds, n.ID)), Status: "unknown",
 		FairShare: n.FairShare != 0, ChannelMbps: store.Int64Ptr(n.ChannelMbps), BalanceGroup: n.BalanceGroup, Capacity: store.Int64Ptr(n.Capacity),
 		HTTPRedirect: n.HttpRedirect != 0, SNIRouter: n.SniRouter != 0, AutoInclude: n.AutoInclude != 0, FrontPage: n.FrontPage, APILockdown: n.ApiLockdown != 0, APIAllow: n.ApiAllow,
-		Emergency: n.Emergency,
+		InboundAPI: n.InboundApi != 0,
+		Emergency:  n.Emergency,
 		EmergencySpeed: func() *int64 {
 			if n.EmergencySpeed.Valid {
 				v := int64(n.EmergencySpeed.Int32)
@@ -249,7 +288,13 @@ func (h *handlers) viewNode(ctx context.Context, n db.Node, inbounds []db.Inboun
 		return v
 	}
 	hv, ok := h.d.Nodes.Health(n.ID)
-	if !ok || hv.CheckedAt.IsZero() {
+	if !ok {
+		return v
+	}
+	// The panel's own side of the node's reverse tunnel: known even when the node does not
+	// answer directly, and what explains a closed API port.
+	v.Tunnel = tunnelView(hv.Tunnel)
+	if hv.CheckedAt.IsZero() {
 		return v
 	}
 	t := hv.CheckedAt
@@ -424,14 +469,14 @@ func (h *handlers) updateNode(ctx context.Context, in *patchNodeInput) (*nodeInf
 	}
 	n, err := domain.UpdateNode(ctx, h.d.Store, in.ID, domain.NodePatch{Name: b.Name, PublicName: b.PublicName, Host: b.Host, Domain: b.Domain,
 		Enabled: b.Enabled, FairShare: b.FairShare, ChannelMbps: b.ChannelMbps, HTTPRedirect: b.HTTPRedirect, SNIRouter: b.SNIRouter, AutoInclude: b.AutoInclude, FrontPage: b.FrontPage, APILockdown: b.APILockdown, APIAllow: b.APIAllow,
-		Emergency: b.Emergency, EmergencySpeed: b.EmergencySpeed, Rules: rules}, h.d.Now())
+		InboundAPI: b.InboundAPI, Emergency: b.Emergency, EmergencySpeed: b.EmergencySpeed, Rules: rules}, h.d.Now())
 	if err != nil {
 		return nil, h.nodeErr(err)
 	}
 	h.nodesChanged()
 	h.d.Changes.SlotsChanged()
 	h.audit(ctx, sessionOf(ctx).AdminID, "node.update", "node", strconv.FormatInt(n.ID, 10), map[string]any{"name": n.Name, "public_name": n.PublicName, "enabled": n.Enabled != 0,
-		"fair_share": n.FairShare != 0, "channel_mbps": n.ChannelMbps.Int64, "http_redirect": n.HttpRedirect != 0, "sni_router": n.SniRouter != 0, "auto_include": n.AutoInclude != 0, "front_page": n.FrontPage, "api_lockdown": n.ApiLockdown != 0, "api_allow": n.ApiAllow})
+		"fair_share": n.FairShare != 0, "channel_mbps": n.ChannelMbps.Int64, "http_redirect": n.HttpRedirect != 0, "sni_router": n.SniRouter != 0, "auto_include": n.AutoInclude != 0, "front_page": n.FrontPage, "api_lockdown": n.ApiLockdown != 0, "api_allow": n.ApiAllow, "inbound_api": n.InboundApi != 0})
 	return h.nodeInfo(ctx, n.ID)
 }
 

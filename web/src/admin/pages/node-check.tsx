@@ -461,6 +461,13 @@ export function NodeProblem({ n, onCheck, actions }: { n: Node; onCheck: () => v
   return (
     <div className="mt-3 text-[13px]" role="alert">
       <p className="text-[var(--md-error)]">{codeText(code, n.error_params)}</p>
+      {/* A node whose port is closed on purpose, and no tunnel either: the port is not the fault. */}
+      {!n.inbound_api ? <p className="mt-1 text-xs text-[var(--md-on-surface-variant)]">{t("nodes.inboundOff")}</p> : null}
+      {n.tunnel && !n.tunnel.connected ? (
+        <p className="mt-1 text-xs text-[var(--md-on-surface-variant)]">
+          {n.tunnel.ended ? t("nodes.tunnelEnded", { ago: ago(n.tunnel.ended), error: n.tunnel.error ?? "" }) : t("nodes.tunnelNone")}
+        </p>
+      ) : null}
       <p className="mt-1 text-xs text-[var(--md-on-surface-variant)]">
         {n.last_ok_at ? t("nodeCheck.lastSeen", { ago: ago(n.last_ok_at) }) : t("nodeCheck.neverSeen")}
         {n.last_ok_at && n.error_since ? ` · ${t("nodeCheck.lostAgo", { ago: ago(n.error_since) })}` : null}
