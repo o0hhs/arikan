@@ -34,8 +34,8 @@ func (f *fakeSubsNode) PutSubs(_ context.Context, gen int64, records []nodeapi.S
 		f.subs = map[string]int64{}
 	}
 	stored := records
-	if f.reject > 0 && len(records) > f.reject {
-		stored = records[:len(records)-f.reject]
+	if f.reject > 0 {
+		stored = records[:max(0, len(records)-f.reject)]
 	}
 	for _, r := range stored {
 		f.subs[r.Path] = gen
