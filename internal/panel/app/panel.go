@@ -110,6 +110,9 @@ type Panel struct {
 	userLimit *auth.Limiter
 	now       func() time.Time
 	log       *slog.Logger
+	// diverged makes the pairs that disagree (divergence.go) be named once, at the first
+	// Apply, not every five seconds.
+	diverged sync.Once
 }
 
 type Options struct {
@@ -717,6 +720,9 @@ const loopSettingsTTL = 15 * time.Second
 // Apply loads the secret paths, the subscription domain and the default language into
 // the router and the pages.
 func (p *Panel) Apply(ctx context.Context) (settings.Paths, error) {
+	// A database from another server can leave the subscription port equal to the panel's
+	// own; the listener opens after this call, so the setting follows the panel's port here.
+	p.reconcileSubPort(ctx)
 	paths, err := p.reload.Paths(ctx)
 	if err != nil {
 		return paths, err
@@ -757,6 +763,8 @@ func (p *Panel) Apply(ctx context.Context) (settings.Paths, error) {
 		p.agentPage.SetPrefix(paths.Agent)
 		p.agentPage.SetLang(lang)
 	}
+	// The pairs that disagree are named once, in the log the Diagnostics page reads.
+	p.checkDivergence(ctx, paths, monPath)
 	return paths, nil
 }
 

@@ -130,6 +130,7 @@ export default defineConfig({
 						{ slug: 'operations/import' },
 					{ slug: 'operations/alerts' },
 					{ slug: 'operations/diagnostics' },
+					{ slug: 'operations/what-must-match' },
 					{ slug: 'operations/filters' },
 					{ slug: 'operations/front-page' },
 					{ slug: 'operations/community-addons' },

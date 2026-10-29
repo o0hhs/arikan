@@ -231,6 +231,23 @@ fn plain_dsn(value: &str) -> bool {
     value.bytes().all(|b| b.is_ascii_alphanumeric() || b"._:/@+=,-?&%".contains(&b))
 }
 
+/// The password a PostgreSQL URL carries, if it can be read: postgresql://user:PASSWORD@…
+pub fn dsn_password(url: &str) -> Option<&str> {
+    let rest = url.trim().split_once("://")?.1;
+    let userinfo = rest.split_once('@')?.0;
+    let (_, password) = userinfo.split_once(':')?;
+    Some(password).filter(|p| !p.is_empty())
+}
+
+/// The PostgreSQL URL with its password replaced; the user, host, database and query stay
+/// as they are, so a server's own address survives the repair.
+pub fn dsn_with_password(url: &str, password: &str) -> Option<String> {
+    let (scheme, rest) = url.trim().split_once("://")?;
+    let (userinfo, tail) = rest.split_once('@')?;
+    let (user, _) = userinfo.split_once(':')?;
+    Some(format!("{scheme}://{user}:{password}@{tail}"))
+}
+
 /// Writes a file readable by root only, replacing it at once: a new file under its own
 /// name (never a leftover one, never through a link), synced, then renamed over path.
 pub fn write_private(path: &Path, data: &[u8]) -> Result<()> {
@@ -339,6 +356,17 @@ mod tests {
         let e = Config::load(&d).err().unwrap();
         assert!(e.root_cause().downcast_ref::<std::io::Error>().is_some_and(|io| io.kind() == std::io::ErrorKind::NotFound));
         fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn a_database_address_can_be_read_and_rewritten() {
+        let url = "postgresql://mikan:pw-one@localhost/mikan?host=/run/postgresql";
+        assert_eq!(dsn_password(url), Some("pw-one"));
+        assert_eq!(dsn_with_password(url, "pw-two").as_deref(), Some("postgresql://mikan:pw-two@localhost/mikan?host=/run/postgresql"));
+        assert_eq!(dsn_password("postgresql://localhost/mikan"), None);
+        assert_eq!(dsn_password("not a url"), None);
+        assert_eq!(dsn_password("postgresql://mikan:@localhost/mikan"), None, "an empty password is not one");
+        assert_eq!(dsn_with_password("not a url", "x"), None);
     }
 
     #[test]
