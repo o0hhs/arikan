@@ -9,6 +9,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"mikan/internal/panel/agents"
+	"mikan/internal/panel/monitor"
 	"mikan/internal/panel/settings"
 )
 
@@ -428,7 +429,13 @@ func (h *handlers) checkAgentPath(ctx context.Context, p string) error {
 	if err != nil {
 		return err
 	}
-	if p == paths.Admin || p == paths.Sub || p == paths.Legacy {
+	// The monitoring page is checked before the agent panel by the router: a path shared
+	// with it would give the agent panel's own URL to the monitoring page instead.
+	mon, err := monitor.Load(ctx, h.d.Settings)
+	if err != nil {
+		return err
+	}
+	if p == paths.Admin || p == paths.Sub || p == paths.Legacy || (mon.Path != "" && p == mon.Path) {
 		return fieldErr("body.path", "agent_path_taken")
 	}
 	return nil

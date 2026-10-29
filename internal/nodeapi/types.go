@@ -102,11 +102,24 @@ type SNIRouter struct {
 	// for a ClientHello with no name; with no Default it takes any other name too. Nodes
 	// older than it ignore it.
 	Stub []string `json:"stub,omitempty"`
+	// Web: names that go to a web server on the node's own server (the panel's listener on
+	// 127.0.0.1:Port) instead of an inbound, with a PROXY v2 header carrying the client's
+	// address. A name an inbound route already takes stays the inbound's: the web route is
+	// dropped with a log line. Nodes older than it ignore it.
+	Web []WebRoute `json:"web,omitempty"`
 }
 
 type SNIRoute struct {
 	Inbound string   `json:"inbound"`
 	Names   []string `json:"names"`
+}
+
+// WebRoute sends its names to a web server on the node's own server, on loopback and over
+// the node's shared 443: the panel and the subscription page answer there, so a link can
+// leave the port out.
+type WebRoute struct {
+	Names []string `json:"names"`
+	Port  int      `json:"port"`
 }
 
 // Routed says whether inbound name runs behind the router.

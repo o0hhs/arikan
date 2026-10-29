@@ -693,8 +693,8 @@ func (h *handlers) checkServer(ctx context.Context, _ *struct{}) (*checkOutput, 
 	if ep, err := h.d.Settings.Endpoint(ctx); err == nil {
 		secrets = append(secrets, ep.Host, strconv.Itoa(ep.Port))
 	}
-	if paths, err := h.d.Settings.Paths(ctx); err == nil {
-		secrets = append(secrets, paths.Admin, paths.Sub)
-	}
+	// The same secret words the logs are cut with: one list, so a path added to one reader
+	// is not forgotten here.
+	secrets = append(secrets, h.secretWords(ctx)...)
 	return &checkOutput{Body: CheckView{At: at, Items: items, Report: reportText("arikan server check", "panel v"+h.d.Version, at, items, secrets)}}, nil
 }

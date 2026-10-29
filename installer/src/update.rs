@@ -763,8 +763,10 @@ fn apply(install: &mut Install, target: &Target, plan: Plan, say: &mut dyn FnMut
 
     // Until the database migrates, the configuration from before can come back as it was.
     let prepared = (|| -> Result<()> {
-        if !install.node {
-            setup::postgres_env(&mut install.config)?;
+        if !install.node
+            && let Some(text) = setup::postgres_env(&mut install.config)?
+        {
+            say(&text);
         }
         install.config.set("MIKAN_IMAGE", &target.image)?;
         install.config.set("MIKAN_VERSION", &target.version)?;

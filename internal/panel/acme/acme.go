@@ -457,20 +457,26 @@ func (m *Manager) settle(ctx context.Context) (id, ca string, order bool) {
 		cert, err := tlscert.LoadCustom(m.customDir, now)
 		if err == nil {
 			info := tlscert.Describe(cert, id, now)
-			m.holder.Set(cert)
-			st.Kind, st.NotAfter, st.Issuer, st.Names, st.Trusted = "custom", cert.Leaf.NotAfter, info.Issuer, info.Names, info.Trusted
-			if id != "" && !tlscert.Covers(cert.Leaf, id) {
-				st.Error = "custom_wrong_host"
+			if id == "" || tlscert.Covers(cert.Leaf, id) {
+				m.holder.Set(cert)
+				st.Kind, st.NotAfter, st.Issuer, st.Names, st.Trusted = "custom", cert.Leaf.NotAfter, info.Issuer, info.Names, info.Trusted
+				return id, ca, false
 			}
-			return id, ca, false
+			// The admin's certificate is for another host: the domain changed, or a database
+			// from another server brought its name. Serving it turns every handshake for this
+			// host into an error and, while it stayed "the admin's own", no certificate for
+			// the current host was ever ordered. The setting is the owner; the file follows.
+			m.log.Warn("tls: the custom certificate does not cover this host; ordering one for it", "host", id, "names", info.Names)
+			st.Error = "custom_wrong_host"
+		} else {
+			why := "custom_invalid"
+			if errors.Is(err, tlscert.ErrExpired) {
+				why = "custom_expired"
+			}
+			m.log.Warn("tls: the custom certificate is not used", "err", err)
+			// What the admin set up and lost says more than why the fallback is what it is.
+			defer func() { st.Error = why }()
 		}
-		why := "custom_invalid"
-		if errors.Is(err, tlscert.ErrExpired) {
-			why = "custom_expired"
-		}
-		m.log.Warn("tls: the custom certificate is not used", "err", err)
-		// What the admin set up and lost says more than why the fallback is what it is.
-		defer func() { st.Error = why }()
 	}
 	if isPrivate(id) {
 		m.useFallback()
