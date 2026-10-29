@@ -1,0 +1,39 @@
+---
+title: What must match
+description: Which values live in two places, which side owns them, and what the server does when they disagree.
+---
+
+Almost every value lives in two places at once: in the database and in `config.json`, in a setting and in a listener, in the panel and on a node. While a server was installed and updated in one place, both sides matched by themselves. Moving the panel to another server, restoring a database from an archive or from Telegram, or editing files by hand moves one side only — and the panel keeps running, printing addresses nothing answers on.
+
+Each pair has one owner. The other side follows it at start, install, update or restore, and a divergence that cannot be repaired without the admin goes to the log — the **Diagnostics** page shows it — or to `arikan doctor`.
+
+## The table
+
+| Value | Where it lives | Owner | What the server does when they disagree |
+|---|---|---|---|
+| Panel port | `PANEL_PORT` in `config.json` and `compose.yaml` ↔ the `panel_port` setting | the listener | The setting follows the listener at start: otherwise every link and every node's address would be built on a port nothing answers on. Both values are logged. |
+| Subscription port | the `sub_port` setting ↔ the subscription listener | the panel's port, when they are equal | Equal to the panel's port (a database from another server): the separate listener is switched off and links use the panel's port. Taken by another program: the panel runs, Settings shows `sub_port_busy`, and links on the panel's port keep working. |
+| Domain and public address | `domain` / `public_host` ↔ DNS ↔ the panel's certificate (`data/panel/tls`, ACME) | the admin | The domain is checked against public DNS when saved. A custom certificate that does not cover the current address is no longer served: ACME or the temporary self-signed one takes its place and the status says `custom_wrong_host`. |
+| Subscription domain | `sub_domain` ↔ its certificate and DNS | the admin | The same: a subscription certificate that does not cover the domain is not served and a new one is ordered. Without a domain, the panel's port serves subscriptions too. |
+| Secret paths | `admin_path`, `sub_path`, `agent_path`, `monitor.path`, `legacy_sub_path` ↔ the panel's router | the settings | At start their form and clashes are checked: a path that cannot be a URL segment, or two equal paths, go to the log and **Diagnostics**. `arikan admin reset-path` and `arikan admin reset-sub-path` issue new ones; `arikan admin bootstrap` refuses equal admin and subscription paths. |
+| Node key | `secrets/node_join` on the node ↔ the `nodes.cert_sha256` fingerprint ↔ the panel's client certificate in `data/panel/tls/nodes` | the panel issues it, the node keeps it | Not repaired automatically: the panel does not keep the key. A node row without a fingerprint is named in the log; mismatched fingerprints show on the node's page as `pin_mismatch` with an offer to issue a new key. After a database-only restore every node needs a new key. |
+| Node API port | `NODE_API_PORT` ↔ the port inside the join key ↔ ufw and nft rules ↔ `nodes.address` | the key | `arikan join` writes the key's port into the config and the firewall. `arikan doctor` compares `NODE_API_PORT` with the key's port and speaks up when they differ: the firewall would then guard the wrong port. |
+| Database password and address | `secrets/postgres_password` ↔ `secrets/database_url` ↔ the PostgreSQL volume | the password (the volume was initialized from it) | The address follows the password at install and update; a lost password file comes back from the address. `arikan doctor` reports a pair that disagrees. A restore never brings the archive's password: the volume stays this server's. |
+| Image and version | `MIKAN_IMAGE` / `MIKAN_VERSION` ↔ `compose.yaml` ↔ the running container | `config.json` | `arikan restart` and `arikan update` rewrite `compose.yaml` from the config. `arikan doctor` compares the running container's image with `MIKAN_IMAGE` and reports a container left on the old one. |
+| Server role | `MIKAN_MODE` ↔ the set of services in `compose.yaml` ↔ the containers | `config.json` | `arikan doctor` reports containers of the other role. A restore refuses an archive of the other role. |
+| Payment adapters | `addons/state.json` (and its copy in `data/panel/addons`) ↔ the `addon.<id>` settings | the admin | An adapter that runs while this database has no settings for it is named in the log and **Diagnostics**: its payment method is not offered until it is set up again. |
+| Database restore | `data/restore/pending.dump` ↔ the database ↔ `config.json` and `secrets/` | the server being restored onto | The archive brings the address, ports, subscription settings and paths; certificates, node keys and adapters stay this server's, so nodes rejoin with a new key and adapters are set up again. |
+
+## Checking a moved or restored server
+
+1. `arikan doctor` — ports, containers, firewall, disk, role and image.
+2. **Settings → Diagnostics** — the `settings:`, `nodes:` and `addons:` log lines: what diverged and what to do about it.
+3. `arikan admin url` — the panel's link is built from the settings, not from `config.json`.
+4. `arikan join <key>` on every node — after a database-only restore.
+5. **Settings** — the subscription port, subscription domain and payment methods: they come from the database with the archive.
+
+## What is not checked on its own
+
+- **DNS at every start.** Public DNS is asked when a domain is saved and by the certificate check button; doing it at start would add a delay and load for nothing.
+- **The certificate from outside.** The certificate check button reaches the domain from outside and compares what is served with the setting; the server does not do that itself.
+- **Node keys.** The panel keeps only a node certificate's fingerprint. A node comes back with a new key from its page, so that is the admin's action, not an automatic rewrite.

@@ -40,6 +40,7 @@ import (
 	"mikan/internal/panel/support"
 	"mikan/internal/panel/tlscert"
 	"mikan/internal/panel/updates"
+	"mikan/internal/panel/webproxy"
 	"mikan/internal/release"
 )
 
@@ -204,6 +205,18 @@ func Serve(ctx context.Context, cfg config.Config, version string, web fs.FS) er
 			subCerts.Renew()
 		}
 	}
+	// The panel behind the node's shared 443: a listener on loopback the node's SNI router
+	// hands the panel's own names to, a PROXY v2 header with the client's address in front.
+	// Without TLS (development) there is nothing a node could hand it.
+	var webLn *webproxy.Listener
+	if panelTLS != nil {
+		if webLn, err = webproxy.Listen("127.0.0.1:0", logger); err != nil {
+			logger.Error("web listener for the node's router: the panel's names stay on its own port", "err", err)
+		} else {
+			defer webLn.Close()
+			opts.WebPort = webLn.Port()
+		}
+	}
 	p, err := NewPanel(st, opts)
 	if err != nil {
 		return err
@@ -266,13 +279,26 @@ func Serve(ctx context.Context, cfg config.Config, version string, web fs.FS) er
 		})
 	}
 
-	httpSrv := httpServer(subDomainRouter{names: names, sub: p.SubOnly(), all: p.Handler})
+	handler := subDomainRouter{names: names, sub: p.SubOnly(), all: p.Handler}
+	httpSrv := httpServer(handler)
 	ln, err := net.Listen("tcp", cfg.Listen)
 	if err != nil {
 		return err
 	}
 	if panelTLS != nil {
 		ln = tls.NewListener(ln, panelTLS)
+	}
+	// The loopback server behind the node's router: the same handler, the same certificate
+	// by name. Its connections carry the client the node named in the PROXY header.
+	var webSrv *http.Server
+	if webLn != nil {
+		webSrv = httpServer(handler)
+		go func() {
+			err := webSrv.Serve(tls.NewListener(webLn, panelTLS))
+			if err != nil && !errors.Is(err, http.ErrServerClosed) && !errors.Is(err, net.ErrClosed) {
+				logger.Error("web listener", "err", err)
+			}
+		}()
 	}
 	logger.Info("panel started", "listen", cfg.Listen, "tls", !cfg.Dev, "version", version)
 
@@ -288,6 +314,9 @@ func Serve(ctx context.Context, cfg config.Config, version string, web fs.FS) er
 	}
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+	if webSrv != nil {
+		_ = webSrv.Shutdown(shutdownCtx)
+	}
 	return httpSrv.Shutdown(shutdownCtx)
 }
 

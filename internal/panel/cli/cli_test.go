@@ -144,6 +144,28 @@ func TestBootstrapStoresDefaultLang(t *testing.T) {
 	}
 }
 
+// The admin path is checked before the subscription path by the router: equal paths would
+// answer subscription links with the panel's login page, so bootstrap refuses them.
+func TestBootstrapRefusesTheSameAdminAndSubscriptionPath(t *testing.T) {
+	ctx := context.Background()
+	st, err := storetest.Open(ctx, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	set := settings.New(st.Q)
+	args := []string{"--public-host", "203.0.113.10", "--port", "21355", "--password-stdin",
+		"--admin-path", "Kq7vN2xTg4mRz8pLw3YbC5dE", "--sub-path", "Kq7vN2xTg4mRz8pLw3YbC5dE"}
+	var out bytes.Buffer
+	err = bootstrap(ctx, st, set, args, strings.NewReader("correct-horse-battery\n"), &out)
+	if err == nil || !strings.Contains(err.Error(), "--sub-path") {
+		t.Fatalf("equal paths: %v", err)
+	}
+	if n, err := st.Q.CountAdmins(ctx); err != nil || n != 0 {
+		t.Fatalf("a refused bootstrap made an admin: %d %v", n, err)
+	}
+}
+
 // The shell takes the same hosts as the admin panel (internal/hostname): bootstrap, node
 // add and node set alike.
 func TestHostsAreChecked(t *testing.T) {

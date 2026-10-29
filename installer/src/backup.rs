@@ -21,7 +21,9 @@ use crate::config::{self, Config};
 use crate::lock::{self, Wait};
 use crate::ops::Install;
 use crate::panelfs::{self, Dir};
-use crate::{DIR, docker, setup, signals, system};
+use crate::panelsettings::{self, PortChoice};
+use crate::system::Proto;
+use crate::{DIR, docker, host, setup, signals, system};
 
 /// The kinds of archive Arikan makes on its own; the admin's are "arikan".
 pub const PRE_UPDATE: &str = "pre-update";
@@ -474,6 +476,56 @@ fn fit_to_node(archived: &mut Config, current: &Config) -> Result<()> {
     Ok(())
 }
 
+/// The panel's settings in the database it has just taken, against the listener this server
+/// has: the database's panel_port is what every link, the admin path and each node's address
+/// are built from, while PANEL_PORT in config.json is where the panel really listens. A
+/// restore from another server leaves the two apart — the panel would answer where nothing
+/// points, or point where nothing answers. The database's port is taken when this host has
+/// it free, so the panel comes up at the address it had before the move; when something
+/// holds it, the listener stays and the panel corrects the setting at its next start.
+fn fit_address(root: &Path, say: &mut dyn FnMut(&str)) -> Result<()> {
+    let address = match panelsettings::read(Duration::from_secs(120)) {
+        Ok(a) => a,
+        Err(e) => {
+            say(&format!(
+                "The panel's address in the database cannot be read ({e:#}): the port setting follows the listener at the panel's next start"
+            ));
+            return Ok(());
+        }
+    };
+    let mut config = Config::load(root)?;
+    let own = config.get("PANEL_PORT").and_then(|p| p.parse().ok());
+    let held = |p| system::port_owner(p, Proto::Tcp);
+    let its = own.map_or_else(|| "its own port".to_owned(), |o| format!("port {o}"));
+    match panelsettings::port_choice(own, Some(address.panel_port), |p| held(p).is_none()) {
+        PortChoice::Unset => say(&format!(
+            "The database names no panel port: the panel keeps {its}, and its links stay without an address until one is set in the panel"
+        )),
+        PortChoice::Same(p) => {
+            if let Some(who) = held(p) {
+                say(&format!("Port {p}, where the panel answered, is held by {who}: the panel cannot start until it is free"));
+            }
+        }
+        PortChoice::Take(p) => {
+            config.set("PANEL_PORT", &p.to_string())?;
+            // Rewrites compose.yaml: the panel's container reads its listen port from there.
+            docker::ensure_compose(root, &config)?;
+            if let Err(e) = host::open(&host::rules(Some(p), None)) {
+                say(&format!("ufw did not take the rule for port {p} ({e:#}): open it yourself"));
+            }
+            let at = if address.url().is_empty() { format!("on port {p}") } else { format!("at {}", address.url()) };
+            say(&format!("The panel answers {at}: the port the database names, not {its} from before the restore"));
+        }
+        PortChoice::Held(p) => {
+            let who = held(p).unwrap_or_else(|| "another process".to_owned());
+            say(&format!(
+                "Port {p}, which the database names, is held by {who}: the panel listens on {its} and corrects the port setting at its next start, so every link and every node's address use that port"
+            ));
+        }
+    }
+    Ok(())
+}
+
 /// Moves the items in, each current one aside first; when one step fails, everything that
 /// moved goes back.
 fn swap(root: &Path, items: &[(PathBuf, &str)]) -> Result<()> {
@@ -635,9 +687,9 @@ pub fn restore(file: &Path, no_db_snapshot: bool, say: &mut dyn FnMut(&str)) -> 
         // What the database alone does change is not obvious, and every item below has
         // bitten a move already: the panel's address and port and the subscription
         // addresses come from the database, so they are the archive's, while this server
-        // keeps its own listen port, its own join key and its own certificates.
+        // keeps its own join key and its own certificates.
         say(
-            "The panel's address and port and the subscription settings now come from the database: the panel corrects a port that does not match its listener at the next start",
+            "The panel's address and port and the subscription settings now come from the database: the server takes the port the database names when it is free here, and the panel corrects the setting at its next start when it is not",
         );
         say("Every node must join again: this server's join key is its own (Nodes -> issue a new key, then mikan join on the node)");
         say("The certificates and the payment adapters are this server's: a certificate is issued again for the domain the database names");
@@ -696,6 +748,9 @@ pub fn restore(file: &Path, no_db_snapshot: bool, say: &mut dyn FnMut(&str)) -> 
             docker::postgres_ready()?;
             let source = if items.iter().any(|(_, r)| *r == RESTORE_DUMP) { RESTORE_DUMP } else { SQLITE };
             docker::database(&["restore", &format!("/{source}")])?;
+            // The database is the archive's now, its settings with it; the listener is this
+            // server's. The two are fitted before the panel starts.
+            fit_address(root, say)?;
         } else if install.node {
             docker::ensure_compose(root, &Config::load(root)?)?;
             panelfs::layout(root, false)?;
