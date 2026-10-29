@@ -988,6 +988,7 @@
       "dashboard_card_unknown": "Unknown dashboard card",
       "dashboard_date_unknown": "Unknown date format",
       "monitor_password_short": "The password is too short",
+      "monitor_path_taken": "That path is taken by the admin panel, the subscriptions or the agent panel",
       "mtproto_invalid": "Check the MTProto lines: server:port:secret, the secret from mtg/mtproto-proxy",
       "mtproto_server_invalid": "The MTProto server is a name or an IP",
       "protocol_order_invalid": "Families are comma-separated latin names",
