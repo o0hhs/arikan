@@ -61,8 +61,7 @@ func TestReadV2(t *testing.T) {
 	}
 	// TLVs after the addresses are part of the header: read and dropped.
 	withTLV := append(v2Header(t, good[0].src, good[0].dst), 0x04, 0x00, 0x04, 0xde, 0xad, 0xbe, 0xef)
-	body := withTLV[16:]
-	binary.BigEndian.PutUint16(body[2:], uint16(len(body)))
+	binary.BigEndian.PutUint16(withTLV[14:16], uint16(len(withTLV)-16))
 	if src, err := ReadV2(bytes.NewReader(withTLV)); err != nil || src.String() != good[0].src {
 		t.Fatalf("a TLV: %v %v", src, err)
 	}

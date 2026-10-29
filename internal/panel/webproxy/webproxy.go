@@ -31,6 +31,7 @@ var (
 	ErrMalformed = errors.New("webproxy: malformed PROXY v2 header")
 )
 
+// signature is the 12 bytes every v2 header starts with.
 var signature = []byte("\r\n\r\n\x00\r\nQUIT\n")
 
 // ReadV2 reads one PROXY protocol v2 header (PROXY command, TCP over IPv4 or IPv6) from r
@@ -39,7 +40,7 @@ var signature = []byte("\r\n\r\n\x00\r\nQUIT\n")
 // node's router, and a connection it did not mark is not one it forwarded. r must have a
 // read deadline: ReadV2 has none of its own.
 func ReadV2(r io.Reader) (netip.AddrPort, error) {
-	var sig [16]byte
+	var sig [12]byte
 	if _, err := io.ReadFull(r, sig[:]); err != nil {
 		if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
 			return netip.AddrPort{}, fmt.Errorf("%w: %v", ErrNoHeader, err)
