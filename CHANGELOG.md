@@ -3,6 +3,14 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
+## 0.5.3.1
+### en
+**The panel opens in a browser again.**
+- The reverse tunnel's ALPN hook made net/http stop enabling HTTP/2 by itself, while the panel's TLS still offered `h2`: a browser picked HTTP/2, was answered as HTTP/1.1 and had its connection dropped — Safari and Chrome said «the server unexpectedly disconnected», and the panel could not load. The panel's server now configures HTTP/2 beside the tunnel's own protocol. `arikan doctor` and `curl` were unaffected, which is why the release checks saw nothing: they speak HTTP/1.1.
+### ru
+**Панель снова открывается в браузере.**
+- Хук ALPN обратного туннеля заставил net/http перестать включать HTTP/2 самостоятельно, а TLS панели по-прежнему предлагал `h2`: браузер выбирал HTTP/2, получал ответ по HTTP/1.1 и соединение рвалось — Safari и Chrome писали «сервер неожиданно отключился», панель не загружалась. Теперь сервер панели настраивает HTTP/2 рядом с протоколом туннеля. `arikan doctor` и `curl` этого не видели, потому что говорят по HTTP/1.1.
+
 ## 0.5.3.0
 ### en
 **A panel never advertises a port it does not serve, and a restored panel comes back on its old address.**
