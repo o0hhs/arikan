@@ -41,10 +41,20 @@ func (s *SubPort) SetHandler(h http.Handler) {
 }
 
 // Set moves the listener to port; 0 closes it. The new port opens before the old one
-// closes, so a port that cannot be had changes nothing.
+// closes, so a port that cannot be had changes nothing. 443 is not opened here: it is the
+// node's shared port, held by its SNI router, which hands the subscription domain to the
+// panel's loopback listener (internal/panel/webproxy) with the client's address in front.
+// The links say no port of their own then.
 func (s *SubPort) Set(port int) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if port == 443 {
+		if s.srv != nil {
+			_ = s.srv.Close()
+		}
+		s.srv, s.port, s.err = nil, 443, ""
+		return nil
+	}
 	if port == s.port && (port == 0 || s.srv != nil) {
 		return nil
 	}

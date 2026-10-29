@@ -104,3 +104,52 @@ func TestSubEndpoint(t *testing.T) {
 		t.Fatalf("cleared: %+v, %v", ep, err)
 	}
 }
+
+// A link on 443 carries no port: HTTPS's own port is left out, so the link opens on 443 by
+// itself. Any other port is printed, and an address is bracketed.
+func TestURLWithoutTheDefaultPort(t *testing.T) {
+	ctx := context.Background()
+	st, err := storetest.Open(ctx, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { st.Close() })
+	set := New(st.Q)
+	if err := Set(ctx, set, KeyPanelPort, 21355); err != nil {
+		t.Fatal(err)
+	}
+	if err := Set(ctx, set, KeyDomain, "panel.example.com"); err != nil {
+		t.Fatal(err)
+	}
+	if err := Set(ctx, set, KeySubDomain, "sub.example.com"); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []struct {
+		ep   Endpoint
+		want string
+	}{
+		{Endpoint{Host: "sub.example.com", Port: 443}, "https://sub.example.com"},
+		{Endpoint{Host: "sub.example.com", Port: 2053}, "https://sub.example.com:2053"},
+		{Endpoint{Host: "sub.example.com", Port: 80}, "https://sub.example.com:80"},
+		{Endpoint{Host: "2001:db8::1", Port: 443}, "https://[2001:db8::1]"},
+		{Endpoint{}, ""},
+	} {
+		if got := c.ep.URL(); got != c.want {
+			t.Errorf("%+v: %q, want %q", c.ep, got, c.want)
+		}
+	}
+	// The subscription endpoint takes the subscription domain and the subscription port:
+	// 443 by the router's name, any other printed.
+	if err := Set(ctx, set, KeySubPort, 443); err != nil {
+		t.Fatal(err)
+	}
+	if ep, err := set.SubEndpoint(ctx); err != nil || ep.Host != "sub.example.com" || ep.URL() != "https://sub.example.com" {
+		t.Fatalf("a subscription on 443: %+v %v", ep, err)
+	}
+	if err := Set(ctx, set, KeySubPort, 2053); err != nil {
+		t.Fatal(err)
+	}
+	if ep, _ := set.SubEndpoint(ctx); ep.URL() != "https://sub.example.com:2053" {
+		t.Fatalf("a subscription on its own port: %q", ep.URL())
+	}
+}

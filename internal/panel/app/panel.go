@@ -143,6 +143,9 @@ type Options struct {
 	// one is not served; nil where the panel runs no server (tests, the CLI).
 	SubPort      func(port int) error
 	SubPortError func() string
+	// WebPort is the panel's listener on loopback the node's SNI router hands its own names
+	// to (internal/panel/webproxy); a subscription port of 443 lives there. 0: none.
+	WebPort int
 	// SubDomain serves a new subscription domain; SubCerts is its certificate. nil where
 	// the panel runs no server, and in development.
 	SubDomain func(name string)
@@ -219,6 +222,7 @@ func NewPanel(st *store.Store, o Options) (*Panel, error) {
 	deps.Support = p.Support
 	if o.Connect != nil {
 		p.Nodes = nodesync.NewManager(st, set, pool, o.Connect, o.Log, o.Now)
+		p.Nodes.SetWebPort(o.WebPort)
 		p.Nodes.SetEvents(hub)
 		changes = p.Nodes
 		deps.Online = p.Nodes.Online
@@ -291,9 +295,10 @@ func NewPanel(st *store.Store, o Options) (*Panel, error) {
 		if err != nil || ep.URL() == "" {
 			return ""
 		}
-		base := "https://" + net.JoinHostPort(ep.Host, strconv.Itoa(ep.Port))
 		// The subscription domain's host serves subscriptions alone, at the root: it keeps
 		// working when the panel moves to another address, so no secret path in its links.
+		// ep.URL() leaves HTTPS's own port out, so a subscription on 443 needs no port.
+		base := ep.URL()
 		if own, err := set.String(ctx, settings.KeySubDomain); err != nil {
 			return ""
 		} else if own != "" {
@@ -303,7 +308,7 @@ func NewPanel(st *store.Store, o Options) (*Panel, error) {
 		if err != nil {
 			return ""
 		}
-		return ep.URL() + "/" + paths.Sub
+		return base + "/" + paths.Sub
 	}
 	p.Addons = addons.New(o.DataDir, o.AddonsCatalog, o.Version, o.Log, o.Now)
 	if o.AddonsCommunity != "" {

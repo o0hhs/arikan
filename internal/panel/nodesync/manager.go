@@ -100,6 +100,11 @@ type Manager struct {
 	addrs  []string
 	addrAt time.Time
 	lookup func(ctx context.Context, host string) ([]netip.Addr, error)
+
+	// webPort is the panel's loopback listener the node's SNI router hands the panel's own
+	// names to (internal/panel/webproxy); 0 while there is none (the CLI, tests). It is read
+	// when a node's state is built; SetWebPort sets it before Run.
+	webPort atomic.Int64
 }
 
 type running struct {
@@ -116,6 +121,11 @@ func NewManager(st *store.Store, set *settings.Settings, pool *domain.Pool, conn
 
 // SetEvents connects the hub that wakes the addons reading the feed; call it before Run.
 func (m *Manager) SetEvents(h *events.Hub) { m.hub = h }
+
+// SetWebPort is where the panel's loopback listener answers (internal/panel/webproxy): the
+// panel's own node routes its domain and the subscription domain to it over the shared 443.
+// 0 leaves the panel's names unrouted. Call it before Run: a node's state is built with it.
+func (m *Manager) SetWebPort(port int) { m.webPort.Store(int64(port)) }
 
 func (m *Manager) Run(ctx context.Context) {
 	m.reconcile(ctx)
