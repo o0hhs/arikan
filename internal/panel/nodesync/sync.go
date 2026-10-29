@@ -6,12 +6,14 @@ package nodesync
 import (
 	"cmp"
 	"context"
+	"crypto/hmac"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"mikan/internal/panel/subs"
 	"net"
@@ -244,7 +246,7 @@ func (s *Syncer) desiredPin(ctx context.Context) (st nodeapi.DesiredState, pin s
 	if st.Warp, err = s.warp(ctx, n, inbounds); err != nil {
 		return st, "", err
 	}
-	if st.Relay, st.Exits, err = s.cascade(ctx, n, inbounds); err != nil {
+	if st.Relay, st.Exits, st.Cascade, err = s.cascade(ctx, n, snap); err != nil {
 		return st, "", err
 	}
 	// The VK-call server follows the state like the rest: a node without one, or whose
@@ -1067,9 +1069,10 @@ func (s *Syncer) warp(ctx context.Context, n db.Node, inbounds []db.Inbound) (*n
 			out.Inbounds = append(out.Inbounds, in.Name)
 		}
 	}
-	// Traffic other nodes relay through this one may leave by WARP too.
+	// Traffic other nodes send through this one may leave by WARP too: the relay's, and the
+	// cascade's — a name whose rule matches nothing on a node that is no exit.
 	if r, err := s.m.st.Q.GetNodeRelay(ctx, n.ID); err == nil && r.Outbound == "warp" && !r.ExitNodeID.Valid {
-		out.Inbounds = append(out.Inbounds, nodeapi.RelayListener)
+		out.Inbounds = append(out.Inbounds, nodeapi.RelayListener, nodeapi.CascadeListener)
 	}
 	return out, nil
 }
@@ -1087,29 +1090,34 @@ func (m *Manager) Warp(ctx context.Context, id int64, force bool) (nodeapi.WarpS
 }
 
 // cascade is the node's part in cascades: its relay listener when other nodes leave
-// through it, and the other nodes it sends inbounds (and its own relay) to. Keys and
-// relays are made by the API when an exit is chosen; a missing one leaves that exit out,
-// and the inbounds behind it fail instead of going direct.
-func (s *Syncer) cascade(ctx context.Context, n db.Node, inbounds []db.Inbound) (*nodeapi.Relay, []nodeapi.Exit, error) {
+// through it, the other nodes it sends inbounds (and its own relay) to, and the cascade
+// over the panel's tunnel — the entry's loopback bridge, or the exit's stream to the panel
+// (nodeapi.Cascade). No exit is dialled from here any more: an entry's core points at the
+// node's own bridge, and the exit's side of the tunnel is the connection the exit opened to
+// the panel. An exit that cannot be in the tunnel still leaves its inbounds' rules in
+// place, pointing at nothing: their traffic fails rather than leaving directly.
+func (s *Syncer) cascade(ctx context.Context, n db.Node, snap *snapshot) (*nodeapi.Relay, []nodeapi.Exit, *nodeapi.Cascade, error) {
 	q := s.m.st.Q
+	inbounds := snap.inbounds
 	if n.Enabled == 0 {
-		return nil, nil, nil
+		s.m.cascadeRoutes(n.ID, nil)
+		return nil, nil, nil, nil
 	}
 	var relay *nodeapi.Relay
 	own, err := q.GetNodeRelay(ctx, n.ID)
 	hasRelay := err == nil
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	if hasRelay {
 		users, err := q.ListRelayUsers(ctx, n.ID)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		if len(users) > 0 {
 			t, err := proto.Parse(own.Config)
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, nil, err
 			}
 			relay = &nodeapi.Relay{Port: own.Port, Config: t.JSON()}
 			for _, u := range users {
@@ -1143,10 +1151,57 @@ func (s *Syncer) cascade(ctx context.Context, n db.Node, inbounds []db.Inbound) 
 			h.names = append(h.names, in.Name)
 		}
 	}
-	if relay != nil && own.ExitNodeID.Valid {
+	if own.ExitNodeID.Valid {
 		h := find(own.ExitNodeID.Int64, 0)
-		h.names = append(h.names, nodeapi.RelayListener)
+		if relay != nil {
+			h.names = append(h.names, nodeapi.RelayListener)
+		}
+		// The cascade's own traffic goes on where the relay's did: this node receives the
+		// streams the panel pairs, and its rules send them further down the chain. Without
+		// the name the traffic of an A → B → C chain would leave B directly.
+		h.names = append(h.names, nodeapi.CascadeListener)
 	}
+
+	// The cascade: the exits of this node's listeners, as the panel's tunnel can carry them.
+	plan := domain.CascadePlans(snap.nodes, snap.inbounds, snap.relays)[n.ID]
+	by := make(map[int64]domain.CascadeRoute, len(plan.Routes))
+	var entryRoutes []nodeapi.CascadeRoute
+	var allowed []int64
+	for _, r := range plan.Routes {
+		by[r.Exit] = r
+		if !r.Tunnel {
+			continue
+		}
+		ids := append([]int64{r.Exit}, r.Reserves...)
+		entryRoutes = append(entryRoutes, nodeapi.CascadeRoute{Name: r.Name, Exits: ids})
+		allowed = append(allowed, ids...)
+	}
+	var tunnel *nodeapi.Cascade
+	var password string
+	if len(entryRoutes) > 0 {
+		if password, err = s.cascadePassword(ctx, n.ID); err != nil {
+			return nil, nil, nil, err
+		}
+		tunnel = &nodeapi.Cascade{Entry: &nodeapi.CascadeEntry{Listen: nodeapi.CascadeListen, Password: password, Routes: entryRoutes}}
+	}
+	if plan.IsExit && n.Address != "" && n.CertSha256 != "" {
+		ep, err := s.m.set.Endpoint(ctx)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		if ep.Host == "" || ep.Port <= 0 {
+			s.log.Warn("cascade: the panel has no public address, the exit cannot reach it", "node", n.ID)
+		} else {
+			if tunnel == nil {
+				tunnel = &nodeapi.Cascade{}
+			}
+			tunnel.Exit = &nodeapi.CascadeExit{URL: ep.URL() + nodeapi.CascadePath}
+		}
+	}
+	// The panel's hub holds the bridge to an entry with these routes, and takes the streams
+	// of the exits the plan names. A node without routes has none.
+	s.m.cascadeRoutes(n.ID, allowed)
+
 	var exits []nodeapi.Exit
 	for _, h := range hops {
 		var e nodeapi.Exit
@@ -1158,15 +1213,22 @@ func (s *Syncer) cascade(ctx context.Context, n db.Node, inbounds []db.Inbound) 
 				s.log.Info("outbound not sent", "outbound", h.outbound, "err", err)
 				continue
 			}
-		} else if e, err = s.exitTo(ctx, n.ID, h.node); err != nil {
-			s.log.Warn("cascade exit", "exit", h.node, "err", err)
-			// Still name the exit, with no way to reach it: the inbounds fail, not leak.
+		} else if r, ok := by[h.node]; ok && r.Tunnel && password != "" {
+			p, err := cascadeExitProxy(r.Name, password)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			e = nodeapi.Exit{Name: r.Name, Proxy: p}
+		} else {
+			// Not in the tunnel (off, without a join key, or not a route at all): name the
+			// exit with a way to nowhere, so its inbounds fail and nothing leaks instead.
+			s.log.Warn("cascade: the exit is not in the tunnel", "exit", h.node)
 			e = nodeapi.Exit{Name: nodeapi.ExitName(h.node), Proxy: unreachableExit(h.node)}
 		}
 		e.Inbounds = h.names
 		exits = append(exits, e)
 	}
-	return relay, exits, nil
+	return relay, exits, tunnel, nil
 }
 
 // hop is one outbound of a node with the listeners that leave through it: another node
@@ -1193,60 +1255,46 @@ func (s *Syncer) outboundLink(ctx context.Context, id int64) (nodeapi.Exit, erro
 	return nodeapi.Exit{Name: nodeapi.OutboundName(id), Link: o.Link}, nil
 }
 
-// exitTo is the outbound from node src to node id's relay.
-func (s *Syncer) exitTo(ctx context.Context, src, id int64) (nodeapi.Exit, error) {
-	q := s.m.st.Q
-	x, err := q.GetNode(ctx, id)
-	if err != nil {
-		return nodeapi.Exit{}, err
-	}
-	if x.Enabled == 0 {
-		return nodeapi.Exit{}, errors.New("exit node is off")
-	}
-	r, err := q.GetNodeRelay(ctx, id)
-	if err != nil {
-		return nodeapi.Exit{}, err
-	}
-	key, err := q.GetRelayUser(ctx, db.GetRelayUserParams{ExitNodeID: id, SrcNodeID: src})
-	if err != nil {
-		return nodeapi.Exit{}, err
-	}
-	host := domain.NodeHost(x)
-	if x.Address == "" {
-		// The panel's own node: clients reach it at the panel's address.
-		ep, err := settings.New(q).Endpoint(ctx)
-		if err != nil {
-			return nodeapi.Exit{}, err
-		}
-		host = ep.Host
-	}
-	port, err := strconv.Atoi(r.Port)
-	if err != nil || host == "" {
-		return nodeapi.Exit{}, errors.New("exit node has no address")
-	}
-	t, err := proto.Parse(r.Config)
-	if err != nil {
-		return nodeapi.Exit{}, err
-	}
-	c, err := proto.ClientConfig(t, proto.ClientInput{Name: nodeapi.ExitName(id), Host: host, Port: port, Slot: proto.Slot{Name: domain.RelayUserName(src), UUID: key}})
-	if err != nil {
-		return nodeapi.Exit{}, err
-	}
-	// Node to node is Citrus on both ends: the key exchange is post-quantum, said here
-	// rather than left to the core's default (mihomo's was the other way).
-	if ro, ok := c.Mihomo["reality-opts"].(map[string]any); ok {
-		ro["support-x25519mlkem768"] = true
-	}
-	raw, _ := json.Marshal(c.Mihomo)
-	return nodeapi.Exit{Name: nodeapi.ExitName(id), Proxy: raw}, nil
-}
-
 // unreachableExit is a VLESS outbound to nowhere (TEST-NET-1, port 9): it keeps an
 // exit's rules in place while the exit itself is not usable.
 func unreachableExit(id int64) json.RawMessage {
 	raw, _ := json.Marshal(map[string]any{"name": nodeapi.ExitName(id), "type": "vless", "server": "192.0.2.1", "port": 9,
 		"uuid": "00000000-0000-4000-8000-000000000000", "udp": true})
 	return raw
+}
+
+// cascadeExitProxy is an exit as the core reaches it now: a SOCKS5 proxy on the node's own
+// loopback, where the entry's bridge takes the connection into the panel's tunnel and out of
+// the exit's connection. The name is the bridge's SOCKS5 user (the exit), the password its
+// password. Datagrams are off: the tunnel carries TCP, and a UDP flow that fell back to a
+// direct path would leave the cascade.
+func cascadeExitProxy(name, password string) (json.RawMessage, error) {
+	host, portRaw, err := net.SplitHostPort(nodeapi.CascadeListen)
+	if err != nil {
+		return nil, err
+	}
+	port, err := strconv.Atoi(portRaw)
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(map[string]any{"name": name, "type": "socks5", "server": host, "port": port,
+		"username": name, "password": password, "udp": false})
+}
+
+// cascadePassword is the loopback SOCKS5 password of an entry node's bridge: one panel
+// secret and the node's id, so every node has its own and every state the same. Only the
+// node's own core knows it (the panel wrote it into the state's proxies), which keeps other
+// programs of the server out of the port.
+func (s *Syncer) cascadePassword(ctx context.Context, id int64) (string, error) {
+	secret, err := s.m.cascadeSecret(ctx)
+	if err != nil {
+		return "", err
+	}
+	sum := hmac.New(sha256.New, secret)
+	if _, err := fmt.Fprintf(sum, "cascade/%d", id); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(sum.Sum(nil))[:24], nil
 }
 
 // Probe asks the node how it reaches the internet through one of its outbounds.

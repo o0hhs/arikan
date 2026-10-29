@@ -82,16 +82,50 @@ func TestCascadeConfig(t *testing.T) {
 		t.Fatal("relay listener not parsed")
 	}
 
-	// Only VLESS relays and NODE-<id> names.
+	// NODE-<id> is a relay, or the cascade's bridge on the node's own loopback; nothing
+	// else, and no address off the server — that would be the direct dial the cascade
+	// exists to remove.
 	bad := cascadeState(t)
 	bad.Exits[0].Proxy = json.RawMessage(`{"type":"socks5","server":"1.2.3.4","port":1}`)
 	if _, _, err := buildConfig(bad, proto.Cert{}, false, "", 0); err == nil {
-		t.Fatal("a non-VLESS exit was accepted")
+		t.Fatal("an exit off the server was accepted")
+	}
+	bad = cascadeState(t)
+	bad.Exits[0].Proxy = json.RawMessage(`{"type":"direct","server":"127.0.0.1","port":1}`)
+	if _, _, err := buildConfig(bad, proto.Cert{}, false, "", 0); err == nil {
+		t.Fatal("an exit of another type was accepted")
 	}
 	bad = cascadeState(t)
 	bad.Exits[0].Name = "DIRECT"
 	if _, _, err := buildConfig(bad, proto.Cert{}, false, "", 0); err == nil {
 		t.Fatal("an exit named like a built-in policy was accepted")
+	}
+	// The tunnel's exit: the node's own bridge, and the datagrams off whatever the state
+	// says (the bridge carries TCP).
+	good := cascadeState(t)
+	good.Exits[0].Proxy = json.RawMessage(`{"type":"socks5","server":"127.0.0.1","port":47105,"udp":true}`)
+	tunnel, _, err := buildConfig(good, proto.Cert{}, false, "", 0)
+	if err != nil {
+		t.Fatalf("the bridge's exit: %v", err)
+	}
+	var bridged struct {
+		Proxies []map[string]any `json:"proxies"`
+	}
+	if err := json.Unmarshal(tunnel, &bridged); err != nil {
+		t.Fatal(err)
+	}
+	var found bool
+	for _, p := range bridged.Proxies {
+		if p["name"] != nodeapi.ExitName(3) {
+			continue
+		}
+		found = true
+		if p["type"] != "socks5" || p["server"] != "127.0.0.1" || p["port"] != float64(47105) || p["udp"] != false {
+			t.Fatalf("the bridge's proxy: %v", p)
+		}
+	}
+	if !found {
+		t.Fatal("the bridge's exit is not in the config")
 	}
 	if routesKey(cascadeState(t), false) == routesKey(warpState(), false) {
 		t.Fatal("routesKey must follow the exits")
@@ -116,8 +150,12 @@ func TestRelayBypassesAccounting(t *testing.T) {
 	c, d := net.Pipe()
 	defer d.Close()
 	tun.HandleTCPConn(c, &C.Metadata{Type: C.VLESS, InName: "in-vless", InUser: "relay-2", SrcIP: mustAddr("198.51.100.20")})
-	if inner.tcp.Load() != 1 {
-		t.Fatalf("connections that reached mihomo: %d, want only the relay's", inner.tcp.Load())
+	// The cascade's streams are the same: the entry node counted its own users.
+	e, f := net.Pipe()
+	defer f.Close()
+	tun.HandleTCPConn(e, &C.Metadata{Type: C.SOCKS5, InName: nodeapi.CascadeListener, Host: "example.com", DstPort: 443})
+	if inner.tcp.Load() != 2 {
+		t.Fatalf("connections that reached mihomo: %d, want the relay's and the cascade's", inner.tcp.Load())
 	}
 }
 

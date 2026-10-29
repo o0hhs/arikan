@@ -102,6 +102,9 @@ type Deps struct {
 	HappLink func(ctx context.Context, u db.User) (string, error)
 	// Nodes is the live side of the nodes; nil when the panel runs without them.
 	Nodes NodeRuntime
+	// Cascade is the panel's cascade hub (internal/panel/cascade): which exits keep a stream
+	// to the panel and which entry nodes have their bridge; nil in tests.
+	Cascade CascadeRuntime
 	// PanelCert is the client certificate remote nodes pin; their join keys carry its hash.
 	PanelCert func() (nodetls.Pair, error)
 	// Tuner reports what the automatic moves see; nil when the panel runs without nodes.
@@ -187,6 +190,13 @@ type Deps struct {
 	// Host asks the panel's own server for `mikan doctor` and a restart of the containers
 	// (the files its units watch); nil: not offered.
 	Host *hostchan.Channel
+}
+
+// CascadeRuntime is the panel's cascade hub as the API reads it: which exits keep a stream
+// to the panel, and which entry nodes have their bridge (internal/panel/cascade).
+type CascadeRuntime interface {
+	ExitOnline(id int64) (time.Time, bool)
+	BridgeOnline(id int64) (time.Time, bool)
 }
 
 // NodeRuntime is what the API needs from the running nodes.

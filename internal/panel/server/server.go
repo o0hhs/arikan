@@ -35,6 +35,9 @@ type Server struct {
 	// hello answers a node's hello and says so; whatever it does not answer is served
 	// like any unknown path (see nodehello). nil: none.
 	hello func(w http.ResponseWriter, r *http.Request) bool
+	// cascade answers the cascade's exit nodes' knocks (internal/panel/cascade); whatever
+	// it does not answer is served like any unknown path. nil: none.
+	cascade func(w http.ResponseWriter, r *http.Request) bool
 	// tunnel answers a node's request to open a reverse tunnel and says so (see the panel's
 	// app); whatever it does not answer is served like any unknown path. nil: none.
 	tunnel func(w http.ResponseWriter, r *http.Request) bool
@@ -69,6 +72,10 @@ func (s *Server) SetMonitorPath(path string) { s.monitorPath.Store(&path) }
 
 // SetHello takes the handler of the nodes' hellos.
 func (s *Server) SetHello(h func(w http.ResponseWriter, r *http.Request) bool) { s.hello = h }
+
+// SetCascade takes the handler of the cascade's exit nodes' knocks. It is served on the
+// panel's own listener alone, not on the subscription port.
+func (s *Server) SetCascade(h func(w http.ResponseWriter, r *http.Request) bool) { s.cascade = h }
 
 // SetTunnel takes the handler of the nodes' reverse tunnels.
 func (s *Server) SetTunnel(h func(w http.ResponseWriter, r *http.Request) bool) { s.tunnel = h }
@@ -149,6 +156,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request, admin bool) {
 		r2.URL.Path = p[len(paths.Legacy)+1:]
 		r2.URL.RawPath = ""
 		s.legacy.ServeHTTP(w, r2)
+	case admin && s.cascade != nil && s.cascade(w, r):
 	case s.hello != nil && s.hello(w, r):
 	case s.tunnel != nil && s.tunnel(w, r):
 	default:

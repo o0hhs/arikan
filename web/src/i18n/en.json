@@ -4094,6 +4094,19 @@
   "cascade": {
     "title": "Cascade",
     "intro": "A client connects to the near server and leaves to the internet through the far one. Sites see the far one's address.",
+    "tunnel": {
+      "title": "The panel's tunnel",
+      "entry": "The node's clients leave through another node over the panel's tunnel, not by dialling it.",
+      "bridgeOn": "the panel's bridge is up",
+      "bridgeOff": "the panel's bridge is down: these clients fail rather than leave directly",
+      "exit": "Other nodes' clients leave through this node over the panel's tunnel.",
+      "exitOnline": "the node's stream to the panel is up",
+      "exitOffline": "the node's stream to the panel is down: it carries nothing",
+      "reserve": "reserve",
+      "inTunnel": "in the tunnel",
+      "notInTunnel": "not in the tunnel",
+      "hint": "An exit is no longer dialled from the entry: one that is not in the tunnel carries nothing, and the clients of the inbounds behind it fail instead of leaking."
+    },
     "exits": "This node sends traffic out through",
     "exitsNone": "Nothing yet: everything leaves from here.",
     "exitsHint": "The exit node is picked in a protocol's settings: “Way out to the internet → Via a node”.",

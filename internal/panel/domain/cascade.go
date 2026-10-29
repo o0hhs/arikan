@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"math/rand/v2"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -270,4 +271,144 @@ func MoveExits(ctx context.Context, q *db.Queries, from int64, now time.Time, ho
 		out = append(out, MovedExit{Node: src, To: to})
 	}
 	return out, nil
+}
+
+// The cascade over the panel's tunnel: which nodes are exits, and which exit each entry
+// node's inbounds and relay leave through, with the reserves for when a tunnel is down. The
+// same rows that build a node's state build this, so the panel and its nodes never disagree
+// about who carries what. nodesync builds the states from it; the panel's cascade hub asks
+// it whether a node that knocks is one of the exits.
+
+// CascadeRoute is one exit of an entry node's listener: the exit the admin named, and the
+// reserves the panel picked among its other exits.
+type CascadeRoute struct {
+	Name string // the exit's proxy name in the core, and the bridge's SOCKS5 user
+	Exit int64  // the node the inbound or the relay named
+	// Tunnel: the exit can carry through the panel (a remote, enabled node with a join key).
+	// One that cannot is still named in the state, with a proxy to nowhere: the inbounds
+	// behind it fail rather than leave directly.
+	Tunnel bool
+	// Reserves are the other exits to try when this one's tunnel is down, nearest first.
+	Reserves []int64
+}
+
+// CascadePlan is a node's part in the cascade.
+type CascadePlan struct {
+	// Routes are the exits of this node's inbounds and relay, in the order they first appear.
+	Routes []CascadeRoute
+	// IsExit: some enabled inbound or relay of the panel leaves through this node.
+	IsExit bool
+}
+
+// maxCascadeReserves bounds the reserves of one exit: a chain of fallbacks longer than this
+// is a guess about the internet, not a plan.
+const maxCascadeReserves = 3
+
+// CascadePlans computes every node's part in the cascade from the rows.
+func CascadePlans(nodes []db.Node, inbounds []db.Inbound, relays []db.NodeRelay) map[int64]CascadePlan {
+	byID := make(map[int64]db.Node, len(nodes))
+	for _, n := range nodes {
+		byID[n.ID] = n
+	}
+	exits := map[int64]bool{}
+	// primaries[entry] is the exits that node leaves through, in the order they appear: a
+	// node may name several (one inbound to one exit, another to another).
+	primaries := map[int64][]int64{}
+	note := func(entry, exit int64) {
+		exits[exit] = true
+		if !slices.Contains(primaries[entry], exit) {
+			primaries[entry] = append(primaries[entry], exit)
+		}
+	}
+	for _, in := range inbounds {
+		if in.Enabled == 0 || !in.ExitNodeID.Valid || in.ExitNodeID.Int64 == in.NodeID {
+			continue
+		}
+		note(in.NodeID, in.ExitNodeID.Int64)
+	}
+	for _, r := range relays {
+		if !r.ExitNodeID.Valid || r.ExitNodeID.Int64 == r.NodeID {
+			continue
+		}
+		note(r.NodeID, r.ExitNodeID.Int64)
+	}
+	ordered := make([]int64, 0, len(exits))
+	for id := range exits {
+		ordered = append(ordered, id)
+	}
+	slices.Sort(ordered)
+
+	tunnelable := func(id int64) bool {
+		n, ok := byID[id]
+		return ok && n.Enabled != 0 && n.Address != "" && n.CertSha256 != ""
+	}
+	plans := make(map[int64]CascadePlan, len(primaries)+len(exits))
+	for entry, ps := range primaries {
+		p := CascadePlan{}
+		for _, x := range ps {
+			r := CascadeRoute{Name: nodeapi.ExitName(x), Exit: x, Tunnel: tunnelable(x)}
+			if r.Tunnel {
+				for _, y := range ordered {
+					if len(r.Reserves) == maxCascadeReserves {
+						break
+					}
+					// A reserve that leaves through this entry in turn would come back to
+					// it: the cascade has one hop, and that one would close a loop.
+					if y == x || y == entry || !tunnelable(y) || slices.Contains(primaries[y], entry) {
+						continue
+					}
+					r.Reserves = append(r.Reserves, y)
+				}
+			}
+			p.Routes = append(p.Routes, r)
+		}
+		plans[entry] = p
+	}
+	for id := range exits {
+		p := plans[id]
+		p.IsExit = true
+		plans[id] = p
+	}
+	return plans
+}
+
+// LoadCascadePlans reads what CascadePlans needs and computes the plans.
+func LoadCascadePlans(ctx context.Context, q *db.Queries) (map[int64]CascadePlan, error) {
+	nodes, err := q.ListNodes(ctx)
+	if err != nil {
+		return nil, err
+	}
+	inbounds, err := q.ListInbounds(ctx)
+	if err != nil {
+		return nil, err
+	}
+	relays, err := q.ListNodeRelays(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return CascadePlans(nodes, inbounds, relays), nil
+}
+
+// IsExitNode says whether some enabled inbound or relay of the panel leaves through node id:
+// the only nodes the panel takes a cascade stream from.
+func IsExitNode(ctx context.Context, q *db.Queries, id int64) (bool, error) {
+	inbounds, err := q.ListInbounds(ctx)
+	if err != nil {
+		return false, err
+	}
+	for _, in := range inbounds {
+		if in.Enabled != 0 && in.ExitNodeID.Valid && in.ExitNodeID.Int64 == id {
+			return true, nil
+		}
+	}
+	relays, err := q.ListNodeRelays(ctx)
+	if err != nil {
+		return false, err
+	}
+	for _, r := range relays {
+		if r.ExitNodeID.Valid && r.ExitNodeID.Int64 == id {
+			return true, nil
+		}
+	}
+	return false, nil
 }

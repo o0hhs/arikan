@@ -31,6 +31,11 @@ type DesiredState struct {
 	// Exits are the other nodes this one sends chosen inbounds through (a cascade).
 	Relay *Relay `json:"relay,omitempty"`
 	Exits []Exit `json:"exits,omitempty"`
+	// Cascade is this node's part in the cascade over the panel's tunnel: the entry's
+	// loopback bridge its exits point at, or the exit's stream to the panel. nil: neither.
+	// Nodes older than it ignore the field and keep dialling the exits' addresses, which a
+	// panel newer than them no longer names.
+	Cascade *Cascade `json:"cascade,omitempty"`
 	// Torrent turns the torrent blocker on; nil: off. Nodes older than the blocker ignore it.
 	Torrent *TorrentBlock `json:"torrent,omitempty"`
 	// Filters keep users' traffic from places and strangers from the node; nil: none.
@@ -309,6 +314,9 @@ type Health struct {
 	// panel while its uplink or DNS is down serves nobody, and that must not look like a
 	// healthy node. nil: not checked (older nodes, or the first seconds after the start).
 	Egress *EgressStatus `json:"egress,omitempty"`
+	// Cascade is the node's part in the cascade as it is now: the entry's bridge and the
+	// panel's connection to it, or the exit's stream. nil: no part, or an older node.
+	Cascade *CascadeStatus `json:"cascade,omitempty"`
 	// Subs is the subscription store: what it keeps and whether the node answers links on
 	// its 443. nil on nodes older than it.
 	Subs *SubsStatus `json:"subs,omitempty"`

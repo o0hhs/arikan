@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"slices"
 	"testing"
 	"time"
 
@@ -23,6 +24,9 @@ func TestCascadeChain(t *testing.T) {
 	ctx := context.Background()
 	q := st.Q
 	if err := settings.Set(ctx, settings.New(q), settings.KeyPublicHost, "203.0.113.10"); err != nil {
+		t.Fatal(err)
+	}
+	if err := settings.Set(ctx, settings.New(q), settings.KeyPanelPort, 8443); err != nil {
 		t.Fatal(err)
 	}
 	panel, _ := nodetls.Generate("mikan-panel", x509.ExtKeyUsageClientAuth, time.Now())
@@ -82,20 +86,33 @@ func TestCascadeChain(t *testing.T) {
 	}
 	var proxy map[string]any
 	_ = json.Unmarshal(da.Exits[0].Proxy, &proxy)
-	if proxy["type"] != "vless" || proxy["server"] != "198.51.100.20" || proxy["reality-opts"] == nil {
+	// The tunnel: A's core points at its own bridge, not at B's address.
+	if proxy["type"] != "socks5" || proxy["server"] != "127.0.0.1" || proxy["username"] != nodeapi.ExitName(nb.ID) {
 		t.Fatalf("A's way to B: %v", proxy)
 	}
-	if ro, _ := proxy["reality-opts"].(map[string]any); ro["support-x25519mlkem768"] != true {
-		t.Fatalf("the relay's key exchange must be post-quantum: %v", ro)
+	if da.Cascade == nil || da.Cascade.Entry == nil || len(da.Cascade.Entry.Routes) != 1 ||
+		len(da.Cascade.Entry.Routes[0].Exits) == 0 || da.Cascade.Entry.Routes[0].Exits[0] != nb.ID {
+		t.Fatalf("A's bridge: %+v", da.Cascade)
 	}
 	db_, _ := b.desired(ctx)
 	if db_.Relay == nil || len(db_.Relay.Users) != 1 || db_.Relay.Users[0].Name != domain.RelayUserName(a.id) ||
-		len(db_.Exits) != 1 || db_.Exits[0].Inbounds[0] != nodeapi.RelayListener {
+		len(db_.Exits) != 1 || !slices.Contains(db_.Exits[0].Inbounds, nodeapi.RelayListener) || !slices.Contains(db_.Exits[0].Inbounds, nodeapi.CascadeListener) {
 		t.Fatalf("B: relay %+v exits %+v", db_.Relay, db_.Exits)
+	}
+	// B is an exit and an entry at once: it sends on what comes to it, the chain included.
+	if db_.Cascade == nil || db_.Cascade.Exit == nil || db_.Cascade.Entry == nil {
+		t.Fatalf("B's part: %+v", db_.Cascade)
+	}
+	_ = json.Unmarshal(db_.Exits[0].Proxy, &proxy)
+	if proxy["type"] != "socks5" || proxy["username"] != nodeapi.ExitName(nc.ID) {
+		t.Fatalf("B's way to C: %v", proxy)
 	}
 	dc, _ := c.desired(ctx)
 	if dc.Relay == nil || len(dc.Relay.Users) != 1 || dc.Relay.Users[0].Name != domain.RelayUserName(nb.ID) || len(dc.Exits) != 0 {
 		t.Fatalf("C: relay %+v exits %+v", dc.Relay, dc.Exits)
+	}
+	if dc.Cascade == nil || dc.Cascade.Exit == nil {
+		t.Fatal("C is an exit of the tunnel")
 	}
 	// The keys differ per hop.
 	if db_.Relay.Users[0].UUID == dc.Relay.Users[0].UUID {
@@ -107,6 +124,7 @@ func TestCascadeChain(t *testing.T) {
 	if _, err := q.UpdateNode(ctx, db.UpdateNodeParams{Name: n.Name, Address: n.Address, PublicHost: n.PublicHost, Domain: n.Domain, PublicName: n.PublicName, Enabled: 0, ID: n.ID}); err != nil {
 		t.Fatal(err)
 	}
+	a.m.changes.Add(1) // a new snapshot, as the API's change would ask for
 	db_, _ = b.desired(ctx)
 	_ = json.Unmarshal(db_.Exits[0].Proxy, &proxy)
 	if len(db_.Exits) != 1 || proxy["server"] != "192.0.2.1" {

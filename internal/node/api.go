@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -231,6 +232,38 @@ func Handler(e *Engine, log *slog.Logger) http.Handler {
 			res = []scan.Result{}
 		}
 		writeJSON(w, http.StatusOK, nodeapi.TargetScan{Scanned: scanned, Results: res})
+	})
+	// The panel's bridge: the connection of its API, upgraded, carries the streams of this
+	// node's cascade — one per client connection, each paired by the panel with the exit the
+	// client is for (cascadetunnel.go). Only a state with an entry takes one.
+	mux.HandleFunc("POST "+nodeapi.CascadeBridgePath, func(w http.ResponseWriter, r *http.Request) {
+		if !strings.EqualFold(r.Header.Get("Upgrade"), nodeapi.CascadeUpgrade) || e.cascade == nil || !e.cascade.EntryWanted() {
+			writeJSON(w, http.StatusConflict, nodeapi.Error{Code: "cascade_off", Message: "the node has no cascade in its state"})
+			return
+		}
+		hj, ok := w.(http.Hijacker)
+		if !ok {
+			writeJSON(w, http.StatusInternalServerError, nodeapi.Error{Code: "cascade_unsupported"})
+			return
+		}
+		conn, buf, err := hj.Hijack()
+		if err != nil {
+			return
+		}
+		// The stream lives as long as the cascade does: no deadline of the API's.
+		_ = conn.SetDeadline(time.Time{})
+		if _, err := conn.Write([]byte("HTTP/1.1 101 Switching Protocols\r\nConnection: Upgrade\r\nUpgrade: " + nodeapi.CascadeUpgrade + "\r\n\r\n")); err != nil {
+			_ = conn.Close()
+			return
+		}
+		var bc net.Conn = conn
+		if buf.Reader.Buffered() > 0 {
+			bc = &bufferedConn{Conn: conn, r: buf.Reader}
+		}
+		if err := e.cascade.setBridge(bc); err != nil {
+			_ = conn.Close()
+			log.Error("cascade: the panel's bridge did not open", "err", err)
+		}
 	})
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Over TLS only the panel's pinned certificate gets this far: the lock learns where

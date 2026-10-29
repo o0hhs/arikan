@@ -59,7 +59,9 @@ func (t *Tunnel) HandleTCPConn(conn net.Conn, m *C.Metadata) {
 	}
 	// Another node of the panel relays its users' traffic: the listener checked its key,
 	// and the source node has already counted and limited them. The rules still apply.
-	if m.InName == nodeapi.RelayListener {
+	// The cascade's streams are the same: the entry node counted and limited its own users,
+	// and this node is only their way out.
+	if m.InName == nodeapi.RelayListener || m.InName == nodeapi.CascadeListener {
 		t.inner.HandleTCPConn(conn, m)
 		return
 	}
