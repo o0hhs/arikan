@@ -70,8 +70,13 @@ func TestCascadeFramesRoundTrip(t *testing.T) {
 	// The frame is exactly as long as it says: the client's first bytes stay for the
 	// connection.
 	b.Reset()
-	_ = WriteCascadeTarget(&b, want)
+	if err := WriteCascadeTarget(&b, want); err != nil {
+		t.Fatal(err)
+	}
 	b.WriteString("GET")
+	if got, err := ReadCascadeTarget(&b); err != nil || got != want {
+		t.Fatalf("target: %+v, %v", got, err)
+	}
 	if _, err := io.ReadFull(&b, make([]byte, 3)); err != nil || b.Len() != 0 {
 		t.Fatalf("the target frame took the connection's bytes: %v, %d left", err, b.Len())
 	}
