@@ -461,7 +461,8 @@ impl Menu {
                 ("Restore", job(move || backup::restore(&f, false, &mut |_| {}).map(|()| format!("Restored from {}", f.display()))))
             }
             Act::Join => ("Join key", job(move || ops::join(&value, None).map(|()| "The node runs with the new key.".into()))),
-            Act::Uninstall => ("Uninstall", job(|| ops::uninstall().map(|_| "Done. Press Enter to leave.".into()))),
+            // The menu's Uninstall keeps the data, as it always has; --purge is a shell flag.
+            Act::Uninstall => ("Uninstall", job(|| ops::uninstall(false).map(|_| "Done. Press Enter to leave.".into()))),
         };
         self.job_title = title.to_owned();
         self.job_at = self.section();
