@@ -25,6 +25,8 @@ var (
 	ErrUnknownPreset  = errors.New("unknown_preset")
 	ErrUnknownInbound = errors.New("unknown_inbound")
 	ErrBadPort        = errors.New("bad_port")
+	// ErrPortRangeWide: a hopping range the node would listen on port by port.
+	ErrPortRangeWide  = errors.New("port_range_wide")
 	ErrBadListen      = errors.New("bad_listen")
 	ErrAutoPortListen = errors.New("auto_port_listen") // a proxy in front would not learn the new port
 	ErrAutoSNIListen  = errors.New("auto_sni_listen")  // nor the new site, if it routes by SNI
@@ -165,6 +167,9 @@ func (s *Inbounds) Create(ctx context.Context, in NewInbound) (db.Inbound, error
 	if !ValidPort(port) {
 		return db.Inbound{}, ErrBadPort
 	}
+	if !PortSpanOK(port) {
+		return db.Inbound{}, ErrPortRangeWide
+	}
 	config := in.Config
 	if info.ID != presets.Custom {
 		if config, err = presets.NewConfig(info.ID, in.Dest); err != nil {
@@ -303,6 +308,9 @@ func (s *Inbounds) update(ctx context.Context, id int64, p InboundPatch) (prev, 
 	if p.Port != nil {
 		if !ValidPort(*p.Port) {
 			return fail(ErrBadPort)
+		}
+		if !PortSpanOK(*p.Port) {
+			return fail(ErrPortRangeWide)
 		}
 		next.Port = *p.Port
 	}

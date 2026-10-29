@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io/fs"
+	"log"
 	"log/slog"
 	"net"
 	"net/http"
@@ -52,12 +53,14 @@ type Site struct {
 	listenFunc func(network, addr string) (net.Listener, error)
 	now        func() time.Time
 
-	mu      sync.Mutex
-	started bool
-	cert    *tls.Certificate
-	srv     *http.Server
-	ln      net.Listener
-	status  nodeapi.SiteStatus
+	mu        sync.Mutex
+	started   bool
+	cert      *tls.Certificate
+	srv       *http.Server
+	ln        net.Listener // the page's own listener: loopback, or the address the admin named
+	public    net.Listener // :443 while the state leaves the public port to the page
+	publicErr string       // why the public port was not taken last time: logged once
+	status    nodeapi.SiteStatus
 }
 
 func newSite(dir, listen string, log *slog.Logger) *Site {
@@ -65,9 +68,12 @@ func newSite(dir, listen string, log *slog.Logger) *Site {
 }
 
 // Start serves the page; nothing happens without the files of the page or with no listen
-// address (MIKAN_SITE_LISTEN=off). The port of SiteDefaultListen held by another program (an
-// inbound on 443, most often) sends the page to SiteFallbackListen.
-func (s *Site) Start() {
+// address (MIKAN_SITE_LISTEN=off). The page always has its own listener — the loopback port
+// a REALITY dest may name (SiteFallbackListen), or the address the admin set — and, only
+// while the state leaves it to the page, the public 443 as well. A node with the SNI router
+// or an inbound on 443 keeps the public port: the router serves the node's names there, and
+// a page that took 443 before the router would keep the router from starting.
+func (s *Site) Start(public bool) {
 	if s == nil || s.listen == "" || strings.EqualFold(s.listen, "off") {
 		return
 	}
@@ -76,6 +82,7 @@ func (s *Site) Start() {
 	s.started = true
 	s.mu.Unlock()
 	if already {
+		s.SetPublic(public)
 		return
 	}
 	if err := s.ensurePage(); err != nil {
@@ -83,14 +90,16 @@ func (s *Site) Start() {
 		s.log.Warn("the node's page does not run", "dir", s.dir, "err", err)
 		return
 	}
-	ln, err := s.listenFunc("tcp", s.listen)
-	if err != nil && s.listen == SiteDefaultListen {
-		s.log.Info("the node's page moves to a loopback port", "taken", s.listen, "err", err)
-		ln, err = s.listenFunc("tcp", SiteFallbackListen)
+	// The default address is 443, where a site is expected, but there the router or an
+	// inbound usually holds the port: the page's own listener goes to the loopback one.
+	listen := s.listen
+	if listen == SiteDefaultListen {
+		listen = SiteFallbackListen
 	}
+	ln, err := s.listenFunc("tcp", listen)
 	if err != nil {
-		s.status = nodeapi.SiteStatus{Listen: s.listen, Error: err.Error()}
-		s.log.Warn("the node's page does not run", "listen", s.listen, "err", err)
+		s.status = nodeapi.SiteStatus{Listen: listen, Error: err.Error()}
+		s.log.Warn("the node's page does not run", "listen", listen, "err", err)
 		return
 	}
 	srv := &http.Server{
@@ -113,18 +122,90 @@ func (s *Site) Start() {
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      30 * time.Second,
+		// Strangers' scanners and a CDN that will not take the certificate write a handshake
+		// error every second: one line a minute with the count says as much.
+		ErrorLog: log.New(&handshakeLog{log: s.log, now: s.now}, "", 0),
 	}
 	s.mu.Lock()
 	s.srv, s.ln = srv, ln
 	s.status = nodeapi.SiteStatus{Listen: ln.Addr().String(), Port: portOf(ln.Addr()), OK: true}
 	s.mu.Unlock()
 	s.writeStatus()
-	go func() {
-		if err := srv.ServeTLS(ln, "", ""); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			s.log.Warn("the node's page stopped", "err", err)
-		}
-	}()
+	go s.serveOn(ln)
 	s.log.Info("the node's page runs", "listen", ln.Addr().String(), "dir", s.dir)
+	s.SetPublic(public)
+}
+
+// SetPublic opens or closes the public 443 for the page: the state says whether the router
+// and the inbounds leave it to the page. A page that took it earlier lets it go before the
+// router binds, so enabling the router never needs a restart.
+func (s *Site) SetPublic(public bool) {
+	if s == nil || s.listen != SiteDefaultListen {
+		return
+	}
+	s.mu.Lock()
+	if !s.started || s.srv == nil {
+		s.mu.Unlock()
+		return
+	}
+	if public && s.public == nil {
+		ln, err := s.listenFunc("tcp", SiteDefaultListen)
+		if err != nil {
+			msg := err.Error()
+			again := msg == s.publicErr
+			s.publicErr = msg
+			s.mu.Unlock()
+			if !again {
+				s.log.Info("the node's page stays off the public 443", "err", err)
+			}
+			return
+		}
+		s.public, s.publicErr = ln, ""
+		s.mu.Unlock()
+		go s.serveOn(ln)
+		s.log.Info("the node's page answers on the public 443")
+		return
+	}
+	if !public && s.public != nil {
+		ln := s.public
+		s.public = nil
+		s.mu.Unlock()
+		_ = ln.Close()
+		s.log.Info("the node's page leaves the public 443 to the router")
+		return
+	}
+	s.mu.Unlock()
+}
+
+func (s *Site) serveOn(ln net.Listener) {
+	if err := s.srv.ServeTLS(ln, "", ""); err != nil && !errors.Is(err, http.ErrServerClosed) && !errors.Is(err, net.ErrClosed) {
+		s.log.Warn("the node's page stopped", "listen", ln.Addr().String(), "err", err)
+	}
+}
+
+// handshakeLog keeps TLS handshake noise to a line a minute: the count and the last reason.
+type handshakeLog struct {
+	log     *slog.Logger
+	now     func() time.Time
+	mu      sync.Mutex
+	last    time.Time
+	n       int
+	lastErr string
+}
+
+func (h *handshakeLog) Write(p []byte) (int, error) {
+	h.mu.Lock()
+	h.n++
+	h.lastErr = strings.TrimSpace(string(p))
+	if h.last.IsZero() || h.now().Sub(h.last) >= time.Minute {
+		n, last := h.n, h.lastErr
+		h.n, h.last, h.lastErr = 0, h.now(), ""
+		h.mu.Unlock()
+		h.log.Warn("the node's page: TLS handshake errors", "n", n, "last", last)
+		return len(p), nil
+	}
+	h.mu.Unlock()
+	return len(p), nil
 }
 
 // ensurePage makes the page's directory and, only when it is empty, a neutral page to

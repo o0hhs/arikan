@@ -3,6 +3,19 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
+## 0.5.2.15
+### en
+**The node's page stops taking the public 443 from the router, and a port range stops eating the memory.**
+- **The page never wins the port race.** It always serves on its own loopback address (or the address the admin named), and opens the public 443 only when nothing else of the state binds it over TCP — no SNI router, no inbound listening on 443 itself. Enabling the router releases the port at once, so a node no longer needs a restart, and the router no longer fails with `address already in use` because the page started first. This was the "443 is always taken and the router does not work" pair.
+- **Handshake noise is one line a minute.** The page's TLS handshake errors (scanners, a CDN that will not take the certificate) no longer write a log line per attempt: one line a minute with the count and the last reason.
+- **A hopping port range is capped at 256 ports.** The node opens a listener on every port of a range — Hysteria2 holds a socket and a goroutine per port — so a range like `20000-30000` cost hundreds of megabytes and grew until the server ran out (the 1 GB `arikan-node`). A new or changed range wider than 256 ports is refused with `port_range_wide`; narrow the range (or use one port) to fix an existing one.
+
+### ru
+**Страница ноды больше не отбирает публичный 443 у роутера, а диапазон портов — память.**
+- **Страница больше не выигрывает гонку за порт.** Она всегда слушает свой loopback-адрес (или адрес, который задал админ), а публичный 443 открывает только когда больше ничего в состоянии не занимает его по TCP: ни SNI-роутер, ни подключение прямо на 443. Включение роутера освобождает порт сразу, без перезапуска, и роутер больше не падает с `address already in use` из-за того, что страница стартовала первой. Это и была пара «443 вечно занят и роутер не работает».
+- **Шум рукопожатий — одна строка в минуту.** Ошибки TLS у страницы (сканеры, CDN, не принимающий сертификат) больше не пишут строку на каждую попытку: одна строка в минуту со счётчиком и последней причиной.
+- **Диапазон портов ограничен 256 портами.** Нода открывает слушатель на каждый порт диапазона — Hysteria2 держит сокет и горутину на порт, — поэтому диапазон вроде `20000-30000` стоил сотни мегабайт и рос, пока сервер не кончался (тот самый гигабайт у `arikan-node`). Новый или изменённый диапазон шире 256 портов отклоняется с `port_range_wide`; существующий чинится сужением диапазона (или одним портом).
+
 ## 0.5.2.14
 ### en
 **A restore takes the backup it is given.**

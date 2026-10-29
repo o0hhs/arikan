@@ -448,6 +448,7 @@
     "pageNotFoundText": "The address is wrong or the page has moved.",
     "toOverview": "To the overview",
     "api": {
+    "port_range_wide": "The port range is too wide: the node listens on every port of it and eats memory. Use one port or a range of at most 256",
     "webhook_url_invalid": "The webhook address must be https:// without a login",
     "webhook_secret_invalid": "The secret key is 8 to 200 characters",
     "webhook_not_configured": "Save the site URL for webhooks first",

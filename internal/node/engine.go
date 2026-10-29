@@ -451,13 +451,6 @@ func (e *Engine) apply(st nodeapi.DesiredState) (nodeapi.ApplyResult, error) {
 	if len(listening) != len(cfg.Listeners) {
 		listener.PatchInboundListeners(listening, e.tun, true)
 	}
-	// The node's own page serves the certificate of this state. It starts after the
-	// listeners: an inbound on 443 is what holds the port, and the page then moves to
-	// loopback. Without a certificate there is nothing to present, so it waits for one.
-	if cert.CertPath != "" {
-		e.Site.SetCert(cert.CertPath, cert.KeyPath)
-		e.Site.Start()
-	}
 	sort.Slice(statuses, func(i, j int) bool { return statuses[i].Name < statuses[j].Name })
 	ports := make(map[string]string, len(st.Inbounds))
 	for _, in := range st.Inbounds {
@@ -468,6 +461,15 @@ func (e *Engine) apply(st nodeapi.DesiredState) (nodeapi.ApplyResult, error) {
 	}
 	e.front.set(st.FrontPage, st.TLS)
 	e.setRouter(st.Router, ports)
+	// The node's own page serves the certificate of this state, after the listeners and the
+	// router: an inbound on 443 or the router is what holds the port, and the page then
+	// moves to loopback. A node with the router never lets the page take 443 — the router
+	// failed for a reason, and a page there would hide it. Without a certificate there is
+	// nothing to present, so it waits for one.
+	if cert.CertPath != "" {
+		e.Site.SetCert(cert.CertPath, cert.KeyPath)
+		e.Site.Start(pageMayTake443(st))
+	}
 	recreated := make([]string, 0, len(started))
 	for name := range started {
 		recreated = append(recreated, name)
@@ -520,6 +522,39 @@ func (e *Engine) TargetAllowed(dest string) bool {
 		return false
 	}
 	return (self > 0 && port == strconv.Itoa(self)) || (e.sitePort() > 0 && port == strconv.Itoa(e.sitePort()))
+}
+
+// pageMayTake443: nothing else of the state binds the public 443 over TCP — not the router,
+// not an inbound listening there itself. A page that took it would keep that listener out.
+// An inbound on 443/udp is no obstacle: the page is TCP.
+func pageMayTake443(st nodeapi.DesiredState) bool {
+	if st.Router != nil {
+		return false
+	}
+	for _, in := range st.Inbounds {
+		if !portCovers(in.Port, 443) {
+			continue
+		}
+		t, err := proto.FromJSON(in.Config)
+		if err != nil || t.Network() != "udp" {
+			return false
+		}
+	}
+	return true
+}
+
+// portCovers: the port spec (one port or a range) listens on p.
+func portCovers(spec string, p int) bool {
+	a, b, isRange := strings.Cut(strings.TrimSpace(spec), "-")
+	lo, err := strconv.Atoi(strings.TrimSpace(a))
+	if err != nil {
+		return false
+	}
+	if !isRange {
+		return lo == p
+	}
+	hi, err := strconv.Atoi(strings.TrimSpace(b))
+	return err == nil && lo <= p && p <= hi
 }
 
 // sitePort is where the node's own page answers on loopback, 0 while it does not: the other

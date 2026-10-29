@@ -528,6 +528,8 @@ func inboundError(err error, dest bool) error {
 		return fieldErr("body.node_id", "unknown_node")
 	case errors.Is(err, domain.ErrBadPort):
 		return fieldErr("body.port", "bad_port")
+	case errors.Is(err, domain.ErrPortRangeWide):
+		return fieldErr("body.port", "port_range_wide")
 	case errors.Is(err, domain.ErrBadListen):
 		return fieldErr("body.listen", "bad_listen")
 	case errors.Is(err, domain.ErrAutoPortListen):

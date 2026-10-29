@@ -17,6 +17,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -27,7 +29,7 @@ func TestSiteServesItsFiles(t *testing.T) {
 	dir := t.TempDir()
 	site := newSite(dir, "127.0.0.1:0", slog.New(slog.NewTextHandler(io.Discard, nil)))
 	site.SetCert(writeSiteCert(t, dir, false))
-	site.Start()
+	site.Start(true)
 	st := site.Status()
 	if st == nil || !st.OK || st.Port == 0 {
 		t.Fatalf("the page did not start: %+v", st)
@@ -84,7 +86,7 @@ func TestSiteMovesOffATakenPort(t *testing.T) {
 	defer held.Close()
 	site := newSite(t.TempDir(), held.Addr().String(), slog.New(slog.NewTextHandler(io.Discard, nil)))
 	site.SetCert(writeSiteCert(t, t.TempDir(), false))
-	site.Start()
+	site.Start(true)
 	if st := site.Status(); st == nil || st.OK || st.Error == "" {
 		t.Fatalf("a taken port: %+v", st)
 	}
@@ -97,7 +99,7 @@ func TestSiteMovesOffATakenPort(t *testing.T) {
 		return net.Listen(network, "127.0.0.1:0")
 	}
 	other.SetCert(writeSiteCert(t, t.TempDir(), false))
-	other.Start()
+	other.Start(true)
 	st := other.Status()
 	if st == nil || !st.OK || st.Port == 0 {
 		t.Fatalf("the fallback: %+v", st)
@@ -110,11 +112,11 @@ func TestSiteMovesOffATakenPort(t *testing.T) {
 // off: no page at all (MIKAN_SITE_LISTEN=off), and nothing is reported.
 func TestSiteOff(t *testing.T) {
 	site := newSite(t.TempDir(), "off", slog.New(slog.NewTextHandler(io.Discard, nil)))
-	site.Start()
+	site.Start(true)
 	if site.Status() != nil {
 		t.Fatal("a page that is off")
 	}
-	if site.Start(); site.Status() != nil {
+	if site.Start(true); site.Status() != nil {
 		t.Fatal("a second Start of a page that is off")
 	}
 }
@@ -192,3 +194,74 @@ func signedByAnother(t *testing.T, name string) tls.Certificate {
 	}
 	return tls.Certificate{Certificate: [][]byte{der}, PrivateKey: key}
 }
+
+// With the SNI router, the public 443 belongs to the router: the page starts on loopback and
+// never asks for 443. Enabling the page on 443 later (the router off) takes it, and turning
+// the router back on makes the page let the port go at once, so the router can bind without a
+// restart.
+func TestSiteLeavesThePublicPortToTheRouter(t *testing.T) {
+	var (
+		mu     sync.Mutex
+		asked  []string
+		public *trackedListener
+	)
+	dir := t.TempDir()
+	site := newSite(dir, SiteDefaultListen, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	site.listenFunc = func(network, addr string) (net.Listener, error) {
+		mu.Lock()
+		asked = append(asked, addr)
+		mu.Unlock()
+		ln, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			return nil, err
+		}
+		if addr == SiteDefaultListen {
+			public = &trackedListener{Listener: ln}
+			return public, nil
+		}
+		return ln, nil
+	}
+	site.SetCert(writeSiteCert(t, t.TempDir(), false))
+
+	site.Start(false)
+	if st := site.Status(); st == nil || !st.OK || st.Port == 0 || !strings.HasPrefix(st.Listen, "127.0.0.1:") {
+		t.Fatalf("the page on loopback: %+v", st)
+	}
+	mu.Lock()
+	for _, a := range asked {
+		if a == SiteDefaultListen {
+			mu.Unlock()
+			t.Fatalf("the page asked for the public 443 with the router on: %v", asked)
+		}
+	}
+	mu.Unlock()
+
+	site.SetPublic(true)
+	mu.Lock()
+	saw := false
+	for _, a := range asked {
+		saw = saw || a == SiteDefaultListen
+	}
+	mu.Unlock()
+	if !saw || public == nil {
+		t.Fatal("the page did not take the free public 443")
+	}
+	site.SetPublic(false)
+	if !public.isClosed() {
+		t.Fatal("the page kept the public 443: the router could not bind")
+	}
+}
+
+// trackedListener says whether it was closed: the page's public 443, which the router needs
+// back when it is enabled.
+type trackedListener struct {
+	net.Listener
+	closed atomic.Bool
+}
+
+func (l *trackedListener) Close() error {
+	l.closed.Store(true)
+	return l.Listener.Close()
+}
+
+func (l *trackedListener) isClosed() bool { return l.closed.Load() }

@@ -243,6 +243,17 @@ func ParsePort(spec string) (lo, hi int, ok bool) {
 	return lo, hi, true
 }
 
+// MaxPortSpan is the widest hopping range an inbound may take: the node opens a listener on
+// every port of it — a socket and a goroutine each (Hysteria2 holds one per port) — so a
+// range of thousands costs hundreds of megabytes. Hopping needs a handful of ports.
+const MaxPortSpan = 256
+
+// PortSpanOK: spec is a port, or a range no wider than MaxPortSpan.
+func PortSpanOK(spec string) bool {
+	lo, hi, ok := ParsePort(spec)
+	return ok && hi-lo+1 <= MaxPortSpan
+}
+
 // FirstPort is the port a client first dials for spec: the port itself, or the start of a
 // hopping range. 0 when spec is neither.
 func FirstPort(spec string) int {
