@@ -9,10 +9,30 @@ the signed manifest, and the panel shows the one in its language.
 - A database restored from another server (a `.dump` downloaded from the panel, the Telegram backup) brings that server's `panel_port` setting, while the listen port stays the one this server was installed with. Every link, the admin path and each node's address were then built from a port nothing answered on, and nodes were told the wrong address. The panel now corrects the setting to its own listener at start, with a log line naming both ports.
 - `arikan restore` of a database-only archive now says what that actually changes: the address, port and subscription settings come from the database, every node must join again, and certificates and adapters stay this server's. The docs say the same.
 
+**A restored server stops advertising what it does not serve.**
+- A database from another server can bring a subscription port equal to the panel's own: the subscription listener took the panel's address before the panel's listener opened, and the panel did not start at all. The setting now follows the listener, and the panel's port serves subscriptions anyway.
+- A custom certificate uploaded for the old domain kept being served after the domain changed (or a database from another server brought its name): every handshake failed, and no certificate for the current name was ever ordered. Such a certificate is no longer served; one for the current host is ordered, and Settings says `custom_wrong_host`.
+- The secret paths are checked at start: a path that cannot be a URL segment, or two equal paths — a restored database can bring either — is named in the log and Diagnostics together with the command that repairs it. `arikan admin bootstrap` refuses equal admin and subscription paths, and `arikan admin reset-sub-path` gives subscription links a new one.
+- A node row without a certificate fingerprint, and a running payment adapter whose settings this database does not have, are named in the log and Diagnostics instead of quietly not working.
+
+**Credentials and containers follow their owner.**
+- The database address in `config.json` and `secrets/` now follows `secrets/postgres_password` (the volume was initialized from it), and a lost password file comes back from the address. Before, a cross-server or hand-edited pair left the panel unable to open the database at all.
+- `arikan doctor` now compares the running container's image with `MIKAN_IMAGE`, the server role in `config.json` with the containers compose runs, the database address with the password, and a node's `NODE_API_PORT` with the port inside its join key. Each mismatch says what to do.
+
 ### ru
 **Панель больше не рекламирует порт, который не слушает.**
 - База, восстановленная с другого сервера (скачанный из панели `.dump`, бэкап из Telegram), приносит настройку `panel_port` того сервера, а слушающий порт остаётся тот, с которым этот сервер установлен. Все ссылки, путь админки и адрес для каждой ноды строились тогда по порту, на котором никто не отвечает, и ноды получали неверный адрес. Теперь панель при старте исправляет настройку на свой слушающий порт и пишет в лог оба значения.
 - `arikan restore` архива только с базой теперь говорит, что именно меняется: адрес, порт и подписочные настройки приезжают из базы, каждой ноде нужно присоединиться заново, а сертификаты и адаптеры остаются здешние. В документации — то же самое.
+
+**Восстановленный сервер перестаёт рекламировать то, чего не обслуживает.**
+- База с другого сервера может принести порт подписок, равный порту самой панели: слушатель подписок занимал адрес панели раньше её собственного слушателя, и панель не запускалась совсем. Теперь настройка следует за слушателем, а порт панели и так обслуживает подписки.
+- Свой сертификат, загруженный под старый домен, продолжал подаваться после смены домена (или когда база с другого сервера привезла своё имя): каждое рукопожатие падало, а сертификат на текущее имя не заказывался никогда. Такой сертификат больше не подаётся; на текущий адрес заказывается новый, а в настройках видно `custom_wrong_host`.
+- Секретные пути проверяются при старте: путь, который не может быть сегментом URL, или два одинаковых пути — восстановленная база может привезти и то и другое — называются в логе и «Диагностике» вместе с командой, которая это чинит. `arikan admin bootstrap` не принимает одинаковые пути админки и подписок, а `arikan admin reset-sub-path` выдаёт подписочным ссылкам новый.
+- Строка ноды без отпечатка сертификата и работающий адаптер оплаты, настроек которого в этой базе нет, называются в логе и «Диагностике» вместо тихого «не работает».
+
+**Учётные данные и контейнеры следуют за своим владельцем.**
+- Адрес базы в `config.json` и `secrets/` теперь следует за `secrets/postgres_password` (том базы инициализирован им), а потерянный файл пароля восстанавливается из адреса. Раньше пара, приехавшая с другого сервера или правленная руками, оставляла панель без доступа к базе.
+- `arikan doctor` теперь сравнивает образ работающего контейнера с `MIKAN_IMAGE`, роль сервера в `config.json` с контейнерами из compose, адрес базы с паролем и `NODE_API_PORT` ноды с портом внутри её ключа. К каждому расхождению — что делать.
 
 ## 0.5.2.15
 ### en
