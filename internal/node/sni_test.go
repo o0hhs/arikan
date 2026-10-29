@@ -264,8 +264,10 @@ func TestSNIRouterWebRoute(t *testing.T) {
 
 	var mu sync.Mutex
 	var clientAddr string
+	// The name comes from the URL: the transport sends it as the SNI (the certificate is the
+	// test's own, hence unchecked).
 	client := &http.Client{Timeout: 5 * time.Second, Transport: &http.Transport{
-		TLSClientConfig:   &tls.Config{ServerName: "sub.example.com", InsecureSkipVerify: true},
+		TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
 		DisableKeepAlives: true,
 		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 			c, err := (&net.Dialer{}).DialContext(ctx, "tcp", ln.Addr().String())
