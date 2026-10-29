@@ -1029,6 +1029,9 @@
       "restore_unpack_failed": "Could not unpack the archive",
       "restore_check_failed": "The archive does not look like a panel database dump",
       "restore_failed": "The restore failed",
+      "transport_self": "A node cannot be its own transport",
+      "transport_unknown": "No such node",
+      "transport_cycle": "That node already goes through this one: pick another",
       "restart_failed": "The archive is ready, but the panel could not be asked to restart"
     },
     "acme": {
@@ -3339,6 +3342,11 @@
     "emergencyHint": "Ended subscriptions see its servers alone: Telegram keeps working while the buyer finds the bot",
     "emergencySpeed": "Speed for ended",
     "emergencySpeedHint": "Mbit/s on this node; empty — no cap",
+    "transport": "Through a node",
+    "transportHint": "When the panel's own path to the node does not answer (the panel in one country, the node in another), the panel reaches it through another node. \"Itself\" is the first healthy node the panel reaches directly; another one can be chosen here",
+    "transportAuto": "Itself (the first node it reaches)",
+    "transportVia": "The direct path does not answer: the panel goes through the node \"{name}\"",
+    "transportBothFail": "The direct path does not answer, and through the node \"{name}\" it did not work either: {error}",
     "emergencySpeedErr": "1 to 10000 Mbit/s"
   },
   "telegram": {

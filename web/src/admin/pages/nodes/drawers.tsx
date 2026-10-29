@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Copy, KeyRound } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { api, unwrap, type Schemas } from "../../../api/client";
-import { qk, useSpeedTests } from "../../../api/hooks";
+import { qk, useNodes, useSpeedTests } from "../../../api/hooks";
 import { Drawer, DrawerFooter } from "../../../components/overlay";
 import { Disclosure } from "../../../components/layout";
 import { Switch, SwitchRow } from "../../../components/switch";
@@ -15,6 +15,7 @@ import { onFormError } from "../../../lib/fields";
 import { nodeLabel } from "../../../lib/node-label";
 import { JoinProgress, type FixActions } from "../node-check";
 import type { Node } from "../nodes";
+import { TransportLine } from "./card";
 import { BalanceFields, balanceKey, useBalance } from "../nodes-balance";
 
 export type Joined = { id: number; name: string; key: string; command: string };
@@ -126,7 +127,8 @@ export function KeyDrawer({ joined, onClose, actions }: { joined: Joined | null;
 export function EditNodeDrawer({ node, onClose }: { node: Node | null; onClose: () => void }) {
   const qc = useQueryClient();
   const toast = useToast();
-  const [form, setForm] = useState({ name: "", public_name: "", host: "", domain: "", enabled: true, fair_share: false, channel: "", group: "", capacity: "", http_redirect: false, sni_router: false, auto_include: true, front_page: "", api_lockdown: false, api_allow: "", emergency: false, emergency_speed: "" });
+  const nodes = useNodes();
+  const [form, setForm] = useState({ name: "", public_name: "", host: "", domain: "", enabled: true, fair_share: false, channel: "", group: "", capacity: "", http_redirect: false, sni_router: false, auto_include: true, front_page: "", api_lockdown: false, api_allow: "", transport_id: 0, emergency: false, emergency_speed: "" });
   const balance = useBalance();
   const [errors, setErrors] = useState<Record<string, string>>({});
   useEffect(() => {
@@ -134,7 +136,7 @@ export function EditNodeDrawer({ node, onClose }: { node: Node | null; onClose: 
       // The server as it was given, not the address for clients (its domain when it has one):
       // the field saves the server.
       setForm({ name: node.name, public_name: node.public_name, host: node.server_host, domain: node.domain, enabled: node.enabled, fair_share: node.fair_share, channel: node.channel_mbps != null ? String(node.channel_mbps) : "",
-        group: node.balance_group, capacity: node.capacity != null ? String(node.capacity) : "", http_redirect: node.http_redirect, sni_router: node.sni_router, auto_include: node.auto_include, front_page: node.front_page, api_lockdown: node.api_lockdown, api_allow: node.api_allow.join(", "), emergency: node.emergency, emergency_speed: node.emergency_speed != null ? String(node.emergency_speed) : "" });
+        group: node.balance_group, capacity: node.capacity != null ? String(node.capacity) : "", http_redirect: node.http_redirect, sni_router: node.sni_router, auto_include: node.auto_include, front_page: node.front_page, api_lockdown: node.api_lockdown, api_allow: node.api_allow.join(", "), transport_id: node.transport_id, emergency: node.emergency, emergency_speed: node.emergency_speed != null ? String(node.emergency_speed) : "" });
       setErrors({});
     }
   }, [node]);
@@ -186,6 +188,7 @@ export function EditNodeDrawer({ node, onClose }: { node: Node | null; onClose: 
       }
       body.api_lockdown = form.api_lockdown;
       body.api_allow = allow;
+      body.transport_id = form.transport_id;
     }
     body.emergency = form.emergency;
     if (form.emergency) {
@@ -360,7 +363,31 @@ export function EditNodeDrawer({ node, onClose }: { node: Node | null; onClose: 
             ) : null}
           </div>
         ) : null}
-        <BalanceFields
+        {node && !node.local ? (
+          <div className="dr-sec">
+            <Field label={t("nodes.transport")} htmlFor="e-transport" hint={t("nodes.transportHint")} error={errors.transport_id}>
+              <select
+                id="e-transport"
+                className="input max-w-[340px]"
+                value={form.transport_id}
+                onChange={(e) => {
+                  setForm((f) => ({ ...f, transport_id: Number(e.target.value) }));
+                  setErrors(({ transport_id: _, ...rest }) => rest);
+                }}
+              >
+                <option value={0}>{t("nodes.transportAuto")}</option>
+                {(nodes.data ?? [])
+                  .filter((x) => x.id !== node.id)
+                  .map((x) => (
+                    <option key={x.id} value={x.id}>
+                      {nodeLabel(x)}
+                    </option>
+                  ))}
+              </select>
+            </Field>
+            <TransportLine n={node} />
+          </div>
+        ) : null}        <BalanceFields
           group={form.group}
           capacity={form.capacity}
           onGroup={(group) => {

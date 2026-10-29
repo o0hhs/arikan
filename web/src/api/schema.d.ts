@@ -6569,6 +6569,13 @@ export interface components {
              * @description Сколько унесла нода за последние сутки (вверх и вниз вместе), байты; у только что добавленной ноды 0
              */
             traffic_24h: number;
+            /** @description Как прошёл последний контакт: свой путь не отвечает, идёт через другую ноду */
+            transport?: components["schemas"]["NodeTransportView"];
+            /**
+             * Format: int64
+             * @description Нода-транспорт: через неё панель ходит к этой ноде, когда свой путь не отвечает; 0 — панель выбирает сама
+             */
+            transport_id: number;
             /** @description Как идёт или прошло обновление ноды */
             update?: components["schemas"]["UpdateStatus"];
             /**
@@ -6682,6 +6689,24 @@ export interface components {
             t: string;
             /** Format: int64 */
             up: number;
+        };
+        NodeTransportView: {
+            /** @description Слова ошибки своего пути */
+            direct_error?: string;
+            /**
+             * @description Почему свой путь к ноде не отвечает
+             * @enum {string}
+             */
+            direct_error_code?: "timeout" | "refused" | "unreachable" | "dns" | "pin_mismatch" | "tls" | "http_status" | "unknown";
+            /** @description Почему не вышло и через транспорт */
+            error?: string;
+            /**
+             * Format: int64
+             * @description Нода, через которую панель ходит к этой
+             */
+            id: number;
+            /** @description Её имя */
+            name: string;
         };
         NodeView: {
             /** Format: date-time */
@@ -7173,6 +7198,11 @@ export interface components {
             public_name?: string;
             /** @description SNI-роутер на 443: подключения с отметкой «через общий 443» слушают на loopback за ним */
             sni_router?: boolean;
+            /**
+             * Format: int64
+             * @description Нода-транспорт: через неё панель ходит к этой ноде, когда свой путь не отвечает; 0 — панель выбирает сама (первая здоровая нода, до которой достаёт напрямую)
+             */
+            transport_id?: number;
         };
         PatchOutboundInputBody: {
             enabled?: boolean;

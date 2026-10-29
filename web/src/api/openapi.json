@@ -7168,6 +7168,15 @@
             "format": "int64",
             "type": "integer"
           },
+          "transport": {
+            "$ref": "#/components/schemas/NodeTransportView",
+            "description": "Как прошёл последний контакт: свой путь не отвечает, идёт через другую ноду"
+          },
+          "transport_id": {
+            "description": "Нода-транспорт: через неё панель ходит к этой ноде, когда свой путь не отвечает; 0 — панель выбирает сама",
+            "format": "int64",
+            "type": "integer"
+          },
           "update": {
             "$ref": "#/components/schemas/UpdateStatus",
             "description": "Как идёт или прошло обновление ноды"
@@ -7212,6 +7221,7 @@
           "front_page",
           "api_lockdown",
           "api_allow",
+          "transport_id",
           "capacity",
           "channel_mbps",
           "emergency"
@@ -7477,6 +7487,47 @@
           "down",
           "cascade_up",
           "cascade_down"
+        ],
+        "type": "object"
+      },
+      "NodeTransportView": {
+        "additionalProperties": false,
+        "properties": {
+          "direct_error": {
+            "description": "Слова ошибки своего пути",
+            "type": "string"
+          },
+          "direct_error_code": {
+            "description": "Почему свой путь к ноде не отвечает",
+            "enum": [
+              "timeout",
+              "refused",
+              "unreachable",
+              "dns",
+              "pin_mismatch",
+              "tls",
+              "http_status",
+              "unknown"
+            ],
+            "type": "string"
+          },
+          "error": {
+            "description": "Почему не вышло и через транспорт",
+            "type": "string"
+          },
+          "id": {
+            "description": "Нода, через которую панель ходит к этой",
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "description": "Её имя",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
         ],
         "type": "object"
       },
@@ -8845,6 +8896,12 @@
           "sni_router": {
             "description": "SNI-роутер на 443: подключения с отметкой «через общий 443» слушают на loopback за ним",
             "type": "boolean"
+          },
+          "transport_id": {
+            "description": "Нода-транспорт: через неё панель ходит к этой ноде, когда свой путь не отвечает; 0 — панель выбирает сама (первая здоровая нода, до которой достаёт напрямую)",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
           }
         },
         "type": "object"

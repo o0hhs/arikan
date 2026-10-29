@@ -123,6 +123,7 @@ export function NodeCard({
         </div>
       ) : null}
       <HelloLine n={n} actions={{ edit: onEdit }} />
+      <TransportLine n={n} />
       <dl className="mt-4 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-x-4 gap-y-3 text-[13px] [&>div]:min-w-0">
         <div>
           <dt className="text-xs text-[var(--ink-500)]">{t("nodes.protocols")}</dt>
@@ -280,6 +281,21 @@ function CascadeConnsLine({ cascade }: { cascade: Node["cascade"] }) {
       {t("nodes.cascadeConns", { n: num(sum) })}
       <span className="sr-only">. {t("nodes.cascadeFrom", { from })}</span>
     </dd>
+  );
+}
+
+/** How the panel reaches a node it cannot reach itself: through another node of the panel,
+ * which carries the stream (the node still sees the panel's own certificate). */
+export function TransportLine({ n }: { n: Node }) {
+  const nodes = useNodes();
+  const tr = n.transport;
+  if (!tr || n.local) return null;
+  const via = nodes.data?.find((x) => x.id === tr.id);
+  const name = via ? nodeLabel(via) : tr.name || `#${tr.id}`;
+  return (
+    <p className="mt-2 text-xs text-[var(--md-on-surface-variant)]" role="status" title={tr.direct_error || undefined}>
+      {tr.error ? t("nodes.transportBothFail", { name, error: tr.error }) : t("nodes.transportVia", { name })}
+    </p>
   );
 }
 
