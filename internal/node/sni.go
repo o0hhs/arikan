@@ -45,6 +45,10 @@ type sniRouter struct {
 	def    string            // backend for any other name; "": closed
 	stub   map[string]bool   // names that get the front page instead ("": no name)
 	front  *frontPage        // the node's front page; nil: none
+	// subs are the names of the subscription domain: their connections go to the
+	// subscription server before any inbound, front page or default.
+	subs   map[string]bool
+	subsrv *subServer // nil: no subscription server
 	wg     sync.WaitGroup
 	err    error
 }
@@ -92,11 +96,12 @@ func (r *sniRouter) stubbed(name string) bool {
 	return r.stub[n] || r.def == "" && len(r.stub) > 0
 }
 
-// set replaces the routes: names to inbound ports on loopback, by the ports the inbounds run,
-// and names to a web server on loopback (the panel's listener). A web name an inbound route
-// already takes is no web route: the inbound wins, and the whole route is dropped with a log
-// line rather than guessed at.
-func (r *sniRouter) set(rt *nodeapi.SNIRouter, ports map[string]string) {
+// set replaces the routes: names to inbound ports on loopback, by the ports the inbounds run;
+// names to a web server on loopback (the panel's listener); and the subscription domain's
+// names, handed to the node's own subscription server before any of them. A web name an
+// inbound route already takes is no web route: the inbound wins, and the whole route is
+// dropped with a log line rather than guessed at.
+func (r *sniRouter) set(rt *nodeapi.SNIRouter, ports map[string]string, subs map[string]bool) {
 	routes := map[string]string{}
 	for _, x := range rt.Routes {
 		p, ok := ports[x.Inbound]
@@ -139,8 +144,19 @@ func (r *sniRouter) set(rt *nodeapi.SNIRouter, ports map[string]string) {
 	}
 	r.mu.Lock()
 	r.routes, r.def = routes, def
-	r.web, r.stub = web, stub
+	r.web, r.stub, r.subs = web, stub, subs
 	r.mu.Unlock()
+}
+
+// servesSub says whether name is the subscription domain's: it answers from the store
+// before any inbound, the front page or the default gets the connection.
+func (r *sniRouter) servesSub(name string) bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if r.subsrv == nil {
+		return false
+	}
+	return r.subs[strings.ToLower(strings.TrimSuffix(name, "."))]
 }
 
 func (r *sniRouter) serve(admit func(netip.Addr) bool) {
@@ -168,6 +184,10 @@ func (r *sniRouter) handle(c net.Conn, admit func(netip.Addr) bool) {
 		return
 	}
 	hello, name := readHello(c)
+	if r.servesSub(name) {
+		r.subsrv.take(c, hello)
+		return
+	}
 	if r.stubbed(name) {
 		r.front.take(c, hello)
 		return
@@ -281,8 +301,9 @@ func (r *sniRouter) close() {
 }
 
 // setRouter starts, changes or stops the router as the state says. ports are the inbounds'
-// ports as rendered. An error to bind is kept for Health and tried again at the next Apply.
-func (e *Engine) setRouter(rt *nodeapi.SNIRouter, ports map[string]string) {
+// ports as rendered, subs the names of the subscription domain (nil: none). An error to bind
+// is kept for Health and tried again at the next Apply.
+func (e *Engine) setRouter(rt *nodeapi.SNIRouter, ports map[string]string, subs map[string]bool) {
 	e.routerMu.Lock()
 	defer e.routerMu.Unlock()
 	if rt == nil {
@@ -298,7 +319,7 @@ func (e *Engine) setRouter(rt *nodeapi.SNIRouter, ports map[string]string) {
 		listen = ":443"
 	}
 	if e.router != nil && e.router.ln.Addr().String() != "" && e.routerAddr == listen {
-		e.router.set(rt, ports)
+		e.router.set(rt, ports, subs)
 		return
 	}
 	if e.router != nil {
@@ -311,8 +332,9 @@ func (e *Engine) setRouter(rt *nodeapi.SNIRouter, ports map[string]string) {
 		e.log.Warn("sni router", "listen", listen, "err", err)
 		return
 	}
-	r := &sniRouter{ln: ln, log: e.log, front: e.front}
-	r.set(rt, ports)
+	subsrv := e.subs
+	r := &sniRouter{ln: ln, log: e.log, front: e.front, subsrv: subsrv}
+	r.set(rt, ports, subs)
 	e.router, e.routerAddr = r, listen
 	e.routerStatus.Store(&nodeapi.PortStatus{OK: true})
 	go r.serve(e.Reg.admitFrom)

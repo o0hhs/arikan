@@ -34,7 +34,11 @@ const (
 	// its own certificate (acme.NewSub), the panel's address keeps serving the links handed
 	// out before. Empty: the links are on the panel's address.
 	KeySubDomain = "sub_domain"
-	KeyACMEEmail = "acme_email"
+	// KeySubsFromNodes is the nodes that answer subscription links themselves (subs.FromNodes:
+	// {enabled, nodes}), from the profiles the panel renders and pushes to them; unset: the
+	// panel alone answers. The link's host stays the subscription domain's (KeySubDomain).
+	KeySubsFromNodes = "subs_from_nodes"
+	KeyACMEEmail     = "acme_email"
 	// KeyACMECA is the certificate authority of the panel and its nodes (acme.ValidCA);
 	// unset: Let's Encrypt. KeyACMEEABKID and KeyACMEEABHMAC are Google Trust Services'
 	// external account key; the HMAC is a secret and never shown back.

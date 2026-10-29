@@ -1,0 +1,49 @@
+---
+title: Subscriptions from nodes
+description: 'A node answers the subscription link instead of the panel: the panel keeps the profiles up to date, the nodes keep them and serve them even when the panel is unreachable.'
+---
+
+import { Steps } from '@astrojs/starlight/components';
+
+Usually the panel serves the subscription link: the client comes to the panel's address and the panel renders the profile. When the panel's server is blocked or down, subscription updates break for clients — and renewals with them.
+
+With this setting the nodes serve the profiles. The panel renders each profile once and sends the finished files to the chosen nodes; a node keeps them and answers on the same subscription address. The panel is only needed to refresh the data and change settings — clients no longer talk to it.
+
+## What you need
+
+- **A subscription domain** ([A domain for subscriptions](/subscriptions/domain/)): the link stays on it, only who answers it changes.
+- **A node** of 0.5.2.x or newer, with the SNI router on 443 or its own page on 443 ([Sharing 443](/nodes/shared-443/)). If 443 belongs to one protocol with no router, the node cannot answer — the card says so.
+- **DNS**: the subscription domain's A record must point at the chosen nodes (not at the panel).
+
+## Turn it on
+
+<Steps>
+
+1. **Settings → Subscription → Serve subscriptions from nodes**: switch it on.
+
+2. Tick the nodes that will answer. There may be several — then let DNS spread the subscription domain over them (several A records or round-robin); each gets the same set of profiles.
+
+3. Point the subscription domain at those nodes. The panel shows, for each node, when it last sent it data and whether it answers the links.
+
+</Steps>
+
+Within a minute the nodes answer the links already handed out. The links themselves do not change: same domain, same path.
+
+## How it works
+
+- The panel sends the node finished profile bodies in every format (share links, Clash, sing-box, the page a browser gets) and the headers with traffic and term. The node renders nothing and looks nobody up: a path it was never given gets 404.
+- A full reconcile runs every 15 minutes, and changes (a block, a tariff or term change, a deletion) arrive within a minute. Whatever is not in the new reconcile, the node deletes.
+- A record lives until the subscription's end, or 30 days without a term: a panel gone for good does not hand out working profiles for ever. An expired record answers `410 Gone`, so the app says the subscription has ended instead of failing quietly.
+- While the panel is unreachable the nodes keep serving the last data: the subscription keeps updating, and it can be renewed through the bot or the subscription page once the panel is back.
+
+## Security
+
+- The subscription path is an access token. The nodes and the panel keep it out of logs: only counters and hashes.
+- The profile files live on the node in `subs/` of its data directory, mode 0600: only the node's process reads them.
+- A node serves exactly what it was given and nothing about other subscribers: the node's public page and the monitoring page say not a word about subscriptions.
+
+## Limitations
+
+- **Device binding**: the nodes get the subscriber's own keys (no separate key per device). The device limit still holds by addresses, but blocking or unbinding one device needs the panel reachable.
+- **Setting changes** (protocols, routing, tariffs) go through the panel: the nodes get the new profiles at the next reconcile.
+- A node without the SNI router and without its own page on 443 cannot answer — turn the router on ([Sharing 443](/nodes/shared-443/)).

@@ -124,6 +124,7 @@ The official mikan lives at [Miroshka000/mikan](https://github.com/Miroshka000/m
 - **S3 backups and restore from the panel** (Settings → System): an encrypted dump on a schedule to an S3-compatible bucket, retention, history, a manual run, and restore with a fresh pre-restore backup and a second admin's approval.
 - **Client diagnosis** (a client's card → «Check connection»): term, traffic, devices, plan, available protocols, nodes and the subscription link itself — with the reason and a fix button. The check only reads and changes nothing.
 - **The client's card tells more**: «Ноды и протоколы» names the node behind each protocol with the usage of the last hour; the card is as wide as the users list, sorts, and carries an «Open in Telegram» button.
+- **Subscriptions from nodes**: the chosen nodes answer the subscription links themselves from the profiles the panel renders and pushes to them — a link keeps working while the panel's server is blocked or down. A record lives until the subscription's own end (or 30 days without a term), an expired one answers `410` in words a subscriber can act on, and a revoked one is gone within a minute.
 
 ### Nodes, network and blocking
 

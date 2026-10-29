@@ -172,7 +172,7 @@ func Serve(ctx context.Context, cfg config.Config, version string, web fs.FS) er
 		if err != nil {
 			return nodesync.Target{}, err
 		}
-		return nodesync.Target{Node: c, TLS: opts.TLS.Source(n), Local: n.Address == "", Address: n.Address,
+		return nodesync.Target{Node: c, TLS: opts.TLS.Source(n), SubsTLS: subsTLSSource(opts.SubCerts), Local: n.Address == "", Address: n.Address,
 			Tunnel: func() (nodesync.TunnelView, bool) { return tunnels.View(n.ID) }}, nil
 	}
 	var panelTLS *tls.Config
@@ -240,7 +240,8 @@ func Serve(ctx context.Context, cfg config.Config, version string, web fs.FS) er
 		return err
 	}
 	// A certificate issued, renewed or uploaded later goes to the nodes at once: they get it
-	// only with their state, which is sent again on a change.
+	// only with their state, which is sent again on a change. The subscription domain's
+	// certificate is the nodes' answers' own, so it moves their state too.
 	if certs != nil && p.Nodes != nil {
 		certs.OnChange(p.Nodes.SlotsChanged)
 		nodesACME.OnChange(func(id int64) {
@@ -248,6 +249,9 @@ func Serve(ctx context.Context, cfg config.Config, version string, web fs.FS) er
 				s.SlotsChanged()
 			}
 		})
+		if subCerts != nil {
+			subCerts.OnChange(p.Nodes.SlotsChanged)
+		}
 	}
 	paths, err := p.Apply(ctx)
 	if err != nil {
@@ -442,6 +446,26 @@ func nodeClient(cfg config.Config, n db.Node, tn *tunnels) (*nodeapi.Client, err
 		return d.DialContext(ctx, "tcp", n.Address)
 	}
 	return nodeapi.NewDialClient(n.Address, tc, dial), nil
+}
+
+// subsTLSSource is the certificate the nodes that answer subscription links present: the
+// subscription domain's own (acme.NewSub), which is not the node's. nil in development, and
+// while the domain's certificate is not issued yet: the node then presents its own.
+func subsTLSSource(m *acme.Manager) nodesync.SubsTLSSource {
+	if m == nil {
+		return nil
+	}
+	return func() (*nodeapi.TLSFiles, error) {
+		cert := m.Public()
+		if cert == nil {
+			return nil, nil
+		}
+		certPEM, keyPEM, err := tlscert.CustomPEM(cert)
+		if err != nil {
+			return nil, err
+		}
+		return &nodeapi.TLSFiles{CertPEM: certPEM, KeyPEM: keyPEM}, nil
+	}
 }
 
 // Internet scanners produce a constant stream of failed TLS handshakes; they are not actionable.

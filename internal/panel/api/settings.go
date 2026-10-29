@@ -48,14 +48,18 @@ type SettingsView struct {
 	PanelPort      int          `json:"panel_port"`
 	SubPort        int          `json:"sub_port" doc:"Отдельный порт подписок; 0 — порт панели. 443 — через общий 443 ноды (SNI-роутер), ссылки без порта. Порт панели отдаёт подписки в любом случае"`
 	SubPortError   string       `json:"sub_port_error,omitempty" doc:"sub_port_busy — сохранённый порт занят на сервере, подписки пока идут через порт панели"`
-	QuietHourUTC   int          `json:"quiet_hour_utc" doc:"Час (UTC), когда пополняется пул слотов: переподключение QUIC-клиентов"`
-	AdminURL       string       `json:"admin_url"`
-	SubBaseURL     string       `json:"sub_base_url"`
-	SubGroupMain   string       `json:"sub_group_main" doc:"Главная группа в Clash-приложениях"`
-	SubGroupAuto   string       `json:"sub_group_auto" doc:"Группа автовыбора самого быстрого подключения"`
-	SubRules       string       `json:"sub_rules" doc:"Свои правила Clash: по строке TYPE,VALUE,TARGET[,no-resolve]; # — комментарий"`
-	RuleTargets    []string     `json:"rule_targets" doc:"Куда правило может направить трафик: DIRECT, REJECT, REJECT-DROP, PROXY и группы"`
-	SubRouting     string       `json:"sub_routing" enum:"ru_direct,all,blocked" doc:"Маршруты в Clash-приложениях: ru_direct — российские сайты и IP напрямую по геобазам mihomo, all — всё через VPN, blocked — через VPN только заблокированное (списки privWL-clash), остальное напрямую"`
+	// SubsFromNodes: the nodes that answer the links themselves; SubNodes is how each one
+	// is doing it.
+	SubsFromNodes subs.FromNodes `json:"subs_from_nodes" doc:"Отдавать подписку с нод: выбранные ноды сами отвечают по ссылкам подписки профилями, которые панель им присылает, — ссылки работают, когда панель недоступна. Домен ссылки остаётся доменом подписки (sub_domain): направьте его на эти ноды"`
+	SubNodes      []SubNodeView  `json:"sub_nodes,omitempty" doc:"Выбранные ноды: когда каждая последний раз получала подписки и отвечает ли по ссылкам"`
+	QuietHourUTC  int            `json:"quiet_hour_utc" doc:"Час (UTC), когда пополняется пул слотов: переподключение QUIC-клиентов"`
+	AdminURL      string         `json:"admin_url"`
+	SubBaseURL    string         `json:"sub_base_url"`
+	SubGroupMain  string         `json:"sub_group_main" doc:"Главная группа в Clash-приложениях"`
+	SubGroupAuto  string         `json:"sub_group_auto" doc:"Группа автовыбора самого быстрого подключения"`
+	SubRules      string         `json:"sub_rules" doc:"Свои правила Clash: по строке TYPE,VALUE,TARGET[,no-resolve]; # — комментарий"`
+	RuleTargets   []string       `json:"rule_targets" doc:"Куда правило может направить трафик: DIRECT, REJECT, REJECT-DROP, PROXY и группы"`
+	SubRouting    string         `json:"sub_routing" enum:"ru_direct,all,blocked" doc:"Маршруты в Clash-приложениях: ru_direct — российские сайты и IP напрямую по геобазам mihomo, all — всё через VPN, blocked — через VPN только заблокированное (списки privWL-clash), остальное напрямую"`
 	// ProtocolOrder is the admin's order of protocol families in a subscription; MTProto
 	// the proxies for Telegram itself.
 	ProtocolOrder []string       `json:"protocol_order" doc:"Порядок семейств протоколов в подписке, например vless, hysteria2, shadowsocks: внутри ноды подключения идут в нём; не названные — после них, как были"`
@@ -123,6 +127,7 @@ type patchSettingsBody = struct {
 	PublicHost     *string              `json:"public_host,omitempty" maxLength:"253"`
 	Domain         *string              `json:"domain,omitempty" maxLength:"253"`
 	SubDomain      *string              `json:"sub_domain,omitempty" maxLength:"253" doc:"Домен для ссылок подписки, отдельный от домена панели; пусто — убрать. Старые ссылки продолжают работать"`
+	SubsFromNodes  *subs.FromNodes      `json:"subs_from_nodes,omitempty" doc:"Отдавать подписку с нод: {enabled, nodes: [id]}; домен ссылки — sub_domain"`
 	QuietHourUTC   *int                 `json:"quiet_hour_utc,omitempty" minimum:"0" maximum:"23"`
 	SubGroupMain   *string              `json:"sub_group_main,omitempty" maxLength:"200"`
 	SubGroupAuto   *string              `json:"sub_group_auto,omitempty" maxLength:"200"`
@@ -230,6 +235,12 @@ func (h *handlers) readSettings(ctx context.Context) (SettingsView, error) {
 	}
 	if err == nil {
 		v.MTProto, _, err = settings.Get[[]subs.MTProxy](ctx, h.d.Settings, settings.KeyMTProto)
+	}
+	if err == nil {
+		v.SubsFromNodes, _, err = settings.Get[subs.FromNodes](ctx, h.d.Settings, settings.KeySubsFromNodes)
+	}
+	if err == nil {
+		v.SubNodes, err = h.subNodes(ctx, v.SubsFromNodes)
 	}
 	// An own profile may hold the admin's own proxies, a controller secret or DNS tokens;
 	// an MTProto proxy's secret is the key that lets its users in. A reader that may not
@@ -551,6 +562,40 @@ func (h *handlers) updateSettings(ctx context.Context, in *patchSettingsInput) (
 			details = append(details, fieldDetail("body.sub_routes", err.Error(), nil))
 		}
 	}
+	if b.SubsFromNodes != nil {
+		exists := func(id int64) bool {
+			_, err := h.d.Store.Q.GetNode(ctx, id)
+			return err == nil
+		}
+		if err := b.SubsFromNodes.Check(exists); err != nil {
+			details = append(details, fieldDetail("body.subs_from_nodes", err.Error(), nil))
+		} else if b.SubsFromNodes.Enabled {
+			// A node answers on its public 443, and the link has to point there: a
+			// subscription domain of its own and sub_port = 443 (the node's SNI router,
+			// app.SubPortRouter). Anything else builds links to the panel's own port,
+			// which the nodes do not serve.
+			subDom, err := h.d.Settings.String(ctx, settings.KeySubDomain)
+			if err != nil {
+				return nil, err
+			}
+			if b.SubDomain != nil {
+				subDom = strings.TrimSpace(*b.SubDomain)
+			}
+			subPort, _, err := settings.Get[int](ctx, h.d.Settings, settings.KeySubPort)
+			if err != nil {
+				return nil, err
+			}
+			if b.SubPort != nil {
+				subPort = *b.SubPort
+			}
+			if subDom == "" {
+				details = append(details, fieldDetail("body.subs_from_nodes", "subs_nodes_domain", nil))
+			}
+			if subPort != 443 {
+				details = append(details, fieldDetail("body.subs_from_nodes", "subs_nodes_port", subPort))
+			}
+		}
+	}
 	if b.SubTemplate != nil && strings.TrimSpace(*b.SubTemplate) != "" && h.d.CheckTemplate != nil {
 		err := h.d.CheckTemplate(ctx, *b.SubTemplate)
 		var te *subs.TemplateError
@@ -643,6 +688,17 @@ func (h *handlers) updateSettings(ctx context.Context, in *patchSettingsInput) (
 	// The domain is served at once: its requests, its certificate, ordered now.
 	if b.SubDomain != nil && h.d.SubDomain != nil {
 		h.d.SubDomain(strings.TrimSpace(*b.SubDomain))
+	}
+	// The nodes' subscription answers follow at once: their state carries the names and the
+	// domain's certificate, and every setting may change what a profile says, so the records
+	// go out again too (the push is coalesced with the others).
+	if b.SubsFromNodes != nil || b.SubDomain != nil {
+		if h.d.Changes != nil {
+			h.d.Changes.SlotsChanged()
+		}
+	}
+	if h.d.Changes != nil {
+		h.d.Changes.PoliciesChanged()
 	}
 	// The bot's Mini App button points at the subscription page.
 	if (b.SubPort != nil || b.SubDomain != nil) && h.d.Gateway != nil {

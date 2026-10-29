@@ -448,6 +448,10 @@
     "pageNotFoundText": "The address is wrong or the page has moved.",
     "toOverview": "To the overview",
     "api": {
+    "subs_nodes_many": "Too many nodes: at most 8 serve a subscription",
+    "subs_node_unknown": "No such node",
+    "subs_nodes_domain": "A subscription served by nodes needs a subscription domain: point that name at the nodes, the link's host is it",
+    "subs_nodes_port": "A subscription served by nodes opens on 443 without a port: set the subscription port to 443 first",
     "port_range_wide": "The port range is too wide: the node listens on every port of it and eats memory. Use one port or a range of at most 256",
     "webhook_url_invalid": "The webhook address must be https:// without a login",
     "webhook_secret_invalid": "The secret key is 8 to 200 characters",
@@ -2400,6 +2404,27 @@
     },
     "subDomainHint": "sub.example.com, pointed at the panel or at a proxy of yours in front of it. Empty: links carry the panel's address.",
     "subDomainNote": "Links on that domain have no secret path in them, and the panel's certificate takes the name too. The panel moved — update the DNS, the links stay.",
+    "subNodes": {
+      "title": "Serve subscriptions from nodes",
+      "sub": "The subscription stays on its own domain and a node answers it: the chosen nodes keep the profiles the panel sends them, so links work even when the panel is unreachable",
+      "on": "Serve from nodes",
+      "onSub": "The chosen nodes answer the subscription links themselves; the panel keeps their data fresh",
+      "offSub": "Only the panel answers the subscription links",
+      "needDomain": "Set a subscription domain first and point it at the chosen nodes",
+      "serving": "serving",
+      "notServing": "not serving — {reason}",
+      "lastPush": "data received {ago}",
+      "never": "no data yet",
+      "records": "{n} subscriptions, {size}",
+      "sendFailed": "the last send failed",
+      "binding": "Device binding is on: the nodes get the subscriber's own keys, not a separate key for each device. The device limit still holds by addresses, but blocking or unbinding one device needs the panel reachable.",
+      "reason": {
+        "off": "the node has not got the setting — update it",
+        "port": "443 belongs to a protocol and the SNI router is off",
+        "cert": "the node has no certificate for the subscription domain",
+        "waking": "the node has not reported yet"
+      }
+    },
     "subPort": "Subscription port",
     "subPortSub": "Subscriptions and the subscription page on a port of their own. 443 or 2053 look like any website, and the admin panel's port stops showing in links.",
     "subPortOn": "port {port}",

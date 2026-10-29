@@ -67,6 +67,9 @@ type DesiredState struct {
 	// same rule; both lift by themselves after APILockStale without the panel. Nodes older
 	// than it ignore it.
 	APIAllow []string `json:"api_allow,omitzero"`
+	// Subs is the node answering subscription links on its 443 from the records the panel
+	// hands it (PUT /v1/subs); nil: it does not. Nodes older than it ignore the field.
+	Subs *SubsServer `json:"subs,omitempty"`
 	// InboundAPI: false tells the node not to listen on its API port at all — the panel reaches
 	// it over the node's reverse tunnel (TunnelPath) alone. nil is on, as every node was before
 	// the field, so a panel older than it can never close a node's port. Nodes older than it
@@ -306,6 +309,9 @@ type Health struct {
 	// panel while its uplink or DNS is down serves nobody, and that must not look like a
 	// healthy node. nil: not checked (older nodes, or the first seconds after the start).
 	Egress *EgressStatus `json:"egress,omitempty"`
+	// Subs is the subscription store: what it keeps and whether the node answers links on
+	// its 443. nil on nodes older than it.
+	Subs *SubsStatus `json:"subs,omitempty"`
 	// InboundAPI is the node's own API port: On while it listens, and nil on a node older than
 	// the field. A node the panel keeps on its reverse tunnel alone says Off, so the Nodes page
 	// can explain a refused direct port instead of calling the node down.

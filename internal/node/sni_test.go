@@ -107,7 +107,7 @@ func TestSNIRouter(t *testing.T) {
 	}
 	r := &sniRouter{ln: ln, log: slog.New(slog.DiscardHandler)}
 	r.set(&nodeapi.SNIRouter{Routes: []nodeapi.SNIRoute{{Inbound: "a", Names: []string{"A.example.com."}}}, Default: "b"},
-		map[string]string{"a": aPort, "b": bPort})
+		map[string]string{"a": aPort, "b": bPort}, nil)
 	go r.serve(nil)
 	defer r.close()
 	c := helloTo(t, ln.Addr().String(), "a.example.com")
@@ -117,7 +117,7 @@ func TestSNIRouter(t *testing.T) {
 	hitBy(t, bHits, c, "the default inbound")
 	c.Close()
 
-	r.set(&nodeapi.SNIRouter{Routes: []nodeapi.SNIRoute{{Inbound: "a", Names: []string{"a.example.com"}}}}, map[string]string{"a": aPort})
+	r.set(&nodeapi.SNIRouter{Routes: []nodeapi.SNIRoute{{Inbound: "a", Names: []string{"a.example.com"}}}}, map[string]string{"a": aPort}, nil)
 	plain, err := net.Dial("tcp", ln.Addr().String())
 	if err != nil {
 		t.Fatal(err)
@@ -180,7 +180,7 @@ func TestFrontPageOnTheRouter(t *testing.T) {
 	}
 	r := &sniRouter{ln: ln, log: slog.New(slog.DiscardHandler), front: front}
 	r.set(&nodeapi.SNIRouter{Routes: []nodeapi.SNIRoute{{Inbound: "a", Names: []string{"a.example.com"}}}, Default: "a", Stub: []string{"node.example.com", ""}},
-		map[string]string{"a": aPort})
+		map[string]string{"a": aPort}, nil)
 	go r.serve(nil)
 	defer r.close()
 
@@ -258,7 +258,7 @@ func TestSNIRouterWebRoute(t *testing.T) {
 		t.Fatal(err)
 	}
 	r := &sniRouter{ln: ln, log: slog.New(slog.NewTextHandler(&logs, nil))}
-	r.set(&nodeapi.SNIRouter{Web: []nodeapi.WebRoute{{Names: []string{"Sub.Example.com."}, Port: web.Port()}}}, nil)
+	r.set(&nodeapi.SNIRouter{Web: []nodeapi.WebRoute{{Names: []string{"Sub.Example.com."}, Port: web.Port()}}}, nil, nil)
 	go r.serve(nil)
 	defer r.close()
 
@@ -303,7 +303,7 @@ func TestSNIRouterWebRoute(t *testing.T) {
 	r.set(&nodeapi.SNIRouter{
 		Routes: []nodeapi.SNIRoute{{Inbound: "panel", Names: []string{"sub.example.com"}}},
 		Web:    []nodeapi.WebRoute{{Names: []string{"sub.example.com"}, Port: web.Port()}},
-	}, map[string]string{"panel": backPort})
+	}, map[string]string{"panel": backPort}, nil)
 	if !strings.Contains(logs.String(), "web route rejected") {
 		t.Fatalf("no log line about the rejected route: %q", logs.String())
 	}
