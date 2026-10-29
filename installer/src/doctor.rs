@@ -219,8 +219,14 @@ fn gather(install: &Install, report: &mut Report) {
     let engine = docker::version();
     report.add([docker_item(engine.as_deref())]);
     if engine.is_some() {
-        report.add(containers(docker::services().map_err(|e| format!("{e:#}"))));
+        let services = docker::services();
+        report.add(containers(services.clone().map_err(|e| format!("{e:#}"))));
+        if let Ok(list) = &services {
+            report.add(role_items(install, list));
+            report.add(image_items(install, list));
+        }
     }
+    report.add(database_items(install));
     report.add(ports(install, engine.is_some()));
     if install.node
         && let Some(item) = site_item()
@@ -316,10 +322,113 @@ fn container(s: &Service) -> Item {
     }
 }
 
+/// The server's role as config.json has it (MIKAN_MODE) against the containers compose runs:
+/// a panel whose setting says node, or the other way, shows the wrong pages, reads the
+/// wrong update directory and opens the wrong port — the same server doing the other job.
+fn role_items(install: &Install, services: &[Service]) -> Vec<Item> {
+    let want = if install.node { "node" } else { "panel" };
+    let other = if install.node { "panel" } else { "node" };
+    let found = |name: &str| services.iter().any(|s| s.name == name);
+    if !found(want) && found(other) {
+        return vec![Item::error(
+            "Role",
+            format!("config.json says {want}, but compose runs the {other} containers: this server does the other job"),
+            "put this kind of server's compose.yaml back (arikan restart writes it from config.json), or restore the right backup",
+        )];
+    }
+    Vec::new()
+}
+
+/// The image config.json names against the one the panel's (or the node's) container was
+/// created from: a hand-edited setting or a half-done update leaves them different, and
+/// `arikan status` prints the setting's version while the old image answers.
+fn image_items(install: &Install, services: &[Service]) -> Vec<Item> {
+    let Some(want) = install.config.get("MIKAN_IMAGE") else { return Vec::new() };
+    let name = if install.node { "node" } else { "panel" };
+    let Some(s) = services.iter().find(|s| s.name == name && s.state == "running") else { return Vec::new() };
+    if s.image.is_empty() || s.image == want {
+        return Vec::new();
+    }
+    vec![Item::error(
+        "Image",
+        format!("the {name} container runs {}, config.json names {want}", s.image),
+        "arikan restart writes compose.yaml from config.json and starts the image it names",
+    )]
+}
+
+/// The database's address and password against each other. The password is the owner: the
+/// PostgreSQL volume was initialized from it, and `arikan update` makes the address follow
+/// it. A pair that disagrees keeps the panel from opening the database at all.
+fn database_items(install: &Install) -> Vec<Item> {
+    if install.node {
+        return Vec::new();
+    }
+    let password = install.config.get("MIKAN_POSTGRES_PASSWORD");
+    let Some(dsn) = install.config.get("MIKAN_DATABASE_URL") else {
+        if password.is_some() {
+            return vec![Item::error(
+                "Database address",
+                "MIKAN_DATABASE_URL is not set in config.json: the panel cannot open the database",
+                "put the address written at install back (every backup archive has it), then arikan restart",
+            )];
+        }
+        return Vec::new();
+    };
+    let Some(password) = password else {
+        return vec![Item::warn(
+            "Database password",
+            "secrets/postgres_password is missing: PostgreSQL does not start on it, and arikan update takes it back from the address",
+            "arikan update",
+        )];
+    };
+    match crate::config::dsn_password(dsn) {
+        Some(p) if p == password => Vec::new(),
+        Some(_) => vec![Item::error(
+            "Database credentials",
+            "the address carries another password than secrets/postgres_password: the panel cannot open the database",
+            "arikan update (it makes the address follow the password); if the password itself was changed by hand, put the old one back",
+        )],
+        None => vec![Item::warn(
+            "Database address",
+            "MIKAN_DATABASE_URL does not carry a password: the panel cannot open the database",
+            "put the address written at install back into config.json (every backup archive has it), then arikan restart",
+        )],
+    }
+}
+
+/// The port a node's join key makes it listen on: mikan1.<base64 of the key's JSON>.
+fn join_key_port(key: &str) -> Option<u16> {
+    use base64::Engine;
+    let body = key.trim().strip_prefix("mikan1.")?;
+    let raw = base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(body).ok()?;
+    #[derive(Deserialize)]
+    struct Key {
+        #[serde(default)]
+        port: u16,
+    }
+    serde_json::from_slice::<Key>(&raw).ok().map(|k| k.port).filter(|p| *p > 0)
+}
+
 /// The port the server answers on: a node's API port, the panel's own.
 fn ports(install: &Install, engine: bool) -> Vec<Item> {
     if install.node {
-        return vec![match install.node_port() {
+        // The node listens on the key's port; NODE_API_PORT is what the firewall and this
+        // check look at. `arikan join` writes both from the key, but a restored config or a
+        // hand edit leaves them different, and the firewall then guards a port nobody uses.
+        let configured = install.node_port();
+        let from_key = install.config.get("MIKAN_NODE_JOIN").and_then(join_key_port);
+        if let (Some(c), Some(k)) = (configured, from_key)
+            && c != k
+        {
+            return vec![Item::error(
+                "API port",
+                format!(
+                    "config.json says {c}/tcp, the join key {k}/tcp: the firewall and this check guard a port the node does not listen on"
+                ),
+                "arikan join <the key from the panel's Nodes page>",
+            )];
+        }
+        return vec![match configured {
             Some(p) => match system::port_owner(p, Proto::Tcp) {
                 Some(who) => Item::ok("API port", format!("{p}/tcp is listening ({who})")),
                 None => Item::error(
@@ -1091,6 +1200,67 @@ Anywhere                   ALLOW       10.0.0.0/8
 
     fn install(node: bool) -> Install {
         Install { config: crate::config::Config::from_env_text("/nonexistent", "MIKAN_VERSION=0.5.1.1\n"), node }
+    }
+
+    // config.json against the containers: the role the server does and the image it runs.
+    #[test]
+    fn the_role_and_the_image_are_checked_against_the_containers() {
+        let mut panel = install(false);
+        panel.config.set("MIKAN_IMAGE", "ghcr.io/o0hhs/arikan@sha256:aa").unwrap();
+        let svc =
+            |name: &str, image: &str| Service { name: name.into(), state: "running".into(), image: image.into(), ..Default::default() };
+        assert!(role_items(&panel, &[svc("panel", "img")]).is_empty());
+        let wrong = role_items(&panel, &[svc("node", "img")]);
+        assert_eq!(wrong[0].level, Level::Error);
+        assert!(wrong[0].detail.contains("config.json says panel"), "{}", wrong[0].detail);
+        // A node server whose compose runs the panel's containers is the same mistake.
+        let node = install(true);
+        assert_eq!(role_items(&node, &[svc("panel", "img"), svc("postgres", "img")])[0].level, Level::Error);
+
+        assert!(image_items(&panel, &[svc("panel", "ghcr.io/o0hhs/arikan@sha256:aa")]).is_empty());
+        let stale = image_items(&panel, &[svc("panel", "ghcr.io/o0hhs/arikan@sha256:bb")]);
+        assert_eq!(stale[0].level, Level::Error);
+        assert!(stale[0].detail.contains("sha256:bb") && stale[0].detail.contains("sha256:aa"), "{}", stale[0].detail);
+        // A stopped container is the container check's business, not this one's.
+        let mut stopped = svc("panel", "ghcr.io/o0hhs/arikan@sha256:bb");
+        stopped.state = "exited".into();
+        assert!(image_items(&panel, &[stopped]).is_empty());
+        // Without the setting there is nothing to compare.
+        assert!(image_items(&install(false), &[svc("panel", "something")]).is_empty());
+    }
+
+    // The address and the password of the database: the pair the panel opens it with.
+    #[test]
+    fn the_database_address_and_password_are_compared() {
+        let mut panel = install(false);
+        panel.config.set("MIKAN_POSTGRES_PASSWORD", "pw-one").unwrap();
+        panel.config.set("MIKAN_DATABASE_URL", "postgresql://mikan:pw-one@localhost/mikan?host=/run/postgresql").unwrap();
+        assert!(database_items(&panel).is_empty());
+        panel.config.set("MIKAN_DATABASE_URL", "postgresql://mikan:pw-two@localhost/mikan?host=/run/postgresql").unwrap();
+        assert_eq!(database_items(&panel)[0].level, Level::Error);
+        panel.config.set("MIKAN_DATABASE_URL", "postgresql://localhost/mikan").unwrap();
+        assert_eq!(database_items(&panel)[0].level, Level::Warn);
+        // One half without the other: the address is gone, or the password file is.
+        let mut address_only = install(false);
+        address_only.config.set("MIKAN_DATABASE_URL", "postgresql://mikan:pw@localhost/mikan").unwrap();
+        assert_eq!(database_items(&address_only)[0].level, Level::Warn);
+        let mut password_only = install(false);
+        password_only.config.set("MIKAN_POSTGRES_PASSWORD", "pw").unwrap();
+        assert_eq!(database_items(&password_only)[0].level, Level::Error);
+        // A node has no database of its own.
+        assert!(database_items(&install(true)).is_empty());
+    }
+
+    // The key the node runs on and NODE_API_PORT, which the firewall and the checks use.
+    #[test]
+    fn a_join_key_names_its_port() {
+        use base64::Engine;
+        let key =
+            |port: u16| format!("mikan1.{}", base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(format!(r#"{{"port":{port}}}"#)));
+        assert_eq!(join_key_port(&key(25305)), Some(25305));
+        assert_eq!(join_key_port(&format!(" {} ", key(2053))), Some(2053));
+        assert_eq!(join_key_port("not a key"), None);
+        assert_eq!(join_key_port("mikan1.bm90IGpzb24"), None);
     }
 
     fn report(items: Vec<Item>) -> Report {
