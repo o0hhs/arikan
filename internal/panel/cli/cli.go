@@ -37,6 +37,7 @@ Commands:
   admin url                     print the panel's link
   admin reset-password          set a new admin password (ends all sessions and revokes all API keys)
   admin reset-path              give the panel a new secret link
+  admin reset-sub-path          give subscription links a new secret path
   admin disable-2fa             turn off the admin's 2FA
   admin backup FILE             write a consistent copy of the database while the panel runs
   database migrate              bring the database schema up to date while the panel is stopped
@@ -160,6 +161,15 @@ func adminCmd(ctx context.Context, args []string) error {
 		fmt.Println("New link (the old one stops working within 5 seconds):")
 		fmt.Println(u)
 		return nil
+	case "reset-sub-path":
+		path := secure.Token(12)
+		if err := settings.Set(ctx, set, settings.KeySubPath, path); err != nil {
+			return err
+		}
+		_ = audit.Write(ctx, st.Q, time.Now(), audit.Entry{Action: "cli.reset_sub_path"})
+		fmt.Println("New subscription path (links on the panel's own address change; a subscription domain has none):")
+		fmt.Println(path)
+		return nil
 	case "cert":
 		return certCmd(ctx, st, set, cfg.DataDir, args[1:], os.Stdin, os.Stdout)
 	case "node":
@@ -237,6 +247,11 @@ func bootstrap(ctx context.Context, st *store.Store, set *settings.Settings, arg
 	}
 	if err := validPathSegment(*subPath, 8); err != nil {
 		return fmt.Errorf("--sub-path: %w", err)
+	}
+	// The router checks the admin path first, so equal paths would give subscription links
+	// the panel's login page: both would be printed as their own and neither would work.
+	if *adminPath == *subPath {
+		return errors.New("--admin-path and --sub-path must differ: the panel would answer on the subscription links")
 	}
 	name := strings.ToLower(strings.TrimSpace(*username))
 	if name == "" {

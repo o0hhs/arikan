@@ -625,6 +625,9 @@ pub struct Service {
     pub state: String,
     #[serde(rename = "Status", default)]
     pub status: String,
+    /// The image the container was created from, as compose names it.
+    #[serde(rename = "Image", default)]
+    pub image: String,
 }
 
 /// The containers of the compose project.
@@ -835,9 +838,10 @@ services:
 
     #[test]
     fn compose_ps_formats() {
-        let lines = "{\"Service\":\"node\",\"State\":\"running\",\"Health\":\"\",\"Status\":\"Up 2 hours\"}\n{\"Service\":\"panel\",\"State\":\"running\",\"Health\":\"healthy\",\"Status\":\"Up 2 hours (healthy)\"}\n";
+        let lines = "{\"Service\":\"node\",\"State\":\"running\",\"Health\":\"\",\"Status\":\"Up 2 hours\"}\n{\"Service\":\"panel\",\"State\":\"running\",\"Health\":\"healthy\",\"Status\":\"Up 2 hours (healthy)\",\"Image\":\"ghcr.io/o0hhs/arikan@sha256:ab\"}\n";
         let s = parse_services(lines).unwrap();
         assert_eq!((s.len(), s[1].name.as_str(), s[1].status.as_str()), (2, "panel", "Up 2 hours (healthy)"));
+        assert_eq!(s[1].image, "ghcr.io/o0hhs/arikan@sha256:ab");
         let array = "[{\"Service\":\"node\",\"State\":\"exited\",\"Status\":\"Exited (1)\"}]";
         assert_eq!(parse_services(array).unwrap()[0].state, "exited");
         assert!(parse_services("").unwrap().is_empty());
