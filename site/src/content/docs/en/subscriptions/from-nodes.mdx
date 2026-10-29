@@ -13,7 +13,7 @@ With this setting the nodes serve the profiles. The panel renders each profile o
 
 - **A subscription domain** ([A domain for subscriptions](/subscriptions/domain/)): the link stays on it, only who answers it changes.
 - **A node** of 0.5.2.x or newer, with the SNI router on 443 or its own page on 443 ([Sharing 443](/nodes/shared-443/)). If 443 belongs to one protocol with no router, the node cannot answer — the card says so.
-- **DNS**: the subscription domain's A record must point at the chosen nodes (not at the panel).
+- **DNS**: the subscription domain's A record must point at the chosen nodes (not at the panel). Mind the certificate limitation below.
 
 ## Turn it on
 
@@ -44,6 +44,7 @@ Within a minute the nodes answer the links already handed out. The links themsel
 
 ## Limitations
 
+- **The subscription domain's certificate.** The panel orders and renews it on its own port 80. When the A record points at the nodes, Let's Encrypt reaches a node while the token stays on the panel: the certificate works until its first renewal (up to 90 days). Until the nodes order it themselves, keep the domain on the server that also answers the challenge — the panel or its own node — or leave “Serve subscriptions from nodes” off. In the plain setup, the panel and its node in one country, the panel serves the link itself and this setting is not needed.
 - **Device binding**: the nodes get the subscriber's own keys (no separate key per device). The device limit still holds by addresses, but blocking or unbinding one device needs the panel reachable.
 - **Setting changes** (protocols, routing, tariffs) go through the panel: the nodes get the new profiles at the next reconcile.
 - A node without the SNI router and without its own page on 443 cannot answer — turn the router on ([Sharing 443](/nodes/shared-443/)).
