@@ -78,7 +78,20 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("MIKAN_HTTP_REDIRECT: %w", err)
 	}
-	eng, err := node.Start(node.Options{DataDir: dataDir, Version: version, Log: log, DeviceRelease: release, AllowPrivate: allowPrivate, ACMEListen: acmeListen, Logs: logs})
+	// The join key is the node's identity to its panel: the API's certificate on its server,
+	// and the certificate it signs the cascade's stream with (nodeapi.Cascade). The panel's
+	// own node has no key.
+	raw, err := config.Secret("MIKAN_NODE_JOIN")
+	if err != nil {
+		return err
+	}
+	var join nodetls.Key
+	if raw != "" {
+		if join, err = nodetls.DecodeKey(raw); err != nil {
+			return fmt.Errorf("MIKAN_NODE_JOIN: %w", err)
+		}
+	}
+	eng, err := node.Start(node.Options{DataDir: dataDir, Version: version, Log: log, DeviceRelease: release, AllowPrivate: allowPrivate, ACMEListen: acmeListen, Logs: logs, Join: join})
 	if err != nil {
 		return err
 	}
@@ -122,33 +135,25 @@ func run() error {
 		eng.Restore()
 	}()
 	// A remote node also serves the Node API over TCP to its panel (see nodetls).
-	raw, err := config.Secret("MIKAN_NODE_JOIN")
-	if err != nil {
-		return err
-	}
 	if raw != "" {
-		key, err := nodetls.DecodeKey(raw)
+		cfg, err := join.ServerConfig()
 		if err != nil {
 			return fmt.Errorf("MIKAN_NODE_JOIN: %w", err)
 		}
-		cfg, err := key.ServerConfig()
-		if err != nil {
-			return fmt.Errorf("MIKAN_NODE_JOIN: %w", err)
-		}
-		tcp, err := net.Listen("tcp", net.JoinHostPort(envOr("MIKAN_NODE_API_LISTEN", ""), strconv.Itoa(key.Port)))
+		tcp, err := net.Listen("tcp", net.JoinHostPort(envOr("MIKAN_NODE_API_LISTEN", ""), strconv.Itoa(join.Port)))
 		if err != nil {
 			return err
 		}
 		// With the panel's API lock on, strangers are closed before the TLS handshake.
 		go serve(tls.NewListener(eng.APIListener(tcp), cfg))
-		log.Info("node api for the panel", "port", key.Port)
+		log.Info("node api for the panel", "port", join.Port)
 		go func() {
 			defer func() {
 				if r := recover(); r != nil {
 					log.Error("node: the hello loop panicked", "panic", r)
 				}
 			}()
-			helloLoop(ctx, key, dataDir, log)
+			helloLoop(ctx, join, dataDir, log)
 		}()
 	}
 

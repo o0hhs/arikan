@@ -3,10 +3,14 @@ package nodesync
 import (
 	"cmp"
 	"context"
+	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
 	"errors"
+	"fmt"
 	"log/slog"
 	"maps"
+	"net"
 	"net/netip"
 	"slices"
 	"sort"
@@ -28,6 +32,79 @@ import (
 
 // LocalNode is the id of the panel's own node, reached over the unix socket.
 const LocalNode int64 = 1
+
+// CascadePlane is the panel's cascade hub as the syncers tell it what to carry: the exits
+// an entry node's bridge may ask for (its routes' exits and their reserves). An entry
+// without routes has no bridge. The hub itself lives outside this package, so the syncers
+// depend on this one method and not on the panel's HTTP wiring.
+type CascadePlane interface {
+	SetRoutes(entry int64, allowed []int64)
+}
+
+// SetCascadePlane takes the hub; nil leaves the cascade's bridges to nobody.
+func (m *Manager) SetCascadePlane(p CascadePlane) {
+	m.cascadeMu.Lock()
+	m.cascade = p
+	m.cascadeMu.Unlock()
+}
+
+// cascadeRoutes tells the hub what an entry node's bridge may ask for. Called on every
+// state the panel builds; the hub compares it with what it holds.
+func (m *Manager) cascadeRoutes(entry int64, allowed []int64) {
+	m.cascadeMu.Lock()
+	p := m.cascade
+	m.cascadeMu.Unlock()
+	if p != nil {
+		p.SetRoutes(entry, allowed)
+	}
+}
+
+// cascadeSecret is the key the nodes' bridge passwords are derived from: one random secret
+// per panel, made on first use and kept in the settings. A node's password is an HMAC of
+// its id, so it is the same at every sync and different on every node.
+func (m *Manager) cascadeSecret(ctx context.Context) ([]byte, error) {
+	cascadeSecretOnce.Lock()
+	defer cascadeSecretOnce.Unlock()
+	raw, ok, err := settings.Get[string](ctx, m.set, settings.KeyCascadeSecret)
+	if err != nil {
+		return nil, err
+	}
+	if !ok || raw == "" {
+		var b [32]byte
+		if _, err := rand.Read(b[:]); err != nil {
+			return nil, err
+		}
+		raw = hex.EncodeToString(b[:])
+		if err := settings.Set(ctx, m.set, settings.KeyCascadeSecret, raw); err != nil {
+			return nil, err
+		}
+	}
+	secret, err := hex.DecodeString(raw)
+	if err != nil || len(secret) < 16 {
+		return nil, errors.New("the cascade's secret is not a key: set cascade_secret again or clear it")
+	}
+	return secret, nil
+}
+
+// cascadeSecretOnce serializes the making of the secret: two syncers that need it at the
+// same moment must agree on one value.
+var cascadeSecretOnce sync.Mutex
+
+// Bridge opens the panel's bridge on an entry node: one connection of its own, upgraded,
+// which the cascade hub keeps and pairs streams on.
+func (m *Manager) Bridge(ctx context.Context, id int64) (net.Conn, error) {
+	s, ok := m.Syncer(id)
+	if !ok {
+		return nil, ErrNoNode
+	}
+	b, ok := s.node.(interface {
+		Bridge(ctx context.Context) (net.Conn, error)
+	})
+	if !ok {
+		return nil, fmt.Errorf("node %d's client has no bridge", id)
+	}
+	return b.Bridge(ctx)
+}
 
 // Target is how the panel reaches one node.
 type Target struct {
@@ -64,6 +141,11 @@ type Manager struct {
 	running   map[int64]*running
 	lastPurge time.Time
 	lastPrune time.Time
+
+	// cascade is the panel's hub the syncers hand their routes to (SetCascadePlane); nil
+	// leaves the bridges to nobody.
+	cascadeMu sync.Mutex
+	cascade   CascadePlane
 
 	generation atomic.Uint64 // moves whenever a node is added, changed or removed
 	tlsGen     atomic.Uint64 // moves whenever a node took a certificate with another pin
@@ -282,6 +364,9 @@ func (m *Manager) reconcile(ctx context.Context) {
 	for _, r := range stop {
 		r.cancel()
 		<-r.done
+		// A node that is gone, or restarted with another address, holds no bridge: the
+		// panel stops pairing for it until its state says otherwise again.
+		m.cascadeRoutes(r.s.id, nil)
 	}
 	for _, n := range nodes {
 		m.mu.Lock()
@@ -326,6 +411,7 @@ func (m *Manager) stopAll() {
 	m.mu.Unlock()
 	for _, r := range all {
 		r.cancel()
+		m.cascadeRoutes(r.s.id, nil)
 		<-r.done
 	}
 }

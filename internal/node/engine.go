@@ -37,6 +37,7 @@ import (
 	"mikan/internal/logbuf"
 	"mikan/internal/netaddr"
 	"mikan/internal/nodeapi"
+	"mikan/internal/nodetls"
 	"mikan/internal/proto"
 	"mikan/internal/scan"
 )
@@ -62,6 +63,9 @@ type Options struct {
 	// SiteListen is where the node's own page (data/node/www) is served, "off" to serve
 	// none; "" is the default: port 443, and a loopback port when an inbound holds it.
 	SiteListen string
+	// Join is the node's join key: its certificate proves it to the panel as the exit of a
+	// cascade. The panel's own node has none, and so is no exit.
+	Join nodetls.Key
 }
 
 type Engine struct {
@@ -82,6 +86,9 @@ type Engine struct {
 
 	Reg *Registry
 	tun *Tunnel
+	// cascade is this node's part in the panel's cascade: the entry's bridge and the exit's
+	// stream (see cascadetunnel.go).
+	cascade *cascade
 	// egress is the node's own way to the internet, as last checked (egress.go).
 	egress atomic.Pointer[nodeapi.EgressStatus]
 	// Challenge answers the ACME challenges the panel orders for the node's address, on
@@ -250,6 +257,7 @@ func Start(o Options) (*Engine, error) {
 	statistic.DefaultManager.Users().IPRelease = o.DeviceRelease
 	e.Reg = NewRegistry(cs.Epoch, cs.Seq, o.DeviceRelease, time.Now, citrus{})
 	e.tun = &Tunnel{inner: tunnel.Tunnel, reg: e.Reg, log: log}
+	e.cascade = newCascade(log, o.Join, e.tun)
 	reg := e.Reg
 	statistic.DefaultManager.SetOnLeave(func(c statistic.Tracker) {
 		i := c.Info()
@@ -429,6 +437,12 @@ func (e *Engine) apply(st nodeapi.DesiredState) (nodeapi.ApplyResult, error) {
 	}
 	e.Reg.SetPools(pools)
 	e.Reg.SetInbounds(userListeners(st))
+	// The cascade's own listeners come before the core's: an exit's proxy points at the
+	// entry's bridge, and a connection that arrives while it does not listen yet would only
+	// hang for the client.
+	if e.cascade != nil {
+		e.cascade.apply(st.Cascade)
+	}
 
 	// The core gives a listener whose users alone changed the new users in place, so the
 	// connections of everyone else stay; only what it started anew counts as recreated.
@@ -620,6 +634,7 @@ func (e *Engine) Health() nodeapi.Health {
 		Version: e.version, Core: coreVersion(), Revision: rev, StartedAt: e.started,
 		Listeners: ls, Conns: e.Reg.ConnCount(), System: e.sys.last(), Update: e.UpdateStatus(), Host: e.host.get(), Time: time.Now(), Egress: e.egress.Load(),
 		Redirect: e.redirect.Load(), Router: e.routerStatus.Load(), APILock: e.apiLock().status(),
+		Cascade: cascadeStatus(e.cascade),
 	}
 }
 
@@ -871,4 +886,13 @@ func (e *Engine) Probe(ctx context.Context, proxy string) (nodeapi.ProbeResult, 
 		e.probes[proxy] = r
 	}
 	return r, true
+}
+
+// cascadeStatus is the node's cascade for Health; nil when it has none and when the engine
+// was built without one (a test of another part).
+func cascadeStatus(c *cascade) *nodeapi.CascadeStatus {
+	if c == nil {
+		return nil
+	}
+	return c.Status()
 }

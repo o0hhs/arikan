@@ -2854,6 +2854,10 @@
           "relay": {
             "description": "Через неё идёт и трафик, который другие ноды передают через эту",
             "type": "boolean"
+          },
+          "tunnel": {
+            "$ref": "#/components/schemas/ExitTunnel",
+            "description": "Поток выхода к панели: в туннеле или нет"
           }
         },
         "required": [
@@ -2953,6 +2957,40 @@
         ],
         "type": "object"
       },
+      "CascadeTunnel": {
+        "additionalProperties": false,
+        "properties": {
+          "bridge": {
+            "type": "boolean"
+          },
+          "bridge_since": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "entry": {
+            "description": "Нода отправляет трафик своих подключений через туннель панели",
+            "type": "boolean"
+          },
+          "exit": {
+            "description": "Через эту ноду выпускают трафик другие ноды (через туннель)",
+            "type": "boolean"
+          },
+          "online": {
+            "type": "boolean"
+          },
+          "online_since": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "entry",
+          "exit",
+          "bridge",
+          "online"
+        ],
+        "type": "object"
+      },
       "CascadeView": {
         "additionalProperties": false,
         "properties": {
@@ -2966,6 +3004,10 @@
           "relay": {
             "$ref": "#/components/schemas/CascadeRelay",
             "description": "Служебный вход для других нод; есть, когда кто-то выходит через эту ноду"
+          },
+          "tunnel": {
+            "$ref": "#/components/schemas/CascadeTunnel",
+            "description": "Каскад через туннель панели: мост входа или поток выхода"
           }
         },
         "required": [
@@ -4928,6 +4970,28 @@
           "sniff",
           "resolver",
           "servers"
+        ],
+        "type": "object"
+      },
+      "ExitTunnel": {
+        "additionalProperties": false,
+        "properties": {
+          "connected": {
+            "description": "Панель держит поток этой ноды: её трафик идёт через туннель",
+            "type": "boolean"
+          },
+          "reserve": {
+            "description": "Выход в резерве: подхватит, если у основного пропадёт туннель",
+            "type": "boolean"
+          },
+          "since": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "connected",
+          "reserve"
         ],
         "type": "object"
       },

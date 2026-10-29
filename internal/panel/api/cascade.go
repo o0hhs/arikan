@@ -34,6 +34,29 @@ type CascadeExit struct {
 	Inbounds []string   `json:"inbounds" doc:"Подключения этой ноды, которые выходят через ту ноду"`
 	Relay    bool       `json:"relay" doc:"Через неё идёт и трафик, который другие ноды передают через эту"`
 	Probe    *ProbeView `json:"probe,omitempty" doc:"Проверка с этой ноды: какой IP видят сайты через цепочку"`
+	// Tunnel is the exit's side of the panel's tunnel; nil on a node that cannot be an exit
+	// (the panel's own node, or one without a join key).
+	Tunnel *ExitTunnel `json:"tunnel,omitempty" doc:"Поток выхода к панели: в туннеле или нет"`
+}
+
+// ExitTunnel is an exit's stream to the panel as it is now.
+type ExitTunnel struct {
+	Connected bool `json:"connected" doc:"Панель держит поток этой ноды: её трафик идёт через туннель"`
+	// Reserve: the exit is not one any inbound named, only a reserve of another's tunnel.
+	Reserve bool       `json:"reserve" doc:"Выход в резерве: подхватит, если у основного пропадёт туннель"`
+	Since   *time.Time `json:"since,omitempty" doc:"С какого момента поток есть"`
+}
+
+// CascadeTunnel is this node's own part in the cascade over the panel's tunnel.
+type CascadeTunnel struct {
+	Entry bool `json:"entry" doc:"Нода отправляет трафик своих подключений через туннель панели"`
+	Exit  bool `json:"exit" doc:"Через эту ноду выпускают трафик другие ноды (через туннель)"`
+	// Bridge: the panel holds the node's bridge now (an entry's traffic can flow); Online:
+	// the panel has the node's stream now (an exit can carry).
+	Bridge      bool       `json:"bridge"`
+	BridgeSince *time.Time `json:"bridge_since,omitempty"`
+	Online      bool       `json:"online"`
+	OnlineSince *time.Time `json:"online_since,omitempty"`
 }
 
 // The states of a relay's listener on the node (CascadeRelay.Listener).
@@ -56,6 +79,9 @@ type CascadeRelay struct {
 type CascadeView struct {
 	Relay *CascadeRelay `json:"relay,omitempty" doc:"Служебный вход для других нод; есть, когда кто-то выходит через эту ноду"`
 	Exits []CascadeExit `json:"exits" doc:"Ноды, через которые эта нода выпускает трафик"`
+	// Tunnel is the cascade over the panel's tunnel: the entry's bridge or the exit's
+	// stream. No exit is dialled directly any more.
+	Tunnel *CascadeTunnel `json:"tunnel,omitempty" doc:"Каскад через туннель панели: мост входа или поток выхода"`
 }
 
 type cascadeOutput struct{ Body CascadeView }
@@ -132,8 +158,12 @@ func (h *handlers) getCascade(ctx context.Context, in *nodeIDInput) (*cascadeOut
 		return nil, err
 	}
 	names := map[int64]string{}
+	var self db.Node
 	for _, n := range nodes {
 		names[n.ID] = n.Name
+		if n.ID == in.ID {
+			self = n
+		}
 	}
 	out := &cascadeOutput{Body: CascadeView{Exits: []CascadeExit{}}}
 	r, err := q.GetNodeRelay(ctx, in.ID)
@@ -182,12 +212,57 @@ func (h *handlers) getCascade(ctx context.Context, in *nodeIDInput) (*cascadeOut
 	if r.ExitNodeID.Valid {
 		exit(r.ExitNodeID.Int64).Relay = true
 	}
-	if h.d.Nodes != nil {
-		for i := range out.Body.Exits {
-			e := &out.Body.Exits[i]
-			if p, err := h.d.Nodes.Probe(ctx, in.ID, nodeapi.ExitName(e.NodeID)); err == nil {
-				e.Probe = &ProbeView{OK: p.OK, IP: p.IP, Colo: p.Colo, Error: p.Error, CheckedAt: p.CheckedAt}
+	// The cascade over the panel's tunnel: this node's part, and where each exit stands.
+	relays, err := q.ListNodeRelays(ctx)
+	if err != nil {
+		return nil, err
+	}
+	plan := domain.CascadePlans(nodes, ins, relays)[in.ID]
+	primary := map[int64]bool{}
+	entry := false
+	for _, r := range plan.Routes {
+		primary[r.Exit] = true
+		if !r.Tunnel {
+			continue
+		}
+		entry = true
+		for _, id := range r.Reserves {
+			exit(id) // a reserve is shown too: it carries traffic when the main exit cannot
+		}
+	}
+	// The panel's own node, and a node without a join key, cannot be an exit: no stream of
+	// theirs is ever taken, and the card does not claim the part.
+	canExit := plan.IsExit && self.Address != "" && self.CertSha256 != ""
+	if entry || canExit {
+		tv := &CascadeTunnel{Entry: entry, Exit: canExit}
+		if h.d.Cascade != nil {
+			if since, ok := h.d.Cascade.BridgeOnline(in.ID); ok {
+				tv.Bridge, tv.BridgeSince = true, &since
 			}
+			if since, ok := h.d.Cascade.ExitOnline(in.ID); ok {
+				tv.Online, tv.OnlineSince = true, &since
+			}
+		}
+		out.Body.Tunnel = tv
+	}
+	for i := range out.Body.Exits {
+		e := &out.Body.Exits[i]
+		// A node that cannot be an exit (no join key) has no stream either, and the state
+		// names it with a way to nowhere: its inbounds fail rather than leave directly.
+		es := &ExitTunnel{Reserve: !primary[e.NodeID]}
+		if h.d.Cascade != nil {
+			if since, ok := h.d.Cascade.ExitOnline(e.NodeID); ok {
+				es.Connected, es.Since = true, &since
+			}
+		}
+		e.Tunnel = es
+		if h.d.Nodes == nil || es.Reserve {
+			// A reserve is no proxy in the node's config (the proxy is named after the exit
+			// the inbound chose), so there is nothing to probe through.
+			continue
+		}
+		if p, err := h.d.Nodes.Probe(ctx, in.ID, nodeapi.ExitName(e.NodeID)); err == nil {
+			e.Probe = &ProbeView{OK: p.OK, IP: p.IP, Colo: p.Colo, Error: p.Error, CheckedAt: p.CheckedAt}
 		}
 	}
 	return out, nil

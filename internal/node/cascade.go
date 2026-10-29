@@ -12,8 +12,8 @@ import (
 	"mikan/internal/proto"
 )
 
-// listenerNames are the listeners the state runs, the relay included: rules may name
-// only these.
+// listenerNames are the listeners the state runs, the relay and the cascade included:
+// rules may name only these.
 func listenerNames(st nodeapi.DesiredState) map[string]bool {
 	present := map[string]bool{}
 	for _, in := range st.Inbounds {
@@ -21,6 +21,9 @@ func listenerNames(st nodeapi.DesiredState) map[string]bool {
 	}
 	if st.Relay != nil {
 		present[nodeapi.RelayListener] = true
+	}
+	if st.Cascade != nil && st.Cascade.Exit != nil {
+		present[nodeapi.CascadeListener] = true
 	}
 	return present
 }
@@ -37,11 +40,11 @@ func relayListener(r *nodeapi.Relay, cert proto.Cert) (map[string]any, error) {
 	return proto.Listener(t, nodeapi.RelayListener, "", r.Port, r.Users, cert, proto.Options{})
 }
 
-// exitProxyConfig is one outbound the panel named. NODE- is another node's relay: the
-// panel builds that proxy itself, so everything about it must be right. OUT- is an
-// outbound the admin added by a share link: the node reads the link with mihomo's own
-// parser, which is what the apps read subscriptions with — the panel keeps the admin's
-// text and knows nothing of the protocols.
+// exitProxyConfig is one outbound the panel named. NODE- is another node's relay or, with
+// the cascade's tunnel, the node's own bridge to it: the panel builds that proxy itself, so
+// everything about it must be right. OUT- is an outbound the admin added by a share link:
+// the node reads the link with mihomo's own parser, which is what the apps read
+// subscriptions with — the panel keeps the admin's text and knows nothing of the protocols.
 func exitProxyConfig(e nodeapi.Exit) (map[string]any, error) {
 	if !nodeapi.IsExitName(e.Name) || !safeRuleValue(e.Name) {
 		return nil, fmt.Errorf("exit name %q", e.Name)
@@ -60,10 +63,24 @@ func proxyOf(e nodeapi.Exit) (map[string]any, error) {
 		if err := json.Unmarshal(e.Proxy, &p); err != nil {
 			return nil, err
 		}
-		if p["type"] != "vless" {
-			return nil, errors.New("the relay is VLESS")
+		switch p["type"] {
+		case "vless":
+			// The relay of a node older than the cascade: dialled directly, as before.
+			return p, nil
+		case "socks5":
+			// The cascade's exit: the node's own bridge, on its own loopback. An address off
+			// the server is the direct dial to the exit that the cascade exists to remove,
+			// so a state naming one is refused as a whole rather than carried out.
+			if host, _ := p["server"].(string); !loopbackHost(host) {
+				return nil, fmt.Errorf("a cascade exit is on loopback, not %q", host)
+			}
+			// Datagrams do not cross the tunnel (the bridge carries TCP connections); UDP
+			// through an exit would have to fall back to a direct path, which is no path here.
+			p["udp"] = false
+			return p, nil
+		default:
+			return nil, fmt.Errorf("exit type %v", p["type"])
 		}
-		return p, nil
 	}
 	proxies, err := convert.ConvertsV2Ray([]byte(e.Link))
 	if err != nil {

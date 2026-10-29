@@ -27,9 +27,13 @@ type snapshot struct {
 	users    []db.User
 	owners   []db.ListSlotUsersRow
 	inbounds []db.Inbound
-	slots    []db.Slot
-	grants   domain.GrantsLeft
-	pools    []db.UserPool
+	// nodes and relays are what the cascade's plans are made of (domain.CascadePlans): who
+	// is an exit, and which exit each node's inbounds and relay leave through.
+	nodes  []db.Node
+	relays []db.NodeRelay
+	slots  []db.Slot
+	grants domain.GrantsLeft
+	pools  []db.UserPool
 	// closed is what every tariff keeps out of its users' subscriptions (the tariff's
 	// own "protocols off"), by the tariff's id.
 	closed  map[int64][]int64
@@ -88,17 +92,21 @@ func (m *Manager) readSnapshot(ctx context.Context) (s *snapshot, err error) {
 	if s.owners, err = q.ListSlotUsers(ctx); err != nil {
 		return nil, err
 	}
-	if ns, err := q.ListNodes(ctx); err == nil {
-		for _, n := range ns {
-			if n.Emergency {
-				if s.emergency == nil {
-					s.emergency = map[int64]int{}
-				}
-				s.emergency[n.ID] = int(n.EmergencySpeed.Int32)
+	if s.nodes, err = q.ListNodes(ctx); err != nil {
+		return nil, err
+	}
+	for _, n := range s.nodes {
+		if n.Emergency {
+			if s.emergency == nil {
+				s.emergency = map[int64]int{}
 			}
+			s.emergency[n.ID] = int(n.EmergencySpeed.Int32)
 		}
 	}
 	if s.inbounds, err = q.ListInbounds(ctx); err != nil {
+		return nil, err
+	}
+	if s.relays, err = q.ListNodeRelays(ctx); err != nil {
 		return nil, err
 	}
 	if s.slots, err = q.ListSlots(ctx); err != nil {

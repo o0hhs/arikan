@@ -4969,6 +4969,8 @@ export interface components {
             probe?: components["schemas"]["ProbeView"];
             /** @description Через неё идёт и трафик, который другие ноды передают через эту */
             relay: boolean;
+            /** @description Поток выхода к панели: в туннеле или нет */
+            tunnel?: components["schemas"]["ExitTunnel"];
         };
         CascadeHop: {
             name: string;
@@ -5003,11 +5005,25 @@ export interface components {
             /** @description Ноды, которые выходят через эту */
             sources: components["schemas"]["CascadeHop"][];
         };
+        CascadeTunnel: {
+            bridge: boolean;
+            /** Format: date-time */
+            bridge_since?: string;
+            /** @description Нода отправляет трафик своих подключений через туннель панели */
+            entry: boolean;
+            /** @description Через эту ноду выпускают трафик другие ноды (через туннель) */
+            exit: boolean;
+            online: boolean;
+            /** Format: date-time */
+            online_since?: string;
+        };
         CascadeView: {
             /** @description Ноды, через которые эта нода выпускает трафик */
             exits: components["schemas"]["CascadeExit"][];
             /** @description Служебный вход для других нод; есть, когда кто-то выходит через эту ноду */
             relay?: components["schemas"]["CascadeRelay"];
+            /** @description Каскад через туннель панели: мост входа или поток выхода */
+            tunnel?: components["schemas"]["CascadeTunnel"];
         };
         CertCheck: {
             /** @description Что именно, текст — certCheck.<code> в языке панели */
@@ -5691,6 +5707,14 @@ export interface components {
             torrent?: boolean;
             update?: boolean;
             warp?: boolean;
+        };
+        ExitTunnel: {
+            /** @description Панель держит поток этой ноды: её трафик идёт через туннель */
+            connected: boolean;
+            /** @description Выход в резерве: подхватит, если у основного пропадёт туннель */
+            reserve: boolean;
+            /** Format: date-time */
+            since?: string;
         };
         ExitDNSInfo: {
             /** @description Серверы готовых вариантов */

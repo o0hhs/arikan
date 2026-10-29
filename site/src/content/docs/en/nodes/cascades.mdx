@@ -1,6 +1,6 @@
 ---
 title: Cascades
-description: Exit to the internet through another panel node, chains of three or more servers.
+description: Exit to the internet through another panel node over the panel's own tunnel, chains of three or more servers.
 ---
 
 A cascade sends a protocol's traffic through another node of the panel:
@@ -11,36 +11,61 @@ client → node A → node B → internet
 
 Clients connect to node A, and sites see node B's address. This way you can keep the entry point where it is not blocked and exit in the country you need.
 
+## How the traffic gets there
+
+The panel carries the traffic itself, so no connection is opened from the entry's country into the exit's:
+
+```text
+client → node A → the panel's tunnel → node B → internet
+```
+
+- Node B keeps a connection of its own to the panel (port 443, the panel's own certificate). The panel takes it as the exit's stream.
+- The panel opens a second connection to node A — its usual API connection, upgraded — and node A's clients ride it as streams, one per client connection.
+- The panel pairs each stream with the exit's connection and copies the bytes.
+- Inside the entry node the core points at a SOCKS5 proxy on the node's own loopback (`127.0.0.1:47105`). The exit dials the site, resolves its name with its own resolver and leaves by its own rules: the exit sees the same traffic an inbound of its own would.
+
+Node A never dials node B's address. An exit that is not in the tunnel carries nothing, and the protocols behind it simply do not work.
+
+:::caution
+Update the nodes before the panel turns the tunnel on: a node older than the tunnel refuses the state that names a loopback exit and keeps its previous one (with the old direct dial). Its card says its state is refused until it is updated.
+:::
+
 ## Set up
 
 1. Open the connection on node A and in the **Way out to the internet** field choose "Via a node".
 2. In the **Exit node** field choose node B.
 3. Save.
 
-The panel itself opens a hidden relay on node B with a separate key for each source node. The relay listens on a TCP port: the first free one among the spare ports (2053, 2083, 2087, 2096, 2443, 3443, 4443, 5443, 6443, 7443, 8443, 9443, 10443, 11443, 12443), or a random one from 30000 to 59999 if all are taken.
+The **Cascade** button on a node card shows the tunnel: whether the panel holds node A's bridge, whether node B keeps its stream, and which exits are in the tunnel and which are reserves.
 
-Traffic is counted once, on the first node. A cascade does not need WARP.
+Requirements:
 
-:::caution
-If the exit node is unavailable, this protocol's traffic does not go direct, the protocol simply does not work until the node is back. This way node A's address is not exposed by accident.
-:::
+- node B is a remote node with its own join key (the panel's own node cannot be an exit);
+- the panel answers on a public address with a certificate the node trusts (Let's Encrypt, not its self-signed one) — the exit's connection goes to it;
+- both nodes run a version with the tunnel.
+
+## Reserves
+
+Every exit gets up to three reserves among the panel's other exits (the nodes some enabled inbound or relay leaves through). When the exit's tunnel is down, the entry tries the reserves for every new connection, one after another. Connections already open end with the tunnel: the next ones take the reserve.
+
+The card shows them: the reserves are marked, and each exit says whether it is in the tunnel now.
+
+## What does not cross the tunnel
+
+The tunnel carries TCP connections. UDP flows (QUIC and HTTP/3 sites, WireGuard-type protocols) do not cross it: an inbound that exits through another node serves TCP only.
 
 ## Longer chains
 
-The **Cascade** button on a node card shows which nodes it sends traffic through, the check status (which address sites see) and the relay status: listening on a port, port taken, or did not start.
-
-There is also the **Where other nodes' traffic goes next** field: direct, through this node's WARP, or through one more node. This is how chains of three or more servers are built. The panel will not save loops, and a protocol cannot choose its own node as the exit.
+There is also the **Where other nodes' traffic goes next** field on the exit node: direct, through this node's WARP, or through one more node. This is how chains of three or more servers are built: node A sends to node B over the tunnel, and node B sends the same traffic on to node C over another. The panel will not save loops, and a protocol cannot choose its own node as the exit.
 
 ## Checking a cascade
 
-Open **Check node** on the entry node (A), see [Nodes](/arikan/en/nodes/nodes/#check-node). The panel checks the entry → exit → internet path and shows where it breaks:
+Open **Check node** on the entry node (A), see [Nodes](/arikan/en/nodes/nodes/#check-node). The panel checks through the cascade from node A's side and shows the address sites see:
 
-- **the exit node does not answer**: open its card, it has its own reason and hint;
-- **the relay on the exit node is not started**: the exit node did not bring up its port, see that node's check;
-- **the entry cannot reach the relay port on the exit** or **the exit has no internet**: the port is closed by the exit node's hoster firewall, or the exit server does not go out to the internet.
+- **no way out**: the tunnel is not up (see the Cascade button: which end is down), or the exit has no internet.
 
-On the exit node itself, if others go out through it, the check shows its relay port.
+On the exit node itself, if others go out through it, the Cascade button shows its stream to the panel.
 
-## If the relay port is taken
+## The relay port
 
-If another program has taken the relay's port, the relay moves to a free port by itself when the "Move to another port when it is blocked" switch is on (**Settings → General → Automatic fixes**). When the relay is not working, a notification arrives in Telegram. This works with nodes on version 0.5.0.2 and newer.
+Older panels and nodes carried a cascade over a hidden relay on the exit: a VLESS REALITY listener on a TCP port of its own. The panel still opens it for nodes that are not updated yet, and it is the port on the Cascade page. Once every node runs the tunnel, nothing uses it.

@@ -64,6 +64,7 @@ function Body({ nodeId, c, refetch, checking }: { nodeId: number; c: Cascade; re
 
   return (
     <>
+      {c.tunnel ? <TunnelSection tunnel={c.tunnel} /> : null}
       <section className="mb-5">
         <div className="mb-2 flex items-center justify-between gap-2">
           <h3 className="text-[13px] font-semibold">{t("cascade.exits")}</h3>
@@ -82,6 +83,10 @@ function Body({ nodeId, c, refetch, checking }: { nodeId: number; c: Cascade; re
                 <div className="flex flex-wrap items-center gap-2 text-[13px]">
                   <ArrowRight size={14} aria-hidden className="text-[var(--ink-400)]" />
                   <b>{e.name || name(e.node_id)}</b>
+                  {e.tunnel?.reserve ? <Pill tone="off">{t("cascade.tunnel.reserve")}</Pill> : null}
+                  {e.tunnel && !e.tunnel.reserve ? (
+                    <Pill tone={e.tunnel.connected ? "ok" : "bad"}>{t(e.tunnel.connected ? "cascade.tunnel.inTunnel" : "cascade.tunnel.notInTunnel")}</Pill>
+                  ) : null}
                   {e.probe ? (
                     e.probe.ok ? (
                       <Pill tone="ok">{t("cascade.exitIP", { ip: e.probe.ip ?? "" })}</Pill>
@@ -145,6 +150,32 @@ function Body({ nodeId, c, refetch, checking }: { nodeId: number; c: Cascade; re
         </div>
       </section>
     </>
+  );
+}
+
+// TunnelSection is the cascade over the panel's tunnel as this node stands in it: the
+// bridge the panel holds to an entry, and the stream an exit keeps to the panel. Without
+// either, the inbounds behind the cascade fail — nothing is dialled directly.
+function TunnelSection({ tunnel }: { tunnel: NonNullable<Cascade["tunnel"]> }) {
+  return (
+    <section className="mb-5">
+      <h3 className="mb-2 text-[13px] font-semibold">{t("cascade.tunnel.title")}</h3>
+      <div className="flex flex-col gap-2">
+        {tunnel.entry ? (
+          <div className="flex flex-wrap items-center gap-2 text-[13px]">
+            <Pill tone={tunnel.bridge ? "ok" : "bad"}>{t(tunnel.bridge ? "cascade.tunnel.bridgeOn" : "cascade.tunnel.bridgeOff")}</Pill>
+            <span className="text-xs text-[var(--md-on-surface-variant)]">{t("cascade.tunnel.entry")}</span>
+          </div>
+        ) : null}
+        {tunnel.exit ? (
+          <div className="flex flex-wrap items-center gap-2 text-[13px]">
+            <Pill tone={tunnel.online ? "ok" : "bad"}>{t(tunnel.online ? "cascade.tunnel.exitOnline" : "cascade.tunnel.exitOffline")}</Pill>
+            <span className="text-xs text-[var(--md-on-surface-variant)]">{t("cascade.tunnel.exit")}</span>
+          </div>
+        ) : null}
+      </div>
+      <p className="mt-2 text-xs text-[var(--md-on-surface-variant)]">{t("cascade.tunnel.hint")}</p>
+    </section>
   );
 }
 

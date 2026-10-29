@@ -280,6 +280,17 @@ func (c *Client) Tunnel(ctx context.Context, addr string) (net.Conn, error) {
 	return c.upgrade(ctx, req, http.StatusOK, 15*time.Second)
 }
 
+// Bridge opens the panel's bridge on an entry node: an upgrade the node answers with 101,
+// after which the connection carries the cascade's streams (one per client connection) and
+// nothing else. It is a connection of its own, not one of the client's pooled ones: the
+// state's sync, the counters and the health check keep theirs while the traffic flows.
+func (c *Client) Bridge(ctx context.Context) (net.Conn, error) {
+	req := &http.Request{Method: http.MethodPost, URL: &url.URL{Path: CascadeBridgePath}, Host: "node", Header: http.Header{}}
+	req.Header.Set("Connection", "Upgrade")
+	req.Header.Set("Upgrade", CascadeUpgrade)
+	return c.upgrade(ctx, req, http.StatusSwitchingProtocols, 15*time.Second)
+}
+
 // upgrade sends req on a bare connection to the Node API and, when the node answers with the
 // status want, hands the connection over to the caller: from then on it is a stream (a CONNECT
 // tunnel, an Upgrade). wait bounds the answer when ctx has no deadline. Any other answer is the

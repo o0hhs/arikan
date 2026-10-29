@@ -92,6 +92,10 @@ const (
 	// KeyNodesFollow lets the panel update its remote nodes to its own version, one at a
 	// time, after it updated itself; on unless switched off (internal/panel/nodeupdate).
 	KeyNodesFollow = "nodes_follow_panel"
+	// KeyCascadeSecret is what the cascade's loopback SOCKS5 passwords are derived from
+	// (nodesync's cascadePassword): made by the panel on first use, never shown back. A new
+	// value breaks nothing — every node gets its new password with its next state.
+	KeyCascadeSecret = "cascade_secret"
 	// KeyShowGoals shows the goals the project collects money for (release.Goals) on the
 	// updates card; on unless switched off.
 	KeyShowGoals = "show_goals"
