@@ -88,7 +88,7 @@ func TestCascadeHello(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	hello, err := NewCascadeHello(key, now)
+	hello, err := NewCascadeHello(nodetls.Key{CertPEM: key.CertPEM, KeyPEM: key.KeyPEM}, now)
 	if err != nil {
 		t.Fatal(err)
 	}

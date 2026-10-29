@@ -26,6 +26,9 @@ func TestCascadeChain(t *testing.T) {
 	if err := settings.Set(ctx, settings.New(q), settings.KeyPublicHost, "203.0.113.10"); err != nil {
 		t.Fatal(err)
 	}
+	if err := settings.Set(ctx, settings.New(q), settings.KeyPanelPort, 8443); err != nil {
+		t.Fatal(err)
+	}
 	panel, _ := nodetls.Generate("mikan-panel", x509.ExtKeyUsageClientAuth, time.Now())
 	nb, _, err := domain.AddNode(ctx, st, panel, domain.NodeInput{Name: "B", Host: "198.51.100.20", APIPort: 40000}, time.Now())
 	if err != nil {

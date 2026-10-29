@@ -264,7 +264,7 @@ func TestTheHubTakesOnlyARealExit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	hello, err := nodeapi.NewCascadeHello(other, time.Now())
+	hello, err := nodeapi.NewCascadeHello(nodetls.Key{CertPEM: other.CertPEM, KeyPEM: other.KeyPEM}, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
