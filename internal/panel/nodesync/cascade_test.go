@@ -121,6 +121,7 @@ func TestCascadeChain(t *testing.T) {
 	if _, err := q.UpdateNode(ctx, db.UpdateNodeParams{Name: n.Name, Address: n.Address, PublicHost: n.PublicHost, Domain: n.Domain, PublicName: n.PublicName, Enabled: 0, ID: n.ID}); err != nil {
 		t.Fatal(err)
 	}
+	a.m.changes.Add(1) // a new snapshot, as the API's change would ask for
 	db_, _ = b.desired(ctx)
 	_ = json.Unmarshal(db_.Exits[0].Proxy, &proxy)
 	if len(db_.Exits) != 1 || proxy["server"] != "192.0.2.1" {
