@@ -382,3 +382,34 @@ func (c *Client) Diagnose(ctx context.Context) (Diagnosis, error) {
 	err := c.do(ctx, http.MethodPost, "/v1/diagnose", nil, &r, 25*time.Second)
 	return r, err
 }
+
+// PutSubs hands a node a chunk of subscription records (a full sync is many calls, ended by
+// PruneSubs). A record the node refuses comes back counted in Rejected with the reason. Nodes
+// that predate the feature answer 404 (a *StatusError).
+func (c *Client) PutSubs(ctx context.Context, gen int64, records []SubRecord) (SubsResult, error) {
+	var r SubsResult
+	err := c.do(ctx, http.MethodPut, "/v1/subs", SubsRequest{Generation: gen, Records: records}, &r, 30*time.Second)
+	return r, err
+}
+
+// RemoveSubs drops the records of paths at once: a blocked or removed subscriber is not
+// served until the next full sync.
+func (c *Client) RemoveSubs(ctx context.Context, gen int64, paths []string) (SubsResult, error) {
+	var r SubsResult
+	err := c.do(ctx, http.MethodPost, "/v1/subs/remove", SubsRemoveRequest{Generation: gen, Paths: paths}, &r, 30*time.Second)
+	return r, err
+}
+
+// PruneSubs ends a full sync: every record not written with gen is dropped.
+func (c *Client) PruneSubs(ctx context.Context, gen int64) (SubsResult, error) {
+	var r SubsResult
+	err := c.do(ctx, http.MethodPost, "/v1/subs/prune", SubsPruneRequest{Generation: gen}, &r, 30*time.Second)
+	return r, err
+}
+
+// SubsStatus is the node's subscription store: counts and bytes, never a path.
+func (c *Client) SubsStatus(ctx context.Context) (SubsStatus, error) {
+	var r SubsStatus
+	err := c.do(ctx, http.MethodGet, "/v1/subs", nil, &r, 10*time.Second)
+	return r, err
+}

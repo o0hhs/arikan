@@ -5790,6 +5790,10 @@ export interface components {
              */
             users: number;
         };
+        FromNodes: {
+            enabled: boolean;
+            nodes?: number[];
+        };
         GeoAnswer: {
             /** @description ISO 3166-1 alpha-2 */
             country?: string;
@@ -7345,6 +7349,8 @@ export interface components {
             sub_announce_url?: string;
             /** @description Домен для ссылок подписки, отдельный от домена панели; пусто — убрать. Старые ссылки продолжают работать */
             sub_domain?: string;
+            /** @description Отдавать подписку с нод: {enabled, nodes: [id]}; домен ссылки — sub_domain */
+            subs_from_nodes?: components["schemas"]["FromNodes"];
             sub_group_auto?: string;
             sub_group_main?: string;
             sub_inactive_server?: boolean;
@@ -8407,6 +8413,10 @@ export interface components {
             sub_inactive_server: boolean;
             /** @description Свой текст этой записи; пусто — свой по причине. Переменные как в названии подписки */
             sub_inactive_text: string;
+            /** @description Выбранные ноды: когда каждая последний раз получала подписки и отвечает ли по ссылкам */
+            sub_nodes?: components["schemas"]["SubNodeView"][];
+            /** @description Отдавать подписку с нод: выбранные ноды сами отвечают по ссылкам подписки профилями, которые панель им присылает, — ссылки работают, когда панель недоступна. Домен ссылки остаётся доменом подписки (sub_domain): направьте его на эти ноды */
+            subs_from_nodes: components["schemas"]["FromNodes"];
             /**
              * Format: int64
              * @description Отдельный порт подписок; 0 — порт панели. Порт панели отдаёт подписки в любом случае
@@ -8584,6 +8594,24 @@ export interface components {
         };
         SubDocsOutputBody: {
             items: components["schemas"]["SubDocView"][];
+        };
+        SubNodeView: {
+            /** Format: int64 */
+            bytes?: number;
+            enabled: boolean;
+            /** @description Почему последняя отправка не удалась */
+            error?: string;
+            /** Format: int64 */
+            id: number;
+            /** @description Когда панель последний раз отправила ноде подписки */
+            last_push?: string;
+            name: string;
+            /** @description Сколько подписок нода хранит по последней отправке */
+            records: number;
+            /** @description Нода отвечает по ссылкам подписки */
+            serving: boolean;
+            /** @description Почему не отвечает: subs_no_port, subs_no_cert или subs_off */
+            serving_error?: string;
         };
         SubPageView: {
             background?: components["schemas"]["PageAsset"];

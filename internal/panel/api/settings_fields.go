@@ -51,6 +51,7 @@ var settingFields = []settingField{
 	text("public_host", settings.KeyPublicHost, true, func(b *patchSettingsBody) *string { return b.PublicHost }),
 	text("domain", settings.KeyDomain, true, func(b *patchSettingsBody) *string { return b.Domain }),
 	text("sub_domain", settings.KeySubDomain, true, func(b *patchSettingsBody) *string { return b.SubDomain }),
+	value("subs_from_nodes", settings.KeySubsFromNodes, true, func(b *patchSettingsBody) *subs.FromNodes { return b.SubsFromNodes }),
 	value("sub_port", settings.KeySubPort, true, func(b *patchSettingsBody) *int { return b.SubPort }),
 	custom("sub_rules", true, func(b *patchSettingsBody) *string { return b.SubRules }, func(ctx context.Context, set *settings.Settings, v string) error {
 		return settings.Set(ctx, set, settings.KeyRules, strings.TrimRight(v, " \n\r\t"))

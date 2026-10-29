@@ -106,6 +106,9 @@ type Engine struct {
 	routerStatus atomic.Pointer[nodeapi.PortStatus]
 	// front is the page the router gives strangers on the node's own names (front.go).
 	front *frontPage
+	// subs is the subscription server: the profiles the panel rendered, answered on the
+	// node's public 443 (subsrv.go).
+	subs *subServer
 
 	mu         sync.Mutex // serializes Apply
 	savedShape string     // policyShape of the policies in the state file
@@ -249,6 +252,8 @@ func Start(o Options) (*Engine, error) {
 		listen = SiteDefaultListen
 	}
 	e.Site = newSite(dataDir, listen, log)
+	e.subs = newSubServer(openSubs(filepath.Join(dataDir, SubsDir), time.Now, log), log)
+	e.Site.SetSubs(e.subs)
 	e.turn = newTurnSupervisor(log)
 	go e.pumpLogs()
 
@@ -483,7 +488,10 @@ func (e *Engine) apply(st nodeapi.DesiredState) (nodeapi.ApplyResult, error) {
 		e.front = newFrontPage()
 	}
 	e.front.set(st.FrontPage, st.TLS)
-	e.setRouter(st.Router, ports)
+	// The subscription answers follow the state: their names and certificate first, then
+	// the router, which hands their connections over before any inbound or the front page.
+	e.subs.apply(st.Subs, st.TLS)
+	e.setRouter(st.Router, ports, e.subs.namesFor())
 	// The node's own page serves the certificate of this state, after the listeners and the
 	// router: an inbound on 443 or the router is what holds the port, and the page then
 	// moves to loopback. A node with the router never lets the page take 443 — the router
@@ -493,6 +501,18 @@ func (e *Engine) apply(st nodeapi.DesiredState) (nodeapi.ApplyResult, error) {
 		e.Site.SetCert(cert.CertPath, cert.KeyPath)
 		e.Site.Start(pageMayTake443(st))
 	}
+	// Where the subscription answers come from, and why they do not when they cannot: the
+	// router holds 443, or the page does; a protocol that holds it alone leaves no way in.
+	listen, why := e.subsPlace(st)
+	if listen == "router" {
+		if rs := e.routerStatus.Load(); rs != nil && !rs.OK {
+			why = nodeapi.CodeSubsNoPort
+		}
+	}
+	if why == "" && (e.subs == nil || e.subs.cert.Load() == nil) {
+		why = nodeapi.CodeSubsNoCert
+	}
+	e.subs.place(listen, why)
 	recreated := make([]string, 0, len(started))
 	for name := range started {
 		recreated = append(recreated, name)
@@ -564,6 +584,25 @@ func pageMayTake443(st nodeapi.DesiredState) bool {
 		}
 	}
 	return true
+}
+
+// subsPlace says where the subscription answers come from: the SNI router, which holds the
+// public 443 and hands a name over, or the node's own page, which takes 443 when no router
+// does. Empty listen: they cannot be reached, and why says why.
+func (e *Engine) subsPlace(st nodeapi.DesiredState) (listen, why string) {
+	if st.Subs == nil || len(st.Subs.Names) == 0 {
+		return "", ""
+	}
+	if st.Router != nil {
+		return "router", ""
+	}
+	if pageMayTake443(st) {
+		// The page is on unless MIKAN_SITE_LISTEN turned it off.
+		if s := e.Site.Status(); s != nil && s.OK {
+			return "site", ""
+		}
+	}
+	return "", nodeapi.CodeSubsNoPort
 }
 
 // portCovers: the port spec (one port or a range) listens on p.
@@ -644,6 +683,7 @@ func (e *Engine) Health() nodeapi.Health {
 		Listeners: ls, Conns: e.Reg.ConnCount(), System: e.sys.last(), Update: e.UpdateStatus(), Host: e.host.get(), Time: time.Now(), Egress: e.egress.Load(),
 		Redirect: e.redirect.Load(), Router: e.routerStatus.Load(), APILock: e.apiLock().status(),
 		Cascade:    cascadeStatus(e.cascade),
+		Subs:       e.subs.status(),
 		InboundAPI: e.apiServer.Load().Status(),
 	}
 }

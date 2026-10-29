@@ -50,12 +50,18 @@ type Node interface {
 // when clients cannot trust it, "" when they can.
 type TLSSource func() (*nodeapi.TLSFiles, string, error)
 
+// SubsTLSSource returns the certificate the node's subscription answers present: the one of
+// the subscription domain, which is not the node's own. nil (or a nil result): the node's
+// own certificate, as when the domain is the node's.
+type SubsTLSSource func() (*nodeapi.TLSFiles, error)
+
 // Syncer drives one node.
 type Syncer struct {
 	id      int64
 	m       *Manager
 	node    Node
 	tls     TLSSource
+	subsTLS SubsTLSSource
 	local   bool
 	address string
 	// tunnel is the node's reverse tunnel, when the panel has one for it; nil: none.
@@ -145,7 +151,8 @@ func (v HealthView) HostPorts() *nodeapi.HostPorts {
 }
 
 func newSyncer(m *Manager, id int64, t Target) *Syncer {
-	s := &Syncer{id: id, m: m, node: t.Node, tls: t.TLS, local: t.Local, address: t.Address, tunnel: t.Tunnel, log: m.log.With("node", id),
+	s := &Syncer{id: id, m: m, node: t.Node, tls: t.TLS, subsTLS: t.SubsTLS, local: t.Local, address: t.Address, tunnel: t.Tunnel,
+		log:           m.log.With("node", id),
 		policiesDirty: make(chan struct{}, 1), stateDirty: make(chan struct{}, 1)}
 	empty := map[string]nodeapi.Online{}
 	s.online.Store(&empty)
@@ -307,8 +314,36 @@ func (s *Syncer) desiredPin(ctx context.Context) (st nodeapi.DesiredState, pin s
 	if n.FairShare != 0 && n.ChannelMbps.Valid {
 		st.Shaping = &nodeapi.Shaping{ChannelMbps: int(n.ChannelMbps.Int64)}
 	}
+	if st.Subs, err = s.subsServer(ctx, n); err != nil {
+		return st, "", err
+	}
 	st.Epoch, st.Policies, _ = s.policiesFrom(snap)
 	return st, pin, nil
+}
+
+// subsServer is the node's subscription listener, when the admin has the feature on and chose
+// this node: the names it answers for are the subscription domain's (the host of the links),
+// and the certificate is that domain's. nil: the node answers no links.
+func (s *Syncer) subsServer(ctx context.Context, n db.Node) (*nodeapi.SubsServer, error) {
+	cfg, ok, err := settings.Get[subs.FromNodes](ctx, s.m.set, settings.KeySubsFromNodes)
+	if err != nil || !ok || !cfg.Serves(n.ID) || n.Enabled == 0 {
+		return nil, err
+	}
+	name, err := s.m.set.String(ctx, settings.KeySubDomain)
+	if err != nil || name == "" {
+		// Without a subscription domain of its own the links are the panel's: a node
+		// answering them would be a second address the admin never named.
+		return nil, err
+	}
+	out := &nodeapi.SubsServer{Names: []string{name}}
+	if s.subsTLS != nil {
+		if files, err := s.subsTLS(); err == nil && files != nil {
+			out.TLS = files
+		} else if err != nil {
+			s.log.Warn("subscriptions: the domain's certificate is not read", "err", err)
+		}
+	}
+	return out, nil
 }
 
 func (s *Syncer) applyState(ctx context.Context) {

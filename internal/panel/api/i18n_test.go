@@ -51,6 +51,8 @@ var codesByText = []string{
 	// subs.Routes.Check, as a detail's Message.
 	"routes_service", "routes_target", "routes_direct", "routes_dns",
 	"routes_lists_many", "routes_list_name", "routes_list_url", "routes_list_behavior", "routes_list_format", "routes_servers",
+	// subs.FromNodes.Check, as a detail's Message.
+	"subs_nodes_many", "subs_node_unknown",
 	// subs.TemplateError, as a detail's Message.
 	"template_yaml", "template_empty", "template_groups", "template_group_name", "template_group_dup", "template_group_member",
 	"template_rule", "template_rule_target", "template_rule_set",
