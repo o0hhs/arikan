@@ -3,6 +3,18 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
+## 0.5.3.2
+### en
+**The bot reaches Telegram through a node again, and an uninstall can leave nothing behind.**
+- **“Telegram via a node” works through the reverse tunnel**: the tunnel refused every CONNECT, including the Bot API relay the node already limits to `api.telegram.org:443`, so the panel said the route did not answer while the node itself reached Telegram. The tunnel now lets that one CONNECT through and keeps refusing every other target.
+- **`arikan uninstall --purge`** removes the containers, the images, the database and run volumes, the addon images and network, `/opt/mikan` (data, secrets, backups), the firewall rules the install opened and the command; only the stock `mikan` command, if it was there before, comes back. Without `--purge` the old behaviour stays: data and backups remain.
+- **The node's own API port can be recovered from `config.json`**: `MIKAN_NODE_INBOUND_API` and `MIKAN_NODE_API_LISTEN` now reach the node's container, so a new node whose API port started closed can be opened again without editing `compose.yaml`.
+### ru
+**Бот снова ходит в Telegram через ноду, а удаление может не оставить ничего.**
+- **«Telegram через ноду» работает через обратный туннель**: туннель отклонял любой CONNECT, включая релей Bot API, который нода и так ограничивает адресом `api.telegram.org:443`, — панель говорила, что путь не отвечает, хотя сама нода до Telegram достаёт. Теперь туннель пропускает ровно этот CONNECT, а любую другую цель по-прежнему отклоняет.
+- **`arikan uninstall --purge`** удаляет контейнеры, образы, тома базы и run, образы и сеть аддонов, `/opt/mikan` (данные, секреты, бэкапы), правила фаервола, которые открыла установка, и саму команду; возвращается только стоковая команда `mikan`, если она была до этого. Без `--purge` поведение прежнее: данные и бэкапы остаются.
+- **Свой API-порт ноды можно вернуть через `config.json`**: `MIKAN_NODE_INBOUND_API` и `MIKAN_NODE_API_LISTEN` теперь доезжают до контейнера ноды, поэтому новую ноду с закрытым API-портом можно открыть снова, не правя `compose.yaml`.
+
 ## 0.5.3.1
 ### en
 **The panel opens in a browser again.**
