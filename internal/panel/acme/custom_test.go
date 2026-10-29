@@ -96,6 +96,62 @@ func TestCustomCertificate(t *testing.T) {
 	}
 }
 
+// A custom certificate uploaded for the old domain must not keep the panel on it after the
+// domain changes (or a database from another server brings its name): serving it makes
+// every handshake fail, and while it counted as "the admin's own" no certificate for the
+// current host was ever ordered. The setting owns the name; the file follows.
+func TestCustomCertificateOfAnotherHostDoesNotVetoOrdering(t *testing.T) {
+	ctx := context.Background()
+	t.Setenv("MIKAN_ACME_DIRECTORY", "http://127.0.0.1:1/directory") // the CA is unreachable
+	st, err := storetest.Open(ctx, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	set := settings.New(st.Q)
+	if err := settings.Set(ctx, set, settings.KeyDomain, "new.example.com"); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now()
+	fallback, err := tlscert.LoadOrCreateSelfSigned(t.TempDir(), "new.example.com", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	holder := &tlscert.Holder{}
+	holder.Set(fallback)
+	m := New(t.TempDir(), holder, fallback, set, slog.New(slog.NewTextHandler(io.Discard, nil)), func() time.Time { return now })
+	certPEM, keyPEM := ownCert(t, "old.example.com", now.Add(90*24*time.Hour))
+	cert, err := tlscert.ParseCustom(certPEM, keyPEM, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := tlscert.SaveCustom(m.customDir, cert); err != nil {
+		t.Fatal(err)
+	}
+
+	if id, _, order := m.settle(ctx); id != "new.example.com" || !order {
+		t.Fatalf("the certificate of the old host must not stop the order: id %q, order %v", id, order)
+	}
+	if s := m.Status(); s.Kind == "custom" || s.Error != "custom_wrong_host" {
+		t.Fatalf("status: %+v", s)
+	}
+	served := func() *x509.Certificate {
+		c, _ := holder.Get(&tls.ClientHelloInfo{})
+		leaf, _ := x509.ParseCertificate(c.Certificate[0])
+		return leaf
+	}
+	if served().Subject.CommonName == "old.example.com" {
+		t.Fatal("the certificate of the old host is still served")
+	}
+	// The order is attempted, and its failure is reported beside the ignored file.
+	if !m.ensure(ctx) {
+		t.Fatal("the unreachable CA must be a failed order")
+	}
+	if s := m.Status(); s.Kind == "custom" || s.Error != "custom_wrong_host" {
+		t.Fatalf("after the order: %+v", s)
+	}
+}
+
 // HSTS goes out only while browsers trust what is served: a self-signed fallback, a custom
 // certificate of a private CA or one for another host must stay clickable past a warning.
 func TestTrusted(t *testing.T) {
