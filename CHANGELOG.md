@@ -9,10 +9,16 @@ the signed manifest, and the panel shows the one in its language.
 - A database restored from another server (a `.dump` downloaded from the panel, the Telegram backup) brings that server's `panel_port` setting, while the listen port stays the one this server was installed with. Every link, the admin path and each node's address were then built from a port nothing answered on, and nodes were told the wrong address. The panel now corrects the setting to its own listener at start, with a log line naming both ports.
 - `arikan restore` of a database-only archive now says what that actually changes: the address, port and subscription settings come from the database, every node must join again, and certificates and adapters stay this server's. The docs say the same.
 
+**A subscription opens on 443 without a port in the link.**
+- A subscription port of 443 no longer tries to take 443 from the node: the node's SNI router holds it, and now hands the panel's own names — its domain and the subscription domain — to the panel's listener on loopback, with the client's real address in front (PROXY protocol v2). Links read `https://sub.example.com/…`, the panel opens on 443 too, and the panel records the client's address, not 127.0.0.1. A name an inbound already takes stays the inbound's, and the web route is dropped with a log line. Old links on other ports keep working; 443 needs a domain and the node's shared 443 turned on.
+
 ### ru
 **Панель больше не рекламирует порт, который не слушает.**
 - База, восстановленная с другого сервера (скачанный из панели `.dump`, бэкап из Telegram), приносит настройку `panel_port` того сервера, а слушающий порт остаётся тот, с которым этот сервер установлен. Все ссылки, путь админки и адрес для каждой ноды строились тогда по порту, на котором никто не отвечает, и ноды получали неверный адрес. Теперь панель при старте исправляет настройку на свой слушающий порт и пишет в лог оба значения.
 - `arikan restore` архива только с базой теперь говорит, что именно меняется: адрес, порт и подписочные настройки приезжают из базы, каждой ноде нужно присоединиться заново, а сертификаты и адаптеры остаются здешние. В документации — то же самое.
+
+**Подписка открывается на 443 без порта в ссылке.**
+- Порт подписки 443 больше не пытается занять 443 у ноды: его держит SNI-роутер, и теперь он передаёт свои имена — домен панели и домен подписки — слушателю панели на loopback вместе с настоящим адресом клиента (PROXY protocol v2). Ссылки выглядят как `https://sub.example.com/…`, админка тоже открывается на 443, а панель видит адрес клиента, а не 127.0.0.1. Имя, которое уже занял протокол, остаётся его, а веб-маршрут отбрасывается с записью в лог. Старые ссылки на других портах продолжают работать; для 443 нужен домен и включённый общий 443 ноды.
 
 ## 0.5.2.15
 ### en
