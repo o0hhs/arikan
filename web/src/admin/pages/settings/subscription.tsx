@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
-import type { Schemas } from "../../../api/client";
-import { useInbounds, useNodes } from "../../../api/hooks";
+import { useQuery } from "@tanstack/react-query";
+import { api, unwrap, type Schemas } from "../../../api/client";
+import { qk, useInbounds, useNodes } from "../../../api/hooks";
 import { CardHead, Disclosure, FormActions } from "../../../components/layout";
 import { Button, Field, Pill } from "../../../components/ui";
 import { SwitchRow } from "../../../components/switch";
@@ -8,7 +9,9 @@ import { t } from "../../../i18n";
 import { useDraft } from "../../../lib/draft";
 import { fieldErrors } from "../../../lib/fields";
 import { FingerprintSelect } from "../../../components/fingerprint-select";
-import { period } from "../../../lib/format";
+import { ago, bytes, period } from "../../../lib/format";
+import { nodeLabel } from "../../../lib/node-label";
+import { poll } from "../../../lib/perf";
 import { ReissueRules, TimesPerPeriod } from "./reissue-rules";
 import { useSaveSettings } from "./shared";
 import { LimitPicker } from "../user/limit-picker";
@@ -466,5 +469,85 @@ function UnbindRules({ s }: { s: Schemas["SettingsView"] }) {
         {off ? summary : `${summary} ${pause}`}
       </p>
     </div>
+  );
+}
+
+// Subscriptions answered by the nodes themselves: the panel renders each subscriber's
+// profile once per sync and hands the chosen nodes the bytes, so a link keeps working while
+// the panel's own server is unreachable. The link's host stays the subscription domain's.
+export function SubNodesCard({ s }: { s: Schemas["SettingsView"] }) {
+  const save = useSaveSettings();
+  const nodes = useNodes();
+  // The push status moves while the card is open: a change reaches the nodes within a minute.
+  const settings = useQuery({ queryKey: qk.settings, queryFn: ({ signal }) => unwrap(api.GET("/api/v1/settings", { signal })), refetchInterval: poll(10_000) });
+  const view = settings.data ?? s;
+  const cfg: Schemas["FromNodes"] = view.subs_from_nodes ?? { enabled: false };
+  const chosen = new Set(cfg.nodes ?? []);
+  const saveCfg = (enabled: boolean, nodes: number[]) => save.mutate({ subs_from_nodes: { enabled, nodes } });
+  const toggle = (id: number, on: boolean) => {
+    const next = new Set(chosen);
+    if (on) next.add(id);
+    else next.delete(id);
+    saveCfg(cfg.enabled, [...next]);
+  };
+  const reason = (code?: string) => {
+    switch (code) {
+      case "subs_off":
+        return t("settings.subNodes.reason.off");
+      case "subs_no_port":
+        return t("settings.subNodes.reason.port");
+      case "subs_no_cert":
+        return t("settings.subNodes.reason.cert");
+      case undefined:
+        return t("settings.subNodes.reason.waking");
+      default:
+        return code ?? "";
+    }
+  };
+  return (
+    <section className="card glass reveal">
+      <CardHead title={t("settings.subNodes.title")} sub={t("settings.subNodes.sub")} />
+      <SwitchRow
+        label={t("settings.subNodes.on")}
+        sub={cfg.enabled ? t("settings.subNodes.onSub") : t("settings.subNodes.offSub")}
+        checked={cfg.enabled}
+        disabled={save.isPending}
+        onChange={(v) => saveCfg(v, cfg.nodes ?? [])}
+      />
+      {cfg.enabled ? (
+        <>
+          {view.sub_domain ? null : <Pill tone="bad">{t("settings.subNodes.needDomain")}</Pill>}
+          <ul className="row-list">
+            {(nodes.data ?? [])
+              .filter((n) => n.enabled)
+              .map((n) => (
+                <li key={n.id}>
+                  <label className="flex items-center gap-2 py-1.5 text-[13px] font-semibold">
+                    <input type="checkbox" className="check" checked={chosen.has(n.id)} disabled={save.isPending} onChange={(e) => toggle(n.id, e.target.checked)} />
+                    <span className="min-w-0 flex-1 truncate">{nodeLabel(n)}</span>
+                    <span className="text-xs font-normal text-[var(--ink-500)]">{n.host || n.address}</span>
+                  </label>
+                </li>
+              ))}
+          </ul>
+          {view.sub_nodes?.length ? (
+            <ul className="row-list">
+              {view.sub_nodes.map((v) => (
+                <li key={v.id} className="flex flex-wrap items-center gap-2 py-1.5 text-[13px]">
+                  <span className="min-w-0 flex-1 truncate font-semibold">{v.name || `#${v.id}`}</span>
+                  <Pill tone={v.serving ? "ok" : "bad"}>{v.serving ? t("settings.subNodes.serving") : t("settings.subNodes.notServing", { reason: reason(v.serving_error) })}</Pill>
+                  <span className="w-full text-xs text-[var(--ink-500)]">
+                    {v.last_push ? t("settings.subNodes.lastPush", { ago: ago(v.last_push) }) : t("settings.subNodes.never")}
+                    {v.records ? ` · ${t("settings.subNodes.records", { n: v.records, size: bytes(v.bytes ?? 0) })}` : null}
+                    {v.error ? ` · ${t("settings.subNodes.sendFailed")}: ${v.error}` : null}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {s.device_binding ? <p className="mt-2 text-xs text-[var(--ink-500)]">{t("settings.subNodes.binding")}</p> : null}
+        </>
+      ) : null}
+    </section>
   );
 }

@@ -5063,6 +5063,26 @@
         ],
         "type": "object"
       },
+      "FromNodes": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "nodes": {
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "maxItems": 8,
+            "type": "array"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "type": "object"
+      },
       "GeoAnswer": {
         "additionalProperties": false,
         "properties": {
@@ -9138,6 +9158,10 @@
             "maxLength": 253,
             "type": "string"
           },
+          "subs_from_nodes": {
+            "$ref": "#/components/schemas/FromNodes",
+            "description": "Отдавать подписку с нод: {enabled, nodes: [id]}; домен ссылки — sub_domain"
+          },
           "sub_group_auto": {
             "maxLength": 200,
             "type": "string"
@@ -12051,6 +12075,17 @@
             "description": "Свой текст этой записи; пусто — свой по причине. Переменные как в названии подписки",
             "type": "string"
           },
+          "sub_nodes": {
+            "description": "Выбранные ноды: когда каждая последний раз получала подписки и отвечает ли по ссылкам",
+            "items": {
+              "$ref": "#/components/schemas/SubNodeView"
+            },
+            "type": "array"
+          },
+          "subs_from_nodes": {
+            "$ref": "#/components/schemas/FromNodes",
+            "description": "Отдавать подписку с нод: выбранные ноды сами отвечают по ссылкам подписки профилями, которые панель им присылает, — ссылки работают, когда панель недоступна. Домен ссылки остаётся доменом подписки (sub_domain): направьте его на эти ноды"
+          },
           "sub_port": {
             "description": "Отдельный порт подписок; 0 — порт панели. Порт панели отдаёт подписки в любом случае",
             "format": "int64",
@@ -12157,7 +12192,8 @@
           "happ_routing",
           "happ_provider_id",
           "happ_hide_settings",
-          "happ_crypt"
+          "happ_crypt",
+          "subs_from_nodes"
         ],
         "type": "object"
       },
@@ -12537,6 +12573,55 @@
         },
         "required": [
           "items"
+        ],
+        "type": "object"
+      },
+      "SubNodeView": {
+        "additionalProperties": false,
+        "properties": {
+          "bytes": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "error": {
+            "description": "Почему последняя отправка не удалась",
+            "type": "string"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "last_push": {
+            "description": "Когда панель последний раз отправила ноде подписки",
+            "format": "date-time",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "records": {
+            "description": "Сколько подписок нода хранит по последней отправке",
+            "format": "int64",
+            "type": "integer"
+          },
+          "serving": {
+            "description": "Нода отвечает по ссылкам подписки",
+            "type": "boolean"
+          },
+          "serving_error": {
+            "description": "Почему не отвечает: subs_no_port, subs_no_cert или subs_off",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "enabled",
+          "records",
+          "serving"
         ],
         "type": "object"
       },
