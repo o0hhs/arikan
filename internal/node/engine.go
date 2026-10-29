@@ -80,6 +80,10 @@ type Engine struct {
 	lockOnce sync.Once
 	lock     *apiLock
 
+	// apiServer is the node's own API listener (inboundapi.go); nil when this binary has none
+	// (tests, a node run without a join key).
+	apiServer atomic.Pointer[InboundAPI]
+
 	Reg *Registry
 	tun *Tunnel
 	// egress is the node's own way to the internet, as last checked (egress.go).
@@ -417,6 +421,11 @@ func (e *Engine) apply(st nodeapi.DesiredState) (nodeapi.ApplyResult, error) {
 	e.Reg.SetIngress(st.Filters)
 	e.setRedirect(st.HTTPRedirect)
 	e.apiLock().set(st.APIAllow)
+	// The panel may keep the node's API port closed and reach it over the reverse tunnel alone;
+	// the node keeps the answer for the next start (see SavedInboundAPI).
+	if a := e.apiServer.Load(); a != nil {
+		a.Set(st.InboundAPINeeded())
+	}
 	e.Reg.SetDetail(st.Detail)
 	// The TURN server is a child process of this agent, not a mihomo listener: it is
 	// started, restarted and stopped here, beside the rest of the state.
@@ -620,7 +629,23 @@ func (e *Engine) Health() nodeapi.Health {
 		Version: e.version, Core: coreVersion(), Revision: rev, StartedAt: e.started,
 		Listeners: ls, Conns: e.Reg.ConnCount(), System: e.sys.last(), Update: e.UpdateStatus(), Host: e.host.get(), Time: time.Now(), Egress: e.egress.Load(),
 		Redirect: e.redirect.Load(), Router: e.routerStatus.Load(), APILock: e.apiLock().status(),
+		InboundAPI: e.apiServer.Load().Status(),
 	}
+}
+
+// UseInboundAPI gives the engine the node's own API listener: Apply turns it on and off as the
+// panel says. Call it before the API answers.
+func (e *Engine) UseInboundAPI(a *InboundAPI) { e.apiServer.Store(a) }
+
+// SavedInboundAPI says whether the state saved before the restart had the node's API port on:
+// a node the panel told to keep it closed does not open it again, before the panel says
+// otherwise. No state, or one from before the field: on.
+func SavedInboundAPI(dataDir string) bool {
+	st, ok, err := loadState(filepath.Join(dataDir, stateFile), slog.Default())
+	if err != nil || !ok {
+		return true
+	}
+	return st.InboundAPINeeded()
 }
 
 // setRedirect turns the 301 on port 80 on or off and keeps how it went for Health. A port

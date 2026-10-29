@@ -35,6 +35,9 @@ type Server struct {
 	// hello answers a node's hello and says so; whatever it does not answer is served
 	// like any unknown path (see nodehello). nil: none.
 	hello func(w http.ResponseWriter, r *http.Request) bool
+	// tunnel answers a node's request to open a reverse tunnel and says so (see the panel's
+	// app); whatever it does not answer is served like any unknown path. nil: none.
+	tunnel func(w http.ResponseWriter, r *http.Request) bool
 }
 
 // SetSubDomain points the host-only routing at the subscription domain's host ("" when
@@ -66,6 +69,9 @@ func (s *Server) SetMonitorPath(path string) { s.monitorPath.Store(&path) }
 
 // SetHello takes the handler of the nodes' hellos.
 func (s *Server) SetHello(h func(w http.ResponseWriter, r *http.Request) bool) { s.hello = h }
+
+// SetTunnel takes the handler of the nodes' reverse tunnels.
+func (s *Server) SetTunnel(h func(w http.ResponseWriter, r *http.Request) bool) { s.tunnel = h }
 
 // SetLegacy takes the handler of the old panel's subscription links.
 func (s *Server) SetLegacy(h http.Handler) { s.legacy = h }
@@ -144,6 +150,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request, admin bool) {
 		r2.URL.RawPath = ""
 		s.legacy.ServeHTTP(w, r2)
 	case s.hello != nil && s.hello(w, r):
+	case s.tunnel != nil && s.tunnel(w, r):
 	default:
 		s.other(w, r)
 	}
