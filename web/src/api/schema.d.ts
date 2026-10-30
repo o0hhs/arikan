@@ -5002,6 +5002,11 @@ export interface components {
             relay: boolean;
             /** @description Поток выхода к панели: в туннеле или нет */
             tunnel?: components["schemas"]["ExitTunnel"];
+            /**
+             * @description Как маршрут выходит из ноды: напрямую или через её WARP
+             * @enum {string}
+             */
+            via: "direct" | "warp";
             /** @description WARP ноды, на которой цепочка кончается */
             warp?: components["schemas"]["CascadeWarp"];
         };
@@ -5046,6 +5051,11 @@ export interface components {
             sources: components["schemas"]["CascadeHop"][];
             /** @description WARP ноды, на которой цепочка кончается */
             warp?: components["schemas"]["CascadeWarp"];
+            /**
+             * Format: int64
+             * @description Сколько протоколов других нод идёт через WARP этой ноды
+             */
+            warp_users: number;
         };
         CascadeTunnel: {
             bridge: boolean;
@@ -6052,6 +6062,8 @@ export interface components {
              * @description Нода, через которую выходит трафик, если outbound=node
              */
             exit_node_id?: number;
+            /** @description Выходить через WARP ноды выхода, а не её прямым путём, если outbound=node */
+            exit_warp?: boolean;
             /** @description Отпечаток TLS (uTLS) у клиентов; пусто — общий из настроек */
             fingerprint?: string;
             /** Format: int64 */
@@ -7219,6 +7231,8 @@ export interface components {
              * @description Для outbound=node: через какую ноду
              */
             exit_node_id?: number;
+            /** @description Для outbound=node: выходить через WARP ноды выхода, а не её прямым путём */
+            exit_warp?: boolean;
             /** @description Отпечаток TLS у клиентов: из списка (chrome, firefox, safari, ios, android, edge, 360, qq, random, randomized) или своё — латиница, цифры, _; пусто — общий из настроек */
             fingerprint?: string;
             /** @description Адрес, на котором нода слушает: пусто — все адреса, иначе один IP (127.0.0.1 — за nginx или HAProxy на том же сервере). Свой адрес выключает перенос порта */
@@ -8359,6 +8373,8 @@ export interface components {
              * @description Для outbound=node: через какую ноду
              */
             exit_node_id?: number;
+            /** @description Для outbound=node: выходить через WARP ноды выхода */
+            exit_warp?: boolean;
             /** @description Подключения */
             ids: number[];
             /**
@@ -9699,6 +9715,8 @@ export interface components {
             license?: string;
         };
         WarpView: {
+            /** @description Протоколы других нод, которые выходят через этот WARP */
+            cascade_routes: string[];
             configured: boolean;
             enabled: boolean;
             endpoint?: string;

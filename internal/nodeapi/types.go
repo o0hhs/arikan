@@ -288,6 +288,10 @@ type Health struct {
 	Listeners []ListenerStatus `json:"listeners"`
 	Conns     int              `json:"conns"`
 	System    System           `json:"system"`
+	// Caps are the features of the cascade and the rest this node's code knows: what the
+	// panel builds only for nodes that can carry it (a route through an exit's WARP needs
+	// both ends to know the mark). A node older than the field sends none.
+	Caps []string `json:"caps,omitempty"`
 	// Update is how the last update the panel asked for went, as the host's updater wrote
 	// it; nil while there is none. Nodes before 0.5.0.2 send nothing.
 	Update *UpdateStatus `json:"update,omitempty"`
@@ -611,6 +615,19 @@ type Exit struct {
 // ExitName is the proxy name of node id as an exit.
 func ExitName(id int64) string { return "NODE-" + strconv.FormatInt(id, 10) }
 
+// ExitWarpName is the proxy name of node id as an exit through its own WARP: the same
+// node, another way out. A protocol picks it instead of ExitName when its traffic must
+// leave through the exit's WARP while others through the same node leave directly.
+func ExitWarpName(id int64) string { return ExitName(id) + "~warp" }
+
+// RouteName is the proxy name of a route through node id: its plain exit, or the WARP one.
+func RouteName(id int64, warp bool) string {
+	if warp {
+		return ExitWarpName(id)
+	}
+	return ExitName(id)
+}
+
 // OutboundName is the proxy name of an outbound the admin added by link.
 func OutboundName(id int64) string { return "OUT-" + strconv.FormatInt(id, 10) }
 
@@ -771,3 +788,7 @@ type DPIStatus struct {
 	Error string `json:"error,omitempty"`
 	At    int64  `json:"at,omitempty"`
 }
+
+// HasCap says whether a node's health lists a capability of the cascade (or of another
+// feature a state is built for only when both ends know it).
+func HasCap(h Health, cap string) bool { return slices.Contains(h.Caps, cap) }

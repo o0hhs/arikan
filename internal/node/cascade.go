@@ -24,6 +24,7 @@ func listenerNames(st nodeapi.DesiredState) map[string]bool {
 	}
 	if st.Cascade != nil && st.Cascade.Exit != nil {
 		present[nodeapi.CascadeListener] = true
+		present[nodeapi.CascadeWarpListener] = true
 	}
 	return present
 }

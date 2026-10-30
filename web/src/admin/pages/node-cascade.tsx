@@ -79,10 +79,11 @@ function Body({ nodeId, c, refetch, checking, onWarp }: { nodeId: number; c: Cas
         ) : (
           <ul className="row-list">
             {c.exits.map((e) => (
-              <li key={e.node_id} className="py-3">
+              <li key={`${e.node_id}-${e.via}`} className="py-3">
                 <div className="flex flex-wrap items-center gap-2 text-[13px]">
                   <ArrowRight size={14} aria-hidden className="text-[var(--ink-400)]" />
                   <b>{e.name || name(e.node_id)}</b>
+                  {e.via === "warp" ? <Pill tone="warn">{t("cascade.viaWarp")}</Pill> : null}
                   {e.tunnel?.reserve ? <Pill tone="off">{t("cascade.tunnel.reserve")}</Pill> : null}
                   {e.tunnel && !e.tunnel.reserve ? (
                     <Pill tone={e.tunnel.connected ? "ok" : "bad"}>{t(e.tunnel.connected ? "cascade.tunnel.inTunnel" : "cascade.tunnel.notInTunnel")}</Pill>
@@ -127,6 +128,9 @@ function Body({ nodeId, c, refetch, checking, onWarp }: { nodeId: number; c: Cas
             : t("cascade.sourcesNone")}
         </p>
         {c.relay ? <RelayListener relay={c.relay} /> : null}
+        {c.relay && c.relay.warp_users > 0 ? (
+          <p className="mb-3 text-xs text-[var(--md-on-surface-variant)]">{t("cascade.warpUsers", { n: c.relay.warp_users })}</p>
+        ) : null}
         {save.error && !Object.keys(fields).length ? <div className="banner err mb-4" role="alert">{errorText(save.error)}</div> : null}
         <Field label={t("cascade.route")} hint={t(`cascade.routeHint.${route}`)} error={fields.outbound ?? fields.exit_node_id}>
           <Segmented

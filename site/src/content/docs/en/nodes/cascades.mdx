@@ -60,21 +60,26 @@ There is also the **Where other nodes' traffic goes next** field on the exit nod
 
 ## A cascade through WARP
 
-WARP becomes the last link of the chain: sites see Cloudflare's address, not the exit node's.
+WARP becomes the last link of the chain: sites see Cloudflare's address, not the exit node's. You can send everything that goes through the exit into it, or only some protocols — the rest then leaves through the same exit directly, as two independent paths.
 
 ```text
-client → node A (RF) → the panel's tunnel → node B (abroad) → WARP → internet
+client → node A (RF) → the panel's tunnel → node B (abroad) → internet
+                                                          ↘ WARP → internet
 ```
 
 1. Set WARP up on node B: the **WARP** button on its card, either registration or your own config, see [WARP](/arikan/en/nodes/warp/). Make sure the check passes.
-2. On node A, in the connection settings choose **Way out to the internet → Via a node** and node B.
-3. On node B open **Cascade** and in **Where other nodes' traffic goes next** choose **WARP**.
+2. On node A open the protocol's settings: **Way out to the internet → Via a node**, **Exit node → B**, then **How the traffic leaves → WARP**. The choice shows only when B has a WARP that is on; protocols without it leave through B directly.
+3. When it is the relay rather than a protocol that leaves through B (longer chains), the same choice is made for all of it: in node B's **Cascade** window, **Where other nodes' traffic goes next → WARP** sends every unmarked stream from other nodes there.
 
-The panel will not save step three while node B has no WARP that is on: without it other nodes' traffic would leave directly from the exit node's own address. The cascade window shows WARP's state beside the route, and when WARP is not set up or is off, the button leads to that node's WARP page. While the route is set, WARP cannot be turned off or deleted: the panel refuses.
+The panel will not save a route through WARP while node B has no WARP that is on: without it the traffic would leave directly from the exit node's own address. The cascade window shows WARP's state beside the route, and when WARP is not set up or is off, the button leads to that node's WARP page. While such a route is set, WARP cannot be turned off or deleted: the panel refuses.
 
-On node A's card every exit shows the real chain: `B → WARP`, the address sites see, WARP or WARP+, and when it was last checked.
+On node A's card every exit shows the real chain, and the same exit stands twice when both paths go through it: `B → WARP` and `B → internet`. Beside it are the address sites see, WARP or WARP+, and when it was last checked.
 
-**If WARP goes down**, the traffic does not leave directly: connections simply fail until WARP is back. This is the same rule as for a protocol that exits through WARP — the exit node's address does not leak. The card says so: WARP is marked "down" and the reason is named (see [WARP](/arikan/en/nodes/warp/#check)).
+**If WARP goes down**, its route does not leave directly: connections simply fail until WARP is back. This is the same rule as for a protocol that exits through WARP — the exit node's address does not leak. The direct route through the same node keeps working. The card says so: WARP is marked "down" and the reason is named (see [WARP](/arikan/en/nodes/warp/#check)).
+
+:::caution
+Both ends know a route through WARP: the entry marks its connections, the exit sends the marked ones to WARP. A node older than this version does not know the mark, so the panel does not build such a route for it — the connections fail rather than leave directly. Update both nodes.
+:::
 
 ## Checking a cascade
 

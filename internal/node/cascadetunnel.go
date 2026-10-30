@@ -275,14 +275,21 @@ type entryBridge struct {
 
 	mu     sync.Mutex // the password and the routes; a new state replaces them under it
 	pass   string
-	routes map[string][]int64
+	routes map[string]cascadeRoute
 }
 
-func routesOf(st *nodeapi.CascadeEntry) map[string][]int64 {
-	routes := make(map[string][]int64, len(st.Routes))
+// cascadeRoute is one name of the bridge: the exits to try, and whether their traffic
+// leaves through the exit's WARP (the name is NODE-<id>~warp then).
+type cascadeRoute struct {
+	exits []int64
+	warp  bool
+}
+
+func routesOf(st *nodeapi.CascadeEntry) map[string]cascadeRoute {
+	routes := make(map[string]cascadeRoute, len(st.Routes))
 	for _, r := range st.Routes {
 		if r.Name != "" && len(r.Exits) > 0 {
-			routes[r.Name] = r.Exits
+			routes[r.Name] = cascadeRoute{exits: r.Exits, warp: r.Warp}
 		}
 	}
 	return routes
@@ -312,11 +319,12 @@ func (b *entryBridge) password() string {
 	return b.pass
 }
 
-// route is the exits of one name as the bridge knows them now.
-func (b *entryBridge) route(name string) []int64 {
+// route is one name as the bridge knows it now: the exits to try and how it leaves.
+func (b *entryBridge) route(name string) cascadeRoute {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	return slices.Clone(b.routes[name])
+	r := b.routes[name]
+	return cascadeRoute{exits: slices.Clone(r.exits), warp: r.warp}
 }
 
 func (c *cascade) newEntry(st *nodeapi.CascadeEntry) *entryBridge {
@@ -374,16 +382,17 @@ func (b *entryBridge) serve(conn net.Conn) {
 		return
 	}
 	_ = conn.SetDeadline(time.Time{})
-	ids := b.route(name)
-	if len(ids) == 0 {
+	route := b.route(name)
+	if len(route.exits) == 0 {
 		// The core named an exit the panel did not put in the state: refuse, never guess.
 		_ = socksReply(conn, socksRepHostUnreachable)
 		return
 	}
 	// The exit the inbound named first, then the panel's reserves: a tunnel that is down
 	// costs one refused stream, not the client's connection.
+	target.Warp = route.warp
 	var why error
-	for _, id := range ids {
+	for _, id := range route.exits {
 		ctx, cancel := context.WithTimeout(context.Background(), cascadeHandshake)
 		stream, err := b.c.open(ctx, id)
 		cancel()
@@ -691,7 +700,7 @@ func (c *cascade) serveExit(st *yamux.Stream) {
 		return
 	}
 	_ = st.SetReadDeadline(time.Time{})
-	m := &C.Metadata{NetWork: C.TCP, Type: C.SOCKS5, InName: nodeapi.CascadeListener, DstPort: uint16(target.Port)}
+	m := &C.Metadata{NetWork: C.TCP, Type: C.SOCKS5, InName: cascadeInName(target), DstPort: uint16(target.Port)}
 	if ip, err := netip.ParseAddr(target.Host); err == nil {
 		m.DstIP = ip.Unmap()
 	} else {
@@ -703,6 +712,16 @@ func (c *cascade) serveExit(st *yamux.Stream) {
 	// The core owns the stream from here: it counts it, applies the rules (private ranges
 	// and the filters included) and closes it.
 	c.tun.HandleTCPConn(st, m)
+}
+
+// cascadeInName is the listening name the exit's rules see: a route sent through its WARP
+// has its own, so exactly that traffic leaves through WARP while the rest goes by the
+// exit's own way out.
+func cascadeInName(t nodeapi.CascadeTarget) string {
+	if t.Warp {
+		return nodeapi.CascadeWarpListener
+	}
+	return nodeapi.CascadeListener
 }
 
 // cascadeMux is the multiplexer of both roles: keepalives so a silently dead connection is

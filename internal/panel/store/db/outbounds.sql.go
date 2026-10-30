@@ -118,13 +118,14 @@ func (q *Queries) ListOutbounds(ctx context.Context) ([]Outbound, error) {
 }
 
 const setInboundRoute = `-- name: SetInboundRoute :exec
-UPDATE inbounds SET outbound = $1, exit_node_id = $2, outbound_id = $3 WHERE id = $4
+UPDATE inbounds SET outbound = $1, exit_node_id = $2, outbound_id = $3, exit_warp = $4 WHERE id = $5
 `
 
 type SetInboundRouteParams struct {
 	Outbound   string
 	ExitNodeID sql.NullInt64
 	OutboundID sql.NullInt64
+	ExitWarp   int64
 	ID         int64
 }
 
@@ -135,6 +136,7 @@ func (q *Queries) SetInboundRoute(ctx context.Context, arg SetInboundRouteParams
 		arg.Outbound,
 		arg.ExitNodeID,
 		arg.OutboundID,
+		arg.ExitWarp,
 		arg.ID,
 	)
 	return err

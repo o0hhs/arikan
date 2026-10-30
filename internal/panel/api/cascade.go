@@ -46,6 +46,10 @@ type CascadeExit struct {
 	// Tunnel is the exit's side of the panel's tunnel; nil on a node that cannot be an exit
 	// (the panel's own node, or one without a join key).
 	Tunnel *ExitTunnel `json:"tunnel,omitempty" doc:"Поток выхода к панели: в туннеле или нет"`
+	// Via is how this route leaves the exit: its plain way out, or the exit's own WARP. The
+	// same node appears twice when some protocols of this one ride its WARP and others do
+	// not.
+	Via string `json:"via" enum:"direct,warp" doc:"Как маршрут выходит из ноды: напрямую или через её WARP"`
 	// Chain is what this exit does with the traffic next: the nodes it sends on through, in
 	// order. Empty when the traffic leaves the internet on this node itself.
 	Chain []CascadeHop `json:"chain" doc:"Ноды после этой, по порядку: куда она передаёт трафик дальше"`
@@ -101,6 +105,9 @@ type CascadeRelay struct {
 	Chain []CascadeHop `json:"chain" doc:"Ноды после этой, по порядку: куда она передаёт трафик других нод"`
 	End   string       `json:"end" enum:"direct,warp" doc:"Чем цепочка кончается: прямым выходом или WARP"`
 	Warp  *CascadeWarp `json:"warp,omitempty" doc:"WARP ноды, на которой цепочка кончается"`
+	// WarpUsers counts the protocols of other nodes whose route asks for this node's WARP:
+	// they arrive under their own name and leave through it, whatever the field above says.
+	WarpUsers int `json:"warp_users" doc:"Сколько протоколов других нод идёт через WARP этой ноды"`
 }
 
 type CascadeView struct {
@@ -176,6 +183,12 @@ func (h *handlers) hostOf(id int64) *nodeapi.HostPorts {
 		return hv.HostPorts()
 	}
 	return nil
+}
+
+// exitKey is one route of an entry node: the exit, and whether through its own WARP.
+type exitKey struct {
+	node int64
+	warp bool
 }
 
 // exitChain follows the relay rows from node id: the nodes its traffic goes on through, in
@@ -307,36 +320,47 @@ func (h *handlers) getCascade(ctx context.Context, in *nodeIDInput) (*cascadeOut
 			}
 		}
 	}
-	idx := map[int64]int{}
-	exit := func(id int64) *CascadeExit {
-		if i, ok := idx[id]; ok {
+	idx := map[exitKey]int{}
+	exit := func(k exitKey) *CascadeExit {
+		if i, ok := idx[k]; ok {
 			return &out.Body.Exits[i]
 		}
-		idx[id] = len(out.Body.Exits)
-		out.Body.Exits = append(out.Body.Exits, CascadeExit{CascadeHop: CascadeHop{NodeID: id, Name: names[id]}, Inbounds: []string{}})
+		via := endDirect
+		if k.warp {
+			via = endWarp
+		}
+		idx[k] = len(out.Body.Exits)
+		out.Body.Exits = append(out.Body.Exits, CascadeExit{CascadeHop: CascadeHop{NodeID: k.node, Name: names[k.node]}, Inbounds: []string{}, Via: via})
 		return &out.Body.Exits[len(out.Body.Exits)-1]
 	}
 	for _, i := range ins {
 		if i.NodeID == in.ID && i.ExitNodeID.Valid {
-			e := exit(i.ExitNodeID.Int64)
+			e := exit(exitKey{i.ExitNodeID.Int64, i.ExitWarp != 0})
 			e.Inbounds = append(e.Inbounds, i.Name)
 		}
 	}
 	if r.ExitNodeID.Valid {
-		exit(r.ExitNodeID.Int64).Relay = true
+		exit(exitKey{r.ExitNodeID.Int64, false}).Relay = true
 	}
 	// The cascade over the panel's tunnel: this node's part, and where each exit stands.
 	plan := domain.CascadePlans(nodes, ins, relays)[in.ID]
-	primary := map[int64]bool{}
+	primary := map[exitKey]bool{}
 	entry := false
 	for _, r := range plan.Routes {
-		primary[r.Exit] = true
+		primary[exitKey{r.Exit, r.Warp}] = true
 		if !r.Tunnel {
 			continue
 		}
 		entry = true
 		for _, id := range r.Reserves {
-			exit(id) // a reserve is shown too: it carries traffic when the main exit cannot
+			exit(exitKey{id, false}) // a reserve is shown too: it carries traffic when the main exit cannot
+		}
+	}
+	if out.Body.Relay != nil {
+		for _, i := range ins {
+			if i.Enabled != 0 && i.ExitNodeID.Valid && i.ExitNodeID.Int64 == in.ID && i.ExitWarp != 0 {
+				out.Body.Relay.WarpUsers++
+			}
 		}
 	}
 	// The panel's own node, and a node without a join key, cannot be an exit: no stream of
@@ -358,14 +382,20 @@ func (h *handlers) getCascade(ctx context.Context, in *nodeIDInput) (*cascadeOut
 		e := &out.Body.Exits[i]
 		// A node that cannot be an exit (no join key) has no stream either, and the state
 		// names it with a way to nowhere: its inbounds fail rather than leave directly.
-		es := &ExitTunnel{Reserve: !primary[e.NodeID]}
+		es := &ExitTunnel{Reserve: !primary[exitKey{e.NodeID, e.Via == endWarp}]}
 		if h.d.Cascade != nil {
 			if since, ok := h.d.Cascade.ExitOnline(e.NodeID); ok {
 				es.Connected, es.Since = true, &since
 			}
 		}
 		e.Tunnel = es
-		e.Chain, e.End = exitChain(e.NodeID, rows, names)
+		// A route through the exit's WARP ends in that WARP whatever the exit's own way out
+		// is; a plain one goes on as the exit's rows say.
+		if e.Via == endWarp {
+			e.Chain, e.End = []CascadeHop{}, endWarp
+		} else {
+			e.Chain, e.End = exitChain(e.NodeID, rows, names)
+		}
 		if e.End == endWarp {
 			if e.Warp, err = h.cascadeWarpOf(ctx, chainEnd(e.NodeID, e.Chain), !es.Reserve); err != nil {
 				return nil, err
@@ -376,27 +406,27 @@ func (h *handlers) getCascade(ctx context.Context, in *nodeIDInput) (*cascadeOut
 			// the inbound chose), so there is nothing to probe through.
 			continue
 		}
-		if p, err := h.d.Nodes.Probe(ctx, in.ID, nodeapi.ExitName(e.NodeID)); err == nil {
+		if p, err := h.d.Nodes.Probe(ctx, in.ID, nodeapi.RouteName(e.NodeID, e.Via == endWarp)); err == nil {
 			e.Probe = &ProbeView{OK: p.OK, IP: p.IP, Colo: p.Colo, Error: p.Error, CheckedAt: p.CheckedAt}
 		}
 	}
 	return out, nil
 }
 
-// warpRouteRefusal refuses to send other nodes' traffic to WARP a node does not have (or
-// keeps off): the state would carry no WARP, and that traffic would leave from the exit's
-// own address — the very leak the route was chosen to avoid. The state builder fails such a
-// route closed for rows that get there another way (a restore, a hand edit); this keeps the
-// admin from saving one.
-func (h *handlers) warpRouteRefusal(ctx context.Context, nodeID int64) error {
+// warpRouteRefusal refuses to send traffic to WARP a node does not have (or keeps off):
+// the state would carry no WARP, and that traffic would leave from the exit's own address —
+// the very leak the route was chosen to avoid. The state builder fails such a route closed
+// for rows that get there another way (a restore, a hand edit); this keeps the admin from
+// saving one. field names the refused input ("body.outbound", "body.exit_warp").
+func (h *handlers) warpRouteRefusal(ctx context.Context, nodeID int64, field string) error {
 	w, err := h.d.Store.Q.GetNodeWarp(ctx, nodeID)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
-		return fieldErr("body.outbound", "warp_not_configured")
+		return fieldErr(field, "warp_not_configured")
 	case err != nil:
 		return err
 	case w.Enabled == 0:
-		return fieldErr("body.outbound", "warp_off")
+		return fieldErr(field, "warp_off")
 	}
 	return nil
 }
@@ -407,7 +437,7 @@ func (h *handlers) patchCascade(ctx context.Context, in *cascadePatchInput) (*ca
 	}
 	b := in.Body
 	if b.Outbound == "warp" {
-		if err := h.warpRouteRefusal(ctx, in.ID); err != nil {
+		if err := h.warpRouteRefusal(ctx, in.ID, "body.outbound"); err != nil {
 			return nil, err
 		}
 	}

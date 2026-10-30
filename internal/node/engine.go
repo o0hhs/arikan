@@ -680,6 +680,7 @@ func (e *Engine) Health() nodeapi.Health {
 	}
 	return nodeapi.Health{
 		Version: e.version, Core: coreVersion(), Revision: rev, StartedAt: e.started,
+		Caps:      []string{nodeapi.CapCascadeWarp},
 		Listeners: ls, Conns: e.Reg.ConnCount(), System: e.sys.last(), Update: e.UpdateStatus(), Host: e.host.get(), Time: time.Now(), Egress: e.egress.Load(),
 		Redirect: e.redirect.Load(), Router: e.routerStatus.Load(), APILock: e.apiLock().status(),
 		Cascade:    cascadeStatus(e.cascade),
