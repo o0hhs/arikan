@@ -135,6 +135,26 @@ func (c *Client) HostRestart(ctx context.Context) (RestartAccepted, error) {
 	return r, err
 }
 
+// DPI is the host's last answer about the node's DPI bypass (YouTube and Discord through
+// nfqws, with the node's own address). Nodes that predate it answer 404.
+func (c *Client) DPI(ctx context.Context) (DPIStatus, error) {
+	var r DPIStatus
+	err := c.do(ctx, http.MethodGet, "/v1/dpi", nil, &r, 10*time.Second)
+	return r, err
+}
+
+// SetDPI asks the host to start (on) or stop the DPI bypass. The host takes the request a
+// moment later; the answer is its state as of now, which the caller can poll with DPI. The
+// first start installs zapret and builds nfqws, so the answer stays off until that ends.
+func (c *Client) SetDPI(ctx context.Context, on bool) (DPIStatus, error) {
+	var r DPIStatus
+	body := struct {
+		On bool `json:"on"`
+	}{on}
+	err := c.do(ctx, http.MethodPost, "/v1/dpi", body, &r, 10*time.Second)
+	return r, err
+}
+
 // The codes of the host operations of a node.
 const (
 	// CodeDoctorTimeout: the host did not answer in time: its unit is missing (an older

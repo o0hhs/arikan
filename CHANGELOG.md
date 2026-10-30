@@ -3,13 +3,24 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
-## Unreleased
+## 0.5.5.0
 ### en
+**“YouTube without ads” keeps the Russian address now: the DPI bypass runs on the node's own server.**
+- The 0.5.4.0 preset had the wrong idea: it sent the entry node's traffic out through an overseas node, so YouTube saw a foreign address and showed foreign ads. The card now insists the node leaves **directly** and offers one button to move its connections back when they go through another node; the Russian address is the point.
+- **`arikan dpi on|off|status`** runs zapret's `nfqws` on the server's host: YouTube and Discord leave with the node's own address, while the TLS handshake is split past the ISP's filter. The first `on` installs the pinned zapret (72.13), builds nfqws and starts a systemd service; the rule is an NFQUEUE with `--queue-bypass`, so traffic keeps flowing if nfqws dies, and `off` removes it. The host list and the strategy are in `/opt/mikan/dpi`; a server that needs another strategy edits `run` there.
+- **The node's card gets the switch**: Settings → the node → Edit → “DPI bypass (YouTube and Discord)”. The node's container cannot run nfqws, so the switch writes a request into the node's data directory and a unit of the host (installed by this release's `arikan update`) runs the command; the panel polls the host's answer and shows an error if the install fails. No SSH.
+- The first start installs the build tools and the netfilter queue library through apt and downloads zapret from GitHub: a few minutes. The service covers TCP 443 for YouTube and Discord; Discord voice and Telegram calls are UDP and do not cross it.
+
 **Settings stop claiming unsaved changes, and a node on a filtered network can be given a DNS it reaches.**
 - Routing → the save bar and the “changes will be lost” question stayed after a successful save: the draft now takes the server's own form of what was saved (a list it trims, a section it drops when empty, the profile it stores trimmed). The same fix for the subscription profile, which is edited beside the routing.
 - Routing → DNS gains the bootstrap (`default-nameserver`): the resolvers that turn the DNS servers' own names into addresses. On a server whose plain public DNS is interfered with (a Russian one) a node resolves nothing at all until this is an address it can reach; the “Russian” preset now sets 77.88.8.8 here as well.
-
 ### ru
+**«YouTube без рекламы» теперь сохраняет российский адрес: обход DPI работает на самом сервере ноды.**
+- У пресета 0.5.4.0 была неверная идея: трафик входной ноды уходил через зарубежную ноду, поэтому YouTube видел зарубежный адрес и показывал зарубежную рекламу. Теперь карточка требует, чтобы нода выходила **напрямую**, и одной кнопкой возвращает её подключения с другой ноды: смысл именно в российском адресе.
+- **`arikan dpi on|off|status`** запускает `nfqws` из zapret на хосте сервера: YouTube и Discord выходят с адреса самой ноды, а TLS-рукопожатие разбивается так, что фильтр провайдера его не узнаёт. Первый `on` ставит закреплённый zapret (72.13), собирает nfqws и запускает systemd-сервис; правило — NFQUEUE с `--queue-bypass`, поэтому при падении nfqws трафик продолжает идти, а `off` убирает правило. Список сайтов и стратегия лежат в `/opt/mikan/dpi`; если серверу нужна другая стратегия, правьте `run` там.
+- **В карточке ноды появился переключатель**: Настройки → нода → «Изменить» → «Обход DPI (YouTube и Discord)». Контейнер ноды не может запускать nfqws, поэтому переключатель пишет запрос в каталог данных ноды, а юнит хоста (его ставит `arikan update` этой сборки) выполняет команду; панель опрашивает ответ хоста и показывает ошибку, если установка не удалась. Без SSH.
+- Первый запуск ставит через apt средства сборки и библиотеку netfilter queue и скачивает zapret с GitHub: несколько минут. Сервис закрывает TCP 443 для YouTube и Discord; голос Discord и звонки Telegram идут по UDP и через него не проходят.
+
 **Настройки больше не считают сохранённое несохранённым, а ноде в фильтруемой сети можно задать доступный DNS.**
 - Маршрутизация → плашка «есть несохранённые изменения» и вопрос при уходе со страницы оставались после успешного сохранения: теперь черновик принимает серверную форму сохранённого (список он подрезает, пустую секцию выбрасывает, профиль хранит подрезанным). То же для профиля подписки, который правится рядом с маршрутизацией.
 - Маршрутизация → DNS получила bootstrap (`default-nameserver`): резолверы, которые превращают имена DNS-серверов в адреса. На сервере, где публичный DNS фильтруется (российский), нода не резолвит вообще ничего, пока здесь не будет доступный ей адрес; пресет «Российский» теперь тоже ставит сюда 77.88.8.8.

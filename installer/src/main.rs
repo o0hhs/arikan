@@ -10,6 +10,7 @@ mod clock;
 mod config;
 mod docker;
 mod doctor;
+mod dpi;
 mod hello;
 mod host;
 mod hostreq;
@@ -70,6 +71,15 @@ enum Cmd {
         json: bool,
         /// The panel, or a node's panel, asked for it (a systemd path unit runs this)
         #[arg(long, hide = true, conflicts_with = "json")]
+        requested: bool,
+    },
+    /// DPI bypass for YouTube and Discord on this server: zapret's nfqws on the host
+    Dpi {
+        /// on, off, or status
+        #[arg(value_parser = ["on", "off", "status"])]
+        state: Option<String>,
+        /// The node asked for it (a systemd path unit runs this)
+        #[arg(long, hide = true, conflicts_with = "state")]
         requested: bool,
     },
     /// Send support what this server says (the check, the status, the last log lines, secrets
@@ -249,6 +259,8 @@ fn main() -> ExitCode {
         Some(Cmd::Doctor { json: true, .. }) => doctor::json(),
         Some(Cmd::Doctor { requested: true, .. }) => doctor::requested(),
         Some(Cmd::Doctor { .. }) => doctor::run(),
+        Some(Cmd::Dpi { requested: true, .. }) => dpi::requested(),
+        Some(Cmd::Dpi { state, requested: false }) => dpi::command(state.as_deref()),
         Some(Cmd::Support { code, dry_run }) => support::run(&code, dry_run),
         Some(Cmd::Logs { service }) => ops::logs(service.as_deref()),
         Some(Cmd::Url) => ops::admin(&["url"]),

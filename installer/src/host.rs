@@ -278,7 +278,7 @@ fn version_of(path: &Path) -> Result<String> {
     Err(last.map_or_else(|| anyhow::anyhow!("the downloaded command does not run"), Into::into))
 }
 
-const UNIT_NAMES: [&str; 10] = [
+const UNIT_NAMES: [&str; 12] = [
     "arikan-update.service",
     "arikan-update.timer",
     "arikan-update-request.service",
@@ -289,6 +289,8 @@ const UNIT_NAMES: [&str; 10] = [
     "arikan-restart-request.path",
     "arikan-terminal-request.service",
     "arikan-terminal-request.path",
+    "arikan-dpi-request.service",
+    "arikan-dpi-request.path",
 ];
 
 /// A node's own units: the firewall rule of its API port (apilock.rs), kept by a path unit on
@@ -299,12 +301,13 @@ const NODE_UNITS: [&str; 3] = ["arikan-apilock.service", "arikan-apilock.path", 
 const NODE_WATCHES: [&str; 2] = ["arikan-apilock.path", "arikan-apilock.timer"];
 
 /// The path units, which are enabled and started; the timer too.
-const WATCHES: [&str; 5] = [
+const WATCHES: [&str; 6] = [
     "arikan-update.timer",
     "arikan-update-request.path",
     "arikan-doctor-request.path",
     "arikan-restart-request.path",
     "arikan-terminal-request.path",
+    "arikan-dpi-request.path",
 ];
 
 /// The unit files of a panel or of a node: the same, except that each path unit watches
@@ -467,6 +470,36 @@ Unit=arikan-terminal-request.service
 WantedBy=paths.target
 "
             ),
+        ),
+        (
+            UNIT_NAMES[10],
+            "[Unit]
+Description=Arikan: DPI bypass (nfqws) asked for by a node
+
+[Service]
+Type=oneshot
+# The first ask installs zapret and builds nfqws: minutes, not seconds. A stuck build
+# must not hold the next request for ever.
+TimeoutStartSec=15min
+ExecStart=/usr/local/bin/arikan dpi --requested
+"
+            .into(),
+        ),
+        (
+            UNIT_NAMES[11],
+            // A panel's own node asks through data/node too: the local node lives on the
+            // same host, and its data directory is the one the panel's compose gives it.
+            "[Unit]
+Description=Arikan: wait for a node to ask for the DPI bypass
+
+[Path]
+PathExists=/opt/mikan/data/node/dpi/request
+Unit=arikan-dpi-request.service
+
+[Install]
+WantedBy=paths.target
+"
+            .into(),
         ),
     ]
 }
@@ -835,6 +868,25 @@ mod tests {
         assert!(WATCHES.contains(&"arikan-terminal-request.path"));
     }
 
+    // The DPI request is a node's, and the panel's own node writes into the same
+    // data/node directory: one path unit watches that file on either server.
+    #[test]
+    fn the_dpi_unit_watches_the_nodes_request() {
+        let (panel, node) = (units(true), units(false));
+        let unit = |all: &[(&str, String)], name: &str| all.iter().find(|(n, _)| *n == name).unwrap().1.clone();
+        for all in [&panel, &node] {
+            let path = unit(all, "arikan-dpi-request.path");
+            assert!(path.contains("\nPathExists=/opt/mikan/data/node/dpi/request\n"));
+            assert!(path.contains("Unit=arikan-dpi-request.service"));
+        }
+        let service = unit(&node, "arikan-dpi-request.service");
+        assert_eq!(service, unit(&panel, "arikan-dpi-request.service"));
+        assert!(service.contains("\nExecStart=/usr/local/bin/arikan dpi --requested\n"));
+        // The first request installs the tool: the build must not be cut at a minute.
+        assert!(service.contains("TimeoutStartSec="));
+        assert!(WATCHES.contains(&"arikan-dpi-request.path"));
+    }
+
     // Run again, the install leaves the files alone: a server that is up to date is not
     // rewritten, one with an older unit set (no doctor or restart unit, a changed text) gets
     // what is missing and nothing else.
@@ -861,8 +913,8 @@ mod tests {
         let before = fs::read_to_string(d.join("arikan-update.timer")).unwrap();
         assert_eq!(
             write_units(&d, false, false).unwrap(),
-            4 + NODE_UNITS.len(),
-            "only the four path units differ, and the node's own are new"
+            5 + NODE_UNITS.len(),
+            "only the five path units differ, and the node's own are new"
         );
         assert_eq!(fs::read_to_string(d.join("arikan-update.timer")).unwrap(), before);
         assert!(fs::read_to_string(d.join("arikan-restart-request.path")).unwrap().contains("data/node/restart/request"));

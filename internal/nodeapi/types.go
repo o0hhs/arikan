@@ -762,3 +762,12 @@ type DirUsage struct {
 	Path  string `json:"path"`
 	Bytes int64  `json:"bytes"`
 }
+
+// DPIStatus is the node's DPI bypass as the host last reported it: whether nfqws runs, and
+// why not when it does not. At is when the host wrote the answer (unix seconds); 0 when the
+// host never did (the unit is not installed yet).
+type DPIStatus struct {
+	On    bool   `json:"on"`
+	Error string `json:"error,omitempty"`
+	At    int64  `json:"at,omitempty"`
+}

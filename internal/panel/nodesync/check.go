@@ -129,3 +129,25 @@ func (m *Manager) HostRestart(ctx context.Context, id int64) (nodeapi.RestartAcc
 	}
 	return c.HostRestart(ctx)
 }
+
+// DPI is a node's DPI bypass as its host last reported it (nodeapi.Client.DPI).
+func (m *Manager) DPI(ctx context.Context, id int64) (nodeapi.DPIStatus, error) {
+	c, err := clientOf[interface {
+		DPI(context.Context) (nodeapi.DPIStatus, error)
+	}](m, id)
+	if err != nil {
+		return nodeapi.DPIStatus{}, err
+	}
+	return c.DPI(ctx)
+}
+
+// SetDPI asks a node's host to start or stop its DPI bypass (nodeapi.Client.SetDPI).
+func (m *Manager) SetDPI(ctx context.Context, id int64, on bool) (nodeapi.DPIStatus, error) {
+	c, err := clientOf[interface {
+		SetDPI(context.Context, bool) (nodeapi.DPIStatus, error)
+	}](m, id)
+	if err != nil {
+		return nodeapi.DPIStatus{}, err
+	}
+	return c.SetDPI(ctx, on)
+}

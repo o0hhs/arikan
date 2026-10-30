@@ -1713,6 +1713,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/nodes/{id}/dpi": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Обход DPI ноды
+         * @description Что хост ноды ответил о nfqws: включён ли обход YouTube и Discord, и почему нет. Нода должна быть обновлена до 0.5.5.0.
+         */
+        get: operations["get-node-dpi"];
+        put?: never;
+        /**
+         * Включить или выключить обход DPI ноды
+         * @description Хост запускает nfqws (zapret): YouTube и Discord выходят с адреса самой ноды, TLS-рукопожатие обходит фильтр. Первый запуск ставит zapret и собирает nfqws, это минуты; ответ 202, состояние — GET.
+         */
+        post: operations["set-node-dpi"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/nodes/{id}/geo": {
         parameters: {
             query?: never;
@@ -5374,6 +5398,12 @@ export interface components {
             match: string;
             servers: string[];
         };
+        DPIStatus: {
+            /** Format: int64 */
+            at?: number;
+            error?: string;
+            on: boolean;
+        };
         DecideTopupInputBody: {
             approve: boolean;
             /** @description Почему отклонено: увидит клиент */
@@ -5708,14 +5738,6 @@ export interface components {
             update?: boolean;
             warp?: boolean;
         };
-        ExitTunnel: {
-            /** @description Панель держит поток этой ноды: её трафик идёт через туннель */
-            connected: boolean;
-            /** @description Выход в резерве: подхватит, если у основного пропадёт туннель */
-            reserve: boolean;
-            /** Format: date-time */
-            since?: string;
-        };
         ExitDNSInfo: {
             /** @description Серверы готовых вариантов */
             presets: {
@@ -5741,6 +5763,17 @@ export interface components {
             servers: string[];
             /** @description Нода сама узнаёт, на какой сайт идёт пользователь (TLS, HTTP, QUIC на портах 443, 8443, 80, 8080–8880), и подключается к нему из своей страны: сайты видят страну ноды, а не пользователя */
             sniff: boolean;
+        };
+        ExitTunnel: {
+            /** @description Панель держит поток этой ноды: её трафик идёт через туннель */
+            connected: boolean;
+            /** @description Выход в резерве: подхватит, если у основного пропадёт туннель */
+            reserve: boolean;
+            /**
+             * Format: date-time
+             * @description С какого момента поток есть
+             */
+            since?: string;
         };
         ExtendInputBody: {
             /** Format: int64 */
@@ -7349,15 +7382,13 @@ export interface components {
             sub_announce_url?: string;
             /** @description Домен для ссылок подписки, отдельный от домена панели; пусто — убрать. Старые ссылки продолжают работать */
             sub_domain?: string;
-            /** @description Отдавать подписку с нод: {enabled, nodes: [id]}; домен ссылки — sub_domain */
-            subs_from_nodes?: components["schemas"]["FromNodes"];
             sub_group_auto?: string;
             sub_group_main?: string;
             sub_inactive_server?: boolean;
             sub_inactive_text?: string;
             /**
              * Format: int64
-             * @description Отдельный порт подписок на сервере панели; 0 — убрать. Ссылки переезжают на него, старые продолжают работать
+             * @description Отдельный порт подписок на сервере панели; 0 — убрать. 443 — через общий 443 ноды (SNI-роутер), без отдельного слушателя и без порта в ссылках. Ссылки переезжают на порт, старые продолжают работать
              */
             sub_port?: number;
             sub_routes?: components["schemas"]["Routes"];
@@ -7369,6 +7400,8 @@ export interface components {
             sub_template?: string;
             /** @description Переменные — см. SettingsView.sub_title */
             sub_title?: string;
+            /** @description Отдавать подписку с нод: {enabled, nodes: [id]}; домен ссылки — sub_domain */
+            subs_from_nodes?: components["schemas"]["FromNodes"];
             support_access?: boolean;
             /** @description https://… или tg://… */
             support_url?: string;
@@ -8319,6 +8352,9 @@ export interface components {
             /** @description Группа балансировки; пусто — нода вне групп, её получают все */
             group: string;
         };
+        SetNodeDPIInputBody: {
+            on: boolean;
+        };
         SettingsView: {
             /**
              * @description Центр сертификации панели и нод: letsencrypt, zerossl (нужен e-mail) или google (нужен ключ EAB). IP-адреса всегда получают сертификат Let's Encrypt
@@ -8415,11 +8451,9 @@ export interface components {
             sub_inactive_text: string;
             /** @description Выбранные ноды: когда каждая последний раз получала подписки и отвечает ли по ссылкам */
             sub_nodes?: components["schemas"]["SubNodeView"][];
-            /** @description Отдавать подписку с нод: выбранные ноды сами отвечают по ссылкам подписки профилями, которые панель им присылает, — ссылки работают, когда панель недоступна. Домен ссылки остаётся доменом подписки (sub_domain): направьте его на эти ноды */
-            subs_from_nodes: components["schemas"]["FromNodes"];
             /**
              * Format: int64
-             * @description Отдельный порт подписок; 0 — порт панели. Порт панели отдаёт подписки в любом случае
+             * @description Отдельный порт подписок; 0 — порт панели. 443 — через общий 443 ноды (SNI-роутер), ссылки без порта. Порт панели отдаёт подписки в любом случае
              */
             sub_port: number;
             /** @description sub_port_busy — сохранённый порт занят на сервере, подписки пока идут через порт панели */
@@ -8437,6 +8471,8 @@ export interface components {
             sub_template: string;
             /** @description Название подписки в приложениях (заголовок profile-title); пусто — бренд. Переменные: {brand} — бренд, {name} — имя пользователя, {date} — дата окончания (ДД.ММ.ГГГГ, МСК), {days} — дней осталось, {used} — израсходовано, {left} — осталось трафика, {total} — всего, {devices} — привязанные устройства (2/3); без срока или лимита — ∞ */
             sub_title: string;
+            /** @description Отдавать подписку с нод: выбранные ноды сами отвечают по ссылкам подписки профилями, которые панель им присылает, — ссылки работают, когда панель недоступна. Домен ссылки остаётся доменом подписки (sub_domain): направьте его на эти ноды */
+            subs_from_nodes: components["schemas"]["FromNodes"];
             /** @description Разрешить доступ для поддержки (Настройки → Безопасность). Выключено: новый доступ не выдать, действующий закрывается. MIKAN_SUPPORT_ACCESS=off в .env сервера выключает его независимо от этой настройки */
             support_access: boolean;
             support_url: string;
@@ -8603,10 +8639,16 @@ export interface components {
             error?: string;
             /** Format: int64 */
             id: number;
-            /** @description Когда панель последний раз отправила ноде подписки */
+            /**
+             * Format: date-time
+             * @description Когда панель последний раз отправила ноде подписки
+             */
             last_push?: string;
             name: string;
-            /** @description Сколько подписок нода хранит по последней отправке */
+            /**
+             * Format: int64
+             * @description Сколько подписок нода хранит по последней отправке
+             */
             records: number;
             /** @description Нода отвечает по ссылкам подписки */
             serving: boolean;
@@ -13786,6 +13828,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HostReport"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-node-dpi": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DPIStatus"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "set-node-dpi": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetNodeDPIInputBody"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DPIStatus"];
                 };
             };
             /** @description Error */

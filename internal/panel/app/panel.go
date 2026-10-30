@@ -260,6 +260,8 @@ func NewPanel(st *store.Store, o Options) (*Panel, error) {
 		deps.Online = p.Nodes.Online
 		deps.NodeOnline = p.Nodes.OnlineOf
 		deps.Nodes = p.Nodes
+		deps.NodeDPI = p.Nodes.DPI
+		deps.SetNodeDPI = p.Nodes.SetDPI
 		p.NodeUpdates = nodeupdate.New(st, set, p.Nodes, o.Version, o.Log, o.Now)
 		deps.NodeUpdates = p.NodeUpdates
 		tune := o.Autotune

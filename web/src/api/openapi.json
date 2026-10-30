@@ -4040,6 +4040,25 @@
         ],
         "type": "object"
       },
+      "DPIStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "error": {
+            "type": "string"
+          },
+          "on": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "on"
+        ],
+        "type": "object"
+      },
       "DecideTopupInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -4985,6 +5004,7 @@
             "type": "boolean"
           },
           "since": {
+            "description": "С какого момента поток есть",
             "format": "date-time",
             "type": "string"
           }
@@ -5138,7 +5158,6 @@
               "format": "int64",
               "type": "integer"
             },
-            "maxItems": 8,
             "type": "array"
           }
         },
@@ -9277,10 +9296,6 @@
             "maxLength": 253,
             "type": "string"
           },
-          "subs_from_nodes": {
-            "$ref": "#/components/schemas/FromNodes",
-            "description": "Отдавать подписку с нод: {enabled, nodes: [id]}; домен ссылки — sub_domain"
-          },
           "sub_group_auto": {
             "maxLength": 200,
             "type": "string"
@@ -9297,7 +9312,7 @@
             "type": "string"
           },
           "sub_port": {
-            "description": "Отдельный порт подписок на сервере панели; 0 — убрать. Ссылки переезжают на него, старые продолжают работать",
+            "description": "Отдельный порт подписок на сервере панели; 0 — убрать. 443 — через общий 443 ноды (SNI-роутер), без отдельного слушателя и без порта в ссылках. Ссылки переезжают на порт, старые продолжают работать",
             "format": "int64",
             "maximum": 65535,
             "minimum": 0,
@@ -9328,6 +9343,10 @@
             "description": "Переменные — см. SettingsView.sub_title",
             "maxLength": 200,
             "type": "string"
+          },
+          "subs_from_nodes": {
+            "$ref": "#/components/schemas/FromNodes",
+            "description": "Отдавать подписку с нод: {enabled, nodes: [id]}; домен ссылки — sub_domain"
           },
           "support_access": {
             "type": "boolean"
@@ -11999,6 +12018,18 @@
         ],
         "type": "object"
       },
+      "SetNodeDPIInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "on": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "on"
+        ],
+        "type": "object"
+      },
       "SettingsView": {
         "additionalProperties": false,
         "properties": {
@@ -12201,12 +12232,8 @@
             },
             "type": "array"
           },
-          "subs_from_nodes": {
-            "$ref": "#/components/schemas/FromNodes",
-            "description": "Отдавать подписку с нод: выбранные ноды сами отвечают по ссылкам подписки профилями, которые панель им присылает, — ссылки работают, когда панель недоступна. Домен ссылки остаётся доменом подписки (sub_domain): направьте его на эти ноды"
-          },
           "sub_port": {
-            "description": "Отдельный порт подписок; 0 — порт панели. Порт панели отдаёт подписки в любом случае",
+            "description": "Отдельный порт подписок; 0 — порт панели. 443 — через общий 443 ноды (SNI-роутер), ссылки без порта. Порт панели отдаёт подписки в любом случае",
             "format": "int64",
             "type": "integer"
           },
@@ -12238,6 +12265,10 @@
           "sub_title": {
             "description": "Название подписки в приложениях (заголовок profile-title); пусто — бренд. Переменные: {brand} — бренд, {name} — имя пользователя, {date} — дата окончания (ДД.ММ.ГГГГ, МСК), {days} — дней осталось, {used} — израсходовано, {left} — осталось трафика, {total} — всего, {devices} — привязанные устройства (2/3); без срока или лимита — ∞",
             "type": "string"
+          },
+          "subs_from_nodes": {
+            "$ref": "#/components/schemas/FromNodes",
+            "description": "Отдавать подписку с нод: выбранные ноды сами отвечают по ссылкам подписки профилями, которые панель им присылает, — ссылки работают, когда панель недоступна. Домен ссылки остаётся доменом подписки (sub_domain): направьте его на эти ноды"
           },
           "support_access": {
             "description": "Разрешить доступ для поддержки (Настройки → Безопасность). Выключено: новый доступ не выдать, действующий закрывается. MIKAN_SUPPORT_ACCESS=off в .env сервера выключает его независимо от этой настройки",
@@ -12278,6 +12309,7 @@
           "sub_domain",
           "panel_port",
           "sub_port",
+          "subs_from_nodes",
           "quiet_hour_utc",
           "admin_url",
           "sub_base_url",
@@ -12311,8 +12343,7 @@
           "happ_routing",
           "happ_provider_id",
           "happ_hide_settings",
-          "happ_crypt",
-          "subs_from_nodes"
+          "happ_crypt"
         ],
         "type": "object"
       },
@@ -21069,6 +21100,103 @@
         "tags": [
           "node"
         ]
+      }
+    },
+    "/api/v1/nodes/{id}/dpi": {
+      "get": {
+        "description": "Что хост ноды ответил о nfqws: включён ли обход YouTube и Discord, и почему нет. Нода должна быть обновлена до 0.5.5.0.",
+        "operationId": "get-node-dpi",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DPIStatus"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Обход DPI ноды",
+        "tags": [
+          "node"
+        ]
+      },
+      "post": {
+        "description": "Хост запускает nfqws (zapret): YouTube и Discord выходят с адреса самой ноды, TLS-рукопожатие обходит фильтр. Первый запуск ставит zapret и собирает nfqws, это минуты; ответ 202, состояние — GET.",
+        "operationId": "set-node-dpi",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetNodeDPIInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DPIStatus"
+                }
+              }
+            },
+            "description": "Accepted"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Включить или выключить обход DPI ноды",
+        "tags": [
+          "node"
+        ],
+        "x-session-only": true
       }
     },
     "/api/v1/nodes/{id}/geo": {

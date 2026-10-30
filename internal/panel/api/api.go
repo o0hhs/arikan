@@ -102,6 +102,9 @@ type Deps struct {
 	HappLink func(ctx context.Context, u db.User) (string, error)
 	// Nodes is the live side of the nodes; nil when the panel runs without them.
 	Nodes NodeRuntime
+	// NodeDPI and SetNodeDPI are a node's DPI bypass status and switch; nil in tests.
+	NodeDPI    func(ctx context.Context, id int64) (nodeapi.DPIStatus, error)
+	SetNodeDPI func(ctx context.Context, id int64, on bool) (nodeapi.DPIStatus, error)
 	// Cascade is the panel's cascade hub (internal/panel/cascade): which exits keep a stream
 	// to the panel and which entry nodes have their bridge; nil in tests.
 	Cascade CascadeRuntime

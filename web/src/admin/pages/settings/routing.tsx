@@ -286,9 +286,11 @@ function useCatalog() {
 
 /**
  * The "YouTube without ads" offer: one switch sends YouTube, Discord and Telegram through
- * the chosen entry node and blocks the ad list; the exit button moves that node's whole
- * traffic to an overseas node, which is what gets it past the DPI. The subscription page
- * shows its card on its own while the routes say the offer is on (Routes.YouTubeAdFree).
+ * the chosen node, and the node's own host gets the DPI bypass (the switch in its settings,
+ * nfqws). The exit must be direct — the whole point is the node's Russian address, not a
+ * foreign one — so the card names it and offers to move the node's connections back to
+ * direct. The subscription page shows its card while the routes say the offer is on
+ * (Routes.YouTubeAdFree).
  */
 function YouTubeCard({ routes, setRoutes }: { routes: Routes; setRoutes: SetRoutes }) {
   const nodesQ = useNodes();
@@ -298,7 +300,6 @@ function YouTubeCard({ routes, setRoutes }: { routes: Routes; setRoutes: SetRout
   const nodes = (nodesQ.data ?? []).filter((n) => n.enabled);
   const inbounds = inboundsQ.data ?? [];
   const [pick, setPick] = useState(0);
-  const [exit, setExit] = useState(0);
   const [ask, setAsk] = useState(false);
   const yt = routes.services?.youtube ?? "";
   const entry = yt.startsWith("node:") ? Number(yt.slice(5)) : 0;
@@ -310,26 +311,18 @@ function YouTubeCard({ routes, setRoutes }: { routes: Routes; setRoutes: SetRout
     if (pick === 0 && nodes.length > 0) setPick(nodes[0]!.id);
   }, [nodes, pick]);
   const entryNode = nodes.find((n) => n.id === entry);
-  const exitNode = nodes.find((n) => n.id === exit);
   const own = inbounds.filter((i) => i.node_id === entry && i.enabled);
-  // 0: the node exits directly, -1: its connections exit differently, >0: the node they all use.
-  const exits = own.map((i) => (i.outbound === "node" ? (i.exit_node_id ?? 0) : 0));
-  const common = own.length > 0 && exits.every((x) => x === exits[0]) ? (exits[0] ?? 0) : -1;
-  const via = nodes.find((n) => n.id === common);
+  const direct = own.length > 0 && own.every((i) => i.outbound === "direct");
+  const foreign = own.filter((i) => i.outbound !== "direct").length;
   const current = !own.length
     ? t("settings.youtubeNoInbounds")
-    : common > 0
-      ? t("settings.youtubeExitCurrent", { name: via ? nodeLabel(via) : `#${common}` })
-      : common === 0
-        ? t("settings.youtubeExitDirect")
-        : t("settings.youtubeExitMixed");
-  useEffect(() => {
-    if (exit === 0 && common > 0) setExit(common);
-  }, [common, exit]);
+    : direct
+      ? t("settings.youtubeExitDirectGood")
+      : t("settings.youtubeExitForeign", { n: foreign });
   const move = useMutation({
     mutationFn: (body: Schemas["SetExitsInputBody"]) => unwrap(api.POST("/api/v1/inbounds/exit", { body })),
     onSuccess: () => {
-      toast.ok(t("settings.youtubeExitDone"));
+      toast.ok(t("settings.youtubeExitDirectDone"));
       void qc.invalidateQueries({ queryKey: qk.inbounds });
     },
     onError: (e) => toast.error(errorText(e)),
@@ -351,11 +344,9 @@ function YouTubeCard({ routes, setRoutes }: { routes: Routes; setRoutes: SetRout
       }
       return { ...r, services, tune: { ...(r.tune ?? {}), block_quic: want ? true : r.tune?.block_quic } };
     });
-    setExit(0);
   };
   const changeEntry = (id: number) => {
     setPick(id);
-    setExit(0);
     if (!on) return;
     setRoutes((r) => {
       const services = { ...(r.services ?? {}) };
@@ -363,7 +354,6 @@ function YouTubeCard({ routes, setRoutes }: { routes: Routes; setRoutes: SetRout
       return { ...r, services };
     });
   };
-  const exitOptions = nodes.filter((n) => n.id !== entry);
   return (
     <Card title={t("settings.youtubeTitle")} sub={t("settings.youtubeSub")}>
       {!nodes.length ? (
@@ -371,7 +361,7 @@ function YouTubeCard({ routes, setRoutes }: { routes: Routes; setRoutes: SetRout
       ) : (
         <>
           <SwitchRow label={t("settings.youtubeOn")} sub={t("settings.youtubeEntryHint")} checked={on} onChange={apply} />
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <div className="mt-3">
             <Field label={t("settings.youtubeEntry")} htmlFor="yt-entry">
               <select id="yt-entry" className="input" value={pick || ""} onChange={(e) => changeEntry(Number(e.target.value))}>
                 {nodes.map((n) => (
@@ -381,39 +371,28 @@ function YouTubeCard({ routes, setRoutes }: { routes: Routes; setRoutes: SetRout
                 ))}
               </select>
             </Field>
-            {on ? (
-              <Field label={t("settings.youtubeExit")} htmlFor="yt-exit" hint={t("settings.youtubeExitHint")}>
-                <select id="yt-exit" className="input" value={exit || ""} onChange={(e) => setExit(Number(e.target.value))}>
-                  <option value="">—</option>
-                  {exitOptions.map((n) => (
-                    <option key={n.id} value={n.id}>
-                      {nodeLabel(n)}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-            ) : null}
           </div>
           {on ? (
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <Button size="sm" variant="ghost" disabled={!exit || !own.length || move.isPending} onClick={() => setAsk(true)}>
-                {t("settings.youtubeExitSet")}
+              <Button size="sm" variant="ghost" disabled={!own.length || direct || move.isPending} onClick={() => setAsk(true)}>
+                {t("settings.youtubeExitDirectNow")}
               </Button>
               <span className="text-xs text-[var(--ink-500)]">{current}</span>
             </div>
           ) : null}
+          <p className="mt-3 text-xs text-[var(--ink-500)]">{t("settings.youtubeDpiHint")}</p>
         </>
       )}
       <Confirm
         open={ask}
         onOpenChange={setAsk}
-        title={t("settings.youtubeExitConfirmTitle")}
-        text={t("settings.youtubeExitConfirmText", { entry: entryNode ? nodeLabel(entryNode) : `#${entry}`, name: exitNode ? nodeLabel(exitNode) : "" })}
-        confirm={t("settings.youtubeExitConfirm")}
+        title={t("settings.youtubeDirectConfirmTitle")}
+        text={t("settings.youtubeDirectConfirmText", { entry: entryNode ? nodeLabel(entryNode) : `#${entry}` })}
+        confirm={t("settings.youtubeDirectConfirm")}
         danger
         onConfirm={() => {
           setAsk(false);
-          move.mutate({ ids: own.map((i) => i.id), outbound: "node", exit_node_id: exit });
+          move.mutate({ ids: own.map((i) => i.id), outbound: "direct" });
         }}
       />
     </Card>

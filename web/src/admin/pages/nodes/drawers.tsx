@@ -1,8 +1,8 @@
 // Adding a node, its key and the command to join it, and the form of a node's settings.
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Copy, KeyRound } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
-import { api, unwrap, type Schemas } from "../../../api/client";
+import { api, errorText, unwrap, type Schemas } from "../../../api/client";
 import { qk, useSpeedTests } from "../../../api/hooks";
 import { Drawer, DrawerFooter } from "../../../components/overlay";
 import { Disclosure } from "../../../components/layout";
@@ -378,7 +378,50 @@ export function EditNodeDrawer({ node, onClose }: { node: Node | null; onClose: 
           error={errors.group}
           groups={(balance.data ?? []).map((g) => g.group)}
         />
+        {node ? <NodeDPISection node={node} /> : null}
       </form>
     </Drawer>
+  );
+}
+
+/**
+ * The node's own DPI bypass (nfqws on its host): YouTube and Discord keep the node's own
+ * address while the TLS handshake is split past the ISP's filter. The first start installs
+ * zapret and builds nfqws on the host, so the switch stays off while the panel polls.
+ */
+function NodeDPISection({ node }: { node: Node }) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [asked, setAsked] = useState(false);
+  const q = useQuery({
+    queryKey: ["node-dpi", node.id],
+    queryFn: ({ signal }) => unwrap(api.GET("/api/v1/nodes/{id}/dpi", { params: { path: { id: node.id } }, signal })),
+    refetchInterval: (query) => (query.state.data?.on || asked ? 4_000 : 15_000),
+  });
+  const set = useMutation({
+    mutationFn: (on: boolean) => unwrap(api.POST("/api/v1/nodes/{id}/dpi", { params: { path: { id: node.id } }, body: { on } })),
+    onSuccess: () => {
+      setAsked(true);
+      toast.ok(t("nodes.dpiAsked"));
+      void qc.invalidateQueries({ queryKey: ["node-dpi", node.id] });
+    },
+    onError: (e) => toast.error(errorText(e)),
+  });
+  const on = q.data?.on ?? false;
+  return (
+    <div className="dr-sec">
+      <SwitchRow
+        className="pt-0"
+        label={t("nodes.dpi")}
+        sub={t("nodes.dpiHint")}
+        checked={on}
+        onChange={(v) => set.mutate(v)}
+        disabled={set.isPending || q.isPending}
+      />
+      {q.isError ? <p className="text-xs text-[var(--berry-600)]" role="alert">{errorText(q.error)}</p> : null}
+      {q.data?.error ? <p className="text-xs text-[var(--berry-600)]" role="alert">{t("nodes.dpiError", { error: q.data.error })}</p> : null}
+      {!q.isError && q.data && q.data.at === 0 ? <p className="text-xs text-[var(--honey-600)]">{t("nodes.dpiNotAnswered")}</p> : null}
+      {asked && !on && !q.data?.error ? <p className="text-xs text-[var(--ink-500)]">{t("nodes.dpiPending")}</p> : null}
+    </div>
   );
 }

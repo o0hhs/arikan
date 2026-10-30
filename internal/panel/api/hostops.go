@@ -57,6 +57,54 @@ func (h *handlers) registerHostOps() {
 	huma.Register(h.api, huma.Operation{OperationID: "restart-node", Metadata: sessionOnly, Extensions: sessionOnlyExt, Method: http.MethodPost, Path: "/api/v1/nodes/{id}/restart", Summary: "Перезапустить контейнеры сервера ноды",
 		Description: "Для своей ноды панели используйте /system/restart: она живёт в одних контейнерах с панелью.",
 		Tags:        []string{"node"}, DefaultStatus: http.StatusAccepted}, h.restartNode)
+	huma.Register(h.api, huma.Operation{OperationID: "get-node-dpi", Method: http.MethodGet, Path: "/api/v1/nodes/{id}/dpi", Summary: "Обход DPI ноды",
+		Description: "Что хост ноды ответил о nfqws: включён ли обход YouTube и Discord, и почему нет. Нода должна быть обновлена до 0.5.5.0.",
+		Tags:        []string{"node"}}, h.nodeDPI)
+	huma.Register(h.api, huma.Operation{OperationID: "set-node-dpi", Metadata: sessionOnly, Extensions: sessionOnlyExt, Method: http.MethodPost, Path: "/api/v1/nodes/{id}/dpi", Summary: "Включить или выключить обход DPI ноды",
+		Description: "Хост запускает nfqws (zapret): YouTube и Discord выходят с адреса самой ноды, TLS-рукопожатие обходит фильтр. Первый запуск ставит zapret и собирает nfqws, это минуты; ответ 202, состояние — GET.",
+		Tags:        []string{"node"}, DefaultStatus: http.StatusAccepted}, h.setNodeDPI)
+}
+
+type nodeDPIOutput struct {
+	Body nodeapi.DPIStatus
+}
+
+type setNodeDPIInput struct {
+	ID   int64 `path:"id" minimum:"1"`
+	Body struct {
+		On bool `json:"on"`
+	}
+}
+
+func (h *handlers) nodeDPI(ctx context.Context, in *nodeIDInput) (*nodeDPIOutput, error) {
+	n, err := h.getNode(ctx, in.ID)
+	if err != nil {
+		return nil, err
+	}
+	if h.d.NodeDPI == nil {
+		return nil, huma.Error409Conflict("nodes_disabled")
+	}
+	st, err := h.d.NodeDPI(ctx, n.ID)
+	if err != nil {
+		return nil, h.hostNodeError(err, "dpi", n.ID)
+	}
+	return &nodeDPIOutput{Body: st}, nil
+}
+
+func (h *handlers) setNodeDPI(ctx context.Context, in *setNodeDPIInput) (*nodeDPIOutput, error) {
+	n, err := h.getNode(ctx, in.ID)
+	if err != nil {
+		return nil, err
+	}
+	if h.d.SetNodeDPI == nil {
+		return nil, huma.Error409Conflict("nodes_disabled")
+	}
+	st, err := h.d.SetNodeDPI(ctx, n.ID, in.Body.On)
+	if err != nil {
+		return nil, h.hostNodeError(err, "dpi", n.ID)
+	}
+	h.audit(ctx, sessionOf(ctx).AdminID, "node.dpi", "node", strconv.FormatInt(n.ID, 10), map[string]any{"name": n.Name, "on": in.Body.On})
+	return &nodeDPIOutput{Body: st}, nil
 }
 
 // secretWords are what only the panel knows to cut out of its logs: every secret path. The
