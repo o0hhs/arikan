@@ -5,15 +5,17 @@ the signed manifest, and the panel shows the one in its language.
 
 ## Unreleased
 ### en
-**A cascade can leave through the exit node's WARP, and the card shows the whole chain.**
-- **The chain works and is visible**: node A (in RF) sends clients over the panel's tunnel to node B (abroad), and B sends them to its own WARP — sites see Cloudflare's address instead of B's. The Cascade window of the entry now names the real chain (`B → WARP`), the address sites see, WARP or WARP+, and when it was last checked.
-- **The route to WARP is refused while the node has none**: **Where other nodes' traffic goes next → WARP** is saved only when that node's WARP is set up and on; until then the card says why and its button opens the node's own WARP page. Turning WARP off or deleting it is refused while the route is set — other nodes' traffic would leave from the server's address.
-- **A row that got there another way fails closed**: a restore or a hand edit that leaves the route on a node without WARP makes the relay and cascade listeners fail rather than leave directly, and the card marks that WARP as missing.
+**One exit, two ways out: a protocol of the RF entry can leave through the foreign node directly, another through that node's WARP.**
+- **The route is the protocol's, not the whole node's**: in the protocol's settings, exit node B now has **How the traffic leaves → WARP** — sites see Cloudflare's address for that protocol only, while the rest through the same node leaves directly. The choice appears when B has a WARP that is on.
+- **The route is refused while B has no WARP** (`warp_not_configured` / `warp_off`), and WARP cannot be turned off or deleted while such a route is set — the traffic would leave from B's own address. Both nodes must run this version: an older ending does not know the mark, so the panel does not build the route for it and the connections fail rather than go direct.
+- **The card shows both paths**: the same exit stands twice on the entry's Cascade window (`B → WARP` and `B → internet`), with the address sites see, WARP or WARP+, and the last check. The whole-node switch (**Where other nodes' traffic goes next → WARP**) still exists for the relay: it sends every unmarked stream to WARP.
+- **The chain through WARP also works for the relay of a node**, and its rows that got there another way fail closed instead of leaving from the server's address.
 ### ru
-**Каскад умеет выходить через WARP выходной ноды, и карточка показывает всю цепочку.**
-- **Цепочка работает и видна**: нода A (в РФ) передаёт клиентов по туннелю панели ноде B (за рубежом), а B отправляет их в свой WARP — сайты видят адрес Cloudflare, а не адрес B. В окне «Каскад» у входа теперь видна настоящая цепочка (`B → WARP`), адрес, который видят сайты, WARP или WARP+, и время последней проверки.
-- **Маршрут в WARP не сохраняется, пока у ноды его нет**: **Куда выпускать трафик других нод → WARP** сохраняется только когда WARP этой ноды настроен и включён; до этого карточка объясняет почему, а кнопка открывает страницу WARP этой ноды. Выключить WARP или удалить его при включённом маршруте панель не даст — трафик других нод ушёл бы с адреса сервера.
-- **Строка, попавшая туда иначе, отказывает безопасно**: после восстановления бэкапа или правки в базе маршрут на ноде без WARP заставляет служебный вход и каскад не выпускать трафик, а не уходить напрямую; на карточке такой WARP помечен как отсутствующий.
+**Один выход, два пути: протокол на входной ноде в РФ может выходить через зарубежную ноду напрямую, а другой — через её WARP.**
+- **Маршрут у протокола, а не у всей ноды**: в настройках протокола у ноды выхода B появился выбор **Как выходит трафик → WARP** — сайты видят адрес Cloudflare только у этого протокола, а остальные через ту же ноду идут напрямую. Выбор виден, когда у B есть включённый WARP.
+- **Маршрут не сохраняется, пока у B нет WARP** (`warp_not_configured` / `warp_off`), а выключить или удалить WARP при таком маршруте панель не даст: трафик ушёл бы с адреса B. Обе ноды должны быть этой версии: старая пометку не понимает, поэтому панель для неё маршрут не строит, и подключения не выходят, а не уходят напрямую.
+- **Карточка показывает оба пути**: один и тот же выход стоит в окне «Каскад» у входа дважды (`B → WARP` и `B → интернет`), с адресом, который видят сайты, WARP или WARP+, и временем проверки. Переключатель для всей ноды (**Куда выпускать трафик других нод → WARP**) остался для ретранслятора: он отправляет в WARP весь непомеченный трафик.
+- **Цепочка через WARP работает и для ретранслятора ноды**, а строки, попавшие туда иначе, отказывают безопасно, а не уходят с адреса сервера.
 
 ## 0.5.5.0
 ### en

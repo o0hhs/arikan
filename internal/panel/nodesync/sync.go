@@ -243,10 +243,13 @@ func (s *Syncer) desiredPin(ctx context.Context) (st nodeapi.DesiredState, pin s
 	}
 	inbounds := snap.inbounds
 	st.Inbounds = []nodeapi.Inbound{}
-	if st.Warp, err = s.warp(ctx, n, inbounds); err != nil {
+	// One plan for both halves: the exit's side needs it (a route through its WARP runs the
+	// WARP listener) as much as the entry's.
+	plan := domain.CascadePlans(snap.nodes, snap.inbounds, snap.relays)[s.id]
+	if st.Warp, err = s.warp(ctx, n, inbounds, plan.WarpExit); err != nil {
 		return st, "", err
 	}
-	if st.Relay, st.Exits, st.Cascade, err = s.cascade(ctx, n, snap, st.Warp != nil); err != nil {
+	if st.Relay, st.Exits, st.Cascade, err = s.cascade(ctx, n, snap, plan, st.Warp != nil); err != nil {
 		return st, "", err
 	}
 	// The VK-call server follows the state like the rest: a node without one, or whose
@@ -1047,7 +1050,7 @@ func limited(n int64) int64 {
 
 // warp is the node's WARP outbound, nil when it has none or it is off. Inbounds set to
 // WARP on a node without it simply leave directly.
-func (s *Syncer) warp(ctx context.Context, n db.Node, inbounds []db.Inbound) (*nodeapi.Warp, error) {
+func (s *Syncer) warp(ctx context.Context, n db.Node, inbounds []db.Inbound, warpExit bool) (*nodeapi.Warp, error) {
 	w, err := s.m.st.Q.GetNodeWarp(ctx, n.ID)
 	if errors.Is(err, sql.ErrNoRows) || err == nil && w.Enabled == 0 {
 		return nil, nil
@@ -1069,12 +1072,30 @@ func (s *Syncer) warp(ctx context.Context, n db.Node, inbounds []db.Inbound) (*n
 			out.Inbounds = append(out.Inbounds, in.Name)
 		}
 	}
+	// A route of another node marked "through this one's WARP" arrives under its own name:
+	// only those streams leave by WARP, while the rest of other nodes' traffic through this
+	// node goes by its own way out.
+	if warpExit {
+		out.Inbounds = append(out.Inbounds, nodeapi.CascadeWarpListener)
+	}
 	// Traffic other nodes send through this one may leave by WARP too: the relay's, and the
 	// cascade's — a name whose rule matches nothing on a node that is no exit.
 	if r, err := s.m.st.Q.GetNodeRelay(ctx, n.ID); err == nil && r.Outbound == "warp" && !r.ExitNodeID.Valid {
 		out.Inbounds = append(out.Inbounds, nodeapi.RelayListener, nodeapi.CascadeListener)
 	}
 	return out, nil
+}
+
+// cascadeWarpReady says whether both ends of a route through an exit's WARP know it: the
+// entry writes the mark into the target, and the exit reads it into its rule. A node that
+// does not say so (older than the field) fails the route: an exit that ignored the mark
+// would leave the traffic directly, from its own address.
+func (s *Syncer) cascadeWarpReady(exit int64) bool {
+	if !nodeapi.HasCap(s.health.Load().Health, nodeapi.CapCascadeWarp) {
+		return false
+	}
+	hv, ok := s.m.Health(exit)
+	return ok && nodeapi.HasCap(hv.Health, nodeapi.CapCascadeWarp)
 }
 
 // Warp asks the node how it reaches the internet through WARP; force skips the node's
@@ -1095,10 +1116,11 @@ func (m *Manager) Warp(ctx context.Context, id int64, force bool) (nodeapi.WarpS
 // (nodeapi.Cascade). No exit is dialled from here any more: an entry's core points at the
 // node's own bridge, and the exit's side of the tunnel is the connection the exit opened to
 // the panel. An exit that cannot be in the tunnel still leaves its inbounds' rules in
-// place, pointing at nothing: their traffic fails rather than leaving directly. The relay's
-// own route to WARP is the same: warpOn says the state carries a WARP for the node, and
-// without one the relay and cascade listeners fail instead of leaving from the server.
-func (s *Syncer) cascade(ctx context.Context, n db.Node, snap *snapshot, warpOn bool) (*nodeapi.Relay, []nodeapi.Exit, *nodeapi.Cascade, error) {
+// place, pointing at nothing: their traffic fails rather than leaving directly. The same
+// holds for the routes through an exit's WARP: a route is built only when both ends know
+// the mark (cascadeWarpReady), and the listeners of a node whose WARP is gone fail rather
+// than leave from the server.
+func (s *Syncer) cascade(ctx context.Context, n db.Node, snap *snapshot, plan domain.CascadePlan, warpOn bool) (*nodeapi.Relay, []nodeapi.Exit, *nodeapi.Cascade, error) {
 	q := s.m.st.Q
 	inbounds := snap.inbounds
 	if n.Enabled == 0 {
@@ -1131,13 +1153,13 @@ func (s *Syncer) cascade(ctx context.Context, n db.Node, snap *snapshot, warpOn 
 	// kinds share the list: another node of the panel, reached by its relay, and a server
 	// the admin added by a share link.
 	var hops []hop
-	find := func(node, outbound int64) *hop {
+	find := func(node, outbound int64, warp bool) *hop {
 		for i := range hops {
-			if hops[i].node == node && hops[i].outbound == outbound {
+			if hops[i].node == node && hops[i].outbound == outbound && hops[i].warp == warp {
 				return &hops[i]
 			}
 		}
-		hops = append(hops, hop{node: node, outbound: outbound})
+		hops = append(hops, hop{node: node, outbound: outbound, warp: warp})
 		return &hops[len(hops)-1]
 	}
 	for _, in := range inbounds {
@@ -1146,15 +1168,15 @@ func (s *Syncer) cascade(ctx context.Context, n db.Node, snap *snapshot, warpOn 
 		}
 		switch {
 		case in.ExitNodeID.Valid:
-			h := find(in.ExitNodeID.Int64, 0)
+			h := find(in.ExitNodeID.Int64, 0, in.ExitWarp != 0)
 			h.names = append(h.names, in.Name)
 		case in.OutboundID.Valid:
-			h := find(0, in.OutboundID.Int64)
+			h := find(0, in.OutboundID.Int64, false)
 			h.names = append(h.names, in.Name)
 		}
 	}
 	if own.ExitNodeID.Valid {
-		h := find(own.ExitNodeID.Int64, 0)
+		h := find(own.ExitNodeID.Int64, 0, false)
 		if relay != nil {
 			h.names = append(h.names, nodeapi.RelayListener)
 		}
@@ -1164,18 +1186,23 @@ func (s *Syncer) cascade(ctx context.Context, n db.Node, snap *snapshot, warpOn 
 		h.names = append(h.names, nodeapi.CascadeListener)
 	}
 
-	// The cascade: the exits of this node's listeners, as the panel's tunnel can carry them.
-	plan := domain.CascadePlans(snap.nodes, snap.inbounds, snap.relays)[n.ID]
-	by := make(map[int64]domain.CascadeRoute, len(plan.Routes))
+	// The cascade: the routes of this node's listeners, as the panel's tunnel can carry
+	// them. A route through an exit's WARP is built only when both ends know the mark; one
+	// that cannot be built stays out, and its listeners fail rather than leave directly.
+	by := make(map[routeKey]domain.CascadeRoute, len(plan.Routes))
 	var entryRoutes []nodeapi.CascadeRoute
 	var allowed []int64
 	for _, r := range plan.Routes {
-		by[r.Exit] = r
 		if !r.Tunnel {
 			continue
 		}
+		if r.Warp && !s.cascadeWarpReady(r.Exit) {
+			s.log.Warn("cascade: a route through the exit's WARP needs both nodes to know it", "node", n.ID, "exit", r.Exit)
+			continue
+		}
+		by[routeKey{r.Exit, r.Warp}] = r
 		ids := append([]int64{r.Exit}, r.Reserves...)
-		entryRoutes = append(entryRoutes, nodeapi.CascadeRoute{Name: r.Name, Exits: ids})
+		entryRoutes = append(entryRoutes, nodeapi.CascadeRoute{Name: r.Name, Exits: ids, Warp: r.Warp})
 		allowed = append(allowed, ids...)
 	}
 	var tunnel *nodeapi.Cascade
@@ -1215,46 +1242,60 @@ func (s *Syncer) cascade(ctx context.Context, n db.Node, snap *snapshot, warpOn 
 				s.log.Info("outbound not sent", "outbound", h.outbound, "err", err)
 				continue
 			}
-		} else if r, ok := by[h.node]; ok && r.Tunnel && password != "" {
+		} else if r, ok := by[routeKey{h.node, h.warp}]; ok && password != "" {
 			p, err := cascadeExitProxy(r.Name, password)
 			if err != nil {
 				return nil, nil, nil, err
 			}
 			e = nodeapi.Exit{Name: r.Name, Proxy: p}
 		} else {
-			// Not in the tunnel (off, without a join key, or not a route at all): name the
-			// exit with a way to nowhere, so its inbounds fail and nothing leaks instead.
-			s.log.Warn("cascade: the exit is not in the tunnel", "exit", h.node)
-			e = nodeapi.Exit{Name: nodeapi.ExitName(h.node), Proxy: unreachableExit(h.node)}
+			// Not in the tunnel (off, without a join key, an older node, or not a route at
+			// all): name the exit with a way to nowhere, so its inbounds fail and nothing
+			// leaks instead.
+			name := nodeapi.RouteName(h.node, h.warp)
+			s.log.Warn("cascade: the exit is not in the tunnel", "exit", h.node, "warp", h.warp)
+			e = nodeapi.Exit{Name: name, Proxy: unreachableRoute(name)}
 		}
 		e.Inbounds = h.names
 		exits = append(exits, e)
 	}
-	// The relay sends other nodes' traffic to WARP, but this node's WARP is gone or off: the
+	// Something sends traffic to this node's WARP, but the WARP is gone or off: the
 	// listeners get a way to nowhere rather than a fall-through to MATCH,DIRECT. A state
 	// that left them direct would answer from this server's own address — a leak the panel
 	// refuses to save and must not build either (a restore or a hand edit can get here).
+	var dead []string
 	if own.Outbound == "warp" && !own.ExitNodeID.Valid && !warpOn {
-		var names []string
 		if relay != nil {
-			names = append(names, nodeapi.RelayListener)
+			dead = append(dead, nodeapi.RelayListener)
 		}
 		if tunnel != nil && tunnel.Exit != nil {
-			names = append(names, nodeapi.CascadeListener)
+			dead = append(dead, nodeapi.CascadeListener)
 		}
-		if len(names) > 0 {
-			s.log.Warn("cascade: the relay sends traffic to WARP, but the node has none: it fails instead", "node", n.ID)
-			exits = append(exits, nodeapi.Exit{Name: nodeapi.ExitName(0), Proxy: unreachableExit(0), Inbounds: names})
-		}
+	}
+	if plan.WarpExit && !warpOn && tunnel != nil && tunnel.Exit != nil {
+		dead = append(dead, nodeapi.CascadeWarpListener)
+	}
+	if len(dead) > 0 {
+		s.log.Warn("cascade: traffic is sent to WARP, but the node has none: it fails instead", "node", n.ID, "listeners", dead)
+		deadName := nodeapi.ExitName(0)
+		exits = append(exits, nodeapi.Exit{Name: deadName, Proxy: unreachableRoute(deadName), Inbounds: dead})
 	}
 	return relay, exits, tunnel, nil
 }
 
+// routeKey is one route of a node: the exit, and whether through its own WARP.
+type routeKey struct {
+	exit int64
+	warp bool
+}
+
 // hop is one outbound of a node with the listeners that leave through it: another node
-// (node, its id) or an outbound by link (outbound, its id), one of them set.
+// (node, its id) or an outbound by link (outbound, its id), one of them set. warp: the
+// route goes through that node's own WARP.
 type hop struct {
 	node     int64
 	outbound int64
+	warp     bool
 	names    []string
 }
 
@@ -1274,10 +1315,11 @@ func (s *Syncer) outboundLink(ctx context.Context, id int64) (nodeapi.Exit, erro
 	return nodeapi.Exit{Name: nodeapi.OutboundName(id), Link: o.Link}, nil
 }
 
-// unreachableExit is a VLESS outbound to nowhere (TEST-NET-1, port 9): it keeps an
-// exit's rules in place while the exit itself is not usable.
-func unreachableExit(id int64) json.RawMessage {
-	raw, _ := json.Marshal(map[string]any{"name": nodeapi.ExitName(id), "type": "vless", "server": "192.0.2.1", "port": 9,
+// unreachableRoute is a VLESS outbound to nowhere (TEST-NET-1, port 9): it keeps a route's
+// rules in place while the route itself cannot be built. The name is the route's own — an
+// exit's WARP variant has one of its own.
+func unreachableRoute(name string) json.RawMessage {
+	raw, _ := json.Marshal(map[string]any{"name": name, "type": "vless", "server": "192.0.2.1", "port": 9,
 		"uuid": "00000000-0000-4000-8000-000000000000", "udp": true})
 	return raw
 }

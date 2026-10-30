@@ -20,18 +20,21 @@ import (
 )
 
 type WarpView struct {
-	Configured bool       `json:"configured"`
-	Enabled    bool       `json:"enabled"`
-	Source     string     `json:"source,omitempty" enum:"register,import,"`
-	Plus       bool       `json:"plus" doc:"Аккаунт WARP+"`
-	Endpoint   string     `json:"endpoint,omitempty"`
-	IPv4       string     `json:"ipv4,omitempty"`
-	IPv6       string     `json:"ipv6,omitempty"`
-	Routes     []string   `json:"routes" doc:"Домены и сети, которые идут через WARP у всех подключений ноды"`
-	Inbounds   []string   `json:"inbounds" doc:"Подключения ноды, у которых весь трафик идёт через WARP"`
-	Relay      bool       `json:"relay" doc:"Трафик других нод через эту ноду тоже идёт в WARP"`
-	NoReserved bool       `json:"no_reserved,omitempty" doc:"Свой конфиг без Reserved: на части endpoint'ов Cloudflare молча не отвечает на handshake"`
-	Status     *WarpCheck `json:"status,omitempty" doc:"Последняя проверка выхода через WARP с ноды; нет — у ноды ещё нет настроенного WARP"`
+	Configured bool     `json:"configured"`
+	Enabled    bool     `json:"enabled"`
+	Source     string   `json:"source,omitempty" enum:"register,import,"`
+	Plus       bool     `json:"plus" doc:"Аккаунт WARP+"`
+	Endpoint   string   `json:"endpoint,omitempty"`
+	IPv4       string   `json:"ipv4,omitempty"`
+	IPv6       string   `json:"ipv6,omitempty"`
+	Routes     []string `json:"routes" doc:"Домены и сети, которые идут через WARP у всех подключений ноды"`
+	Inbounds   []string `json:"inbounds" doc:"Подключения ноды, у которых весь трафик идёт через WARP"`
+	Relay      bool     `json:"relay" doc:"Трафик других нод через эту ноду тоже идёт в WARP"`
+	// CascadeRoutes are the protocols of other nodes whose route is marked through this
+	// node's WARP: they are cut off, not leaked, while it is off.
+	CascadeRoutes []string   `json:"cascade_routes" doc:"Протоколы других нод, которые выходят через этот WARP"`
+	NoReserved    bool       `json:"no_reserved,omitempty" doc:"Свой конфиг без Reserved: на части endpoint'ов Cloudflare молча не отвечает на handshake"`
+	Status        *WarpCheck `json:"status,omitempty" doc:"Последняя проверка выхода через WARP с ноды; нет — у ноды ещё нет настроенного WARP"`
 }
 
 // WarpCheck is one look at the internet through WARP.
@@ -113,6 +116,22 @@ func (h *handlers) warpUsers(ctx context.Context, nodeID int64) ([]string, error
 	return names, nil
 }
 
+// warpRouteUsers are the protocols of other nodes whose route leaves through this node's
+// WARP: they need it as much as the node's own, and switching it off cuts them off.
+func (h *handlers) warpRouteUsers(ctx context.Context, nodeID int64) ([]string, error) {
+	ins, err := h.d.Store.Q.ListInbounds(ctx)
+	if err != nil {
+		return nil, err
+	}
+	names := []string{}
+	for _, in := range ins {
+		if in.Enabled != 0 && in.ExitNodeID.Valid && in.ExitNodeID.Int64 == nodeID && in.ExitWarp != 0 {
+			names = append(names, in.Name)
+		}
+	}
+	return names, nil
+}
+
 // warpUnused refuses to take WARP away from a node while inbounds go out through it:
 // without it they would leave directly, from the node's own address, which is what the
 // admin put them behind WARP to avoid. The same rule keeps a cascade from going direct
@@ -134,6 +153,11 @@ func (h *handlers) warpUnused(ctx context.Context, nodeID int64) error {
 	case !errors.Is(err, sql.ErrNoRows):
 		return err
 	}
+	if routes, err := h.warpRouteUsers(ctx, nodeID); err != nil {
+		return err
+	} else if len(routes) > 0 {
+		return huma.Error409Conflict("warp_in_use", &huma.ErrorDetail{Location: "path.id", Message: "warp_in_use_routes", Value: strings.Join(routes, ", ")})
+	}
 	return nil
 }
 
@@ -153,6 +177,9 @@ func (h *handlers) warpView(ctx context.Context, nodeID int64, check, force bool
 	v.NoReserved = w.Source == "import" && w.Reserved == ""
 	_ = json.Unmarshal([]byte(w.Routes), &v.Routes)
 	if v.Inbounds, err = h.warpUsers(ctx, nodeID); err != nil {
+		return v, err
+	}
+	if v.CascadeRoutes, err = h.warpRouteUsers(ctx, nodeID); err != nil {
 		return v, err
 	}
 	switch r, err := h.d.Store.Q.GetNodeRelay(ctx, nodeID); {

@@ -161,3 +161,81 @@ func TestCascadeOverHTTP(t *testing.T) {
 		t.Fatalf("direct: %d %s", resp.StatusCode, body)
 	}
 }
+
+// Two ways out through one exit: a protocol leaves by the exit's own way, another through
+// its WARP. The choice is the inbound's, refused while the exit has no WARP, and the
+// entry's card names both routes.
+func TestInboundExitWarp(t *testing.T) {
+	h := newHarness(t)
+	ctx := context.Background()
+	if err := domain.Seed(ctx, h.st, h.now); err != nil {
+		t.Fatal(err)
+	}
+	panel, _ := nodetls.Generate("mikan-panel", x509.ExtKeyUsageClientAuth, time.Now())
+	b, _, err := domain.AddNode(ctx, h.st, panel, domain.NodeInput{Name: "B", Host: "198.51.100.20", APIPort: 40000}, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp, _ := h.login(password, ""); resp.StatusCode != http.StatusOK {
+		t.Fatal("login")
+	}
+	csrf := map[string]string{"X-CSRF-Token": h.csrf}
+	api := "/" + adminPath + "/api/v1"
+	ins, _ := h.st.Q.ListInbounds(ctx)
+	id := func(n int64) string { return strconv.FormatInt(n, 10) }
+	plain, warp := api+"/inbounds/"+id(ins[0].ID), api+"/inbounds/"+id(ins[1].ID)
+
+	// The exit has no WARP yet: the route is refused, not saved as one that would leave
+	// from the exit's own address.
+	if resp, body := h.do(http.MethodPatch, warp, map[string]any{"outbound": "node", "exit_node_id": b.ID, "exit_warp": true}, csrf); resp.StatusCode != http.StatusUnprocessableEntity || !strings.Contains(string(body), "warp_not_configured") || !strings.Contains(string(body), "body.exit_warp") {
+		t.Fatalf("a route through WARP without one: %d %s", resp.StatusCode, body)
+	}
+	// The mark without an exit is no route at all.
+	if resp, body := h.do(http.MethodPatch, warp, map[string]any{"outbound": "direct", "exit_warp": true}, csrf); resp.StatusCode != http.StatusUnprocessableEntity || !strings.Contains(string(body), "warp_route_needs_exit") {
+		t.Fatalf("the mark without an exit: %d %s", resp.StatusCode, body)
+	}
+	if resp, body := h.do(http.MethodPost, api+"/nodes/"+id(b.ID)+"/warp/import", map[string]any{"config": warpConf}, csrf); resp.StatusCode != http.StatusOK {
+		t.Fatalf("B's WARP: %d %s", resp.StatusCode, body)
+	}
+	if resp, body := h.do(http.MethodPatch, warp, map[string]any{"outbound": "node", "exit_node_id": b.ID, "exit_warp": true}, csrf); resp.StatusCode != http.StatusOK || !strings.Contains(string(body), `"exit_warp":true`) {
+		t.Fatalf("the WARP route: %d %s", resp.StatusCode, body)
+	}
+	if resp, body := h.do(http.MethodPatch, plain, map[string]any{"outbound": "node", "exit_node_id": b.ID}, csrf); resp.StatusCode != http.StatusOK || strings.Contains(string(body), `"exit_warp":true`) {
+		t.Fatalf("the plain route: %d %s", resp.StatusCode, body)
+	}
+	// The entry's card: the same exit twice, one route through its WARP and one not.
+	resp, body := h.do(http.MethodGet, api+"/nodes/1/cascade", nil, nil)
+	var view struct {
+		Exits []struct {
+			NodeID int64  `json:"node_id"`
+			Via    string `json:"via"`
+			End    string `json:"end"`
+			Warp   *struct {
+				Configured bool `json:"configured"`
+			} `json:"warp"`
+		} `json:"exits"`
+	}
+	if resp.StatusCode != http.StatusOK || json.Unmarshal(body, &view) != nil {
+		t.Fatalf("the entry's card: %d %s", resp.StatusCode, body)
+	}
+	via := map[string][]string{}
+	for _, e := range view.Exits {
+		if e.NodeID != b.ID {
+			continue
+		}
+		via[e.Via] = append(via[e.Via], e.End)
+		if e.Via == "warp" && (e.End != "warp" || e.Warp == nil || !e.Warp.Configured) {
+			t.Fatalf("a WARP route says where it ends: %+v", e)
+		}
+		if e.Via == "direct" && e.End != "direct" {
+			t.Fatalf("a plain route ends directly: %+v", e)
+		}
+	}
+	if len(via["warp"]) != 1 || len(via["direct"]) != 1 {
+		t.Fatalf("the two routes of B: %v", via)
+	}
+	// Back to direct clears the mark with it.
+	if resp, body := h.do(http.MethodPatch, warp, map[string]any{"outbound": "direct"}, csrf); resp.StatusCode != http.StatusOK || strings.Contains(string(body), "exit_warp") {
+		t.Fatalf("back to direct: %d %s", resp.StatusCode, body)
+	}
+}

@@ -16,8 +16,9 @@ The **WARP** button on the node card, two ways:
 
 - **A whole protocol**: in the connection settings, **Way out to the internet → WARP**.
 - **Domains and networks** for all of the node's protocols: the "Domains and networks through WARP" field, one per line. `example.com` includes subdomains, `104.16.0.0/13` defines a network. Up to 1000 lines.
+- **Other nodes' traffic** through this node: on the entry node, in the protocol's settings, choose this node as the exit and **How the traffic leaves → WARP**. Then only that protocol goes through this WARP, while the rest leaves through the same node directly.
 
-The "WARP on" switch temporarily sends everything direct, while the account and lists are kept. WARP can be turned off or deleted only while nothing goes through it: protocols set to **WARP**, and, on a node that carries other nodes' traffic, the cascade's **WARP** route. Otherwise the traffic would leave from the server's address, and the panel refuses with that explanation.
+The "WARP on" switch temporarily sends everything direct, while the account and lists are kept. WARP can be turned off or deleted only while nothing goes through it: protocols set to **WARP**, other nodes' protocols whose route goes through this WARP, and, on a node that carries the relay, the cascade's **WARP** route. Otherwise the traffic would leave from the server's address, and the panel refuses with that explanation.
 
 :::caution
 If WARP does not work, its traffic does not leave directly from the server's address. A protocol that exits through WARP stays silent until WARP is back. The same holds for a cascade: other nodes' traffic through this node does not leave, rather than leaving from its address (see [A cascade through WARP](/arikan/en/nodes/cascades/#a-cascade-through-warp)).

@@ -291,3 +291,48 @@ func (f *fakeTunnel) HandleTCPConn(_ net.Conn, m *C.Metadata) { f.seen <- m }
 func (*fakeTunnel) HandleUDPPacket(C.UDPPacket, *C.Metadata) {}
 
 func (*fakeTunnel) NatTable() C.NatTable { return nil }
+
+// A route through the exit's WARP is marked for the exit: the bridge writes the mark into
+// the target of every stream of that route, and the exit's rules see the WARP listener
+// instead of the cascade's own name.
+func TestTheEntryBridgeMarksAWarpRoute(t *testing.T) {
+	_, b, p := bridge(t, "pw", nodeapi.CascadeRoute{Name: nodeapi.ExitWarpName(7), Exits: []int64{7}, Warp: true})
+	conn, err := dial(t, b, nodeapi.ExitWarpName(7), "pw", "example.com:443")
+	if err != nil {
+		t.Fatalf("the bridge's handshake: %v", err)
+	}
+	echo(t, conn)
+	select {
+	case target := <-p.target:
+		if !target.Warp || target.Host != "example.com" || target.Port != 443 {
+			t.Fatalf("the exit got %+v", target)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("the exit got no target")
+	}
+
+	_, plain, pp := bridge(t, "pw", nodeapi.CascadeRoute{Name: nodeapi.ExitName(7), Exits: []int64{7}})
+	conn, err = dial(t, plain, nodeapi.ExitName(7), "pw", "example.com:443")
+	if err != nil {
+		t.Fatalf("the plain bridge's handshake: %v", err)
+	}
+	echo(t, conn)
+	select {
+	case target := <-pp.target:
+		if target.Warp {
+			t.Fatalf("a plain route is marked for WARP: %+v", target)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("the exit got no target for the plain route")
+	}
+}
+
+// The exit's rules tell the marked streams by their listening name.
+func TestCascadeInName(t *testing.T) {
+	if got := cascadeInName(nodeapi.CascadeTarget{Host: "example.com", Port: 443}); got != nodeapi.CascadeListener {
+		t.Fatalf("a plain stream arrives as %q", got)
+	}
+	if got := cascadeInName(nodeapi.CascadeTarget{Host: "example.com", Port: 443, Warp: true}); got != nodeapi.CascadeWarpListener {
+		t.Fatalf("a marked stream arrives as %q", got)
+	}
+}

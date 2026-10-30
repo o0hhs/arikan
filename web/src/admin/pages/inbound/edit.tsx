@@ -31,6 +31,7 @@ type InboundForm = {
   xhttp: XHTTP; // the masking tab, XHTTP only
   outbound: Inbound["outbound"];
   exitNode: number;
+  exitWarp: boolean; // through the exit node's own WARP, outbound "node" only
   poolId: number;
   name: string;
   config: string;
@@ -58,6 +59,7 @@ function inboundFormOf(i: Inbound | null): InboundForm {
     xhttp: { ...XHTTP_DEFAULT, ...i?.xhttp },
     outbound: i?.outbound ?? "direct",
     exitNode: i?.exit_node_id ?? 0,
+    exitWarp: i?.exit_warp ?? false,
     poolId: i?.pool_id ?? 0,
     name: i?.display_name ?? "",
     config: i?.config ?? "",
@@ -83,7 +85,7 @@ export function EditDrawer({ inbound, onClose }: { inbound: Inbound | null; onCl
   const { reset: resetValidate } = validate;
   const [tab, setTab] = useState<"main" | "xhttp" | "config">("main");
   const [form, set, replace] = useFields(() => inboundFormOf(null));
-  const { port, dest, sni, fp, obfs, xhttp, outbound, exitNode, outboundID, poolId, name, config, autoPort, autoSni, autoInclude, listenMode, listenIP, clientServer, clientPort, clientSni, cdn, sni443 } = form;
+  const { port, dest, sni, fp, obfs, xhttp, outbound, exitNode, exitWarp, outboundID, poolId, name, config, autoPort, autoSni, autoInclude, listenMode, listenIP, clientServer, clientPort, clientSni, cdn, sni443 } = form;
   const pools = usePools();
   const allNodes = useNodes();
   const outbounds = useQuery({
@@ -94,6 +96,9 @@ export function EditDrawer({ inbound, onClose }: { inbound: Inbound | null; onCl
   const [errors, setErrors] = useState<Record<string, string>>({});
   const settings = useSettings();
   const warp = useWarp(inbound?.node_id ?? null, !!inbound);
+  // The exit's own WARP: a route through it needs one, and the form offers the choice only
+  // when there is something to go through.
+  const exitWarpInfo = useWarp(outbound === "node" && exitNode ? exitNode : null, outbound === "node" && exitNode > 0);
   const nodeRouter = !!allNodes.data?.find((n) => n.id === inbound?.node_id)?.sni_router;
   useEffect(() => {
     if (!inbound) return;
@@ -119,7 +124,7 @@ export function EditDrawer({ inbound, onClose }: { inbound: Inbound | null; onCl
     onSuccess: (_, body) => {
       void qc.invalidateQueries({ queryKey: qk.inbounds });
       // The automatic-fix switches and the listen address change nothing clients get.
-      const autoOnly = Object.keys(body).every((k) => k === "auto_port" || k === "auto_sni" || k === "outbound" || k === "exit_node_id" || k === "outbound_id" || k === "pool_id" || k === "listen");
+      const autoOnly = Object.keys(body).every((k) => k === "auto_port" || k === "auto_sni" || k === "outbound" || k === "exit_node_id" || k === "exit_warp" || k === "outbound_id" || k === "pool_id" || k === "listen");
       toast.ok(autoOnly ? t("inbounds.savedAuto") : t("inbounds.saved"));
       onClose();
     },
@@ -212,9 +217,12 @@ export function EditDrawer({ inbound, onClose }: { inbound: Inbound | null; onCl
       reject({ outbound_id: t("inbounds.outboundPick") });
       return;
     }
-    if (outbound !== inbound?.outbound || (outbound === "node" && exitNode !== inbound?.exit_node_id) || (outbound === "link" && outboundID !== inbound?.outbound_id)) {
+    if (outbound !== inbound?.outbound || (outbound === "node" && (exitNode !== inbound?.exit_node_id || exitWarp !== (inbound?.exit_warp ?? false))) || (outbound === "link" && outboundID !== inbound?.outbound_id)) {
       body.outbound = outbound;
-      if (outbound === "node") body.exit_node_id = exitNode;
+      if (outbound === "node") {
+        body.exit_node_id = exitNode;
+        body.exit_warp = exitWarp;
+      }
       if (outbound === "link") body.outbound_id = outboundID;
     }
     if (Object.keys(body).length === 0) {
@@ -350,7 +358,7 @@ export function EditDrawer({ inbound, onClose }: { inbound: Inbound | null; onCl
               ) : null}
               <Field
                 label={t("inbounds.outbound")}
-                error={errors.exit_node_id ?? errors.outbound_id}
+                error={errors.exit_node_id ?? errors.exit_warp ?? errors.outbound_id}
                 hint={
                   outbound === "link"
                     ? t("inbounds.outboundLinkHint")
@@ -400,6 +408,28 @@ export function EditDrawer({ inbound, onClose }: { inbound: Inbound | null; onCl
                         </option>
                       ))}
                   </select>
+                ) : null}
+                {/* The same exit, two ways out: directly, or through its own WARP. The
+                    choice shows only when the exit has a WARP that is on. */}
+                {outbound === "node" && exitNode > 0 && exitWarpInfo.data && (!exitWarpInfo.data.configured || !exitWarpInfo.data.enabled) ? (
+                  <p className="mt-1 text-xs text-[var(--md-on-surface-variant)]">{t("inbounds.exitWarpNoWarp")}</p>
+                ) : null}
+                {outbound === "node" && exitNode > 0 && exitWarpInfo.data?.configured && exitWarpInfo.data.enabled ? (
+                  <div className="mt-3">
+                    <Segmented
+                      label={t("inbounds.exitVia")}
+                      value={exitWarp ? "warp" : "direct"}
+                      onChange={(v) => {
+                        set.exitWarp(v === "warp");
+                        setErrors(({ exit_warp: _, ...rest }) => rest);
+                      }}
+                      options={[
+                        { value: "direct", label: t("inbounds.exitViaDirect") },
+                        { value: "warp", label: "WARP" },
+                      ]}
+                    />
+                    <p className="mt-1 text-xs text-[var(--md-on-surface-variant)]">{t(exitWarp ? "inbounds.exitViaWarpHint" : "inbounds.exitViaDirectHint")}</p>
+                  </div>
                 ) : null}
               </Field>
                 {outbound === "link" ? (
