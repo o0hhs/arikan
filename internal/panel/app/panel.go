@@ -577,6 +577,9 @@ func NewPanel(st *store.Store, o Options) (*Panel, error) {
 		if cfg.Happ.HideSettings, err = set.On(ctx, settings.HappHide); err != nil {
 			return subs.Config{}, err
 		}
+		if cfg.INCYAuto, err = set.On(ctx, settings.INCYAuto); err != nil {
+			return subs.Config{}, err
+		}
 		if cfg.InactiveServer, err = set.On(ctx, settings.InactiveServer); err != nil {
 			return subs.Config{}, err
 		}

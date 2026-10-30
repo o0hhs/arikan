@@ -22,12 +22,24 @@ Further down the page: a step-by-step "How to connect" guide, the link itself an
 The subscription recognizes the app by its User-Agent header and serves the matching format:
 
 - **Clash apps on mihomo** (Mikan, Kabosu, Koala Clash, Clash Verge, FlClash, ClashFest, SlothClash and others) and Stash get a Clash YAML profile with groups and routes.
-- **Xray apps** (Happ, v2RayTun, INCY, v2rayNG) and **sing-box apps** (Hiddify, Karing) get a list of links.
+- **Xray apps** (Happ, v2RayTun, INCY, v2rayNG) and **sing-box apps** (Hiddify, Karing) get a list of links. INCY with autoselect on gets a whole Xray config, see [below](#autoselect-in-incy).
 - A browser gets the subscription page.
 
 Each app gets only the protocols it can run, see [the table in presets](/arikan/en/protocols/presets/#who-gets-what). You can also set the format by hand with the parameter `?format=clash`, `uri` or `html`.
 
 Apps refresh the subscription hourly, which is how new ports and keys reach clients on their own.
+
+## Autoselect in INCY
+
+Unlike Clash apps, INCY has no autoselect group: it gets a flat list of servers. The **Settings → Subscription → In the apps → Full config with autoselect in INCY** switch changes that. It is off by default, and INCY gets the same link list as every other Xray app.
+
+Switched on, it serves INCY a whole Xray config: each server is imported as an entry of its own, as before, and an autoselect entry named after the auto group ("Auto") joins the list. It measures the latency of the servers and keeps the fastest one; a server that does not answer drops out of the choice. The probe interval comes from **Settings → Routing → Server choice → Test servers** (five minutes by default).
+
+Routes in this mode come from the config itself: the route mode, services, direct lists, your own rules and DNS from **Settings → Routing** are carried into Xray's rules. The `routing` header is not sent then, so there are never two sources of routes. What is not carried: rules by app (process) name — Xray cannot match them; your own list files — Xray does not download Clash lists; geosite and geoip categories the app's geodata does not have. A service sent to a particular server gets a balancer of that server's servers.
+
+Only the protocols Xray runs are in the config: VLESS, Trojan and Shadowsocks. Hysteria2 and TUIC servers take no part in it — they stay in the list with the switch off.
+
+If the app does not take the config, just turn the switch off: the server list comes back at the next subscription update. Nodes that serve subscriptions themselves (**Settings → Subscription → Subscriptions from nodes**) keep handing out the link list: only the panel serves the full config.
 
 ## Subscription settings
 
@@ -35,6 +47,7 @@ Apps refresh the subscription hourly, which is how new ports and keys reach clie
 
 - **Service name**: your brand on the subscription page and in apps.
 - **Main group** (default "VPN") and **Auto select** ("Auto"): group names in Clash apps.
+- **Full config with autoselect in INCY**: an autoselect entry for INCY, see [Autoselect in INCY](#autoselect-in-incy).
 - **Default TLS fingerprint** for all protocols.
 - **Support**: a Telegram or website link.
 - **Devices**: binding a subscription to devices, see [Plans and users](/arikan/en/billing/plans/#devices).

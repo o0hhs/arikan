@@ -95,6 +95,8 @@ type SettingsView struct {
 	HappProviderID   string `json:"happ_provider_id" doc:"Provider ID с happ-proxy.com; без него Happ не принимает hide-settings"`
 	HappHideSettings bool   `json:"happ_hide_settings" doc:"Скрыть в Happ настройки серверов подписки (нужен Provider ID)"`
 	HappCrypt        string `json:"happ_crypt" enum:"off,api,local" doc:"Шифрованная ссылка для кнопки Happ: off — обычная happ://add/, api — через сервис Happ (адрес подписки уходит на crypto.happ.su), local — панель шифрует сама"`
+	// INCYAuto: INCY gets a whole Xray config with the autoselect balancer.
+	INCYAuto bool `json:"incy_autoselect" doc:"INCY получает не список серверов, а полный конфиг Xray: список серверов остаётся, и к нему добавляется запись автовыбора (балансировщик по наименьшему пингу). Отвечает только панель: ноды, отдающие подписку сами, продолжают отдавать список ссылок. Если приложение не принимает конфиг, выключите — вернётся список серверов"`
 }
 
 type settingsOutput struct{ Body SettingsView }
@@ -124,6 +126,7 @@ type patchSettingsBody = struct {
 	HappProvider   *string              `json:"happ_provider_id,omitempty" maxLength:"64"`
 	HappHide       *bool                `json:"happ_hide_settings,omitempty"`
 	HappCrypt      *string              `json:"happ_crypt,omitempty" enum:"off,api,local"`
+	INCYAuto       *bool                `json:"incy_autoselect,omitempty"`
 	PublicHost     *string              `json:"public_host,omitempty" maxLength:"253"`
 	Domain         *string              `json:"domain,omitempty" maxLength:"253"`
 	SubDomain      *string              `json:"sub_domain,omitempty" maxLength:"253" doc:"Домен для ссылок подписки, отдельный от домена панели; пусто — убрать. Старые ссылки продолжают работать"`
@@ -325,6 +328,9 @@ func (h *handlers) readSettings(ctx context.Context) (SettingsView, error) {
 		return v, err
 	}
 	if v.HappHideSettings, err = h.d.Settings.On(ctx, settings.HappHide); err != nil {
+		return v, err
+	}
+	if v.INCYAuto, err = h.d.Settings.On(ctx, settings.INCYAuto); err != nil {
 		return v, err
 	}
 	v.HappCrypt = cmp.Or(v.HappCrypt, "off")

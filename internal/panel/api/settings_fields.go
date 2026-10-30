@@ -94,6 +94,7 @@ var settingFields = []settingField{
 		return settings.Set(ctx, set, settings.KeyHappHide, false)
 	}),
 	value("happ_hide_settings", settings.KeyHappHide, true, func(b *patchSettingsBody) *bool { return b.HappHide }),
+	value("incy_autoselect", settings.KeyINCYAuto, true, func(b *patchSettingsBody) *bool { return b.INCYAuto }),
 	custom("happ_crypt", true, func(b *patchSettingsBody) *string { return b.HappCrypt }, func(ctx context.Context, set *settings.Settings, v string) error {
 		if v == "off" {
 			v = ""

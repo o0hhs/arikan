@@ -9331,6 +9331,9 @@
             "maxLength": 65536,
             "type": "string"
           },
+          "incy_autoselect": {
+            "type": "boolean"
+          },
           "link_reissue": {
             "$ref": "#/components/schemas/ReissueRules"
           },
@@ -12232,6 +12235,10 @@
             "description": "Профиль маршрутизации Happ: ссылка happ://routing/onadd/… (добавить и включить), happ://routing/add/… или happ://routing/off; auto — панель собирает его сама из маршрутизации Clash-профиля (Настройки → Маршрутизация); уходит только в Happ заголовком routing",
             "type": "string"
           },
+          "incy_autoselect": {
+            "description": "INCY получает не список серверов, а полный конфиг Xray: список серверов остаётся, и к нему добавляется запись автовыбора (балансировщик по наименьшему пингу). Отвечает только панель: ноды, отдающие подписку сами, продолжают отдавать список ссылок. Если приложение не принимает конфиг, выключите — вернётся список серверов",
+            "type": "boolean"
+          },
           "link_reissue": {
             "$ref": "#/components/schemas/ReissueRules",
             "description": "Как часто подписчик может сменить свою ссылку подписки сам (бот и Mini App)"
@@ -12439,7 +12446,8 @@
           "happ_routing",
           "happ_provider_id",
           "happ_hide_settings",
-          "happ_crypt"
+          "happ_crypt",
+          "incy_autoselect"
         ],
         "type": "object"
       },

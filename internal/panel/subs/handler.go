@@ -46,6 +46,9 @@ type Config struct {
 	AnnounceURL string
 	App         AppBrand // the brand in apps that read operator headers
 	Happ        Happ     // Happ's provider headers and the crypt link of the page
+	// INCYAuto: INCY gets a whole Xray config with the autoselect balancer (XrayConfigs)
+	// instead of the link list. Off: the list, as every Xray app gets it.
+	INCYAuto bool
 	// SubBase is https://host:port/<sub path> as the panel hands links out; "" without an
 	// address, and the request's own address is taken.
 	SubBase string
@@ -296,14 +299,16 @@ func (h *Handler) serveProfile(w http.ResponseWriter, r *http.Request, u db.User
 	}
 	h.userInfoHeaders(w, u, grants.Main(u.ID), cfg, vars)
 	h.operatorHeaders(w, r, u, cfg)
+	// The full config is INCY's alone, and only when it asks for the link format: every
+	// other app, and a forced ?format=, keeps what it got before.
+	serveXray := cfg.INCYAuto && format == "uri" && IsINCY(r.UserAgent())
 	switch ua := r.UserAgent(); {
 	case IsINCY(ua):
 		// INCY reads Happ's routing profile from the same header (docs.incy.cc/en/routing),
-		// and none of Happ's provider headers.
-		if routing := cfg.Happ.Routing; routing == HappRoutingAuto {
-			w.Header().Set("routing", incyLink(happAutoRouting(cfg)))
-		} else if routing != "" {
-			w.Header().Set("routing", incyLink(routing))
+		// and none of Happ's provider headers. A full config carries the routing itself:
+		// two sources of it would only disagree.
+		if !serveXray {
+			incyRoutingHeader(w, cfg)
 		}
 	case IsHapp(ua):
 		happ := cfg.Happ
@@ -382,6 +387,23 @@ func (h *Handler) serveProfile(w http.ResponseWriter, r *http.Request, u db.User
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		_, _ = w.Write([]byte(TurnSubscription(prof)))
 	default:
+		if serveXray {
+			// A whole Xray config with the autoselect balancer (xrayconfig.go). Nothing Xray
+			// can run — a hysteria2-only subscription — falls back to the link list rather
+			// than leaving the app without a profile.
+			prof.Rules, prof.Routes, prof.Lang = cfg.Rules, cfg.Routes, cfg.Lang
+			body, cerr := XrayConfigs(prof, cfg.Groups, cfg.Routing)
+			switch {
+			case cerr == nil:
+				w.Header().Set("Content-Type", "application/json; charset=utf-8")
+				_, _ = w.Write(body)
+				return
+			case !errors.Is(cerr, ErrNoProxies):
+				h.profileFailed(w, u, cfg, format, cerr)
+				return
+			}
+			incyRoutingHeader(w, cfg)
+		}
 		links, ps, err := uris(prof)
 		if err != nil {
 			h.profileFailed(w, u, cfg, format, err)
@@ -390,6 +412,16 @@ func (h *Handler) serveProfile(w http.ResponseWriter, r *http.Request, u db.User
 		h.mikanGroups(w, r, u, prof, ps)
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		_, _ = w.Write([]byte(base64.StdEncoding.EncodeToString([]byte(links))))
+	}
+}
+
+// incyRoutingHeader sets the routing header INCY applies to the link list: the panel's
+// Happ routing profile, in INCY's own scheme.
+func incyRoutingHeader(w http.ResponseWriter, cfg Config) {
+	if routing := cfg.Happ.Routing; routing == HappRoutingAuto {
+		w.Header().Set("routing", incyLink(happAutoRouting(cfg)))
+	} else if routing != "" {
+		w.Header().Set("routing", incyLink(routing))
 	}
 }
 
