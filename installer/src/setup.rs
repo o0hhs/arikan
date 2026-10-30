@@ -762,27 +762,77 @@ pub fn wait_ready(node_port: Option<u16>, limit: Duration) -> Result<()> {
     // A health check is a `docker compose exec` into a container that is just starting:
     // asked every second at first, then less often, up to every 5 s.
     let mut pause = Duration::from_secs(1);
+    // A node the panel told to keep its API port closed never listens on it: waiting for the
+    // port would report a working node as dead, and an update would roll back (0.5.5.1 did
+    // exactly that to every node whose port was closed). Such a node is ready when its
+    // container runs; the panel confirms it over the tunnel.
+    let port_kept_closed = node_port.is_some() && node_api_kept_closed(Path::new(DIR));
+    let mut running_for = Duration::ZERO;
     loop {
         let left = limit.saturating_sub(start.elapsed());
         let ready = match node_port {
-            Some(p) => system::port_owner(p, Proto::Tcp).is_some(),
+            Some(p) => {
+                if system::port_owner(p, Proto::Tcp).is_some() {
+                    true
+                } else if port_kept_closed && node_container_running() {
+                    // Two looks, a second apart: a container that restarts at once is not up.
+                    running_for += pause;
+                    running_for >= Duration::from_secs(2)
+                } else {
+                    false
+                }
+            }
             None => docker::panel_healthy_within(left.clamp(Duration::from_secs(1), Duration::from_secs(10))),
         };
         if ready {
             return Ok(());
         }
         if start.elapsed() > limit {
-            let logs = docker::compose(&["logs", "--tail", "30"])
-                .output()
-                .map(|o| String::from_utf8_lossy(&o.stdout).into_owned())
-                .unwrap_or_default();
-            return Err(anyhow!("Arikan did not start in {} s. Its last logs:\n{}", limit.as_secs(), logs.trim_end()));
+            let logs = failure_logs();
+            let why = match node_port {
+                Some(p) if port_kept_closed => format!(" (the panel keeps the API port {p} closed: it was never expected)"),
+                _ => String::new(),
+            };
+            return Err(anyhow!("Arikan did not start in {} s{}. Its last logs:\n{}", limit.as_secs(), why, logs));
         }
         thread::sleep(pause);
         if node_port.is_none() {
             pause = (pause + Duration::from_secs(1)).min(Duration::from_secs(5));
         }
     }
+}
+
+/// Whether the node's saved state keeps its own API port closed (see the node's
+/// SavedInboundAPI): the panel reaches it over the tunnel the node opened, so the port will
+/// never appear and an update must not wait for it.
+fn node_api_kept_closed(root: &Path) -> bool {
+    let Ok(text) = fs::read_to_string(root.join("data/node/node-state.json")) else { return false };
+    match serde_json::from_str::<serde_json::Value>(&text) {
+        Ok(v) => matches!(v.get("inbound_api"), Some(serde_json::Value::Bool(false))),
+        Err(_) => false,
+    }
+}
+
+/// Whether the node's container is running now.
+fn node_container_running() -> bool {
+    docker::services().map(|list| list.iter().any(|s| s.name == "node" && s.state == "running")).unwrap_or(false)
+}
+
+/// What the containers say about themselves when a start failed: their logs and their
+/// states. Both streams of `compose logs` are taken — a compose that fails before it prints
+/// anything writes to stderr alone, and the reason must not be lost.
+fn failure_logs() -> String {
+    let mut out = String::new();
+    if let Ok(o) = docker::compose(&["logs", "--tail", "30"]).output() {
+        out.push_str(&String::from_utf8_lossy(&o.stdout));
+        out.push_str(&String::from_utf8_lossy(&o.stderr));
+    }
+    if let Ok(list) = docker::services() {
+        for s in list {
+            out.push_str(&format!("{}: {} {}\n", s.name, s.state, s.status));
+        }
+    }
+    out.trim_end().to_owned()
 }
 
 /// What a finished install tells the admin, for the terminal: the link and the login whole,
@@ -944,6 +994,27 @@ pub fn mark(l: system::Level) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // The node's saved state decides whether its API port is expected at all: a node the
+    // panel keeps closed never listens, and waiting for the port would call it dead.
+    #[test]
+    fn a_closed_api_port_is_read_from_the_saved_state() {
+        let dir = std::env::temp_dir().join(format!("arikan-node-state-{}", std::process::id()));
+        let node = dir.join("data/node");
+        fs::create_dir_all(&node).unwrap();
+        let state = node.join("node-state.json");
+        let write = |text: &str| fs::write(&state, text).unwrap();
+        assert!(!node_api_kept_closed(&dir), "no state file: the port is expected");
+        write(r#"{"revision":1,"inbound_api":false}"#);
+        assert!(node_api_kept_closed(&dir), "closed by the panel");
+        write(r#"{"revision":1,"inbound_api":true}"#);
+        assert!(!node_api_kept_closed(&dir), "open by the panel");
+        write(r#"{"revision":1}"#);
+        assert!(!node_api_kept_closed(&dir), "a state from before the field keeps the port open");
+        write("not json");
+        assert!(!node_api_kept_closed(&dir), "an unreadable state is not a reason to skip the port");
+        let _ = fs::remove_dir_all(&dir);
+    }
 
     #[test]
     fn tokens() {
