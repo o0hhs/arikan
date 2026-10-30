@@ -49,15 +49,6 @@ func xrayConfigs(t *testing.T, prof Profile, g Groups, r Routing) []xcConfig {
 	return cfgs
 }
 
-func xrayOutbound(c xcConfig, tag string) map[string]any {
-	for _, o := range c.Outbounds {
-		if str(o["tag"]) == tag {
-			return o
-		}
-	}
-	return nil
-}
-
 func xrayProtocols(c xcConfig) []string {
 	var out []string
 	for _, o := range c.Outbounds {
