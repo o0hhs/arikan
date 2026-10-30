@@ -22,7 +22,7 @@ use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime};
 
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
@@ -146,7 +146,8 @@ fn install() -> Result<()> {
     let got = {
         let mut h = Sha256::new();
         h.update(&bytes);
-        format!("{:x}", h.finalize())
+        // sha2 0.11's output is a hybrid array without LowerHex: the bytes are written out.
+        h.finalize().iter().map(|b| format!("{b:02x}")).collect::<String>()
     };
     if got != ZAPRET_SHA256 {
         let _ = fs::remove_file(&tarball);
