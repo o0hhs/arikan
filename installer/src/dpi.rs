@@ -86,9 +86,17 @@ fn run(program: &str, args: &[&str]) -> Result<()> {
     if out.status.success() {
         return Ok(());
     }
+    // The last line of a compiler or make failure names the target, not the reason: the
+    // reason is above it ("cannot find -lz", a missing header). The tail is kept whole, so a
+    // failed build says why instead of "Error 1".
     let err = String::from_utf8_lossy(&out.stderr);
-    let why = err.lines().map(str::trim).rfind(|l| !l.is_empty()).unwrap_or("failed");
-    bail!("{program} {}: {why}", args.join(" "))
+    let tail: Vec<&str> = err.lines().map(str::trim).filter(|l| !l.is_empty()).collect();
+    if tail.is_empty() {
+        bail!("{program} {}: exited with {} and said nothing", args.join(" "), out.status);
+    }
+    const KEEP: usize = 15;
+    let tail = &tail[tail.len().saturating_sub(KEEP)..];
+    bail!("{program} {}:\n{}", args.join(" "), tail.join("\n"))
 }
 
 /// The request the node writes: Some(true) starts, Some(false) stops, None is not a request.
@@ -132,6 +140,10 @@ fn install() -> Result<()> {
         "build-essential",
         "libnetfilter-queue-dev",
         "libnfnetlink-dev",
+        // zapret links -lz and -lmnl: build-essential has neither, and a bare server fails
+        // the link step with "cannot find -lz" (the make output hid it, see run()).
+        "zlib1g-dev",
+        "libmnl-dev",
         "ca-certificates",
         "curl",
         "iptables",
