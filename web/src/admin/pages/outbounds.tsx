@@ -12,6 +12,7 @@ import { useToast } from "../../components/toast";
 import { Button, EmptyState, ErrorState, Field, PageHeader, Pill, Skeleton } from "../../components/ui";
 import { t, tMaybe, type Key } from "../../i18n";
 import { ago } from "../../lib/format";
+import { ServersTabs } from "../section-tabs";
 
 type Outbound = Schemas["OutboundView"];
 type Check = Schemas["OutboundCheck"];
@@ -54,6 +55,7 @@ export function OutboundsPage() {
           </div>
         }
       />
+      <ServersTabs />
       <p className="mb-4 max-w-[70ch] text-[13px] text-[var(--ink-600)]">{t("outbounds.lead")}</p>
 
       {outbounds.isError && !list.length ? (

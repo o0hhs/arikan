@@ -30,7 +30,7 @@
       "today": "Traffic today",
       "month": "This month",
       "total": "All time",
-      "nodes": "Nodes"
+      "nodes": "Servers"
     },
     "traffic": {
       "title": "Traffic",
@@ -342,7 +342,8 @@
     "tariffs": "Plans",
     "inbounds": "Protocols",
     "settings": "Settings",
-    "nodes": "Nodes",
+    "nodes": "Servers",
+    "filter": "Filter",
     "telegram": "Telegram",
     "addons": "Addons",
     "payments": "Payments",
@@ -361,7 +362,7 @@
     "tariffs": "Plans",
     "inbounds": "Protocols",
     "settings": "Settings",
-    "nodes": "Nodes",
+    "nodes": "Servers",
     "addons": "Addons",
     "payments": "Payments",
     "diagnostics": "Diagnostics",
@@ -1427,7 +1428,7 @@
     "boundNoteStrict": "Each device has keys of its own, and the device limit is the number of places. Apps without a device ID get no subscription. An unbound device is cut off at once.",
     "sharedPlace": "Apps without a device ID",
     "addresses": "Connection addresses",
-    "nodes": "Nodes",
+    "nodes": "Servers",
     "nodesCount": "{n} total",
     "usage": {
       "title": "Nodes and protocols",
@@ -1798,7 +1799,7 @@
     "autoPortSub": "If your provider starts blocking the port, the panel moves the connection to another one by itself. Same if another program takes the port.",
     "autoSni": "Replace the camouflage site when it stops working",
     "autoSniSub": "The server checks the site every 15 minutes. After three failures in a row it picks another working site nearby, never its own domain.",
-    "autoOffGlobal": "Off in settings, not active now",
+    "autoOffGlobal": "Off for new connections, not active now",
     "proxy": "Behind another server",
     "proxySub": "Only needed if port 443 is already taken by nginx or HAProxy. Otherwise change nothing.",
     "listen": "Which address the protocol works on",
@@ -2239,7 +2240,7 @@
     "fpRandom": "Random browser",
     "fpRandomized": "Random fingerprint (not a browser)",
     "auto": "Automatic fixes",
-    "autoSub": "The panel fixes protocols that stopped working on its own",
+    "autoSub": "The panel fixes protocols that stopped working on its own. New connections start with this; each one can turn it off.",
     "webhooks": {
       "title": "Webhooks to your site",
       "sub": "The panel POSTs to your site about purchases and renewals, payments, traffic, devices and nodes. Delivery runs in the background and is retried when the site does not answer.",
@@ -2359,6 +2360,8 @@
     "happLinkHint": "Encrypted: Happ opens the subscription without showing its address. Reissuing the link makes it invalid.",
     "brandAccent": "Brand colour",
     "brandAccentHint": "#RRGGBB. Empty: the app's own colour. A colour too pale for both themes is ignored by the app.",
+    "brandAccentEmpty": "The app's own colour",
+    "changeInLook": "Change in Look",
     "brandLogo": "Logo",
     "brandLogoHint": "An https link to a PNG, WebP or JPEG up to 512 KB, square, 256×256. Empty: the app's icon.",
     "newLinkIssued": "New link issued, redirecting",
@@ -2995,9 +2998,11 @@
       "title": "Page for strangers",
       "sub": "What a stranger sees instead of a bare 404: at the panel's address and on the nodes. A bare 404 gives the server away; an ordinary page makes it look like a site.",
       "forAll": "For the panel and every node",
-      "mixed": "The panel and the nodes have different pages now: see each one below.",
+      "mixed": "The panel and the nodes have different pages now: the tiles set one for all of them.",
       "each": "One by one",
       "panel": "Panel",
+      "panelOwn": "The panel's own page",
+      "nodeEditHint": "One node at a time is set in its own card on Servers.",
       "pageOf": "Page: {name}",
       "short": {
         "none": "None",
@@ -5264,7 +5269,7 @@
       "stepFail": "error"
     },
     "server": {
-      "title": "Server check",
+      "title": "Quick check",
       "lead": "The own node, the clock, disk, memory, DNS and access to GitHub and GHCR for updates.",
       "button": "Check server"
     }

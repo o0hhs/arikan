@@ -20,8 +20,9 @@ import { useCopy } from "../../lib/copy";
 import { ago, time } from "../../lib/format";
 import { useServers } from "../../lib/node-label";
 import { DIAG_TABS } from "../search";
+import { ServersTabs } from "../section-tabs";
 import { GeoTab } from "./geo-check";
-import { CheckSkeleton, ReachView, StatusMark } from "./node-check";
+import { CheckSkeleton, ReachView, ServerCheckCard, StatusMark } from "./node-check";
 import { ServerPicks, useServerPicks } from "./server-picks";
 import { CardHead } from "../../components/layout";
 
@@ -50,9 +51,16 @@ export function DiagnosticsPage() {
   return (
     <>
       <PageHeader title={t("nav.diagnostics")} sub={t("diag.subtitle")} />
+      <ServersTabs />
       <Tabs id="diag" tabs={tabs} value={current} onChange={go} label={t("diag.sections")}>
         {current === "logs" ? <LogsTab servers={servers} source={shown} onSource={pick} /> : null}
-        {current === "check" ? <CheckTab servers={servers} source={shown} onSource={pick} level={who?.level} /> : null}
+        {current === "check" ? (
+          <>
+            {/* The quick check with one-click fixes: the panel's own server, not a node. */}
+            {shown === "panel" ? <ServerCheckCard /> : null}
+            <CheckTab servers={servers} source={shown} onSource={pick} level={who?.level} />
+          </>
+        ) : null}
         {current === "reach" ? <ReachTab /> : null}
         {current === "geo" ? <GeoTab /> : null}
         {current === "terminal" && who ? (

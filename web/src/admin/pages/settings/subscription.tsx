@@ -1,7 +1,9 @@
+import { Link } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, unwrap, type Schemas } from "../../../api/client";
 import { qk, useInbounds, useNodes } from "../../../api/hooks";
+import { certLine, CertPill, CertStatusBlock } from "../../../components/acme";
 import { CardHead, Disclosure, FormActions } from "../../../components/layout";
 import { Button, Field, Pill } from "../../../components/ui";
 import { SwitchRow } from "../../../components/switch";
@@ -53,7 +55,7 @@ export function SubDomainCard({ s }: { s: Schemas["SettingsView"] }) {
         <Field
           label={t("settings.subDomain.field")}
           htmlFor="s-sub-domain"
-          hint={t("settings.subDomain.hint")}
+          hint={t("settings.subDomain.hint", { domain: s.domain || s.public_host || "—" })}
           error={error ?? (valid ? undefined : t("errors.api.sub_domain_invalid"))}
         >
           <input
@@ -70,7 +72,35 @@ export function SubDomainCard({ s }: { s: Schemas["SettingsView"] }) {
         <p className="text-xs text-[var(--md-on-surface-variant)]">{t("settings.subDomain.note")}</p>
         <FormActions saving={save.isPending && save.variables?.sub_domain === value} disabled={!changed || !valid} onReset={() => setDomain(s.sub_domain ?? "")} />
       </form>
+      {s.sub_domain && s.sub_certificate ? <SubCertificate s={s} c={s.sub_certificate} /> : null}
     </section>
+  );
+}
+
+/** The subscription domain's own certificate: how it is, get it now, one of your own. */
+function SubCertificate({ s, c }: { s: Schemas["SettingsView"]; c: Schemas["Status"] }) {
+  return (
+    <div className="mt-5 border-t border-[var(--line)] pt-4">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-[13px] font-semibold">{t("settings.subDomain.cert")}</h3>
+        <CertPill c={c} pending={t("settings.subDomain.certPending")} />
+      </div>
+      <p className="mb-3 text-xs text-[var(--ink-600)]">{certLine(c, t("settings.subDomain.certNone"))}</p>
+      <CertStatusBlock
+        c={c}
+        field="sub_certificate"
+        renew={() => unwrap(api.POST("/api/v1/settings/sub-certificate/renew"))}
+        save={(cert, key) => unwrap(api.PUT("/api/v1/settings/sub-certificate", { body: { cert, key } }))}
+        clear={() => unwrap(api.DELETE("/api/v1/settings/sub-certificate"))}
+        drawer={{
+          title: t("settings.subDomain.drawerTitle"),
+          meta: s.sub_domain,
+          lead: t("settings.subDomain.drawerLead", { domain: s.sub_domain }),
+          clearLabel: t("cert.panelClear"),
+          clearText: t("settings.subDomain.clearText"),
+        }}
+      />
+    </div>
   );
 }
 
@@ -163,7 +193,7 @@ export function SubPortCard({ s }: { s: Schemas["SettingsView"] }) {
 // A card's form as the settings hold it. A save puts the draft back to what the server
 // keeps (the text trimmed): else the typed spaces would leave the card unsaved after it.
 const profileForm = (s: Schemas["SettingsView"]) => ({ sub_group_main: s.sub_group_main, sub_group_auto: s.sub_group_auto, client_fingerprint: s.client_fingerprint });
-const appsForm = (s: Schemas["SettingsView"]) => ({ sub_title: s.sub_title, sub_announce: s.sub_announce, sub_announce_url: s.sub_announce_url, brand_accent: s.brand_accent, brand_logo_url: s.brand_logo_url });
+const appsForm = (s: Schemas["SettingsView"]) => ({ sub_title: s.sub_title, sub_announce: s.sub_announce, sub_announce_url: s.sub_announce_url, brand_logo_url: s.brand_logo_url });
 
 export function SubscriptionCard({ s }: { s: Schemas["SettingsView"] }) {
   const save = useSaveSettings();
@@ -332,7 +362,7 @@ export function AppsCard({ s }: { s: Schemas["SettingsView"] }) {
   const submit = (e: FormEvent) => {
     e.preventDefault();
     save.mutate(
-      { sub_title: form.sub_title.trim(), sub_announce: form.sub_announce.trim(), sub_announce_url: form.sub_announce_url.trim(), brand_accent: form.brand_accent.trim(), brand_logo_url: form.brand_logo_url.trim() },
+      { sub_title: form.sub_title.trim(), sub_announce: form.sub_announce.trim(), sub_announce_url: form.sub_announce_url.trim(), brand_logo_url: form.brand_logo_url.trim() },
       { onSuccess: (v) => setForm(appsForm(v)) },
     );
   };
@@ -350,7 +380,7 @@ export function AppsCard({ s }: { s: Schemas["SettingsView"] }) {
         {hint} <span className="font-medium">{t("settings.unknownVars", { vars: unknown.join(" ") })}</span>
       </>
     );
-  const accent = /^#[0-9A-Fa-f]{6}$/.test(form.brand_accent.trim()) ? form.brand_accent.trim() : "";
+  const accent = /^#[0-9A-Fa-f]{6}$/.test(s.brand_accent.trim()) ? s.brand_accent.trim() : "";
   return (
     <section className="card glass reveal" style={{ "--i": 2 } as React.CSSProperties}>
       <form onSubmit={submit} noValidate>
@@ -393,10 +423,13 @@ export function AppsCard({ s }: { s: Schemas["SettingsView"] }) {
         <SwitchRow className="border-t border-[var(--hairline)]" label={t("settings.appBranding")} sub={t("settings.appBrandingSub")} checked={s.app_branding} disabled={save.isPending} onChange={(v) => save.mutate({ app_branding: v })} />
         {s.app_branding ? (
           <div className="grid gap-x-3 sm:grid-cols-[160px_1fr]">
-            <Field label={t("settings.brandAccent")} htmlFor="s-accent" hint={t("settings.brandAccentHint")} error={errors.brand_accent}>
-              <div className="flex items-center gap-2">
+            <Field label={t("settings.brandAccent")} hint={t("settings.brandAccentHint")}>
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="h-9 w-9 shrink-0 rounded-lg border border-[var(--hairline)]" style={{ background: accent || "transparent" }} aria-hidden />
-                <input id="s-accent" className="input mono" value={form.brand_accent} onChange={set("brand_accent")} maxLength={7} placeholder="#F07A2E" autoComplete="off" aria-invalid={!!errors.brand_accent} />
+                <span className="mono text-[13px]">{s.brand_accent || t("settings.brandAccentEmpty")}</span>
+                <Link to="/settings" search={{ tab: "page", part: "look" }} className="btn btn-ghost btn-sm ml-auto">
+                  {t("settings.changeInLook")}
+                </Link>
               </div>
             </Field>
             <Field label={t("settings.brandLogo")} htmlFor="s-logo" hint={t("settings.brandLogoHint")} error={errors.brand_logo_url}>

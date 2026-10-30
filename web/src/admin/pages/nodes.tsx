@@ -10,6 +10,7 @@ import { useToast } from "../../components/toast";
 import { Button, EmptyState, PageHeader, Skeleton } from "../../components/ui";
 import { t } from "../../i18n";
 import { nodeLabel } from "../../lib/node-label";
+import { ServersTabs } from "../section-tabs";
 import { CascadeDrawer } from "./node-cascade";
 import { NodeCheckDrawer, type FixActions } from "./node-check";
 import { NodeClientsDrawer } from "./node-clients";
@@ -165,6 +166,7 @@ export function NodesPage() {
           </>
         }
       />
+      <ServersTabs />
       {nodes.data ? <BalanceGroups nodes={nodes.data} /> : null}
       <QueryBoundary
         query={nodes}

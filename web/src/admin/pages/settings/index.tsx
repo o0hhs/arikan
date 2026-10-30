@@ -18,8 +18,7 @@ import { BackupCard } from "./backup";
 import { S3BackupCard } from "./s3-backup";
 import { DashboardCard } from "./dashboard";
 import { MonitorCard } from "./monitor";
-import { AutoCard, LanguageCard, ServiceCard, UpdatesCard } from "./general";
-import { ServerCheckCard } from "../node-check";
+import { LanguageCard, ServiceCard, UpdatesCard } from "./general";
 import { GoalsCard } from "./goals";
 import { ImportCard, LegacyLinksCard } from "./import";
 import { ROUTING_PARTS, RoutingSection, type RoutingPart } from "./routing";
@@ -142,11 +141,9 @@ export function SettingsPage() {
                 <>
                   <UpdatesCard />
                   <AboutCard />
-                  <ServerCheckCard />
                   <BackupCard />
                   <S3BackupCard />
                   <GoalsCard />
-                  <AutoCard s={s} />
                   <WebhooksCard s={s} />
                 </>
               ) : (

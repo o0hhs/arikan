@@ -11,7 +11,7 @@ import { t } from "../../i18n";
 import { useDraft } from "../../lib/draft";
 import { fieldErrors } from "../../lib/fields";
 import { splitList } from "../../lib/list";
-import { BackToAddons } from "./addon-row";
+import { ServersTabs } from "../section-tabs";
 
 type View = Schemas["FiltersView"];
 
@@ -43,7 +43,8 @@ export function FiltersPage() {
   const q = useFilters();
   return (
     <>
-      <PageHeader title={t("filters.title")} sub={t("filters.sub")} actions={<BackToAddons />} />
+      <PageHeader title={t("filters.title")} sub={t("filters.sub")} />
+      <ServersTabs />
       <QueryBoundary query={q} pending={<Skeleton style={{ height: 320 }} />}>
         {(v) => (
           <div className="flex max-w-4xl flex-col gap-4">

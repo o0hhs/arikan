@@ -1,8 +1,8 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Copy, Pencil, Plus, RadioTower, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { api, errorText, unwrap, type Inbound, type Schemas } from "../../api/client";
-import { qk, useInbounds, useNodes } from "../../api/hooks";
+import { meQuery, qk, useInbounds, useNodes, useSettings } from "../../api/hooks";
 import { Confirm } from "../../components/overlay";
 import { QueryBoundary } from "../../components/query";
 import { useToast } from "../../components/toast";
@@ -11,12 +11,26 @@ import { Switch } from "../../components/switch";
 import { t, tMaybe } from "../../i18n";
 import { ago, maskedAs } from "../../lib/format";
 import { nodeLabel } from "../../lib/node-label";
+import { ServersTabs } from "../section-tabs";
 import { hostPort, listenerError } from "./inbound/shared";
 import { AddDrawer } from "./inbound/add";
 import { CopyDrawer } from "./inbound/copy";
 import { EditDrawer } from "./inbound/edit";
 import { ExitBar } from "./inbound/exit-bar";
 import { TurnDrawer } from "./node-turn";
+import { AutoCard } from "./settings/general";
+
+/** The panel's default auto fixes: a superadmin's setting, so a tech admin does not ask for it. */
+function AutoDefaults() {
+  const me = useQuery({ ...meQuery });
+  const allowed = me.data?.admin.role === "superadmin" || (me.data?.admin.permissions ?? []).includes("settings.read");
+  return allowed ? <AutoDefaultsCard /> : null;
+}
+
+function AutoDefaultsCard() {
+  const settings = useSettings();
+  return settings.data ? <AutoCard s={settings.data} /> : null;
+}
 
 export function InboundsPage() {
   const all = useInbounds();
@@ -80,6 +94,8 @@ export function InboundsPage() {
           </>
         }
       />
+      <ServersTabs />
+      <AutoDefaults />
       {multi && nodes.data ? (
         nodes.data.length <= 4 ? (
           <div className="max-w-full overflow-x-auto">
