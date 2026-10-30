@@ -9,11 +9,13 @@ the signed manifest, and the panel shows the one in its language.
 - Routing → **YouTube without ads** sets the offer up in one place: YouTube, Discord and Telegram are sent through the chosen entry node, the ad and tracker list is blocked, and QUIC to port 443 is refused so browsers and YouTube fall back to TCP. From then on every subscriber's page shows a “YouTube without ads” card; it is not a page block, so it cannot be turned off by accident, and it follows the offer itself.
 - The same card chooses the node's exit: to get past DPI, the entry node's traffic must leave through an overseas node rather than directly. One button moves every connection of that node to the chosen exit (a confirmation names both nodes), and the card says whether the node currently exits directly, through a node, or differently per connection.
 - The offer is ordinary routing: YouTube through that node, ads blocked. Turning the switch off removes those routes; the node's exit stays as it is, so turning the offer off does not move other users' traffic.
+- **Also in this build**: the 0.5.3.2 fixes — the bot reaches Telegram through a node again, `arikan uninstall --purge` leaves nothing behind, and a node's own API port can be recovered from `config.json`.
 ### ru
 **«YouTube без рекламы» включается одним переключателем, и его карточка появляется у всех пользователей.**
 - Маршрутизация → **YouTube без рекламы** настраивает всё в одном месте: YouTube, Discord и Telegram идут через выбранную входную ноду, список рекламы и трекеров блокируется, а QUIC на порт 443 закрывается, чтобы браузеры и YouTube переходили на TCP. После этого на странице подписки у каждого пользователя появляется карточка «YouTube без рекламы»: это не блок конструктора страницы, поэтому её нельзя случайно выключить, и она следует за самой услугой.
 - Там же выбирается выход ноды: чтобы обойти DPI, трафик входной ноды должен уходить через зарубежную ноду, а не напрямую. Одна кнопка переводит все подключения этой ноды на выбранный выход (подтверждение называет обе ноды), а карточка показывает, выходит нода сейчас напрямую, через ноду или у подключений разный выход.
 - Услуга хранится в обычной маршрутизации: YouTube через эту ноду, реклама заблокирована. Выключение переключателя убирает эти маршруты; выход ноды остаётся как есть, поэтому выключение услуги не меняет трафик остальных пользователей.
+- **В этой же сборке**: исправления 0.5.3.2 — бот снова ходит в Telegram через ноду, `arikan uninstall --purge` не оставляет следов, а API-порт ноды можно вернуть через `config.json`.
 
 ## 0.5.3.2
 ### en
