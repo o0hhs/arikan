@@ -667,6 +667,9 @@ type Info struct {
 	// MTProto is the MTProto proxies for Telegram itself, with their links ready; absent:
 	// the admin set none.
 	MTProto []MTLink `json:"mtproto,omitempty"`
+	// YouTubeAdFree: the admin turned the "YouTube without ads" offer on (Routes.YouTubeAdFree);
+	// the page shows its card.
+	YouTubeAdFree bool `json:"youtube_adfree,omitempty"`
 }
 
 // DeviceItem is a bound device as the subscription page lists it.
@@ -687,7 +690,7 @@ func (h *Handler) info(ctx context.Context, w http.ResponseWriter, u db.User, pr
 	now := h.now()
 	grants := prof.grants
 	out := Info{Name: u.Name, Brand: cfg.Brand, SupportURL: cfg.SupportURL, State: domain.State(u, grants.Main(u.ID), now), UsedUp: u.UsedUp, UsedDown: u.UsedDown,
-		Binding: cfg.Binding, Bound: []DeviceItem{}}
+		Binding: cfg.Binding, Bound: []DeviceItem{}, YouTubeAdFree: cfg.Routes.YouTubeAdFree()}
 	if u.TrafficLimit.Valid {
 		out.Extra = grants.Main(u.ID)
 	}

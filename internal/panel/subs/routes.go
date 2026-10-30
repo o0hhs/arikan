@@ -101,6 +101,14 @@ func nodeOf(target string) (int64, bool) {
 	return id, err == nil && id > 0
 }
 
+// YouTubeAdFree is the "YouTube without ads" offer the panel turns on with one switch: the
+// service goes through one node (the entry that carries it past the ISP) and the ad and
+// tracker list is blocked. Its card on the subscription page follows from this.
+func (r Routes) YouTubeAdFree() bool {
+	_, viaNode := nodeOf(r.Services["youtube"])
+	return viaNode && r.Services["ads"] == TargetBlock
+}
+
 // DNS overrides the profile's resolvers (GitHub issue #70); an empty list keeps the
 // panel's own for that key. Servers are as mihomo writes them: an IP, or a URL such as
 // https://dns.alidns.com/dns-query, with "#<group>" to go through a group.

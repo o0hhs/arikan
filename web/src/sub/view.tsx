@@ -1,7 +1,7 @@
 // The subscription page's body as the admin set it up (page.ts): its header, backdrop and
 // blocks in their order. The page (main.tsx) gives it the subscriber's data; the admin's
 // preview gives it a sample, so both show the same thing.
-import { Check, ChevronLeft, ChevronRight, Copy, FileText, LifeBuoy, MapPin, QrCode, Send } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Copy, FileText, LifeBuoy, MapPin, QrCode, Send, MonitorPlay } from "lucide-react";
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { Atmosphere } from "../components/atmosphere";
 import { Bar, Button, Pill, QR, Ring, Skeleton } from "../components/ui";
@@ -87,11 +87,30 @@ type BlocksProps = {
 
 /** The page's blocks in the admin's order, the ones turned off left out. */
 export function PageBlocks(p: BlocksProps) {
+  const statusOn = p.config.blocks.some((b) => b.on && b.type === "status");
   return (
     <>
-      {p.config.blocks.map((b) => (b.on && (p.tgMode || !MINI_APP_ONLY.includes(b.type)) ? <Fragment key={b.id}>{block(b, p)}</Fragment> : null))}
+      {p.config.blocks.map((b) => (b.on && (p.tgMode || !MINI_APP_ONLY.includes(b.type)) ? <Fragment key={b.id}>{block(b, p)}{b.type === "status" && p.info.youtube_adfree ? <YouTubeAdFree /> : null}</Fragment> : null))}
+      {p.info.youtube_adfree && !statusOn ? <YouTubeAdFree /> : null}
       {p.info.mtproto?.length ? <MTProto links={p.info.mtproto} /> : null}
     </>
+  );
+}
+
+/** The admin's "YouTube without ads" offer: the profile sends YouTube through one node and
+ * blocks the ad list, so the card only says what is already on. */
+function YouTubeAdFree() {
+  return (
+    <section className="glass sub-card p-4">
+      <div className="flex items-center gap-2">
+        <MonitorPlay size={20} aria-hidden />
+        <Heading className="mb-0">{t("sub.youtubeAdFree")}</Heading>
+      </div>
+      <p className="mt-1 text-[13px] text-[var(--md-on-surface-variant)]">{t("sub.youtubeAdFreeText")}</p>
+      <a className="btn btn-glass btn-block mt-3 h-11 rounded-2xl" href="https://www.youtube.com/" target="_blank" rel="noreferrer noopener">
+        <MonitorPlay size={16} aria-hidden /> {t("sub.youtubeAdFreeOpen")}
+      </a>
+    </section>
   );
 }
 

@@ -11,6 +11,8 @@ export type Info = {
   happ_link?: string;
   /** The MTProto proxies for Telegram itself, links ready; absent: the admin set none. */
   mtproto?: { name?: string; link: string; tg: string }[];
+  /** The admin turned the "YouTube without ads" offer on: the page shows its card. */
+  youtube_adfree?: boolean;
   state: "active" | "expiring" | "limited" | "expired" | "disabled";
   used_up: number;
   used_down: number;
