@@ -3,19 +3,21 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
-## Unreleased
+## 0.5.5.3
 ### en
 **One exit, two ways out: a protocol of the RF entry can leave through the foreign node directly, another through that node's WARP.**
 - **The route is the protocol's, not the whole node's**: in the protocol's settings, exit node B now has **How the traffic leaves → WARP** — sites see Cloudflare's address for that protocol only, while the rest through the same node leaves directly. The choice appears when B has a WARP that is on.
 - **The route is refused while B has no WARP** (`warp_not_configured` / `warp_off`), and WARP cannot be turned off or deleted while such a route is set — the traffic would leave from B's own address. Both nodes must run this version: an older ending does not know the mark, so the panel does not build the route for it and the connections fail rather than go direct.
 - **The card shows both paths**: the same exit stands twice on the entry's Cascade window (`B → WARP` and `B → internet`), with the address sites see, WARP or WARP+, and the last check. The whole-node switch (**Where other nodes' traffic goes next → WARP**) still exists for the relay: it sends every unmarked stream to WARP.
 - **The chain through WARP also works for the relay of a node**, and its rows that got there another way fail closed instead of leaving from the server's address.
+- **The DPI build works on a bare server**: `nfqws` links `-lz` and `-lmnl`, and neither comes with `build-essential` — the install now brings `zlib1g-dev` and `libmnl-dev`, so `arikan dpi on` no longer stops at `make: *** [Makefile:26: nfqws] Error 1`. A build that fails now carries the compiler's own lines instead of only make's last one, so the reason is readable in the panel.
 ### ru
 **Один выход, два пути: протокол на входной ноде в РФ может выходить через зарубежную ноду напрямую, а другой — через её WARP.**
 - **Маршрут у протокола, а не у всей ноды**: в настройках протокола у ноды выхода B появился выбор **Как выходит трафик → WARP** — сайты видят адрес Cloudflare только у этого протокола, а остальные через ту же ноду идут напрямую. Выбор виден, когда у B есть включённый WARP.
 - **Маршрут не сохраняется, пока у B нет WARP** (`warp_not_configured` / `warp_off`), а выключить или удалить WARP при таком маршруте панель не даст: трафик ушёл бы с адреса B. Обе ноды должны быть этой версии: старая пометку не понимает, поэтому панель для неё маршрут не строит, и подключения не выходят, а не уходят напрямую.
 - **Карточка показывает оба пути**: один и тот же выход стоит в окне «Каскад» у входа дважды (`B → WARP` и `B → интернет`), с адресом, который видят сайты, WARP или WARP+, и временем проверки. Переключатель для всей ноды (**Куда выпускать трафик других нод → WARP**) остался для ретранслятора: он отправляет в WARP весь непомеченный трафик.
 - **Цепочка через WARP работает и для ретранслятора ноды**, а строки, попавшие туда иначе, отказывают безопасно, а не уходят с адреса сервера.
+- **Сборка DPI работает на голом сервере**: `nfqws` линкуется с `-lz` и `-lmnl`, а в `build-essential` ни того, ни другого нет — установка теперь ставит `zlib1g-dev` и `libmnl-dev`, и `arikan dpi on` больше не останавливается на `make: *** [Makefile:26: nfqws] Error 1`. Неудачная сборка теперь несёт строки компилятора, а не только последнюю строку make, так что причина видна в панели.
 
 ## 0.5.5.2
 ### en
