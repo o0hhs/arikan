@@ -437,6 +437,15 @@ export function AppsCard({ s }: { s: Schemas["SettingsView"] }) {
             </Field>
           </div>
         ) : null}
+        <SwitchRow
+          className="border-t border-[var(--hairline)]"
+          label={t("settings.incyAuto")}
+          sub={s.incy_autoselect ? t("settings.incyAutoOn") : t("settings.incyAutoOff")}
+          checked={s.incy_autoselect}
+          disabled={save.isPending}
+          onChange={(v) => save.mutate({ incy_autoselect: v })}
+        />
+        {s.incy_autoselect ? <p className="mt-2 text-xs text-[var(--md-on-surface-variant)]">{t("settings.incyAutoHint")}</p> : null}
         <FormActions dirty={dirty} saving={save.isPending && save.variables?.app_branding === undefined} onReset={reset} />
       </form>
     </section>

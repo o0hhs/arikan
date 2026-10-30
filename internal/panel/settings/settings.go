@@ -143,6 +143,10 @@ const (
 	KeyHappProvider = "happ_provider_id"
 	KeyHappHide     = "happ_hide_settings"
 	KeyHappCrypt    = "happ_crypt"
+	// KeyINCYAuto gives INCY a whole Xray config with an autoselect balancer instead of the
+	// link list (subs.XrayConfigs); off by default, and only the panel answers it — a node's
+	// pre-rendered record carries the link list.
+	KeyINCYAuto = "incy_autoselect"
 	// KeyLegacySubPath is the path of the subscription links of the panel users were
 	// imported from: "sub" for Marzban and PasarGuard, "api/sub" for Remnawave. The old
 	// tokens lead to the users (legacy_sub_tokens); empty: off.
@@ -185,6 +189,7 @@ var (
 	ShowGoals      = Switch{KeyShowGoals, true}
 	AppBranding    = Switch{KeyAppBranding, false}
 	HappHide       = Switch{KeyHappHide, false}
+	INCYAuto       = Switch{KeyINCYAuto, false}
 	InactiveServer = Switch{KeyInactiveServer, false}
 	TrafficDetail  = Switch{KeyTrafficDetail, false}
 	SupportAccess  = Switch{KeySupportAccess, true}

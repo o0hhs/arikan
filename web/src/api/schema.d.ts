@@ -7406,6 +7406,7 @@ export interface components {
             happ_provider_id?: string;
             /** @description happ://routing/…, auto — собрать из маршрутизации; пусто — не отдавать */
             happ_routing?: string;
+            incy_autoselect?: boolean;
             link_reissue?: components["schemas"]["ReissueRules"];
             /** @description MTProto-прокси для Telegram */
             mtproto?: components["schemas"]["MTProxy"][];
@@ -8451,6 +8452,8 @@ export interface components {
             happ_provider_id: string;
             /** @description Профиль маршрутизации Happ: ссылка happ://routing/onadd/… (добавить и включить), happ://routing/add/… или happ://routing/off; auto — панель собирает его сама из маршрутизации Clash-профиля (Настройки → Маршрутизация); уходит только в Happ заголовком routing */
             happ_routing: string;
+            /** @description INCY получает не список серверов, а полный конфиг Xray: список серверов остаётся, и к нему добавляется запись автовыбора (балансировщик по наименьшему пингу). Отвечает только панель: ноды, отдающие подписку сами, продолжают отдавать список ссылок. Если приложение не принимает конфиг, выключите — вернётся список серверов */
+            incy_autoselect: boolean;
             /** @description Как часто подписчик может сменить свою ссылку подписки сам (бот и Mini App) */
             link_reissue: components["schemas"]["ReissueRules"];
             /** @description MTProto-прокси для Telegram: кнопка в боте и блок на странице подписки; пусто — нет */
