@@ -12,7 +12,6 @@ import { useDraft } from "../../lib/draft";
 import { fieldErrors } from "../../lib/fields";
 import { splitList } from "../../lib/list";
 import { BackToAddons } from "./addon-row";
-import { TrafficDetailCard } from "./traffic-detail";
 
 type View = Schemas["FiltersView"];
 
@@ -50,7 +49,6 @@ export function FiltersPage() {
           <div className="flex max-w-4xl flex-col gap-4">
             <EgressCard v={v} />
             <IngressCard v={v} />
-            <TrafficDetailCard />
             <p className="text-xs text-[var(--md-on-surface-variant)]">{t("filters.nodes")}</p>
           </div>
         )}

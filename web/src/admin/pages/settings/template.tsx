@@ -169,7 +169,9 @@ export function TemplateCard({ s, text, setText, starter }: { s: Schemas["Settin
               onClick={() => {
                 if (!sure) return setSure(true);
                 setSure(false);
-                save.mutate({ sub_template: "" });
+                // The editor goes back to the saved (empty) text with it: a draft of the
+                // deleted profile would otherwise read as an unsaved change for good.
+                save.mutate({ sub_template: "" }, { onSuccess: (v) => setText(() => v.sub_template) });
               }}
             >
               {sure ? t("settings.templateOffSure") : t("settings.templateTurnOff")}
