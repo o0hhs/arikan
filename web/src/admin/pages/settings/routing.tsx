@@ -50,6 +50,9 @@ const DNS_PRESETS: { id: string; dns: DNS }[] = [
   {
     id: "ruYandex",
     dns: {
+      // A bootstrap the server can reach without the tunnel: the public resolvers are
+      // interfered with on a Russian server, and then nothing resolves at all.
+      default_nameserver: ["77.88.8.8", "1.1.1.1"],
       nameserver: ["https://1.1.1.1/dns-query#PROXY", "https://8.8.8.8/dns-query#PROXY"],
       proxy_server_nameserver: ["77.88.8.8", "1.1.1.1"],
       policy: [
@@ -69,7 +72,7 @@ function tidy(r: Routes): Routes {
   if (!out.lists?.length) delete out.lists;
   if (!out.servers?.auto && !out.servers?.interval && !out.servers?.no_countries) delete out.servers;
   if (!out.tune?.block_quic && !out.tune?.sniffer && !out.tune?.real_ip) delete out.tune;
-  if (!out.dns?.nameserver?.length && !out.dns?.proxy_server_nameserver?.length && !out.dns?.policy?.length) delete out.dns;
+  if (!out.dns?.nameserver?.length && !out.dns?.default_nameserver?.length && !out.dns?.proxy_server_nameserver?.length && !out.dns?.policy?.length) delete out.dns;
   return out;
 }
 
@@ -87,7 +90,15 @@ function parsePolicy(text: string): NonNullable<DNS["policy"]> {
   });
 }
 const policyText = (p: DNS["policy"]) => (p ?? []).map((x) => `${x.match}: ${x.servers.join(", ")}`).join("\n");
-const dnsTextOf = (dns: DNS | undefined) => ({ nameserver: (dns?.nameserver ?? []).join("\n"), proxy: (dns?.proxy_server_nameserver ?? []).join("\n"), policy: policyText(dns?.policy) });
+// `default` is nameserver-policy's bootstrap: the resolvers that turn the nameservers' own
+// names into addresses. A node on a server whose plain public DNS is interfered with (a
+// Russian one, usually) resolves nothing until this is a resolver it can reach.
+const dnsTextOf = (dns: DNS | undefined) => ({
+  default: (dns?.default_nameserver ?? []).join("\n"),
+  nameserver: (dns?.nameserver ?? []).join("\n"),
+  proxy: (dns?.proxy_server_nameserver ?? []).join("\n"),
+  policy: policyText(dns?.policy),
+});
 
 /** The refusal of the server groups' settings; every other one of sub_routes is the lists'. */
 const serversRefused = (e: ApiError | null) => e?.codes.sub_routes === "routes_servers";
@@ -129,6 +140,12 @@ export function RoutingSection({ s, part, onPart }: { s: Schemas["SettingsView"]
       save.mutate(
         { sub_routing: draft.mode, sub_routes: draft.routes, sub_rules: draft.rules },
         {
+          // The server keeps its own form of what it is given (a list it trims, a section it
+          // drops when empty): the draft takes the answer back, or the bar stays for good.
+          onSuccess: (v) => {
+            setDraft({ mode: v.sub_routing, routes: v.sub_routes, rules: v.sub_rules });
+            setDnsText(dnsTextOf(v.sub_routes.dns));
+          },
           onError: (e) => {
             const p = e instanceof ApiError ? partOf(e) : null;
             if (p && p !== part) onPart(p);
@@ -137,7 +154,7 @@ export function RoutingSection({ s, part, onPart }: { s: Schemas["SettingsView"]
       );
     }
     if (exit.dirty && exit.draft) {
-      saveExit.mutate(exit.draft, { onError: () => part !== "dns" && onPart("dns") });
+      saveExit.mutate(exit.draft, { onSuccess: (nv) => exit.setDraft(exitDnsDraftOf(nv)), onError: () => part !== "dns" && onPart("dns") });
     }
   };
   const apiErr = save.error instanceof ApiError ? save.error : null;
@@ -187,7 +204,15 @@ export function RoutingSection({ s, part, onPart }: { s: Schemas["SettingsView"]
               }}
               onText={(next) => {
                 setDnsText(next);
-                setRoutes((r) => ({ ...r, dns: { nameserver: lines(next.nameserver), proxy_server_nameserver: lines(next.proxy), policy: parsePolicy(next.policy) } }));
+                setRoutes((r) => ({
+                  ...r,
+                  dns: {
+                    default_nameserver: lines(next.default),
+                    nameserver: lines(next.nameserver),
+                    proxy_server_nameserver: lines(next.proxy),
+                    policy: parsePolicy(next.policy),
+                  },
+                }));
               }}
             />
           </Card>
@@ -549,6 +574,9 @@ function DeviceDns({ text, onPreset, onText }: { text: ReturnType<typeof dnsText
       </div>
       <Field label={t("settings.routesDnsServers")} htmlFor="s-dns-ns" hint={t("settings.routesDnsHint")}>
         <textarea id="s-dns-ns" className="input mono min-h-[72px]" value={text.nameserver} onChange={edit("nameserver")} spellCheck={false} placeholder="https://1.1.1.1/dns-query#PROXY" />
+      </Field>
+      <Field label={t("settings.routesDnsDefault")} htmlFor="s-dns-default" hint={t("settings.routesDnsDefaultHint")}>
+        <textarea id="s-dns-default" className="input mono min-h-[56px]" value={text.default} onChange={edit("default")} spellCheck={false} placeholder="77.88.8.8" />
       </Field>
       <Field label={t("settings.routesDnsProxy")} htmlFor="s-dns-proxy" hint={t("settings.routesDnsProxyHint")}>
         <textarea id="s-dns-proxy" className="input mono min-h-[56px]" value={text.proxy} onChange={edit("proxy")} spellCheck={false} placeholder="1.1.1.1" />

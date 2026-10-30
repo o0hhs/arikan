@@ -3,6 +3,17 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
+## Unreleased
+### en
+**Settings stop claiming unsaved changes, and a node on a filtered network can be given a DNS it reaches.**
+- Routing → the save bar and the “changes will be lost” question stayed after a successful save: the draft now takes the server's own form of what was saved (a list it trims, a section it drops when empty, the profile it stores trimmed). The same fix for the subscription profile, which is edited beside the routing.
+- Routing → DNS gains the bootstrap (`default-nameserver`): the resolvers that turn the DNS servers' own names into addresses. On a server whose plain public DNS is interfered with (a Russian one) a node resolves nothing at all until this is an address it can reach; the “Russian” preset now sets 77.88.8.8 here as well.
+
+### ru
+**Настройки больше не считают сохранённое несохранённым, а ноде в фильтруемой сети можно задать доступный DNS.**
+- Маршрутизация → плашка «есть несохранённые изменения» и вопрос при уходе со страницы оставались после успешного сохранения: теперь черновик принимает серверную форму сохранённого (список он подрезает, пустую секцию выбрасывает, профиль хранит подрезанным). То же для профиля подписки, который правится рядом с маршрутизацией.
+- Маршрутизация → DNS получила bootstrap (`default-nameserver`): резолверы, которые превращают имена DNS-серверов в адреса. На сервере, где публичный DNS фильтруется (российский), нода не резолвит вообще ничего, пока здесь не будет доступный ей адрес; пресет «Российский» теперь тоже ставит сюда 77.88.8.8.
+
 ## 0.5.4.0
 ### en
 **“YouTube without ads” is one switch, and its card appears on every subscriber's page.**
