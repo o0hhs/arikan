@@ -45,6 +45,8 @@ const HOSTS: &[&str] = &[
     "youtube.com",
     "youtu.be",
     "youtube-nocookie.com",
+    "youtubei.googleapis.com",
+    "youtube.googleapis.com",
     "googlevideo.com",
     "ytimg.com",
     "ggpht.com",
@@ -100,6 +102,10 @@ fn parse_request(data: &[u8]) -> Option<bool> {
 fn install() -> Result<()> {
     let dir = dir();
     if dir.join("nfqws").is_file() {
+        // A previous install that stopped after the binary but before the scripts would
+        // leave the service without its start file; fill what is missing, never overwrite
+        // a host list or a strategy the admin edited.
+        write_scripts()?;
         return Ok(());
     }
     fs::create_dir_all(&dir).with_context(|| format!("create {}", dir.display()))?;
@@ -170,12 +176,16 @@ fn install() -> Result<()> {
 /// so a strategy edited there survives a restart.
 fn write_scripts() -> Result<()> {
     let dir = dir();
-    let mut hosts = String::new();
-    for h in HOSTS {
-        hosts.push_str(h);
-        hosts.push('\n');
+    // Each file only when it is missing: an install that stopped half-way is completed, and
+    // a strategy or a host list the admin edited stays.
+    if !dir.join("hosts.txt").is_file() {
+        let mut hosts = String::new();
+        for h in HOSTS {
+            hosts.push_str(h);
+            hosts.push('\n');
+        }
+        fs::write(dir.join("hosts.txt"), hosts)?;
     }
-    fs::write(dir.join("hosts.txt"), hosts)?;
     let run = format!(
         "#!/bin/sh\n\
          set -eu\n\
@@ -193,6 +203,9 @@ fn write_scripts() -> Result<()> {
     );
     for (name, text) in [("run", run), ("stop", stop)] {
         let p = dir.join(name);
+        if p.is_file() {
+            continue;
+        }
         fs::write(&p, text)?;
         let mut perms = fs::metadata(&p)?.permissions();
         perms.set_mode(0o755);
@@ -215,8 +228,22 @@ fn write_service() -> Result<()> {
          ExecStopPost={dir}/stop\n\
          Restart=on-failure\n\
          RestartSec=5\n\
+         TimeoutStopSec=20\n\
          AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW\n\
          CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW\n\
+         NoNewPrivileges=true\n\
+         ProtectSystem=full\n\
+         ProtectHome=true\n\
+         PrivateTmp=true\n\
+         ProtectKernelTunables=true\n\
+         ProtectKernelModules=true\n\
+         ProtectControlGroups=true\n\
+         RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK\n\
+         RestrictNamespaces=true\n\
+         LockPersonality=true\n\
+         RestrictRealtime=true\n\
+         SystemCallArchitectures=native\n\
+         ReadOnlyPaths={dir}\n\
          \n\
          [Install]\n\
          WantedBy=multi-user.target\n",
@@ -258,6 +285,24 @@ pub fn set(on: bool) -> Result<()> {
     if stop.is_file() {
         let _ = Command::new("sh").arg(stop).status();
     }
+    Ok(())
+}
+
+/// Stops the service and removes its unit: an uninstall must leave no privileged process
+/// and no rule behind, with or without --purge.
+pub fn remove() -> Result<()> {
+    let _ = Command::new("systemctl")
+        .args(["disable", "--now", "arikan-dpi.service"])
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status();
+    let stop = dir().join("stop");
+    if stop.is_file() {
+        let _ = Command::new("sh").arg(stop).status();
+    }
+    let _ = fs::remove_file("/etc/systemd/system/arikan-dpi.service");
+    let _ = run("systemctl", &["daemon-reload"]);
     Ok(())
 }
 

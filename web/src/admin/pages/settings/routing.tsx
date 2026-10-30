@@ -414,11 +414,10 @@ function YouTubeCard({ routes, setRoutes }: { routes: Routes; setRoutes: SetRout
       const services = { ...(r.services ?? {}) };
       if (want) {
         services.youtube = `node:${id}`;
-        services.telegram = `node:${id}`;
         services.discord = `node:${id}`;
         services.ads = "block";
       } else {
-        for (const key of ["youtube", "telegram", "discord"]) if (services[key]?.startsWith("node:")) delete services[key];
+        for (const key of ["youtube", "discord"]) if (services[key]?.startsWith("node:")) delete services[key];
         if (services.ads === "block") delete services.ads;
       }
       return { ...r, services, tune: { ...(r.tune ?? {}), block_quic: want ? true : r.tune?.block_quic } };
@@ -429,7 +428,7 @@ function YouTubeCard({ routes, setRoutes }: { routes: Routes; setRoutes: SetRout
     if (!on) return;
     setRoutes((r) => {
       const services = { ...(r.services ?? {}) };
-      for (const key of ["youtube", "telegram", "discord"]) if (services[key]?.startsWith("node:")) services[key] = `node:${id}`;
+      for (const key of ["youtube", "discord"]) if (services[key]?.startsWith("node:")) services[key] = `node:${id}`;
       return { ...r, services };
     });
   };

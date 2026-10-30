@@ -316,7 +316,7 @@ func Serve(ctx context.Context, cfg config.Config, version string, web fs.FS) er
 	// by name. Its connections carry the client the node named in the PROXY header.
 	var webSrv *http.Server
 	if webLn != nil {
-		webSrv = httpServer(handler)
+		webSrv = httpServer(stripForwarded(handler))
 		go func() {
 			err := webSrv.Serve(tls.NewListener(webLn, panelTLS))
 			if err != nil && !errors.Is(err, http.ErrServerClosed) && !errors.Is(err, net.ErrClosed) {
@@ -476,6 +476,18 @@ func subsTLSSource(m *acme.Manager) nodesync.SubsTLSSource {
 		}
 		return &nodeapi.TLSFiles{CertPEM: certPEM, KeyPEM: keyPEM}, nil
 	}
+}
+
+// stripForwarded takes the address headers off a request from the node's shared 443: that
+// connection arrives on loopback with the client in the PROXY header (its own address), so
+// an X-Forwarded-For or X-Real-IP in the request is the client's own word. Believing it
+// would let a subscriber choose the address the device limit and the nodes' counters see.
+func stripForwarded(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.Header.Del("X-Forwarded-For")
+		r.Header.Del("X-Real-IP")
+		h.ServeHTTP(w, r)
+	})
 }
 
 // Internet scanners produce a constant stream of failed TLS handshakes; they are not actionable.

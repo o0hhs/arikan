@@ -490,6 +490,9 @@ pub fn uninstall(purge: bool) -> Result<bool> {
         };
         let _ = host::close(&rules);
     }
+    // The DPI service is root's nfqws with a rule on the host: an uninstall stops it and
+    // takes its unit away, with or without --purge, before /opt/mikan goes.
+    let _ = crate::dpi::remove();
     host::remove_units();
     crate::apilock::remove();
     if fs::remove_file(host::SYSCTL).is_ok() {

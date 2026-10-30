@@ -2124,7 +2124,7 @@
     "routesServices": "Services",
     "routesServicesHint": "\"Like the rest\" follows the mode above. \"Server\" always sends the service through that node; the app shows it as a group of its own.",
     "youtubeTitle": "YouTube without ads",
-    "youtubeSub": "YouTube, Discord and Telegram go through the chosen node with its Russian address; the DPI bypass runs on the node itself, and ads and trackers are blocked in the profile.",
+    "youtubeSub": "YouTube and Discord go through the chosen node with its Russian address; the DPI bypass runs on the node itself, and ads and trackers are blocked in the profile. Telegram is left to its own routing.",
     "youtubeOn": "Turn on YouTube without ads",
     "youtubeEntry": "The node the services go through",
     "youtubeEntryHint": "Users connect here. The services go through this node and leave with its own Russian address.",

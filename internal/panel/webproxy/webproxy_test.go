@@ -194,3 +194,11 @@ func TestListener(t *testing.T) {
 		t.Fatal("a peer off loopback was let in")
 	}
 }
+
+// The listener is the node's router's alone: a public bind is refused before a socket exists.
+func TestListenRefusesANonLoopbackAddress(t *testing.T) {
+	if ln, err := Listen("0.0.0.0:0", slog.New(slog.DiscardHandler)); err == nil {
+		ln.Close()
+		t.Fatal("the web listener took a public address")
+	}
+}

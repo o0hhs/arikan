@@ -129,13 +129,16 @@ func (t *tunnels) Open(ctx context.Context, id int64) (net.Conn, bool) {
 // tunnelStream is one stream of a tunnel: closing it frees its place.
 type tunnelStream struct {
 	*yamux.Stream
-	c *tunnel
+	c    *tunnel
+	once sync.Once
 }
 
 func (s *tunnelStream) Close() error {
-	s.c.mu.Lock()
-	s.c.open--
-	s.c.mu.Unlock()
+	s.once.Do(func() {
+		s.c.mu.Lock()
+		s.c.open--
+		s.c.mu.Unlock()
+	})
 	return s.Stream.Close()
 }
 

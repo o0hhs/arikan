@@ -197,6 +197,22 @@ func (p *Panel) checkDivergence(ctx context.Context, paths settings.Paths, monit
 		for _, text := range NodeProblems(nodes) {
 			log.Warn("nodes: "+text, "fix", "issue a new join key on the node's page and run arikan join on the node")
 		}
+		// 443 is the mode that opens no listener: the panel's own node's SNI router must
+		// hand the subscription domain to the panel's loopback listener. Without that node
+		// the setting looks fine and every link on 443 answers nothing. The panel cannot
+		// see the router's live state here; it can see that there is no node to have one.
+		if subPort, _, err := settings.Get[int](ctx, p.Settings, settings.KeySubPort); err == nil && subPort == SubPortRouter {
+			local := false
+			for _, n := range nodes {
+				if n.Address == "" && n.SniRouter != 0 {
+					local = true
+					break
+				}
+			}
+			if !local {
+				log.Warn("settings: sub_port is 443, which leaves 443 to the panel's own node's SNI router, but that node has no router: a subscription link on 443 has no listener", "fix", "turn the SNI router on on the panel's own node, or set another sub_port")
+			}
+		}
 		state, err := p.Addons.State()
 		if err != nil {
 			log.Warn("addons: the host's state.json was not read", "err", err)

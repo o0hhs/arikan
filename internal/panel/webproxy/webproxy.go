@@ -96,6 +96,14 @@ type Listener struct {
 
 // Listen binds a loopback address, "127.0.0.1:0" for a port of the system's choosing.
 func Listen(addr string, log *slog.Logger) (*Listener, error) {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		return nil, fmt.Errorf("webproxy: %q is not an address: %w", addr, err)
+	}
+	ip, err := netip.ParseAddr(host)
+	if err != nil || !ip.IsLoopback() {
+		return nil, fmt.Errorf("webproxy: %q is not a loopback address: only the node's router forwards here", addr)
+	}
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
 		return nil, err
