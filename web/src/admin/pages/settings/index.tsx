@@ -44,7 +44,6 @@ const PART_LABELS: Record<string, Key> = {
   docs: "settings.page.tab.docs",
   css: "settings.page.tab.css",
   mode: "settings.routingParts.mode",
-  lists: "settings.routingParts.lists",
   rules: "settings.routingParts.rules",
   dns: "settings.routingParts.dns",
   advanced: "settings.routingParts.advanced",
@@ -64,7 +63,8 @@ export function SettingsPage() {
   const navigate = useNavigate({ from: "/settings" });
   const go = (next: Tab, nextPart?: string) => void navigate({ search: { tab: next, part: nextPart }, replace: true });
   // The routing opens where it is in use: the own YAML once there is one. An old link to the
-  // simple mode ("simple") opens the mode.
+  // simple mode ("simple") opens the mode, and the router turns an old "lists" into the
+  // merged rules-and-lists screen.
   const routingPart: RoutingPart = ROUTING_PARTS.includes(part as RoutingPart) ? (part as RoutingPart) : settings.data?.sub_template.trim() && part !== "simple" ? "yaml" : "mode";
   const pagePart: SubPagePart = (part as SubPagePart | undefined) ?? "look";
   const shownPart = tab === "page" ? pagePart : tab === "routing" ? routingPart : undefined;
