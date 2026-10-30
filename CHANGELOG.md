@@ -3,6 +3,19 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
+## 0.5.5.4
+### en
+**INCY gets an auto-select entry, as a full Xray config with a balancer.**
+- **One entry that picks the fastest server**: Settings → Subscription → Apps → **Full config with auto-select in INCY** (off by default) makes the panel answer INCY with a JSON array of full Xray configs — the first one holds every server, an `observatory` and a `leastPing` balancer, so the “Auto” entry sits at the top of the list and follows the fastest server; then one config per server, so the servers themselves stay where they were. The switch is INCY-only and `uri`-only: other apps and `?format=clash|singbox` get exactly what they got before.
+- **Nothing is promised twice**: in this mode the `routing` header is not sent — the routes are inside the config, and two sources would only argue. A subscription Xray cannot run (Hysteria2 only) still gets the link list and the header, as if the switch were off.
+- **Turning it off restores the list** on the next subscription update, so an app that refuses the array costs one refresh.
+
+### ru
+**INCY получает запись автовыбора — полным конфигом Xray с балансировщиком.**
+- **Одна запись, которая выбирает самый быстрый сервер**: Настройки → Подписка → В приложениях → **«Полный конфиг с автовыбором в INCY»** (по умолчанию выключено) заставляет панель отвечать INCY JSON-массивом полных конфигов Xray — в первом лежат все серверы, `observatory` и балансировщик `leastPing`, поэтому запись «Авто» стоит в начале списка и идёт за самым быстрым сервером; дальше по конфигу на сервер, так что сами серверы остаются на месте. Переключатель действует только на INCY и только в формате `uri`: остальные приложения и `?format=clash|singbox` получают ровно то же, что и раньше.
+- **Ничего не обещается дважды**: в этом режиме заголовок `routing` не отправляется — маршруты уже внутри конфига, а два источника только спорили бы. Подписка, которую Xray не может запустить (только Hysteria2), по-прежнему получает список ссылок с заголовком, как при выключенном переключателе.
+- **Выключение возвращает список** при следующем обновлении подписки, так что приложение, которое не примет массив, стоит одного обновления.
+
 ## 0.5.5.3
 ### en
 **One exit, two ways out: a protocol of the RF entry can leave through the foreign node directly, another through that node's WARP.**
