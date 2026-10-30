@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, unwrap, type Schemas } from "../../../api/client";
 import { qk, useInbounds, useNodes } from "../../../api/hooks";
+import { certLine, CertPill, CertStatusBlock } from "../../../components/acme";
 import { CardHead, Disclosure, FormActions } from "../../../components/layout";
 import { Button, Field, Pill } from "../../../components/ui";
 import { SwitchRow } from "../../../components/switch";
@@ -53,7 +54,7 @@ export function SubDomainCard({ s }: { s: Schemas["SettingsView"] }) {
         <Field
           label={t("settings.subDomain.field")}
           htmlFor="s-sub-domain"
-          hint={t("settings.subDomain.hint")}
+          hint={t("settings.subDomain.hint", { domain: s.domain || s.public_host || "—" })}
           error={error ?? (valid ? undefined : t("errors.api.sub_domain_invalid"))}
         >
           <input
@@ -70,7 +71,35 @@ export function SubDomainCard({ s }: { s: Schemas["SettingsView"] }) {
         <p className="text-xs text-[var(--md-on-surface-variant)]">{t("settings.subDomain.note")}</p>
         <FormActions saving={save.isPending && save.variables?.sub_domain === value} disabled={!changed || !valid} onReset={() => setDomain(s.sub_domain ?? "")} />
       </form>
+      {s.sub_domain && s.sub_certificate ? <SubCertificate s={s} c={s.sub_certificate} /> : null}
     </section>
+  );
+}
+
+/** The subscription domain's own certificate: how it is, get it now, one of your own. */
+function SubCertificate({ s, c }: { s: Schemas["SettingsView"]; c: Schemas["Status"] }) {
+  return (
+    <div className="mt-5 border-t border-[var(--line)] pt-4">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-[13px] font-semibold">{t("settings.subDomain.cert")}</h3>
+        <CertPill c={c} pending={t("settings.subDomain.certPending")} />
+      </div>
+      <p className="mb-3 text-xs text-[var(--ink-600)]">{certLine(c, t("settings.subDomain.certNone"))}</p>
+      <CertStatusBlock
+        c={c}
+        field="sub_certificate"
+        renew={() => unwrap(api.POST("/api/v1/settings/sub-certificate/renew"))}
+        save={(cert, key) => unwrap(api.PUT("/api/v1/settings/sub-certificate", { body: { cert, key } }))}
+        clear={() => unwrap(api.DELETE("/api/v1/settings/sub-certificate"))}
+        drawer={{
+          title: t("settings.subDomain.drawerTitle"),
+          meta: s.sub_domain,
+          lead: t("settings.subDomain.drawerLead", { domain: s.sub_domain }),
+          clearLabel: t("cert.panelClear"),
+          clearText: t("settings.subDomain.clearText"),
+        }}
+      />
+    </div>
   );
 }
 
