@@ -90,13 +90,12 @@ fn run(program: &str, args: &[&str]) -> Result<()> {
     // reason is above it ("cannot find -lz", a missing header). The tail is kept whole, so a
     // failed build says why instead of "Error 1".
     let err = String::from_utf8_lossy(&out.stderr);
-    let mut tail: Vec<&str> = err.lines().map(str::trim).filter(|l| !l.is_empty()).collect();
+    let tail: Vec<&str> = err.lines().map(str::trim).filter(|l| !l.is_empty()).collect();
     if tail.is_empty() {
         return bail!("{program} {}: exited with {} and said nothing", args.join(" "), out.status);
     }
     const KEEP: usize = 15;
-    let cut = tail.len().saturating_sub(KEEP);
-    tail.drain(..cut);
+    let tail = &tail[tail.len().saturating_sub(KEEP)..];
     bail!("{program} {}:\n{}", args.join(" "), tail.join("\n"))
 }
 
