@@ -1,0 +1,52 @@
+.section-tabs {
+  display: flex;
+  gap: 4px;
+  width: 100%;
+  padding: 4px;
+  overflow-x: auto;
+  border: 1px solid var(--md-outline-variant);
+  border-radius: var(--md-shape-full);
+  background: var(--md-surface-container-high);
+}
+
+.section-tabs a {
+  display: inline-flex;
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  height: 36px;
+  padding: 0 14px;
+  overflow: hidden;
+  border-radius: var(--md-shape-full);
+  font: var(--md-label-large);
+  color: var(--md-on-surface-variant);
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition:
+    background-color var(--md-motion-short4) var(--md-ease-standard),
+    color var(--md-motion-short4) var(--md-ease-standard);
+}
+
+.section-tabs a:hover {
+  color: var(--md-on-surface);
+  background: color-mix(in srgb, var(--md-on-surface) 8%, transparent);
+}
+
+.section-tabs a[aria-current="page"] {
+  background: var(--md-secondary-container);
+  color: var(--md-on-secondary-container);
+}
+
+.section-tabs a:focus-visible {
+  outline: 2px solid var(--md-primary);
+  outline-offset: 2px;
+}
+
+@media (max-width: 760px) {
+  .section-tabs a {
+    flex: 0 0 auto;
+    padding: 0 10px;
+  }
+}

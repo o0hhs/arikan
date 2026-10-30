@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Menu from "@radix-ui/react-dropdown-menu";
 import { Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
-import { Activity, ArrowUpCircle, BarChart3, ClipboardCheck, LayoutDashboard, Link2, LogOut, MoreHorizontal, Network, PanelLeftClose, PanelLeftOpen, Puzzle, ScrollText, Search, Server, SlidersHorizontal, Tag, Users, Wallet, Workflow } from "lucide-react";
+import { ArrowUpCircle, BarChart3, ClipboardCheck, LayoutDashboard, LogOut, MoreHorizontal, Network, PanelLeftClose, PanelLeftOpen, Puzzle, ScrollText, Search, SlidersHorizontal, Tag, Users, Wallet, Workflow } from "lucide-react";
 import { useState } from "react";
 import { api, ApiError, errorText, unwrap } from "../api/client";
 import { meQuery, useNode, useOverview, useUpdates } from "../api/hooks";
@@ -17,21 +17,20 @@ import { SupportBar } from "./support-bar";
 import type { Permission } from "./roles";
 
 type NavRoles = readonly ("superadmin" | "support" | "tech")[];
-type NavItem = { to: string; key: string; icon: typeof LayoutDashboard; roles?: NavRoles; permission?: Permission | readonly Permission[] };
+type NavItem = { to: string; key: string; icon: typeof LayoutDashboard; roles?: NavRoles; permission?: Permission | readonly Permission[]; tabs?: readonly string[] };
 const NAV: NavItem[] = [
   { to: "/client", key: "client", icon: Search, roles: ["support"] as const, permission: "support.card" },
   { to: "/", key: "overview", icon: LayoutDashboard, roles: ["superadmin"] as const, permission: "nodes.read" },
   { to: "/analytics", key: "analytics", icon: BarChart3, roles: ["superadmin"] as const, permission: "billing.read" },
   { to: "/users", key: "users", icon: Users, roles: ["superadmin"] as const, permission: "users.read" },
   { to: "/tariffs", key: "tariffs", icon: Tag, roles: ["superadmin"] as const, permission: "billing.read" },
-  { to: "/inbounds", key: "inbounds", icon: Server, roles: ["superadmin", "tech"] as const, permission: "nodes.read" },
-  { to: "/nodes", key: "nodes", icon: Network, roles: ["superadmin", "tech"] as const, permission: "nodes.read" },
-  { to: "/outbounds", key: "outbounds", icon: Link2, roles: ["superadmin", "tech"] as const, permission: "nodes.read" },
+  // One section, one entry: the servers, the connections, the exits, the checks and the
+  // node filter are tabs over their own routes (section-tabs.tsx).
+  { to: "/nodes", key: "nodes", icon: Network, roles: ["superadmin", "tech"] as const, permission: "nodes.read", tabs: ["/nodes", "/inbounds", "/outbounds", "/diagnostics", "/addons/filters"] },
   { to: "/payments", key: "payments", icon: Wallet, roles: ["superadmin"] as const, permission: "billing.read" },
   { to: "/automation", key: "automation", icon: Workflow, roles: ["superadmin"] as const, permission: "automation.read" },
   { to: "/approvals", key: "approvals", icon: ClipboardCheck, roles: ["superadmin"] as const, permission: ["approvals.read", "approvals.decide"] },
   { to: "/addons", key: "addons", icon: Puzzle, roles: ["superadmin"] as const },
-  { to: "/diagnostics", key: "diagnostics", icon: Activity, roles: ["superadmin"] as const, permission: "nodes.read" },
   { to: "/audit", key: "audit", icon: ScrollText, roles: ["superadmin", "tech"] as const, permission: "audit.read" },
   { to: "/settings", key: "settings", icon: SlidersHorizontal, roles: ["superadmin"] as const, permission: "settings.read" },
 ] as const;
@@ -65,6 +64,7 @@ export function Shell() {
   const meShell = useQuery({ ...meQuery });
   const role = meShell.data?.admin.role ?? "superadmin";
   const nav = navFor(role, meShell.data?.admin.permissions ?? []);
+  const path = useRouterState({ select: (s) => s.location.pathname });
   const [folded, setFolded] = useState(readFolded);
   const fold = () =>
     setFolded((f) => {
@@ -90,13 +90,16 @@ export function Shell() {
             </button>
           </div>
           <nav className="nav" aria-label={t("shell.sections")}>
-            {nav.map((n) => (
-              <Link key={n.to} to={n.to} className="nav-item" activeProps={{ className: "active", "aria-current": "page" }} activeOptions={{ exact: n.to === "/" }} title={t(`nav.${n.key}` as Key)}>
-                <n.icon size={18} aria-hidden />
-                <span className="nav-label">{t(`nav.${n.key}` as Key)}</span>
-                {n.to === "/users" && overview.data ? <span className="nav-count num">{num(overview.data.users_total)}</span> : null}
-              </Link>
-            ))}
+            {nav.map((n) => {
+              const on = sectionActive(n, path);
+              return (
+                <Link key={n.to} to={n.to} className={on ? "nav-item active" : "nav-item"} aria-current={on ? "page" : undefined} title={t(`nav.${n.key}` as Key)}>
+                  <n.icon size={18} aria-hidden />
+                  <span className="nav-label">{t(`nav.${n.key}` as Key)}</span>
+                  {n.to === "/users" && overview.data ? <span className="nav-count num">{num(overview.data.users_total)}</span> : null}
+                </Link>
+              );
+            })}
           </nav>
           <div className="side-foot">
             <UpdateChip />
@@ -120,6 +123,7 @@ const MOBILE_MAIN = 4;
 
 // A section is current on its own page and on the pages below it (/addons/telegram).
 const isIn = (path: string, to: string) => path.endsWith(to) || path.includes(`${to}/`);
+const sectionActive = (n: NavItem, path: string) => (n.tabs ?? [n.to]).some((to) => isIn(path, to));
 
 function MobileNav() {
   const path = useRouterState({ select: (s) => s.location.pathname });
@@ -128,11 +132,11 @@ function MobileNav() {
   const role = meMobile.data?.admin.role ?? "superadmin";
   const nav = navFor(role, meMobile.data?.admin.permissions ?? []);
   const more = nav.slice(MOBILE_MAIN);
-  const inMore = more.some((n) => isIn(path, n.to));
+  const inMore = more.some((n) => sectionActive(n, path));
   return (
     <nav className="mnav glass" aria-label={t("shell.sections")}>
       {nav.slice(0, MOBILE_MAIN).map((n) => (
-        <Link key={n.to} to={n.to} activeProps={{ className: "active", "aria-current": "page" }} activeOptions={{ exact: n.to === "/" }}>
+        <Link key={n.to} to={n.to} className={sectionActive(n, path) ? "active" : undefined} aria-current={sectionActive(n, path) ? "page" : undefined}>
           <n.icon size={20} aria-hidden />
           <span>{t(`navShort.${n.key}` as Key)}</span>
         </Link>
@@ -147,7 +151,7 @@ function MobileNav() {
         <Menu.Portal>
           <Menu.Content className="menu glass-strong" side="top" align="end" sideOffset={12}>
             {more.map((n) => (
-              <Menu.Item key={n.to} className="menu-item" onSelect={() => void navigate({ to: n.to })} aria-current={isIn(path, n.to) ? "page" : undefined}>
+              <Menu.Item key={n.to} className="menu-item" onSelect={() => void navigate({ to: n.to })} aria-current={sectionActive(n, path) ? "page" : undefined}>
                 <n.icon size={16} aria-hidden /> {t(`nav.${n.key}` as Key)}
               </Menu.Item>
             ))}
