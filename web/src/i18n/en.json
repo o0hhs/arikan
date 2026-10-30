@@ -2149,6 +2149,8 @@
     "routesAppsHint": "Apps and sites that need a local address. On Android and computers the rules go by the app's name, on iPhones by the sites.",
     "routesDns": "DNS",
     "routesDnsHint": "Empty: the panel's DNS. A server is written as in mihomo: an IP or an address like https://…, tls://…, quic://…; with #PROXY at the end the query goes through the VPN.",
+    "routesDnsDefault": "Bootstrap (default-nameserver)",
+    "routesDnsDefaultHint": "The resolvers that turn the DNS servers above into addresses. On a Russian server 1.1.1.1 and 8.8.8.8 do not answer — put one that does, e.g. 77.88.8.8. Empty: the node's defaults (system, 1.1.1.1, 8.8.8.8).",
     "routesDnsPresets": "Ready DNS sets",
     "routesDnsPreset": {
       "panel": "The panel's",

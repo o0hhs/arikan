@@ -103,7 +103,10 @@ export function TemplateCard({ s, text, setText, starter }: { s: Schemas["Settin
   ] as const;
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    save.mutate({ sub_template: text });
+    // The draft takes the saved text back: the server keeps its own form of it, and the form
+    // would otherwise stay "unsaved" (and the leave guard keep asking) over a difference
+    // nobody can see.
+    save.mutate({ sub_template: text }, { onSuccess: (v) => setText(() => v.sub_template) });
   };
   return (
     <section className="card glass reveal" style={{ "--i": 1 } as React.CSSProperties}>
