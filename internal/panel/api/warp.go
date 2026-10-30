@@ -29,6 +29,7 @@ type WarpView struct {
 	IPv6       string     `json:"ipv6,omitempty"`
 	Routes     []string   `json:"routes" doc:"Домены и сети, которые идут через WARP у всех подключений ноды"`
 	Inbounds   []string   `json:"inbounds" doc:"Подключения ноды, у которых весь трафик идёт через WARP"`
+	Relay      bool       `json:"relay" doc:"Трафик других нод через эту ноду тоже идёт в WARP"`
 	NoReserved bool       `json:"no_reserved,omitempty" doc:"Свой конфиг без Reserved: на части endpoint'ов Cloudflare молча не отвечает на handshake"`
 	Status     *WarpCheck `json:"status,omitempty" doc:"Последняя проверка выхода через WARP с ноды; нет — у ноды ещё нет настроенного WARP"`
 }
@@ -115,7 +116,8 @@ func (h *handlers) warpUsers(ctx context.Context, nodeID int64) ([]string, error
 // warpUnused refuses to take WARP away from a node while inbounds go out through it:
 // without it they would leave directly, from the node's own address, which is what the
 // admin put them behind WARP to avoid. The same rule keeps a cascade from going direct
-// when its exit is gone (node_in_use).
+// when its exit is gone (node_in_use). The relay's route counts too: other nodes' traffic
+// was sent to this node's WARP, and without WARP it would leave from this server's address.
 func (h *handlers) warpUnused(ctx context.Context, nodeID int64) error {
 	names, err := h.warpUsers(ctx, nodeID)
 	if err != nil {
@@ -123,6 +125,14 @@ func (h *handlers) warpUnused(ctx context.Context, nodeID int64) error {
 	}
 	if len(names) > 0 {
 		return huma.Error409Conflict("warp_in_use", &huma.ErrorDetail{Location: "path.id", Message: "warp_in_use_inbounds", Value: strings.Join(names, ", ")})
+	}
+	switch r, err := h.d.Store.Q.GetNodeRelay(ctx, nodeID); {
+	case err == nil:
+		if r.Outbound == "warp" && !r.ExitNodeID.Valid {
+			return huma.Error409Conflict("warp_in_use", &huma.ErrorDetail{Location: "path.id", Message: "warp_in_use_cascade"})
+		}
+	case !errors.Is(err, sql.ErrNoRows):
+		return err
 	}
 	return nil
 }
@@ -143,6 +153,13 @@ func (h *handlers) warpView(ctx context.Context, nodeID int64, check, force bool
 	v.NoReserved = w.Source == "import" && w.Reserved == ""
 	_ = json.Unmarshal([]byte(w.Routes), &v.Routes)
 	if v.Inbounds, err = h.warpUsers(ctx, nodeID); err != nil {
+		return v, err
+	}
+	switch r, err := h.d.Store.Q.GetNodeRelay(ctx, nodeID); {
+	case err == nil:
+		// The relay's route: other nodes send their traffic here, and it leaves through WARP.
+		v.Relay = r.Outbound == "warp" && !r.ExitNodeID.Valid
+	case !errors.Is(err, sql.ErrNoRows):
 		return v, err
 	}
 	if check && v.Enabled && h.d.Nodes != nil {

@@ -246,7 +246,7 @@ func (s *Syncer) desiredPin(ctx context.Context) (st nodeapi.DesiredState, pin s
 	if st.Warp, err = s.warp(ctx, n, inbounds); err != nil {
 		return st, "", err
 	}
-	if st.Relay, st.Exits, st.Cascade, err = s.cascade(ctx, n, snap); err != nil {
+	if st.Relay, st.Exits, st.Cascade, err = s.cascade(ctx, n, snap, st.Warp != nil); err != nil {
 		return st, "", err
 	}
 	// The VK-call server follows the state like the rest: a node without one, or whose
@@ -1095,8 +1095,10 @@ func (m *Manager) Warp(ctx context.Context, id int64, force bool) (nodeapi.WarpS
 // (nodeapi.Cascade). No exit is dialled from here any more: an entry's core points at the
 // node's own bridge, and the exit's side of the tunnel is the connection the exit opened to
 // the panel. An exit that cannot be in the tunnel still leaves its inbounds' rules in
-// place, pointing at nothing: their traffic fails rather than leaving directly.
-func (s *Syncer) cascade(ctx context.Context, n db.Node, snap *snapshot) (*nodeapi.Relay, []nodeapi.Exit, *nodeapi.Cascade, error) {
+// place, pointing at nothing: their traffic fails rather than leaving directly. The relay's
+// own route to WARP is the same: warpOn says the state carries a WARP for the node, and
+// without one the relay and cascade listeners fail instead of leaving from the server.
+func (s *Syncer) cascade(ctx context.Context, n db.Node, snap *snapshot, warpOn bool) (*nodeapi.Relay, []nodeapi.Exit, *nodeapi.Cascade, error) {
 	q := s.m.st.Q
 	inbounds := snap.inbounds
 	if n.Enabled == 0 {
@@ -1227,6 +1229,23 @@ func (s *Syncer) cascade(ctx context.Context, n db.Node, snap *snapshot) (*nodea
 		}
 		e.Inbounds = h.names
 		exits = append(exits, e)
+	}
+	// The relay sends other nodes' traffic to WARP, but this node's WARP is gone or off: the
+	// listeners get a way to nowhere rather than a fall-through to MATCH,DIRECT. A state
+	// that left them direct would answer from this server's own address — a leak the panel
+	// refuses to save and must not build either (a restore or a hand edit can get here).
+	if own.Outbound == "warp" && !own.ExitNodeID.Valid && !warpOn {
+		var names []string
+		if relay != nil {
+			names = append(names, nodeapi.RelayListener)
+		}
+		if tunnel != nil && tunnel.Exit != nil {
+			names = append(names, nodeapi.CascadeListener)
+		}
+		if len(names) > 0 {
+			s.log.Warn("cascade: the relay sends traffic to WARP, but the node has none: it fails instead", "node", n.ID)
+			exits = append(exits, nodeapi.Exit{Name: nodeapi.ExitName(0), Proxy: unreachableExit(0), Inbounds: names})
+		}
 	}
 	return relay, exits, tunnel, nil
 }

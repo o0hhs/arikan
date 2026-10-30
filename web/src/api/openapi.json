@@ -2833,6 +2833,21 @@
       "CascadeExit": {
         "additionalProperties": false,
         "properties": {
+          "chain": {
+            "description": "Ноды после этой, по порядку: куда она передаёт трафик дальше",
+            "items": {
+              "$ref": "#/components/schemas/CascadeHop"
+            },
+            "type": "array"
+          },
+          "end": {
+            "description": "Чем цепочка кончается: прямым выходом или WARP",
+            "enum": [
+              "direct",
+              "warp"
+            ],
+            "type": "string"
+          },
           "inbounds": {
             "description": "Подключения этой ноды, которые выходят через ту ноду",
             "items": {
@@ -2858,13 +2873,19 @@
           "tunnel": {
             "$ref": "#/components/schemas/ExitTunnel",
             "description": "Поток выхода к панели: в туннеле или нет"
+          },
+          "warp": {
+            "$ref": "#/components/schemas/CascadeWarp",
+            "description": "WARP ноды, на которой цепочка кончается"
           }
         },
         "required": [
           "inbounds",
           "relay",
           "node_id",
-          "name"
+          "name",
+          "chain",
+          "end"
         ],
         "type": "object"
       },
@@ -2911,6 +2932,21 @@
       "CascadeRelay": {
         "additionalProperties": false,
         "properties": {
+          "chain": {
+            "description": "Ноды после этой, по порядку: куда она передаёт трафик других нод",
+            "items": {
+              "$ref": "#/components/schemas/CascadeHop"
+            },
+            "type": "array"
+          },
+          "end": {
+            "description": "Чем цепочка кончается: прямым выходом или WARP",
+            "enum": [
+              "direct",
+              "warp"
+            ],
+            "type": "string"
+          },
           "error": {
             "description": "Почему служебный вход не запустился, как сказала нода",
             "type": "string"
@@ -2947,13 +2983,19 @@
               "$ref": "#/components/schemas/CascadeHop"
             },
             "type": "array"
+          },
+          "warp": {
+            "$ref": "#/components/schemas/CascadeWarp",
+            "description": "WARP ноды, на которой цепочка кончается"
           }
         },
         "required": [
           "port",
           "sources",
           "outbound",
-          "listener"
+          "listener",
+          "chain",
+          "end"
         ],
         "type": "object"
       },
@@ -3008,10 +3050,37 @@
           "tunnel": {
             "$ref": "#/components/schemas/CascadeTunnel",
             "description": "Каскад через туннель панели: мост входа или поток выхода"
+          },
+          "warp": {
+            "$ref": "#/components/schemas/CascadeWarp",
+            "description": "WARP этой ноды: настроен ли и включён"
           }
         },
         "required": [
-          "exits"
+          "exits",
+          "warp"
+        ],
+        "type": "object"
+      },
+      "CascadeWarp": {
+        "additionalProperties": false,
+        "properties": {
+          "configured": {
+            "description": "У ноды есть аккаунт WARP",
+            "type": "boolean"
+          },
+          "enabled": {
+            "description": "WARP включён: трафик уходит через него, а не с адреса сервера",
+            "type": "boolean"
+          },
+          "status": {
+            "$ref": "#/components/schemas/WarpCheck",
+            "description": "Последняя проверка выхода через WARP с этой ноды"
+          }
+        },
+        "required": [
+          "configured",
+          "enabled"
         ],
         "type": "object"
       },
@@ -15403,6 +15472,10 @@
             "description": "Аккаунт WARP+",
             "type": "boolean"
           },
+          "relay": {
+            "description": "Трафик других нод через эту ноду тоже идёт в WARP",
+            "type": "boolean"
+          },
           "routes": {
             "description": "Домены и сети, которые идут через WARP у всех подключений ноды",
             "items": {
@@ -15427,6 +15500,7 @@
           "configured",
           "enabled",
           "plus",
+          "relay",
           "routes",
           "inbounds"
         ],

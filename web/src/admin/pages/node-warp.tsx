@@ -223,6 +223,7 @@ function Configured({ nodeId, w, onCheck, checking, onClose }: { nodeId: number;
         <div className="mb-1 text-[13px] font-semibold">{t("warp.inbounds")}</div>
         <p className="text-xs text-[var(--md-on-surface-variant)]">{w.inbounds.length ? w.inbounds.join(", ") : t("warp.inboundsNone")}</p>
         <p className="mt-1 text-xs text-[var(--md-on-surface-variant)]">{t("warp.inboundsHint")}</p>
+        {w.relay ? <p className="mt-1 text-xs text-[var(--md-on-surface-variant)]">{t("warp.relayInbounds")}</p> : null}
       </div>
 
       <Field label={t("warp.routes")} htmlFor="w-routes" hint={t("warp.routesHint")} error={fields.routes}>

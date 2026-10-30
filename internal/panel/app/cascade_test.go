@@ -84,8 +84,66 @@ func TestCascadeOverHTTP(t *testing.T) {
 	if resp, body := h.do(http.MethodPatch, api+"/nodes/"+id(c.ID)+"/cascade", map[string]any{"outbound": "node", "exit_node_id": b.ID}, csrf); resp.StatusCode != http.StatusUnprocessableEntity || !strings.Contains(string(body), "exit_cycle") {
 		t.Fatalf("loop: %d %s", resp.StatusCode, body)
 	}
-	if resp, _ := h.do(http.MethodPatch, api+"/nodes/"+id(c.ID)+"/cascade", map[string]any{"outbound": "warp"}, csrf); resp.StatusCode != http.StatusOK {
-		t.Fatalf("C → WARP: %d", resp.StatusCode)
+	// C → WARP: the panel will not save the route while C has no WARP — the state would
+	// carry none, and other nodes' traffic would leave from C's own address.
+	cWarp := api + "/nodes/" + id(c.ID) + "/warp"
+	if resp, body := h.do(http.MethodPatch, api+"/nodes/"+id(c.ID)+"/cascade", map[string]any{"outbound": "warp"}, csrf); resp.StatusCode != http.StatusUnprocessableEntity || !strings.Contains(string(body), "warp_not_configured") {
+		t.Fatalf("C → WARP without a WARP: %d %s", resp.StatusCode, body)
+	}
+	if resp, body := h.do(http.MethodPost, cWarp+"/import", map[string]any{"config": warpConf}, csrf); resp.StatusCode != http.StatusOK {
+		t.Fatalf("C's WARP: %d %s", resp.StatusCode, body)
+	}
+	// A WARP that is off is no WARP for this route either.
+	if resp, body := h.do(http.MethodPatch, cWarp, map[string]any{"enabled": false}, csrf); resp.StatusCode != http.StatusOK {
+		t.Fatalf("C's WARP off: %d %s", resp.StatusCode, body)
+	}
+	if resp, body := h.do(http.MethodPatch, api+"/nodes/"+id(c.ID)+"/cascade", map[string]any{"outbound": "warp"}, csrf); resp.StatusCode != http.StatusUnprocessableEntity || !strings.Contains(string(body), "warp_off") {
+		t.Fatalf("C → WARP with WARP off: %d %s", resp.StatusCode, body)
+	}
+	if resp, body := h.do(http.MethodPatch, cWarp, map[string]any{"enabled": true}, csrf); resp.StatusCode != http.StatusOK {
+		t.Fatalf("C's WARP on: %d %s", resp.StatusCode, body)
+	}
+	if resp, body := h.do(http.MethodPatch, api+"/nodes/"+id(c.ID)+"/cascade", map[string]any{"outbound": "warp"}, csrf); resp.StatusCode != http.StatusOK || !strings.Contains(string(body), `"outbound":"warp"`) {
+		t.Fatalf("C → WARP: %d %s", resp.StatusCode, body)
+	}
+	// The entry's card shows the real chain: exit B, then C, then WARP.
+	resp, body = h.do(http.MethodGet, api+"/nodes/1/cascade", nil, nil)
+	var view struct {
+		Exits []struct {
+			NodeID int64 `json:"node_id"`
+			Chain  []struct {
+				NodeID int64 `json:"node_id"`
+			} `json:"chain"`
+			End  string `json:"end"`
+			Warp *struct {
+				Configured bool `json:"configured"`
+			} `json:"warp"`
+		} `json:"exits"`
+	}
+	if resp.StatusCode != http.StatusOK || json.Unmarshal(body, &view) != nil {
+		t.Fatalf("the entry's card: %d %s", resp.StatusCode, body)
+	}
+	var chainOK bool
+	for _, e := range view.Exits {
+		if e.NodeID == b.ID && e.End == "warp" && len(e.Chain) == 1 && e.Chain[0].NodeID == c.ID && e.Warp != nil && e.Warp.Configured {
+			chainOK = true
+		}
+	}
+	if !chainOK {
+		t.Fatalf("the entry does not show B → C → WARP: %s", body)
+	}
+	// WARP is not taken away from other nodes' traffic: without it that traffic would leave
+	// from C's own address.
+	for name, do := range map[string]func() (*http.Response, []byte){
+		"delete": func() (*http.Response, []byte) { return h.do(http.MethodDelete, cWarp, nil, csrf) },
+		"disable": func() (*http.Response, []byte) {
+			return h.do(http.MethodPatch, cWarp, map[string]any{"enabled": false}, csrf)
+		},
+	} {
+		resp, body := do()
+		if resp.StatusCode != http.StatusConflict || !strings.Contains(string(body), "warp_in_use_cascade") {
+			t.Fatalf("%s while the relay goes through WARP: %d %s", name, resp.StatusCode, body)
+		}
 	}
 	// An inbound on B may not take the relay's port.
 	bIns, _ := h.st.Q.ListInbounds(ctx)

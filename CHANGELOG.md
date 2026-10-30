@@ -3,6 +3,18 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
+## Unreleased
+### en
+**A cascade can leave through the exit node's WARP, and the card shows the whole chain.**
+- **The chain works and is visible**: node A (in RF) sends clients over the panel's tunnel to node B (abroad), and B sends them to its own WARP — sites see Cloudflare's address instead of B's. The Cascade window of the entry now names the real chain (`B → WARP`), the address sites see, WARP or WARP+, and when it was last checked.
+- **The route to WARP is refused while the node has none**: **Where other nodes' traffic goes next → WARP** is saved only when that node's WARP is set up and on; until then the card says why and its button opens the node's own WARP page. Turning WARP off or deleting it is refused while the route is set — other nodes' traffic would leave from the server's address.
+- **A row that got there another way fails closed**: a restore or a hand edit that leaves the route on a node without WARP makes the relay and cascade listeners fail rather than leave directly, and the card marks that WARP as missing.
+### ru
+**Каскад умеет выходить через WARP выходной ноды, и карточка показывает всю цепочку.**
+- **Цепочка работает и видна**: нода A (в РФ) передаёт клиентов по туннелю панели ноде B (за рубежом), а B отправляет их в свой WARP — сайты видят адрес Cloudflare, а не адрес B. В окне «Каскад» у входа теперь видна настоящая цепочка (`B → WARP`), адрес, который видят сайты, WARP или WARP+, и время последней проверки.
+- **Маршрут в WARP не сохраняется, пока у ноды его нет**: **Куда выпускать трафик других нод → WARP** сохраняется только когда WARP этой ноды настроен и включён; до этого карточка объясняет почему, а кнопка открывает страницу WARP этой ноды. Выключить WARP или удалить его при включённом маршруте панель не даст — трафик других нод ушёл бы с адреса сервера.
+- **Строка, попавшая туда иначе, отказывает безопасно**: после восстановления бэкапа или правки в базе маршрут на ноде без WARP заставляет служебный вход и каскад не выпускать трафик, а не уходить напрямую; на карточке такой WARP помечен как отсутствующий.
+
 ## 0.5.5.0
 ### en
 **“YouTube without ads” keeps the Russian address now: the DPI bypass runs on the node's own server.**

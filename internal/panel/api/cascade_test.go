@@ -1,10 +1,12 @@
 package api
 
 import (
+	"database/sql"
 	"testing"
 
 	"mikan/internal/nodeapi"
 	"mikan/internal/panel/nodesync"
+	"mikan/internal/panel/store/db"
 )
 
 // The cascade page reads the relay's listener against the port the node runs it on: a
@@ -36,5 +38,48 @@ func TestRelayListener(t *testing.T) {
 		if state != c.state || (why != "") != c.hasReason {
 			t.Errorf("%s: %q %q, want %q (reason %v)", c.name, state, why, c.state, c.hasReason)
 		}
+	}
+}
+
+// The chain the card shows is the rows the states are built from: the relay rows decide
+// where an exit's traffic goes on, and only the last one decides direct or WARP.
+func TestExitChain(t *testing.T) {
+	names := map[int64]string{1: "entry", 2: "exit", 3: "third", 4: "far"}
+	relay := func(id int64, outbound string, exit int64) db.NodeRelay {
+		return db.NodeRelay{NodeID: id, Outbound: outbound, ExitNodeID: sql.NullInt64{Int64: exit, Valid: exit != 0}}
+	}
+	rows := map[int64]db.NodeRelay{
+		2: relay(2, "warp", 0),
+		3: relay(3, "direct", 0),
+		4: relay(4, "warp", 0),
+	}
+	if chain, end := exitChain(2, rows, names); len(chain) != 0 || end != endWarp {
+		t.Fatalf("a WARP exit: %+v %q", chain, end)
+	}
+	if chain, end := exitChain(3, rows, names); len(chain) != 0 || end != endDirect {
+		t.Fatalf("a direct exit: %+v %q", chain, end)
+	}
+	// An exit that goes on to another node: the chain names it and ends where it ends.
+	rows[2] = relay(2, "direct", 4)
+	if chain, end := exitChain(2, rows, names); len(chain) != 1 || chain[0].NodeID != 4 || chain[0].Name != "far" || end != endWarp {
+		t.Fatalf("a chain to another node's WARP: %+v %q", chain, end)
+	}
+	if got := chainEnd(2, []CascadeHop{{NodeID: 4}}); got != 4 {
+		t.Fatalf("the chain ends on %d", got)
+	}
+	if got := chainEnd(2, nil); got != 2 {
+		t.Fatalf("a chain of one hop ends on itself, got %d", got)
+	}
+	// A row that points back (a hand edit; the panel never saves a loop) stops at the
+	// repeat and leaves direct: nothing may be dialled round and round.
+	rows[2] = relay(2, "direct", 3)
+	rows[3] = relay(3, "direct", 2)
+	if chain, end := exitChain(2, rows, names); len(chain) != 1 || chain[0].NodeID != 3 || end != endDirect {
+		t.Fatalf("a loop: %+v %q", chain, end)
+	}
+	// No row at all (a node nobody routed): direct, no chain.
+	delete(rows, 2)
+	if chain, end := exitChain(2, rows, names); len(chain) != 0 || end != endDirect {
+		t.Fatalf("a node without a relay: %+v %q", chain, end)
 	}
 }

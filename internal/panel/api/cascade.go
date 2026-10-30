@@ -14,6 +14,7 @@ import (
 	"mikan/internal/panel/domain"
 	"mikan/internal/panel/nodesync"
 	"mikan/internal/panel/store/db"
+	"mikan/internal/textutil"
 )
 
 type CascadeHop struct {
@@ -29,6 +30,14 @@ type ProbeView struct {
 	CheckedAt time.Time `json:"checked_at"`
 }
 
+// CascadeWarp is a node's WARP as a cascade card shows it: whether the panel has an
+// account for the node, whether it is on, and the node's own last look through it.
+type CascadeWarp struct {
+	Configured bool       `json:"configured" doc:"У ноды есть аккаунт WARP"`
+	Enabled    bool       `json:"enabled" doc:"WARP включён: трафик уходит через него, а не с адреса сервера"`
+	Status     *WarpCheck `json:"status,omitempty" doc:"Последняя проверка выхода через WARP с этой ноды"`
+}
+
 type CascadeExit struct {
 	CascadeHop
 	Inbounds []string   `json:"inbounds" doc:"Подключения этой ноды, которые выходят через ту ноду"`
@@ -37,6 +46,13 @@ type CascadeExit struct {
 	// Tunnel is the exit's side of the panel's tunnel; nil on a node that cannot be an exit
 	// (the panel's own node, or one without a join key).
 	Tunnel *ExitTunnel `json:"tunnel,omitempty" doc:"Поток выхода к панели: в туннеле или нет"`
+	// Chain is what this exit does with the traffic next: the nodes it sends on through, in
+	// order. Empty when the traffic leaves the internet on this node itself.
+	Chain []CascadeHop `json:"chain" doc:"Ноды после этой, по порядку: куда она передаёт трафик дальше"`
+	// End is where the chain leaves the internet: the last node's own address or its WARP.
+	End string `json:"end" enum:"direct,warp" doc:"Чем цепочка кончается: прямым выходом или WARP"`
+	// Warp is the WARP the chain ends in; nil when End is direct.
+	Warp *CascadeWarp `json:"warp,omitempty" doc:"WARP ноды, на которой цепочка кончается"`
 }
 
 // ExitTunnel is an exit's stream to the panel as it is now.
@@ -67,6 +83,12 @@ const (
 	relayUnknown = "unknown" // the node does not answer, or has not applied the relay yet
 )
 
+// Where a chain leaves the internet: a node's own address or its WARP.
+const (
+	endDirect = "direct"
+	endWarp   = "warp"
+)
+
 type CascadeRelay struct {
 	Port       string       `json:"port"`
 	Sources    []CascadeHop `json:"sources" doc:"Ноды, которые выходят через эту"`
@@ -74,6 +96,11 @@ type CascadeRelay struct {
 	ExitNodeID *int64       `json:"exit_node_id,omitempty"`
 	Listener   string       `json:"listener" enum:"ok,busy,failed,unknown" doc:"Слушает ли нода порт служебного входа: busy, если порт занят другой программой"`
 	Error      string       `json:"error,omitempty" doc:"Почему служебный вход не запустился, как сказала нода"`
+	// Chain is the same walk CascadeExit does, from this node: what the traffic other nodes
+	// send here really goes on through, saved rows included.
+	Chain []CascadeHop `json:"chain" doc:"Ноды после этой, по порядку: куда она передаёт трафик других нод"`
+	End   string       `json:"end" enum:"direct,warp" doc:"Чем цепочка кончается: прямым выходом или WARP"`
+	Warp  *CascadeWarp `json:"warp,omitempty" doc:"WARP ноды, на которой цепочка кончается"`
 }
 
 type CascadeView struct {
@@ -82,6 +109,9 @@ type CascadeView struct {
 	// Tunnel is the cascade over the panel's tunnel: the entry's bridge or the exit's
 	// stream. No exit is dialled directly any more.
 	Tunnel *CascadeTunnel `json:"tunnel,omitempty" doc:"Каскад через туннель панели: мост входа или поток выхода"`
+	// Warp is this node's own WARP: whether the panel has an account for it and whether it
+	// is on. The route that sends other nodes' traffic there is saved only when it is.
+	Warp CascadeWarp `json:"warp" doc:"WARP этой ноды: настроен ли и включён"`
 }
 
 type cascadeOutput struct{ Body CascadeView }
@@ -148,6 +178,67 @@ func (h *handlers) hostOf(id int64) *nodeapi.HostPorts {
 	return nil
 }
 
+// exitChain follows the relay rows from node id: the nodes its traffic goes on through, in
+// order, and where it leaves the internet. The rows are what the nodes' states are built
+// from, so the card says what the traffic does rather than what the admin last chose. A
+// chain the domain would not save (a loop, a hand-edited table) stops at the repeat.
+func exitChain(id int64, relays map[int64]db.NodeRelay, names map[int64]string) ([]CascadeHop, string) {
+	chain := []CascadeHop{}
+	seen := map[int64]bool{id: true}
+	cur := id
+	for range 8 { // domain.maxChain: longer chains are not saved
+		r, ok := relays[cur]
+		if !ok {
+			return chain, endDirect
+		}
+		if !r.ExitNodeID.Valid {
+			if r.Outbound == "warp" {
+				return chain, endWarp
+			}
+			return chain, endDirect
+		}
+		cur = r.ExitNodeID.Int64
+		if seen[cur] {
+			return chain, endDirect
+		}
+		seen[cur] = true
+		chain = append(chain, CascadeHop{NodeID: cur, Name: names[cur]})
+	}
+	return chain, endDirect
+}
+
+// chainEnd is the node a chain ends on: its last hop, or the node the chain starts from.
+func chainEnd(start int64, chain []CascadeHop) int64 {
+	if len(chain) == 0 {
+		return start
+	}
+	return chain[len(chain)-1].NodeID
+}
+
+// cascadeWarpOf is the WARP of the node a chain ends on, as the panel and the node itself
+// know it. withStatus asks the node for its own look, and only while WARP is on: a node
+// without it has nothing to look through, and a reserve is no path that carries now.
+func (h *handlers) cascadeWarpOf(ctx context.Context, id int64, withStatus bool) (*CascadeWarp, error) {
+	w := &CascadeWarp{}
+	r, err := h.d.Store.Q.GetNodeWarp(ctx, id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return w, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	w.Configured, w.Enabled = true, r.Enabled != 0
+	if withStatus && w.Enabled && h.d.Nodes != nil {
+		switch s, err := h.d.Nodes.Warp(ctx, id, false); {
+		case err != nil:
+			w.Status = &WarpCheck{Error: "node_unreachable", Detail: textutil.Clip(err.Error(), 200), CheckedAt: h.d.Now().UTC()}
+		case s.Configured:
+			w.Status = &WarpCheck{s.OK, s.IP, s.Warp, s.Colo, s.Error, s.Detail, s.CheckedAt}
+		}
+	}
+	return w, nil
+}
+
 func (h *handlers) getCascade(ctx context.Context, in *nodeIDInput) (*cascadeOutput, error) {
 	if _, err := h.getNode(ctx, in.ID); err != nil {
 		return nil, err
@@ -166,6 +257,26 @@ func (h *handlers) getCascade(ctx context.Context, in *nodeIDInput) (*cascadeOut
 		}
 	}
 	out := &cascadeOutput{Body: CascadeView{Exits: []CascadeExit{}}}
+	switch w, err := q.GetNodeWarp(ctx, in.ID); {
+	case err == nil:
+		out.Body.Warp.Configured, out.Body.Warp.Enabled = true, w.Enabled != 0
+	case !errors.Is(err, sql.ErrNoRows):
+		return nil, err
+	}
+	ins, err := q.ListInbounds(ctx)
+	if err != nil {
+		return nil, err
+	}
+	relays, err := q.ListNodeRelays(ctx)
+	if err != nil {
+		return nil, err
+	}
+	// The relay rows are the same ones the nodes' states are built from: the chains below
+	// are what the traffic really does, not what the card last said.
+	rows := make(map[int64]db.NodeRelay, len(relays))
+	for _, row := range relays {
+		rows[row.NodeID] = row
+	}
 	r, err := q.GetNodeRelay(ctx, in.ID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
@@ -184,15 +295,17 @@ func (h *handlers) getCascade(ctx context.Context, in *nodeIDInput) (*cascadeOut
 			id := r.ExitNodeID.Int64
 			v.Outbound, v.ExitNodeID = "node", &id
 		}
+		v.Chain, v.End = exitChain(in.ID, rows, names)
+		if v.End == endWarp {
+			if v.Warp, err = h.cascadeWarpOf(ctx, chainEnd(in.ID, v.Chain), true); err != nil {
+				return nil, err
+			}
+		}
 		if h.d.Nodes != nil {
 			if hv, ok := h.d.Nodes.Health(in.ID); ok {
 				v.Listener, v.Error = relayListener(hv, r.Port)
 			}
 		}
-	}
-	ins, err := q.ListInbounds(ctx)
-	if err != nil {
-		return nil, err
 	}
 	idx := map[int64]int{}
 	exit := func(id int64) *CascadeExit {
@@ -213,10 +326,6 @@ func (h *handlers) getCascade(ctx context.Context, in *nodeIDInput) (*cascadeOut
 		exit(r.ExitNodeID.Int64).Relay = true
 	}
 	// The cascade over the panel's tunnel: this node's part, and where each exit stands.
-	relays, err := q.ListNodeRelays(ctx)
-	if err != nil {
-		return nil, err
-	}
 	plan := domain.CascadePlans(nodes, ins, relays)[in.ID]
 	primary := map[int64]bool{}
 	entry := false
@@ -256,6 +365,12 @@ func (h *handlers) getCascade(ctx context.Context, in *nodeIDInput) (*cascadeOut
 			}
 		}
 		e.Tunnel = es
+		e.Chain, e.End = exitChain(e.NodeID, rows, names)
+		if e.End == endWarp {
+			if e.Warp, err = h.cascadeWarpOf(ctx, chainEnd(e.NodeID, e.Chain), !es.Reserve); err != nil {
+				return nil, err
+			}
+		}
 		if h.d.Nodes == nil || es.Reserve {
 			// A reserve is no proxy in the node's config (the proxy is named after the exit
 			// the inbound chose), so there is nothing to probe through.
@@ -268,11 +383,34 @@ func (h *handlers) getCascade(ctx context.Context, in *nodeIDInput) (*cascadeOut
 	return out, nil
 }
 
+// warpRouteRefusal refuses to send other nodes' traffic to WARP a node does not have (or
+// keeps off): the state would carry no WARP, and that traffic would leave from the exit's
+// own address — the very leak the route was chosen to avoid. The state builder fails such a
+// route closed for rows that get there another way (a restore, a hand edit); this keeps the
+// admin from saving one.
+func (h *handlers) warpRouteRefusal(ctx context.Context, nodeID int64) error {
+	w, err := h.d.Store.Q.GetNodeWarp(ctx, nodeID)
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		return fieldErr("body.outbound", "warp_not_configured")
+	case err != nil:
+		return err
+	case w.Enabled == 0:
+		return fieldErr("body.outbound", "warp_off")
+	}
+	return nil
+}
+
 func (h *handlers) patchCascade(ctx context.Context, in *cascadePatchInput) (*cascadeOutput, error) {
 	if _, err := h.getNode(ctx, in.ID); err != nil {
 		return nil, err
 	}
 	b := in.Body
+	if b.Outbound == "warp" {
+		if err := h.warpRouteRefusal(ctx, in.ID); err != nil {
+			return nil, err
+		}
+	}
 	err := h.d.Store.Tx(ctx, func(q *db.Queries) error {
 		// The relay is made even before anyone uses the node as an exit: the route is
 		// ready when they do.
