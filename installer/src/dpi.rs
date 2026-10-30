@@ -92,7 +92,7 @@ fn run(program: &str, args: &[&str]) -> Result<()> {
     let err = String::from_utf8_lossy(&out.stderr);
     let tail: Vec<&str> = err.lines().map(str::trim).filter(|l| !l.is_empty()).collect();
     if tail.is_empty() {
-        return bail!("{program} {}: exited with {} and said nothing", args.join(" "), out.status);
+        bail!("{program} {}: exited with {} and said nothing", args.join(" "), out.status);
     }
     const KEEP: usize = 15;
     let tail = &tail[tail.len().saturating_sub(KEEP)..];
