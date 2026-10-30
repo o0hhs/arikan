@@ -4984,6 +4984,13 @@ export interface components {
             node_id: number;
         };
         CascadeExit: {
+            /** @description Ноды после этой, по порядку: куда она передаёт трафик дальше */
+            chain: components["schemas"]["CascadeHop"][];
+            /**
+             * @description Чем цепочка кончается: прямым выходом или WARP
+             * @enum {string}
+             */
+            end: "direct" | "warp";
             /** @description Подключения этой ноды, которые выходят через ту ноду */
             inbounds: string[];
             name: string;
@@ -4995,6 +5002,8 @@ export interface components {
             relay: boolean;
             /** @description Поток выхода к панели: в туннеле или нет */
             tunnel?: components["schemas"]["ExitTunnel"];
+            /** @description WARP ноды, на которой цепочка кончается */
+            warp?: components["schemas"]["CascadeWarp"];
         };
         CascadeHop: {
             name: string;
@@ -5011,6 +5020,13 @@ export interface components {
             outbound: "direct" | "warp" | "node";
         };
         CascadeRelay: {
+            /** @description Ноды после этой, по порядку: куда она передаёт трафик других нод */
+            chain: components["schemas"]["CascadeHop"][];
+            /**
+             * @description Чем цепочка кончается: прямым выходом или WARP
+             * @enum {string}
+             */
+            end: "direct" | "warp";
             /** @description Почему служебный вход не запустился, как сказала нода */
             error?: string;
             /** Format: int64 */
@@ -5028,6 +5044,8 @@ export interface components {
             port: string;
             /** @description Ноды, которые выходят через эту */
             sources: components["schemas"]["CascadeHop"][];
+            /** @description WARP ноды, на которой цепочка кончается */
+            warp?: components["schemas"]["CascadeWarp"];
         };
         CascadeTunnel: {
             bridge: boolean;
@@ -5048,6 +5066,16 @@ export interface components {
             relay?: components["schemas"]["CascadeRelay"];
             /** @description Каскад через туннель панели: мост входа или поток выхода */
             tunnel?: components["schemas"]["CascadeTunnel"];
+            /** @description WARP этой ноды: настроен ли и включён */
+            warp: components["schemas"]["CascadeWarp"];
+        };
+        CascadeWarp: {
+            /** @description У ноды есть аккаунт WARP */
+            configured: boolean;
+            /** @description WARP включён: трафик уходит через него, а не с адреса сервера */
+            enabled: boolean;
+            /** @description Последняя проверка выхода через WARP с этой ноды */
+            status?: components["schemas"]["WarpCheck"];
         };
         CertCheck: {
             /** @description Что именно, текст — certCheck.<code> в языке панели */
@@ -9682,6 +9710,8 @@ export interface components {
             no_reserved?: boolean;
             /** @description Аккаунт WARP+ */
             plus: boolean;
+            /** @description Трафик других нод через эту ноду тоже идёт в WARP */
+            relay: boolean;
             /** @description Домены и сети, которые идут через WARP у всех подключений ноды */
             routes: string[];
             /** @enum {string} */

@@ -263,3 +263,52 @@ func TestBrokenLinkIsRejectedAlone(t *testing.T) {
 		t.Fatal("the working outbound was dropped with it")
 	}
 }
+
+// A node other nodes leave through that sends them to WARP: the cascade's stream and the
+// old relay both reach the WARP rule, which stands before MATCH,DIRECT — the traffic must
+// not fall through to the exit's own address. A further node named for the same listener
+// wins over WARP: the exit rules come first.
+func TestCascadeToWarp(t *testing.T) {
+	st := cascadeState(t)
+	st.Exits = nil
+	st.Warp.Inbounds = []string{nodeapi.RelayListener, nodeapi.CascadeListener}
+	st.Cascade = &nodeapi.Cascade{Exit: &nodeapi.CascadeExit{URL: "https://panel.example.com/api/v1/cascade"}}
+	raw, _, err := buildConfig(st, proto.Cert{CertPath: "/tmp/c.pem", KeyPath: "/tmp/k.pem"}, false, "", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var cfg struct {
+		Rules []string `json:"rules"`
+	}
+	if err := json.Unmarshal(raw, &cfg); err != nil {
+		t.Fatal(err)
+	}
+	got := strings.Join(cfg.Rules, "\n")
+	want := "IN-NAME," + nodeapi.RelayListener + ",WARP\nIN-NAME," + nodeapi.CascadeListener + ",WARP"
+	if !strings.Contains(got, want) || strings.Index(got, nodeapi.CascadeListener) > strings.Index(got, "MATCH,DIRECT") {
+		t.Fatalf("rules:\n%s", got)
+	}
+	// The rule names a listener the state runs: without the exit's stream nothing of the
+	// cascade is in the config, and the rule goes with it.
+	st.Cascade = nil
+	if raw, _, _ = buildConfig(st, proto.Cert{}, false, "", 0); strings.Contains(string(raw), nodeapi.CascadeListener) {
+		t.Fatalf("a cascade rule without the cascade: %s", raw)
+	}
+
+	// The same stream sent on to another node: that exit's rule wins, WARP does not see it.
+	on := cascadeState(t)
+	on.Warp.Inbounds = []string{nodeapi.CascadeListener}
+	on.Exits[0].Inbounds = []string{nodeapi.CascadeListener}
+	on.Cascade = &nodeapi.Cascade{Exit: &nodeapi.CascadeExit{URL: "https://panel.example.com/api/v1/cascade"}}
+	raw, _, err = buildConfig(on, proto.Cert{}, false, "", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(raw, &cfg); err != nil {
+		t.Fatal(err)
+	}
+	got = strings.Join(cfg.Rules, "\n")
+	if !strings.Contains(got, "IN-NAME,"+nodeapi.CascadeListener+","+nodeapi.ExitName(3)) || strings.Contains(got, nodeapi.CascadeListener+",WARP") {
+		t.Fatalf("the further node must win over WARP:\n%s", got)
+	}
+}

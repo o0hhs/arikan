@@ -218,7 +218,19 @@ export function NodesPage() {
       <SpeedDrawer node={speedOf ? { id: speedOf.id, name: nodeLabel(speedOf) } : null} onClose={() => setSpeedOf(null)} />
       <NodeTrafficDrawer node={trafficOf ? { id: trafficOf.id, name: nodeLabel(trafficOf) } : null} onClose={() => setTrafficOf(null)} />
       <NodeClientsDrawer node={clientsOf ? { id: clientsOf.id, name: nodeLabel(clientsOf) } : null} onClose={() => setClientsOf(null)} />
-      <CascadeDrawer node={cascadeOf ? { id: cascadeOf.id, name: nodeLabel(cascadeOf) } : null} onClose={() => setCascadeOf(null)} />
+      <CascadeDrawer
+        node={cascadeOf ? { id: cascadeOf.id, name: nodeLabel(cascadeOf) } : null}
+        onClose={() => setCascadeOf(null)}
+        // The route to WARP needs WARP on the node: the button opens its page and closes this.
+        onWarp={
+          cascadeOf
+            ? () => {
+                setWarpOf(cascadeOf);
+                setCascadeOf(null);
+              }
+            : undefined
+        }
+      />
       <CertDrawer
         open={!!certOf}
         onClose={() => setCertOf(null)}

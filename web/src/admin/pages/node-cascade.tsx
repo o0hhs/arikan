@@ -9,7 +9,7 @@ import { Drawer } from "../../components/overlay";
 import { QueryBoundary } from "../../components/query";
 import { useToast } from "../../components/toast";
 import { Button, Field, Pill, Segmented, Skeleton } from "../../components/ui";
-import { t } from "../../i18n";
+import { t, tMaybe } from "../../i18n";
 import { useDraft } from "../../lib/draft";
 import { fieldErrors } from "../../lib/fields";
 import { ago } from "../../lib/format";
@@ -18,7 +18,7 @@ import { nodeLabel } from "../../lib/node-label";
 type Cascade = Schemas["CascadeView"];
 type Route = "direct" | "warp" | "node";
 
-export function CascadeDrawer({ node, onClose }: { node: { id: number; name: string } | null; onClose: () => void }) {
+export function CascadeDrawer({ node, onClose, onWarp }: { node: { id: number; name: string } | null; onClose: () => void; onWarp?: () => void }) {
   const cascade = useQuery({
     queryKey: qk.cascade(node?.id ?? 0),
     queryFn: ({ signal }) => unwrap(api.GET("/api/v1/nodes/{id}/cascade", { params: { path: { id: node!.id } }, signal })),
@@ -29,14 +29,14 @@ export function CascadeDrawer({ node, onClose }: { node: { id: number; name: str
       <div className="pt-5">
         <p className="mb-4 text-[13px] text-[var(--md-on-surface-variant)]">{t("cascade.intro")}</p>
         <QueryBoundary query={cascade} pending={<Skeleton style={{ height: 240, borderRadius: 16 }} />}>
-          {(c) => <Body key={node!.id} nodeId={node!.id} c={c} refetch={() => void cascade.refetch()} checking={cascade.isFetching} />}
+          {(c) => <Body key={node!.id} nodeId={node!.id} c={c} refetch={() => void cascade.refetch()} checking={cascade.isFetching} onWarp={onWarp} />}
         </QueryBoundary>
       </div>
     </Drawer>
   );
 }
 
-function Body({ nodeId, c, refetch, checking }: { nodeId: number; c: Cascade; refetch: () => void; checking: boolean }) {
+function Body({ nodeId, c, refetch, checking, onWarp }: { nodeId: number; c: Cascade; refetch: () => void; checking: boolean; onWarp?: () => void }) {
   const qc = useQueryClient();
   const toast = useToast();
   const nodes = useNodes();
@@ -101,6 +101,17 @@ function Body({ nodeId, c, refetch, checking }: { nodeId: number; c: Cascade; re
                   {[...e.inbounds, ...(e.relay ? [t("cascade.relayed")] : [])].join(", ")}
                   {e.probe ? ` · ${ago(e.probe.checked_at)}` : ""}
                 </div>
+                {/* The chain the rows give, not the setting: what the traffic really does. */}
+                <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
+                  <span className="text-[var(--md-on-surface-variant)]">{t("cascade.then")}</span>
+                  <Then chain={e.chain} end={e.end} warp={e.warp} name={name} />
+                  {e.end === "warp" && e.warp?.status ? <span className="text-[var(--md-on-surface-variant)]">· {ago(e.warp.status.checked_at)}</span> : null}
+                </div>
+                {e.end === "warp" && e.warp?.status && !e.warp.status.ok && e.warp.status.error !== "node_unreachable" ? (
+                  <p className="mono mt-1 break-words text-xs text-[var(--md-on-surface-variant)]">
+                    {tMaybe(`warp.why.${e.warp.status.error ?? "failed"}`, { endpoint: "" }) ?? e.warp.status.detail ?? ""}
+                  </p>
+                ) : null}
               </li>
             ))}
           </ul>
@@ -117,7 +128,7 @@ function Body({ nodeId, c, refetch, checking }: { nodeId: number; c: Cascade; re
         </p>
         {c.relay ? <RelayListener relay={c.relay} /> : null}
         {save.error && !Object.keys(fields).length ? <div className="banner err mb-4" role="alert">{errorText(save.error)}</div> : null}
-        <Field label={t("cascade.route")} hint={t(`cascade.routeHint.${route}`)} error={fields.exit_node_id}>
+        <Field label={t("cascade.route")} hint={t(`cascade.routeHint.${route}`)} error={fields.outbound ?? fields.exit_node_id}>
           <Segmented
             label={t("cascade.route")}
             value={route}
@@ -143,6 +154,39 @@ function Body({ nodeId, c, refetch, checking }: { nodeId: number; c: Cascade; re
             </select>
           ) : null}
         </Field>
+        {/* WARP is the way out, not a second setting: without it the route is refused, and
+            the button opens the node's own WARP page instead of saving a route to nowhere. */}
+        {route === "warp" && (!c.warp.configured || !c.warp.enabled) ? (
+          <div className="banner warn mb-4" role="status">
+            <div>
+              <div>{t(!c.warp.configured ? "cascade.warp.setupText" : "cascade.warp.offText")}</div>
+              {onWarp ? (
+                <Button size="sm" className="mt-2" onClick={onWarp}>
+                  {t("cascade.warp.open")}
+                </Button>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+        {route === "warp" && c.relay?.warp?.enabled && c.relay.warp.status && !c.relay.warp.status.ok && c.relay.warp.status.error !== "node_unreachable" ? (
+          <div className="banner warn mb-4" role="status">
+            <div>
+              <div>{t("cascade.warp.downText")}</div>
+              <p className="mono mt-1 break-words text-xs opacity-80">
+                {tMaybe(`warp.why.${c.relay.warp.status.error ?? "failed"}`, { endpoint: "" }) ?? c.relay.warp.status.detail ?? ""}
+              </p>
+            </div>
+          </div>
+        ) : null}
+        {/* The saved chain, as the rows give it: this node and where its traffic leaves. */}
+        {c.relay ? (
+          <div className="mb-4 flex flex-wrap items-center gap-1.5 text-xs">
+            <span className="text-[var(--md-on-surface-variant)]">{t("cascade.chainThis")}</span>
+            <b className="font-semibold">{name(nodeId)}</b>
+            <Then chain={c.relay.chain} end={c.relay.end} warp={c.relay.warp} name={name} />
+            {c.relay.end === "warp" && c.relay.warp?.status ? <span className="text-[var(--md-on-surface-variant)]">· {ago(c.relay.warp.status.checked_at)}</span> : null}
+          </div>
+        ) : null}
         <div className="form-actions">
           <Button variant="primary" loading={save.isPending} disabled={!changed || (route === "node" && !exit)} onClick={() => save.mutate()}>
             {t("common.save")}
@@ -150,6 +194,39 @@ function Body({ nodeId, c, refetch, checking }: { nodeId: number; c: Cascade; re
         </div>
       </section>
     </>
+  );
+}
+
+// Then is what an exit does with the traffic after itself: the nodes it passes it on to,
+// and where it leaves the internet. WARP is shown with its own state, because a route to
+// a WARP that is missing or down carries nothing.
+function Then({ chain, end, warp, name }: { chain: { node_id: number; name: string }[]; end: string; warp?: Schemas["CascadeWarp"]; name: (id: number) => string }) {
+  return (
+    <>
+      {chain.map((h) => (
+        <span key={h.node_id} className="inline-flex items-center gap-1.5">
+          <ArrowRight size={11} aria-hidden className="text-[var(--ink-400)]" />
+          <b className="font-semibold">{h.name || name(h.node_id)}</b>
+        </span>
+      ))}
+      <ArrowRight size={11} aria-hidden className="text-[var(--ink-400)]" />
+      {end === "warp" ? <WarpPill w={warp} /> : <span className="text-[var(--md-on-surface-variant)]">{t("cascade.endDirect")}</span>}
+    </>
+  );
+}
+
+// WarpPill is the WARP a chain ends in: the address sites see, or the reason it carries
+// nothing. A node without WARP is named so — the panel refuses to save that route.
+function WarpPill({ w }: { w?: Schemas["CascadeWarp"] }) {
+  if (!w || !w.configured) return <Pill tone="bad">{t("cascade.warp.missing")}</Pill>;
+  if (!w.enabled) return <Pill tone="bad">{t("cascade.warp.off")}</Pill>;
+  const s = w.status;
+  if (!s || s.error === "node_unreachable") return <Pill tone="off">{t("cascade.warp.unknown")}</Pill>;
+  if (!s.ok) return <Pill tone="bad">{t("cascade.warp.down")}</Pill>;
+  return (
+    <Pill tone="ok">
+      {s.warp === "plus" ? "WARP+" : "WARP"} · {s.ip}
+    </Pill>
   );
 }
 

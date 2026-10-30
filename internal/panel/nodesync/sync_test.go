@@ -734,3 +734,103 @@ func TestEmergencyNodeOnlyForExpired(t *testing.T) {
 		t.Fatalf("an account without a tariff got in on the emergency node: %+v", p)
 	}
 }
+
+// The chain this covers: clients enter at this node (RF), leave through a remote node
+// (EU) over the panel's tunnel, and that node sends them to WARP. Its state must name the
+// relay and the cascade listeners in WARP.Inbounds — the rule mihomo then sends to the
+// WARP proxy — and still take the exit's stream. A relay routed to WARP on a node without
+// it (a restore, a hand edit) fails closed: both listeners leave through a way to nowhere,
+// never through MATCH,DIRECT from the server's own address.
+func TestCascadeExitThroughWarp(t *testing.T) {
+	local, _, st, _, now := setup(t)
+	ctx := context.Background()
+	eu, _ := addRemote(t, local, st)
+	if err := settings.Set(ctx, settings.New(st.Q), settings.KeyPanelPort, 21355); err != nil {
+		t.Fatal(err)
+	}
+	if err := settings.Set(ctx, settings.New(st.Q), settings.KeyDomain, "panel.example.com"); err != nil {
+		t.Fatal(err)
+	}
+	ins, err := st.Q.ListInbounds(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var src db.Inbound
+	for _, in := range ins {
+		if in.NodeID == LocalNode {
+			src = in
+			break
+		}
+	}
+	if src.ID == 0 {
+		t.Fatal("the local node has no inbound to seed the cascade")
+	}
+	// Clients of this node leave through EU; EU has WARP and sends other nodes' traffic.
+	if err := domain.UseExit(ctx, st.Q, LocalNode, eu.id, *now, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Q.SetInboundExit(ctx, db.SetInboundExitParams{ExitNodeID: sql.NullInt64{Int64: eu.id, Valid: true}, Outbound: "direct", ID: src.ID}); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Q.SaveNodeWarp(ctx, db.SaveNodeWarpParams{NodeID: eu.id, Source: "import",
+		PrivateKey: "yAnz5TF+lXXJte14tji3zlMNq+hd2rYUIgJBgB3fBmk=", PeerPublicKey: "bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=",
+		Endpoint: "162.159.192.1:2408", Ipv4: "172.16.0.2", Reserved: "", Mtu: 1280, Routes: "[]",
+		CreatedAt: now.Unix(), UpdatedAt: now.Unix()}); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Q.SetNodeRelayRoute(ctx, db.SetNodeRelayRouteParams{Outbound: "warp", NodeID: eu.id}); err != nil {
+		t.Fatal(err)
+	}
+	local.m.SlotsChanged()
+
+	exit, err := eu.desired(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if exit.Warp == nil || !slices.Contains(exit.Warp.Inbounds, nodeapi.RelayListener) || !slices.Contains(exit.Warp.Inbounds, nodeapi.CascadeListener) {
+		t.Fatalf("the exit's WARP inbounds: %+v", exit.Warp)
+	}
+	if exit.Cascade == nil || exit.Cascade.Exit == nil {
+		t.Fatalf("the exit takes no stream: %+v", exit.Cascade)
+	}
+	if len(exit.Exits) != 0 {
+		t.Fatalf("the exit sends traffic nowhere further: %+v", exit.Exits)
+	}
+	// The entry points at the exit's bridge, and the inbound goes there.
+	entry, err := local.desired(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var routed bool
+	for _, e := range entry.Exits {
+		if e.Name == nodeapi.ExitName(eu.id) && slices.Contains(e.Inbounds, src.Name) {
+			routed = true
+		}
+	}
+	if !routed || entry.Cascade == nil || entry.Cascade.Entry == nil {
+		t.Fatalf("the entry does not ride the tunnel: exits %+v, cascade %+v", entry.Exits, entry.Cascade)
+	}
+
+	// WARP off on the exit: the panel refuses the route; a row that stays says so by
+	// failing, not by leaving from the exit's address.
+	if err := st.Q.SetNodeWarpOptions(ctx, db.SetNodeWarpOptionsParams{Enabled: 0, Routes: "[]", UpdatedAt: now.Unix(), NodeID: eu.id}); err != nil {
+		t.Fatal(err)
+	}
+	local.m.SlotsChanged()
+	exit, err = eu.desired(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if exit.Warp != nil {
+		t.Fatalf("a disabled WARP reached the state: %+v", exit.Warp)
+	}
+	var dead *nodeapi.Exit
+	for i := range exit.Exits {
+		if exit.Exits[i].Name == nodeapi.ExitName(0) {
+			dead = &exit.Exits[i]
+		}
+	}
+	if dead == nil || !slices.Contains(dead.Inbounds, nodeapi.RelayListener) || !slices.Contains(dead.Inbounds, nodeapi.CascadeListener) {
+		t.Fatalf("the relay's traffic does not fail closed: %+v", exit.Exits)
+	}
+}
