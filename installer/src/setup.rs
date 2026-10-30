@@ -815,7 +815,7 @@ fn node_api_kept_closed(root: &Path) -> bool {
 
 /// Whether the node's container is running now.
 fn node_container_running() -> bool {
-    docker::services().map(|list| list.iter().any(|s| s.service == "node" && s.state == "running")).unwrap_or(false)
+    docker::services().map(|list| list.iter().any(|s| s.name == "node" && s.state == "running")).unwrap_or(false)
 }
 
 /// What the containers say about themselves when a start failed: their logs and their
@@ -829,7 +829,7 @@ fn failure_logs() -> String {
     }
     if let Ok(list) = docker::services() {
         for s in list {
-            out.push_str(&format!("{}: {} {}\n", s.service, s.state, s.status));
+            out.push_str(&format!("{}: {} {}\n", s.name, s.state, s.status));
         }
     }
     out.trim_end().to_owned()
