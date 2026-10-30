@@ -56,7 +56,8 @@ const (
 var (
 	supportDeniedTags = sessionOnlyTags // the tags no API key reaches either
 	supportDeniedOps  = []string{"list-audit", "reset-admin-path", "get-telegram-backup", "update-telegram-backup", "send-telegram-backup", "telegram-broadcast",
-		"update-telegram", "telegram-infrastructure-connect", "telegram-infrastructure-disconnect"}
+		"update-telegram", "telegram-infrastructure-connect", "telegram-infrastructure-disconnect",
+		"set-node-dpi"}
 	supportSessionOps = []string{
 		"restart-server", "restart-node",
 		"update-node", "update-node-cascade", "register-node-warp",
