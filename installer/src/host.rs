@@ -913,8 +913,8 @@ mod tests {
         let before = fs::read_to_string(d.join("arikan-update.timer")).unwrap();
         assert_eq!(
             write_units(&d, false, false).unwrap(),
-            5 + NODE_UNITS.len(),
-            "only the five path units differ, and the node's own are new"
+            4 + NODE_UNITS.len(),
+            "only the four path units differ (the DPI one watches data/node on both), and the node's own are new"
         );
         assert_eq!(fs::read_to_string(d.join("arikan-update.timer")).unwrap(), before);
         assert!(fs::read_to_string(d.join("arikan-restart-request.path")).unwrap().contains("data/node/restart/request"));
