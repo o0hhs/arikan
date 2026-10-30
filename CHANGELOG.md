@@ -3,6 +3,21 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
+## 0.5.5.2
+### en
+**A node whose API port the panel keeps closed updates again, and the servers are one section.**
+- **Updates stopped rolling back on nodes the panel keeps closed.** The updater waited for the node's API port — the one such a node never opens, because the panel reaches it over the reverse tunnel — so 0.5.5.1 was refused on those nodes and they stayed on their old version. A node whose saved state says the port is closed now counts as started once its container runs; the panel confirms it over the tunnel. A failed start also brings its logs: stderr and the containers' states are in the message, where it used to arrive empty.
+- **The servers are one section**: Nodes, Protocols, Outbounds, Diagnostics and the node filters are one **Servers** entry with tabs over the old routes, so every old link opens what it did, and the tabs follow the admin's role. The automatic port and protocol fixes moved to Connections as the defaults for new connections, and the panel's quick check moved to Diagnostics → Check.
+- **The subscription domain keeps its certificate**: the renew/upload/clear block lived in a file nothing imported; it is back in the domain card, and its hint names the panel's domain instead of printing `{domain}`.
+- **One editor per duplicate**: the brand colour is edited in Page → Look only (the app card shows it and links there), and a node's front page is set on the node, not again in Settings → Security.
+
+### ru
+**Нода, которой панель держит API-порт закрытым, снова обновляется, а серверы — один раздел.**
+- **Обновления перестали откатываться на нодах, которые панель держит закрытыми.** Установщик ждал API-порт ноды — тот самый, который такая нода не открывает никогда, потому что панель достаёт её по обратному туннелю, — поэтому 0.5.5.1 на этих нодах отклонялась, и они оставались на старой версии. Теперь нода, в сохранённом состоянии которой порт закрыт, считается поднявшейся, как только работает её контейнер; панель подтверждает её по туннелю. Неудачный старт теперь приносит и логи: в сообщении есть stderr и состояния контейнеров, а раньше оно приходило пустым.
+- **Серверы — один раздел**: «Ноды», «Протоколы», «Исходящие», «Диагностика» и фильтры нод — один пункт **«Серверы»** с вкладками поверх старых адресов, так что каждая старая ссылка открывает то же, что и раньше, а вкладки следуют роли админа. Автоподбор порта и протокола переехал в «Подключения» как значения по умолчанию для новых подключений, а быстрая проверка панели — в «Диагностика → Проверка».
+- **Подписочный домен не теряет сертификат**: блок продления, загрузки и удаления сертификата жил в файле, который никто не подключал; он вернулся в карточку домена, а подсказка называет домен панели, а не печатает `{domain}`.
+- **Один редактор на дубль**: цвет бренда правится только в «Страница → Оформление» (карточка приложения показывает его и ведёт туда), а страница ноды настраивается в самой ноде, а не ещё раз в «Настройки → Безопасность».
+
 ## 0.5.5.1
 ### en
 **The routing is one screen per setting now, the audit closed what it could, and a cascade can leave through the exit's WARP.**
