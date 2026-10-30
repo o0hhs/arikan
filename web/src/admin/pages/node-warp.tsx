@@ -224,6 +224,7 @@ function Configured({ nodeId, w, onCheck, checking, onClose }: { nodeId: number;
         <p className="text-xs text-[var(--md-on-surface-variant)]">{w.inbounds.length ? w.inbounds.join(", ") : t("warp.inboundsNone")}</p>
         <p className="mt-1 text-xs text-[var(--md-on-surface-variant)]">{t("warp.inboundsHint")}</p>
         {w.relay ? <p className="mt-1 text-xs text-[var(--md-on-surface-variant)]">{t("warp.relayInbounds")}</p> : null}
+        {w.cascade_routes.length ? <p className="mt-1 text-xs text-[var(--md-on-surface-variant)]">{t("warp.cascadeRoutes", { n: w.cascade_routes.length })}</p> : null}
       </div>
 
       <Field label={t("warp.routes")} htmlFor="w-routes" hint={t("warp.routesHint")} error={fields.routes}>

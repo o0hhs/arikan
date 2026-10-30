@@ -400,6 +400,7 @@ type Inbound struct {
 	Listen      string
 	OutboundID  sql.NullInt64
 	AutoInclude int64
+	ExitWarp    int64
 }
 
 type InboundEvent struct {

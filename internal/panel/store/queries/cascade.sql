@@ -26,4 +26,4 @@ ON CONFLICT (exit_node_id, src_node_id) DO NOTHING;
 SELECT * FROM relay_users WHERE exit_node_id = $1 ORDER BY src_node_id;
 
 -- name: SetInboundExit :exec
-UPDATE inbounds SET exit_node_id = $1, outbound = $2 WHERE id = $3;
+UPDATE inbounds SET exit_node_id = $1, outbound = $2, exit_warp = $3 WHERE id = $4;

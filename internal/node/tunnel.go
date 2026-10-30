@@ -61,7 +61,7 @@ func (t *Tunnel) HandleTCPConn(conn net.Conn, m *C.Metadata) {
 	// and the source node has already counted and limited them. The rules still apply.
 	// The cascade's streams are the same: the entry node counted and limited its own users,
 	// and this node is only their way out.
-	if m.InName == nodeapi.RelayListener || m.InName == nodeapi.CascadeListener {
+	if m.InName == nodeapi.RelayListener || m.InName == nodeapi.CascadeListener || m.InName == nodeapi.CascadeWarpListener {
 		t.inner.HandleTCPConn(conn, m)
 		return
 	}

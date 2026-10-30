@@ -154,17 +154,23 @@ func (q *Queries) ListRelayUsers(ctx context.Context, exitNodeID int64) ([]Relay
 }
 
 const setInboundExit = `-- name: SetInboundExit :exec
-UPDATE inbounds SET exit_node_id = $1, outbound = $2 WHERE id = $3
+UPDATE inbounds SET exit_node_id = $1, outbound = $2, exit_warp = $3 WHERE id = $4
 `
 
 type SetInboundExitParams struct {
 	ExitNodeID sql.NullInt64
 	Outbound   string
+	ExitWarp   int64
 	ID         int64
 }
 
 func (q *Queries) SetInboundExit(ctx context.Context, arg SetInboundExitParams) error {
-	_, err := q.db.ExecContext(ctx, setInboundExit, arg.ExitNodeID, arg.Outbound, arg.ID)
+	_, err := q.db.ExecContext(ctx, setInboundExit,
+		arg.ExitNodeID,
+		arg.Outbound,
+		arg.ExitWarp,
+		arg.ID,
+	)
 	return err
 }
 

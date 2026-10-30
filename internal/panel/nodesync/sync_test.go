@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/x509"
 	"database/sql"
+	"encoding/json"
 	"io"
 	"log/slog"
 	"slices"
@@ -832,5 +833,164 @@ func TestCascadeExitThroughWarp(t *testing.T) {
 	}
 	if dead == nil || !slices.Contains(dead.Inbounds, nodeapi.RelayListener) || !slices.Contains(dead.Inbounds, nodeapi.CascadeListener) {
 		t.Fatalf("the relay's traffic does not fail closed: %+v", exit.Exits)
+	}
+}
+
+// One exit, two ways out: a protocol of this node leaves through the exit's own way, another
+// through its WARP. The entry's state names two proxies (NODE-<id> and NODE-<id>~warp), the
+// exit runs its WARP listener, and a route that cannot be carried fails closed — never
+// through MATCH,DIRECT from the exit's address.
+func TestCascadeWarpRouteState(t *testing.T) {
+	local, localNode, st, _, now := setup(t)
+	ctx := context.Background()
+	eu, euNode := addRemote(t, local, st)
+	if err := settings.Set(ctx, settings.New(st.Q), settings.KeyPanelPort, 21355); err != nil {
+		t.Fatal(err)
+	}
+	if err := settings.Set(ctx, settings.New(st.Q), settings.KeyDomain, "panel.example.com"); err != nil {
+		t.Fatal(err)
+	}
+	ins, err := st.Q.ListInbounds(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var plain, warp db.Inbound
+	for _, in := range ins {
+		if in.NodeID != LocalNode {
+			continue
+		}
+		if plain.ID == 0 {
+			plain = in
+		} else if warp.ID == 0 {
+			warp = in
+			break
+		}
+	}
+	if warp.ID == 0 {
+		t.Fatal("the local node has not two inbounds to seed the two routes")
+	}
+	if err := domain.UseExit(ctx, st.Q, LocalNode, eu.id, *now, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Q.SetInboundExit(ctx, db.SetInboundExitParams{ExitNodeID: sql.NullInt64{Int64: eu.id, Valid: true}, Outbound: "direct", ID: plain.ID}); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Q.SetInboundExit(ctx, db.SetInboundExitParams{ExitNodeID: sql.NullInt64{Int64: eu.id, Valid: true}, Outbound: "direct", ExitWarp: 1, ID: warp.ID}); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Q.SaveNodeWarp(ctx, db.SaveNodeWarpParams{NodeID: eu.id, Source: "import",
+		PrivateKey: "yAnz5TF+lXXJte14tji3zlMNq+hd2rYUIgJBgB3fBmk=", PeerPublicKey: "bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=",
+		Endpoint: "162.159.192.1:2408", Ipv4: "172.16.0.2", Reserved: "", Mtu: 1280, Routes: "[]",
+		CreatedAt: now.Unix(), UpdatedAt: now.Unix()}); err != nil {
+		t.Fatal(err)
+	}
+	// Both nodes know the mark; without it the panel does not build the route.
+	localNode.health = nodeapi.Health{Caps: []string{nodeapi.CapCascadeWarp}}
+	local.refreshHealth(ctx)
+	euNode.health = nodeapi.Health{Caps: []string{nodeapi.CapCascadeWarp}}
+	eu.refreshHealth(ctx)
+	local.m.SlotsChanged()
+
+	exit, err := eu.desired(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if exit.Warp == nil || !slices.Contains(exit.Warp.Inbounds, nodeapi.CascadeWarpListener) {
+		t.Fatalf("the exit's WARP listener: %+v", exit.Warp)
+	}
+	// The exit's own way out stays direct: only the marked streams use WARP.
+	if slices.Contains(exit.Warp.Inbounds, nodeapi.CascadeListener) {
+		t.Fatalf("the whole cascade goes through WARP: %+v", exit.Warp.Inbounds)
+	}
+	if exit.Cascade == nil || exit.Cascade.Exit == nil {
+		t.Fatalf("the exit takes no stream: %+v", exit.Cascade)
+	}
+
+	entry, err := local.desired(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	byName := map[string]nodeapi.Exit{}
+	for _, e := range entry.Exits {
+		byName[e.Name] = e
+	}
+	plainExit, warpExit := byName[nodeapi.ExitName(eu.id)], byName[nodeapi.ExitWarpName(eu.id)]
+	if len(entry.Exits) != 2 || plainExit.Name == "" || warpExit.Name == "" {
+		t.Fatalf("the two routes: %+v", entry.Exits)
+	}
+	if !slices.Equal(plainExit.Inbounds, []string{plain.Name}) || !slices.Equal(warpExit.Inbounds, []string{warp.Name}) {
+		t.Fatalf("the listeners of each route: %+v, %+v", plainExit.Inbounds, warpExit.Inbounds)
+	}
+	proxyServer := func(e nodeapi.Exit) string {
+		var p struct {
+			Server string `json:"server"`
+		}
+		if err := json.Unmarshal(e.Proxy, &p); err != nil {
+			t.Fatal(err)
+		}
+		return p.Server
+	}
+	if proxyServer(plainExit) != "127.0.0.1" || proxyServer(warpExit) != "127.0.0.1" {
+		t.Fatalf("both routes must ride the bridge: %q, %q", proxyServer(plainExit), proxyServer(warpExit))
+	}
+
+	// WARP off on the exit: the plain route carries, the WARP one fails rather than leave
+	// from the exit's own address.
+	if err := st.Q.SetNodeWarpOptions(ctx, db.SetNodeWarpOptionsParams{Enabled: 0, Routes: "[]", UpdatedAt: now.Unix(), NodeID: eu.id}); err != nil {
+		t.Fatal(err)
+	}
+	local.m.SlotsChanged()
+	entry, err = local.desired(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entry.Exits {
+		switch e.Name {
+		case nodeapi.ExitName(eu.id):
+			if server := proxyServer(e); server != "127.0.0.1" {
+				t.Fatalf("the plain route broke with WARP off: %s", server)
+			}
+		case nodeapi.ExitWarpName(eu.id):
+			if server := proxyServer(e); server != "192.0.2.1" {
+				t.Fatalf("the WARP route does not fail closed: %s", server)
+			}
+		}
+	}
+	exit, err = eu.desired(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if exit.Warp != nil {
+		t.Fatalf("a disabled WARP reached the state: %+v", exit.Warp)
+	}
+	var dead *nodeapi.Exit
+	for i := range exit.Exits {
+		if exit.Exits[i].Name == nodeapi.ExitName(0) {
+			dead = &exit.Exits[i]
+		}
+	}
+	if dead == nil || !slices.Contains(dead.Inbounds, nodeapi.CascadeWarpListener) {
+		t.Fatalf("the marked streams do not fail closed: %+v", exit.Exits)
+	}
+
+	// An older exit (no capability) is no way out through its WARP either, even with WARP on.
+	if err := st.Q.SetNodeWarpOptions(ctx, db.SetNodeWarpOptionsParams{Enabled: 1, Routes: "[]", UpdatedAt: now.Unix(), NodeID: eu.id}); err != nil {
+		t.Fatal(err)
+	}
+	euNode.health = nodeapi.Health{}
+	eu.refreshHealth(ctx)
+	local.m.SlotsChanged()
+	entry, err = local.desired(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var oldExit *nodeapi.Exit
+	for i := range entry.Exits {
+		if entry.Exits[i].Name == nodeapi.ExitWarpName(eu.id) {
+			oldExit = &entry.Exits[i]
+		}
+	}
+	if oldExit == nil || proxyServer(*oldExit) != "192.0.2.1" {
+		t.Fatalf("an old exit carries a WARP route: %+v", entry.Exits)
 	}
 }

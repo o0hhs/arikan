@@ -51,6 +51,7 @@ type InboundView struct {
 	Auto        AutoView       `json:"auto"`
 	Outbound    string         `json:"outbound" enum:"direct,warp,node,link" doc:"Выход в интернет: напрямую с сервера, через WARP ноды, через другую ноду (каскад) или через исходящую, добавленную по ссылке"`
 	ExitNodeID  *int64         `json:"exit_node_id,omitempty" doc:"Нода, через которую выходит трафик, если outbound=node"`
+	ExitWarp    bool           `json:"exit_warp,omitempty" doc:"Выходить через WARP ноды выхода, а не её прямым путём, если outbound=node"`
 	OutboundID  *int64         `json:"outbound_id,omitempty" doc:"Исходящая по ссылке, через которую выходит трафик, если outbound=link"`
 	PoolID      *int64         `json:"pool_id,omitempty" doc:"Группа серверов подключения: какой трафик оно тратит; нет — основной трафик"`
 	Client      ClientEndpoint `json:"client" doc:"Куда подключаются клиенты, если не к ноде напрямую (mikan.client в шаблоне)"`
@@ -134,6 +135,7 @@ type patchInboundInput struct {
 		AutoSNI     *bool           `json:"auto_sni,omitempty" doc:"Нельзя включить, пока у подключения свой адрес (listen)"`
 		Outbound    *string         `json:"outbound,omitempty" enum:"direct,warp,node,link" doc:"Выход в интернет: напрямую, через WARP ноды, через другую ноду или через исходящую по ссылке"`
 		ExitNodeID  *int64          `json:"exit_node_id,omitempty" minimum:"1" doc:"Для outbound=node: через какую ноду"`
+		ExitWarp    *bool           `json:"exit_warp,omitempty" doc:"Для outbound=node: выходить через WARP ноды выхода, а не её прямым путём"`
 		OutboundID  *int64          `json:"outbound_id,omitempty" minimum:"1" doc:"Для outbound=link: через какую исходящую"`
 		PoolID      *int64          `json:"pool_id,omitempty" minimum:"0" doc:"Группа серверов; 0 — без группы, основной трафик"`
 
@@ -223,7 +225,7 @@ func (h *handlers) viewInbound(ctx context.Context, in db.Inbound, last map[int6
 	}
 	if in.ExitNodeID.Valid {
 		id := in.ExitNodeID.Int64
-		v.Outbound, v.ExitNodeID = "node", &id
+		v.Outbound, v.ExitNodeID, v.ExitWarp = "node", &id, in.ExitWarp != 0
 	}
 	if in.OutboundID.Valid {
 		id := in.OutboundID.Int64
@@ -369,6 +371,7 @@ type setExitsInput struct {
 		IDs        []int64 `json:"ids" minItems:"1" maxItems:"500" uniqueItems:"true" doc:"Подключения"`
 		Outbound   string  `json:"outbound" enum:"direct,warp,node" doc:"Выход в интернет: напрямую, через WARP своей ноды или через другую ноду"`
 		ExitNodeID int64   `json:"exit_node_id,omitempty" minimum:"1" doc:"Для outbound=node: через какую ноду"`
+		ExitWarp   bool    `json:"exit_warp,omitempty" doc:"Для outbound=node: выходить через WARP ноды выхода"`
 	}
 }
 
@@ -379,7 +382,12 @@ func (h *handlers) setInboundExits(ctx context.Context, in *setExitsInput) (*inb
 	if b.Outbound == "node" && b.ExitNodeID == 0 {
 		return nil, cascadeError(domain.ErrNotFound, "exit_node_id")
 	}
-	rows, err := h.d.Inbounds.SetExits(ctx, b.IDs, b.Outbound, b.ExitNodeID)
+	if b.Outbound == "node" && b.ExitWarp {
+		if err := h.warpRouteRefusal(ctx, b.ExitNodeID, "body.exit_warp"); err != nil {
+			return nil, err
+		}
+	}
+	rows, err := h.d.Inbounds.SetExits(ctx, b.IDs, b.Outbound, b.ExitNodeID, b.ExitWarp)
 	var conflict *domain.ExitConflictError
 	switch {
 	case errors.As(err, &conflict):
@@ -440,9 +448,19 @@ func (h *handlers) updateInbound(ctx context.Context, in *patchInboundInput) (*i
 			}
 		}
 	}
+	// A route through the exit's WARP is a route through the exit: it needs one, and
+	// without WARP there the traffic would leave from the exit's own address.
+	if b.ExitWarp != nil && *b.ExitWarp {
+		if b.Outbound == nil || *b.Outbound != "node" || b.ExitNodeID == nil {
+			return nil, fieldErr("body.exit_warp", "warp_route_needs_exit")
+		}
+		if err := h.warpRouteRefusal(ctx, *b.ExitNodeID, "body.exit_warp"); err != nil {
+			return nil, err
+		}
+	}
 	p := domain.InboundPatch{Port: b.Port, Enabled: b.Enabled, Config: b.Config, Dest: b.Dest, ServerName: b.ServerName, Fingerprint: b.Fingerprint, Obfs: b.Obfs, XHTTP: b.XHTTP,
-		DisplayName: b.DisplayName, Listen: b.Listen, AutoPort: b.AutoPort, AutoSNI: b.AutoSNI, Outbound: b.Outbound, ExitNodeID: b.ExitNodeID, OutboundID: b.OutboundID, PoolID: b.PoolID,
-		SNI443: b.SNI443, AutoInclude: b.AutoInclude}
+		DisplayName: b.DisplayName, Listen: b.Listen, AutoPort: b.AutoPort, AutoSNI: b.AutoSNI, Outbound: b.Outbound, ExitNodeID: b.ExitNodeID, ExitWarp: b.ExitWarp,
+		OutboundID: b.OutboundID, PoolID: b.PoolID, SNI443: b.SNI443, AutoInclude: b.AutoInclude}
 	if c := b.Client; c != nil {
 		// The address clients connect to: like the panel's public host, not for a key.
 		if err := requireSession(ctx, "client"); err != nil {

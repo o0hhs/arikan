@@ -119,7 +119,10 @@ type InboundPatch struct {
 	// the admin added by a share link.
 	ExitNodeID *int64
 	OutboundID *int64
-	PoolID     *int64 // 0: the main traffic
+	// ExitWarp sends the traffic through the exit node's own WARP instead of its plain way
+	// out; only with Outbound node.
+	ExitWarp *bool
+	PoolID   *int64 // 0: the main traffic
 
 	// FromPort, when set, applies the patch only while the inbound is on this port: an
 	// automatic move decided on what a node reported never lands on a row moved since
@@ -291,13 +294,14 @@ func (s *Inbounds) update(ctx context.Context, id int64, p InboundPatch) (prev, 
 		next.PoolID = sql.NullInt64{Int64: *p.PoolID, Valid: *p.PoolID != 0}
 	}
 	if p.Outbound != nil {
-		next.Outbound, next.ExitNodeID, next.OutboundID = *p.Outbound, sql.NullInt64{}, sql.NullInt64{}
+		next.Outbound, next.ExitNodeID, next.OutboundID, next.ExitWarp = *p.Outbound, sql.NullInt64{}, sql.NullInt64{}, 0
 		switch *p.Outbound {
 		case "node":
 			if p.ExitNodeID == nil {
 				return fail(ErrNotFound)
 			}
 			next.Outbound, next.ExitNodeID = "direct", sql.NullInt64{Int64: *p.ExitNodeID, Valid: true}
+			next.ExitWarp = Flag(p.ExitWarp != nil && *p.ExitWarp)
 		case "link":
 			if p.OutboundID == nil {
 				return fail(ErrNotFound)
@@ -396,7 +400,7 @@ func (s *Inbounds) update(ctx context.Context, id int64, p InboundPatch) (prev, 
 			}
 		}
 		if p.Outbound != nil {
-			if err := q.SetInboundRoute(ctx, db.SetInboundRouteParams{Outbound: next.Outbound, ExitNodeID: next.ExitNodeID, OutboundID: next.OutboundID, ID: id}); err != nil {
+			if err := q.SetInboundRoute(ctx, db.SetInboundRouteParams{Outbound: next.Outbound, ExitNodeID: next.ExitNodeID, OutboundID: next.OutboundID, ExitWarp: next.ExitWarp, ID: id}); err != nil {
 				return err
 			}
 		}
@@ -741,9 +745,9 @@ func (e *ExitConflictError) Error() string { return e.Inbound + ": " + e.Err.Err
 func (e *ExitConflictError) Unwrap() error { return e.Err }
 
 // SetExits sends the inbounds ids out the same way: straight out, through their node's
-// WARP or through node exit, all of them or none. An inbound on exit itself, or one whose
-// chain would come back, refuses the whole change by its name.
-func (s *Inbounds) SetExits(ctx context.Context, ids []int64, outbound string, exit int64) ([]db.Inbound, error) {
+// WARP, through node exit or through that exit's own WARP, all of them or none. An inbound
+// on exit itself, or one whose chain would come back, refuses the whole change by its name.
+func (s *Inbounds) SetExits(ctx context.Context, ids []int64, outbound string, exit int64, exitWarp bool) ([]db.Inbound, error) {
 	var rows []db.Inbound
 	err := s.st.Tx(ctx, func(q *db.Queries) error {
 		rows = rows[:0]
@@ -761,6 +765,7 @@ func (s *Inbounds) SetExits(ctx context.Context, ids []int64, outbound string, e
 					return &ExitConflictError{Inbound: in.Name, Err: err}
 				}
 				p.Outbound, p.ExitNodeID = "direct", sql.NullInt64{Int64: exit, Valid: true}
+				p.ExitWarp = Flag(exitWarp)
 			}
 			if err := q.SetInboundExit(ctx, p); err != nil {
 				return err

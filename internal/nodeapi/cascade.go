@@ -48,6 +48,15 @@ const (
 	// CascadeListener is the listening name rules see on the exit: IN-NAME,<name>,… of a
 	// rule and the exit's own alternatives (WARP, another exit) may name it.
 	CascadeListener = "mikan~cascade"
+	// CascadeWarpListener is the same for the streams a route sent through the exit's WARP:
+	// a protocol marked "through the exit's WARP" arrives under this name, so the exit's
+	// rule sends exactly it to WARP while other nodes' traffic on the same exit goes on
+	// by the exit's own way out.
+	CascadeWarpListener = "mikan~cascade-warp"
+	// CapCascadeWarp is what a node's health says when its code knows the two halves of
+	// that route: the entry marks the stream, the exit reads the mark into its rule. The
+	// panel builds such a route only when both ends say it.
+	CapCascadeWarp = "cascade-warp"
 	// CascadeStreamData is the first byte of a stream carrying one client's connection;
 	// the panel pairs it with an exit, and any other kind is refused.
 	CascadeStreamData = 1
@@ -86,6 +95,9 @@ type CascadeRoute struct {
 	// Exits are node ids: the first is the exit the inbound named, the rest are reserves
 	// the panel picked among its other exits. The core's proxy name stays the first's.
 	Exits []int64 `json:"exits"`
+	// Warp sends the streams of this route through the exit's own WARP: the bridge marks
+	// each one, and the exit routes it by CascadeWarpListener instead of CascadeListener.
+	Warp bool `json:"warp,omitempty"`
 }
 
 // CascadeExit is the exit node's side: the panel's endpoint its stream goes to.
@@ -250,6 +262,10 @@ func ReadCascadeAnswer(r io.Reader) error {
 type CascadeTarget struct {
 	Host string `json:"host"`
 	Port int    `json:"port"`
+	// Warp: the route this connection came by leaves through the exit's WARP. An exit that
+	// does not know the field (older than it) leaves the stream direct, which is why the
+	// panel builds such a route only for a node whose health says CapCascadeWarp.
+	Warp bool `json:"warp,omitempty"`
 }
 
 // WriteCascadeTarget writes the target as one frame: its length, then the address. The

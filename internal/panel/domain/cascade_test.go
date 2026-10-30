@@ -91,3 +91,57 @@ func TestCascadeReservesSkipNodesThatLeaveThroughThisOne(t *testing.T) {
 		t.Fatalf("A's reserves: %v", reserves)
 	}
 }
+
+// One node, two ways out: an inbound leaving through the exit directly and another through
+// the same exit's WARP. The routes are separate — their names differ, so the entry's core
+// sends each protocol to its own proxy — the exit runs its WARP listener, and the WARP
+// route has no reserves: another exit is another address, and the address is its point.
+func TestCascadeWarpRoute(t *testing.T) {
+	remote := func(id int64, host, cert string) db.Node {
+		return db.Node{ID: id, Name: host, Address: host + ":40000", CertSha256: cert, Enabled: 1}
+	}
+	exit := func(id int64) sql.NullInt64 { return sql.NullInt64{Int64: id, Valid: true} }
+	nodes := []db.Node{remote(1, "198.51.100.1", "aa"), remote(2, "198.51.100.2", "bb"), remote(3, "198.51.100.3", "cc")}
+	inbounds := []db.Inbound{
+		{ID: 1, NodeID: 1, Name: "vless-plain", Enabled: 1, ExitNodeID: exit(2)},
+		{ID: 2, NodeID: 1, Name: "vless-warp", Enabled: 1, ExitNodeID: exit(2), ExitWarp: 1},
+		// Node 3 is an exit of its own, so it is the plain route's reserve; the WARP route
+		// gets none, whatever else can carry.
+		{ID: 3, NodeID: 1, Name: "vless-3", Enabled: 1, ExitNodeID: exit(3)},
+	}
+	plans := CascadePlans(nodes, inbounds, nil)
+
+	a := plans[1]
+	if len(a.Routes) != 3 {
+		t.Fatalf("A's routes: %+v", a.Routes)
+	}
+	var plain, warp *CascadeRoute
+	for i := range a.Routes {
+		switch a.Routes[i].Name {
+		case "NODE-2":
+			plain = &a.Routes[i]
+		case "NODE-2~warp":
+			warp = &a.Routes[i]
+		}
+	}
+	if plain == nil || plain.Warp || !plain.Tunnel {
+		t.Fatalf("the plain route: %+v", a.Routes)
+	}
+	if warp == nil || !warp.Warp || !warp.Tunnel {
+		t.Fatalf("the WARP route: %+v", a.Routes)
+	}
+	if res := warp.Reserves; len(res) != 0 {
+		t.Fatalf("a WARP route has no reserves: %v", res)
+	}
+	if want := []int64{3}; !slices.Equal(plain.Reserves, want) {
+		t.Fatalf("a plain route keeps its reserves: %v, want %v", plain.Reserves, want)
+	}
+	if b := plans[2]; !b.IsExit || !b.WarpExit {
+		t.Fatalf("the exit: %+v", b)
+	}
+	// Only the WARP route asks for the exit's WARP: the plain one alone leaves WarpExit off.
+	inbounds[1].ExitWarp = 0
+	if b := CascadePlans(nodes, inbounds, nil)[2]; b.WarpExit {
+		t.Fatalf("no route asks for the WARP: %+v", b)
+	}
+}

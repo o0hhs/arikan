@@ -154,8 +154,12 @@ func TestRelayBypassesAccounting(t *testing.T) {
 	e, f := net.Pipe()
 	defer f.Close()
 	tun.HandleTCPConn(e, &C.Metadata{Type: C.SOCKS5, InName: nodeapi.CascadeListener, Host: "example.com", DstPort: 443})
-	if inner.tcp.Load() != 2 {
-		t.Fatalf("connections that reached mihomo: %d, want the relay's and the cascade's", inner.tcp.Load())
+	// A route through the exit's WARP is the same: the entry counted and limited its users.
+	g, h := net.Pipe()
+	defer h.Close()
+	tun.HandleTCPConn(g, &C.Metadata{Type: C.SOCKS5, InName: nodeapi.CascadeWarpListener, Host: "example.com", DstPort: 443})
+	if inner.tcp.Load() != 3 {
+		t.Fatalf("connections that reached mihomo: %d, want the relay's, the cascade's and the WARP route's", inner.tcp.Load())
 	}
 }
 
@@ -310,5 +314,23 @@ func TestCascadeToWarp(t *testing.T) {
 	got = strings.Join(cfg.Rules, "\n")
 	if !strings.Contains(got, "IN-NAME,"+nodeapi.CascadeListener+","+nodeapi.ExitName(3)) || strings.Contains(got, nodeapi.CascadeListener+",WARP") {
 		t.Fatalf("the further node must win over WARP:\n%s", got)
+	}
+
+	// A route marked "through this node's WARP" arrives under its own name: exactly it
+	// goes to WARP, while the rest of other nodes' traffic keeps this node's own way out.
+	marked := cascadeState(t)
+	marked.Exits = nil
+	marked.Warp.Inbounds = []string{nodeapi.CascadeWarpListener}
+	marked.Cascade = &nodeapi.Cascade{Exit: &nodeapi.CascadeExit{URL: "https://panel.example.com/api/v1/cascade"}}
+	raw, _, err = buildConfig(marked, proto.Cert{}, false, "", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(raw, &cfg); err != nil {
+		t.Fatal(err)
+	}
+	got = strings.Join(cfg.Rules, "\n")
+	if !strings.Contains(got, "IN-NAME,"+nodeapi.CascadeWarpListener+",WARP") || strings.Contains(got, "IN-NAME,"+nodeapi.CascadeListener+",WARP") {
+		t.Fatalf("only the marked streams may go to WARP:\n%s", got)
 	}
 }
