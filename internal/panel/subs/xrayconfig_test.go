@@ -213,7 +213,7 @@ func TestXrayOutboundFromLinks(t *testing.T) {
 		},
 		{
 			name:   "shadowsocks-2022",
-			link:   "ss://2022-blake3-aes-128-gcm:c2VydmVyS2V5K3VzZXJLZXk%3D@203.0.113.7:6443#n",
+			link:   "ss://2022-blake3-aes-128-gcm:serverKey%2BuserKey%3D@203.0.113.7:6443#n",
 			xrayOK: true,
 			want: func(t *testing.T, o map[string]any) {
 				server := anyMap(anyList(anyMap(o["settings"])["servers"])[0])

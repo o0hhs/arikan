@@ -445,7 +445,8 @@ func xrayPorts(v string) string {
 // has no logic rules of its own.
 func xrayAnd(v string) (network, port string, ok bool) {
 	v = strings.TrimSpace(v)
-	for strings.HasPrefix(v, "(") && strings.HasSuffix(v, ")") {
+	// One pair of brackets around the whole group: "((NETWORK,UDP),(DST-PORT,443))".
+	if strings.HasPrefix(v, "(") && strings.HasSuffix(v, ")") {
 		v = strings.TrimSpace(v[1 : len(v)-1])
 	}
 	parts := splitRule(v)
