@@ -44,7 +44,7 @@ func TestRelayListener(t *testing.T) {
 // The chain the card shows is the rows the states are built from: the relay rows decide
 // where an exit's traffic goes on, and only the last one decides direct or WARP.
 func TestExitChain(t *testing.T) {
-	names := map[int64]string{1: "entry", 2: "exit", 3: "far", 4: "broken"}
+	names := map[int64]string{1: "entry", 2: "exit", 3: "third", 4: "far"}
 	relay := func(id int64, outbound string, exit int64) db.NodeRelay {
 		return db.NodeRelay{NodeID: id, Outbound: outbound, ExitNodeID: sql.NullInt64{Int64: exit, Valid: exit != 0}}
 	}
