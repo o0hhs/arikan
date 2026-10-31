@@ -10,12 +10,17 @@ import (
 )
 
 // INCY takes a whole Xray config as a subscription: an object with inbounds and outbounds
-// is one server in its list, an array of them is one server per element, named after the
-// first proxy outbound (docs.incy.cc, "Subscription format" and "Full Xray
-// configurations"). Share links cannot carry a balancer, so this is the only way INCY gets
-// an autoselect entry: the body is that array — the config with every server, an
-// observatory and a leastPing balancer first, then one config per server, so the list
-// stays and the automatic entry joins it.
+// is one server in its list, an array of them is one server per element (docs.incy.cc,
+// "Subscription format" and "Full Xray configurations"). Share links cannot carry a
+// balancer, so this is the only way INCY gets an autoselect entry: the body is that
+// array — the config with every server, an observatory and a leastPing balancer first,
+// then one config per server, so the list stays and the automatic entry joins it.
+//
+// Each element is named by its top-level remarks. That field is the entry INCY shows and
+// the key it updates the server by; it names the whole config, not an outbound inside a
+// balancer. Without remarks every element collapses into the first one, and the list
+// becomes a single "Авто" entry. The first proxy outbound's tag is the same name, which
+// is what INCY uses when remarks is absent.
 //
 // Only what Xray really runs goes in: VLESS, Trojan and Shadowsocks (its 2022 methods and
 // the classic AEAD ones). Hysteria2 and the newer types stay in the link list the app gets
@@ -208,7 +213,12 @@ func xrayConfigList(p Profile, g Groups, r Routing) ([]map[string]any, error) {
 	if probe <= 0 {
 		probe = xrayProbeInterval
 	}
+	// remarks is the name INCY shows for this config and the key it keeps the server
+	// under. The same string is the first outbound's tag, so a client that names a
+	// config from that tag shows the same entry.
+	autoRemark := tags[first]
 	auto := map[string]any{
+		"remarks":  autoRemark,
 		"log":      map[string]any{"loglevel": "warning"},
 		"dns":      xrayDNS(p.Routes.DNS, r),
 		"inbounds": xrayInbounds(),
@@ -238,8 +248,12 @@ func xrayConfigList(p Profile, g Groups, r Routing) ([]map[string]any, error) {
 	cfgs := []map[string]any{auto}
 
 	// One config per server: the same rules, with every proxy target on this very server.
+	// remarks stays unique across the list, including the automatic entry: two configs
+	// with one remarks are one server in INCY, and the others disappear.
+	seenRemark := map[string]bool{"direct": true, "block": true, autoRemark: true}
 	for _, s := range servers {
-		tag := xrayTag(s.name, map[string]bool{"direct": true, "block": true})
+		tag := xrayTag(s.name, seenRemark)
+		seenRemark[tag] = true
 		pick := func(target string) (string, string) {
 			switch {
 			case target == "DIRECT":
@@ -250,6 +264,7 @@ func xrayConfigList(p Profile, g Groups, r Routing) ([]map[string]any, error) {
 			return tag, ""
 		}
 		cfgs = append(cfgs, map[string]any{
+			"remarks":   tag,
 			"log":       map[string]any{"loglevel": "warning"},
 			"dns":       xrayDNS(p.Routes.DNS, r),
 			"inbounds":  xrayInbounds(),

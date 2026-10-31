@@ -145,7 +145,8 @@ func (c *Client) DPI(ctx context.Context) (DPIStatus, error) {
 
 // SetDPI asks the host to start (on) or stop the DPI bypass. The host takes the request a
 // moment later; the answer is its state as of now, which the caller can poll with DPI. The
-// first start installs zapret and builds nfqws, so the answer stays off until that ends.
+// first start installs the pinned nfqws (prebuilt, or compiled when this architecture
+// has none), so the answer stays off until that ends.
 func (c *Client) SetDPI(ctx context.Context, on bool) (DPIStatus, error) {
 	var r DPIStatus
 	body := struct {

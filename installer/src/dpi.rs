@@ -13,8 +13,10 @@
 //!   /etc/systemd/system/arikan-dpi.service
 //!
 //! `mikan dpi on|off|status`; `mikan dpi --requested` is what the host unit runs. The first
-//! `on` downloads the pinned zapret release, builds nfqws (build tools and the netfilter
-//! queue library through apt) and installs the service; after that `on`/`off` are a
+//! `on` downloads the pinned zapret release and installs its prebuilt `nfqws` for this
+//! machine (a static binary: no compiler, no libcap headers). An architecture the release
+//! does not ship is compiled after the headers are installed — `sys/capability.h` comes
+//! from libcap, which `build-essential` does not include. After that `on`/`off` are a
 //! systemd start and stop. The queue is installed with `--queue-bypass`, so traffic keeps
 //! flowing if nfqws dies, and the rule is removed when the service stops.
 
@@ -82,7 +84,16 @@ fn now() -> i64 {
 
 /// Runs a command to the end and turns a failure into its last error line.
 fn run(program: &str, args: &[&str]) -> Result<()> {
-    let out = Command::new(program).args(args).stdin(Stdio::null()).output().with_context(|| format!("run {program}"))?;
+    run_env(program, args, &[])
+}
+
+fn run_env(program: &str, args: &[&str], env: &[(&str, &str)]) -> Result<()> {
+    let mut cmd = Command::new(program);
+    cmd.args(args).stdin(Stdio::null());
+    for (k, v) in env {
+        cmd.env(k, v);
+    }
+    let out = cmd.output().with_context(|| format!("run {program}"))?;
     if out.status.success() {
         return Ok(());
     }
@@ -105,8 +116,156 @@ fn parse_request(data: &[u8]) -> Option<bool> {
     v.as_object()?.get("on")?.as_bool()
 }
 
-/// Downloads the pinned zapret sources, builds nfqws and writes the scripts. Idempotent:
-/// an install that already has the binary is left alone.
+/// One package manager the host can install iptables and, when nfqws has to be compiled,
+/// the headers the build includes (`sys/capability.h` is libcap).
+struct Pm {
+    cmd: &'static str,
+    update: &'static [&'static str],
+    install: &'static [&'static str],
+    /// What the running service needs. The prebuilt nfqws is static; iptables is not.
+    runtime: &'static [&'static str],
+    /// Compiler and headers. libcap is not part of build-essential: without it the build
+    /// stops at `sec.h: fatal error: sys/capability.h: No such file or directory`.
+    build: &'static [&'static str],
+}
+
+/// The package lists for a manager the installer knows. None for anything else: the caller
+/// says so in plain words instead of running a command that is not there.
+fn pm_spec(cmd: &str) -> Option<Pm> {
+    match cmd {
+        "apt-get" => Some(Pm {
+            cmd: "apt-get",
+            update: &["update", "-qq"],
+            install: &["install", "-y", "--no-install-recommends"],
+            runtime: &["iptables"],
+            build: &["build-essential", "libcap-dev", "libnetfilter-queue-dev", "libnfnetlink-dev", "zlib1g-dev", "libmnl-dev", "iptables"],
+        }),
+        "dnf" => Some(rpm_pm("dnf")),
+        "yum" => Some(rpm_pm("yum")),
+        "apk" => Some(Pm {
+            cmd: "apk",
+            update: &[],
+            install: &["add", "--no-cache"],
+            runtime: &["iptables"],
+            build: &["build-base", "libcap-dev", "libnetfilter_queue-dev", "libnfnetlink-dev", "zlib-dev", "libmnl-dev", "iptables"],
+        }),
+        "pacman" => Some(Pm {
+            cmd: "pacman",
+            update: &[],
+            install: &["-Sy", "--needed", "--noconfirm"],
+            runtime: &["iptables"],
+            build: &["base-devel", "libcap", "libnetfilter_queue", "libnfnetlink", "zlib", "libmnl", "iptables"],
+        }),
+        "zypper" => Some(Pm {
+            cmd: "zypper",
+            update: &[],
+            install: &["--non-interactive", "install"],
+            runtime: &["iptables"],
+            build: &[
+                "gcc",
+                "make",
+                "libcap-devel",
+                "libnetfilter_queue-devel",
+                "libnfnetlink-devel",
+                "zlib-devel",
+                "libmnl-devel",
+                "iptables",
+            ],
+        }),
+        _ => None,
+    }
+}
+
+fn rpm_pm(cmd: &'static str) -> Pm {
+    Pm {
+        cmd,
+        update: &[],
+        install: &["install", "-y"],
+        runtime: &["iptables"],
+        build: &["gcc", "make", "libcap-devel", "libnetfilter_queue-devel", "libnfnetlink-devel", "zlib-devel", "libmnl-devel", "iptables"],
+    }
+}
+
+fn command_exists(cmd: &str) -> bool {
+    match Command::new(cmd).arg("--version").stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).status() {
+        Ok(_) => true,
+        Err(e) => e.kind() != std::io::ErrorKind::NotFound,
+    }
+}
+
+fn package_manager() -> Option<Pm> {
+    ["apt-get", "dnf", "yum", "apk", "pacman", "zypper"].into_iter().find_map(|cmd| {
+        let pm = pm_spec(cmd)?;
+        command_exists(cmd).then_some(pm)
+    })
+}
+
+/// What to tell the admin when the host is not a distro the installer can install on.
+fn no_pm_message(why: &str) -> String {
+    format!(
+        "DPI: {why}. This system has no supported package manager (apt-get, dnf, yum, apk, pacman, zypper). \
+On Debian or Ubuntu install iptables; compiling nfqws also needs build-essential, libcap-dev, \
+libnetfilter-queue-dev, libnfnetlink-dev, zlib1g-dev and libmnl-dev"
+    )
+}
+
+fn pm_install(pm: &Pm, pkgs: &[&str]) -> Result<()> {
+    if !pm.update.is_empty() {
+        run_env(pm.cmd, pm.update, &[("DEBIAN_FRONTEND", "noninteractive")])?;
+    }
+    let mut args = Vec::with_capacity(pm.install.len() + pkgs.len());
+    args.extend_from_slice(pm.install);
+    args.extend_from_slice(pkgs);
+    run_env(pm.cmd, &args, &[("DEBIAN_FRONTEND", "noninteractive")])
+}
+
+/// `uname -m` as the directory zapret ships a static nfqws under. None means the release
+/// has no binary for it and the installer compiles.
+fn prebuilt_arch(machine: &str) -> Option<&'static str> {
+    match machine {
+        "x86_64" | "amd64" => Some("linux-x86_64"),
+        "aarch64" | "arm64" => Some("linux-arm64"),
+        "armv7l" | "armv6l" => Some("linux-arm"),
+        "i386" | "i686" | "i586" => Some("linux-x86"),
+        _ => None,
+    }
+}
+
+fn machine() -> Result<String> {
+    let out = Command::new("uname").arg("-m").stdin(Stdio::null()).output().context("uname -m")?;
+    if !out.status.success() {
+        bail!("uname -m failed");
+    }
+    let name = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    if name.is_empty() {
+        bail!("uname -m said nothing");
+    }
+    Ok(name)
+}
+
+fn set_exec(path: &Path) -> Result<()> {
+    let mut perms = fs::metadata(path)?.permissions();
+    perms.set_mode(perms.mode() | 0o755);
+    fs::set_permissions(path, perms).with_context(|| format!("chmod {}", path.display()))
+}
+
+/// Compiles nfqws from the extracted sources. The headers are installed first; a distro
+/// this installer does not know gets the package names instead of a bare compiler error.
+fn compile_nfqws(src_root: &Path, dest: &Path) -> Result<()> {
+    out("DPI: no prebuilt nfqws for this architecture; compiling");
+    let Some(pm) = package_manager() else {
+        bail!("{}", no_pm_message("nfqws has to be compiled here"));
+    };
+    pm_install(&pm, pm.build).context("install the headers nfqws needs (libcap, netfilter queue, libmnl, zlib)")?;
+    let nfq = src_root.join("nfq");
+    run("make", &["-C", nfq.to_str().unwrap_or("")]).context("build nfqws")?;
+    fs::copy(nfq.join("nfqws"), dest).context("copy nfqws")?;
+    set_exec(dest)
+}
+
+/// Downloads the pinned zapret sources, installs nfqws and writes the scripts. Idempotent:
+/// an install that already has the binary is left alone. The binary is the static one the
+/// release ships for this machine; compiling is the fallback for an architecture it does not.
 fn install() -> Result<()> {
     let dir = dir();
     if dir.join("nfqws").is_file() {
@@ -117,38 +276,7 @@ fn install() -> Result<()> {
         return Ok(());
     }
     fs::create_dir_all(&dir).with_context(|| format!("create {}", dir.display()))?;
-    out("DPI: installing zapret (the first time takes a few minutes)");
-    // The build needs a compiler and the queue library; the runtime keeps the library.
-    let apt = |args: &[&str]| -> Result<()> {
-        let out = Command::new("apt-get")
-            .args(args)
-            .env("DEBIAN_FRONTEND", "noninteractive")
-            .stdin(Stdio::null())
-            .output()
-            .context("run apt-get")?;
-        if out.status.success() {
-            return Ok(());
-        }
-        let err = String::from_utf8_lossy(&out.stderr);
-        bail!("apt-get {}: {}", args.join(" "), err.lines().map(str::trim).rfind(|l| !l.is_empty()).unwrap_or("failed"))
-    };
-    apt(&["update", "-qq"])?;
-    apt(&[
-        "install",
-        "-y",
-        "--no-install-recommends",
-        "build-essential",
-        "libnetfilter-queue-dev",
-        "libnfnetlink-dev",
-        // zapret links -lz and -lmnl: build-essential has neither, and a bare server fails
-        // the link step with "cannot find -lz" (the make output hid it, see run()).
-        "zlib1g-dev",
-        "libmnl-dev",
-        "ca-certificates",
-        "curl",
-        "iptables",
-    ])
-    .context("install the build tools (apt-get)")?;
+    out("DPI: installing zapret");
     let tarball = dir.join("zapret.tar.gz");
     let agent: ureq::Agent = ureq::Agent::config_builder()
         .timeout_global(Some(Duration::from_secs(180)))
@@ -175,9 +303,26 @@ fn install() -> Result<()> {
     let _ = fs::remove_dir_all(&src);
     fs::create_dir_all(&src)?;
     run("tar", &["-xzf", tarball.to_str().unwrap_or(""), "-C", src.to_str().unwrap_or("")])?;
-    let nfq = src.join(format!("zapret-v{ZAPRET_VERSION}")).join("nfq");
-    run("make", &["-C", nfq.to_str().unwrap_or("")]).context("build nfqws")?;
-    fs::copy(nfq.join("nfqws"), dir.join("nfqws")).context("copy nfqws")?;
+    let src_root = src.join(format!("zapret-v{ZAPRET_VERSION}"));
+    let dest = dir.join("nfqws");
+    let arch = machine()?;
+    match prebuilt_arch(&arch).map(|rel| src_root.join("binaries").join(rel).join("nfqws")) {
+        Some(bin) if bin.is_file() => {
+            fs::copy(&bin, &dest).context("copy the prebuilt nfqws")?;
+            set_exec(&dest)?;
+            out(&format!("DPI: using the prebuilt nfqws ({arch})"));
+        }
+        _ => compile_nfqws(&src_root, &dest)?,
+    }
+    if !command_exists("iptables") {
+        let Some(pm) = package_manager() else {
+            bail!("{}", no_pm_message("iptables is not installed"));
+        };
+        pm_install(&pm, pm.runtime).context("install iptables")?;
+        if !command_exists("iptables") {
+            bail!("DPI: iptables is still not installed");
+        }
+    }
     let _ = fs::remove_file(&tarball);
     write_scripts()?;
     out("DPI: zapret is installed");
@@ -393,6 +538,46 @@ mod tests {
         let text = format!("exec {}/nfqws --qnum={QUEUE} --filter-tcp=443 --hostlist={}/hosts.txt {ARGS}", dir.display(), dir.display());
         assert!(text.contains("--filter-tcp=443") && text.contains("--hostlist=") && text.contains("--dpi-desync=multisplit"));
         assert!(HOSTS.contains(&"youtube.com") && HOSTS.contains(&"discord.com"));
+    }
+
+    // The release ships static binaries for the machines a node usually is. Anything else
+    // is compiled, and every distro we install on is asked for libcap: that header is what
+    // a bare server's build dies on.
+    #[test]
+    fn prebuilt_arches_match_the_release() {
+        assert_eq!(prebuilt_arch("x86_64"), Some("linux-x86_64"));
+        assert_eq!(prebuilt_arch("amd64"), Some("linux-x86_64"));
+        assert_eq!(prebuilt_arch("aarch64"), Some("linux-arm64"));
+        assert_eq!(prebuilt_arch("arm64"), Some("linux-arm64"));
+        assert_eq!(prebuilt_arch("armv7l"), Some("linux-arm"));
+        assert_eq!(prebuilt_arch("armv6l"), Some("linux-arm"));
+        assert_eq!(prebuilt_arch("i686"), Some("linux-x86"));
+        assert_eq!(prebuilt_arch("riscv64"), None);
+        assert_eq!(prebuilt_arch(""), None);
+    }
+
+    #[test]
+    fn every_build_installs_libcap() {
+        for cmd in ["apt-get", "dnf", "yum", "apk", "pacman", "zypper"] {
+            let pm = pm_spec(cmd).unwrap_or_else(|| panic!("no spec for {cmd}"));
+            let build = pm.build.join(" ");
+            assert!(build.contains("cap"), "{cmd} does not install libcap: {build}");
+            assert!(pm.runtime.contains(&"iptables"), "{cmd}");
+        }
+        let apt = pm_spec("apt-get").unwrap();
+        for pkg in ["build-essential", "libcap-dev", "libnetfilter-queue-dev", "libnfnetlink-dev", "zlib1g-dev", "libmnl-dev", "iptables"] {
+            assert!(apt.build.contains(&pkg), "apt build deps miss {pkg}");
+        }
+        assert!(pm_spec("not-a-manager").is_none());
+    }
+
+    #[test]
+    fn an_unknown_distro_is_told_what_to_install() {
+        let msg = no_pm_message("iptables is not installed");
+        assert!(msg.contains("iptables is not installed"));
+        for word in ["apt-get", "dnf", "apk", "pacman", "libcap-dev", "libnetfilter-queue-dev", "zlib1g-dev", "libmnl-dev"] {
+            assert!(msg.contains(word), "missing {word} in {msg}");
+        }
     }
 
     // The host list is one name a line, which is what nfqws reads.

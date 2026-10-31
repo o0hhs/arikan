@@ -1728,7 +1728,7 @@ export interface paths {
         put?: never;
         /**
          * Включить или выключить обход DPI ноды
-         * @description Хост запускает nfqws (zapret): YouTube и Discord выходят с адреса самой ноды, TLS-рукопожатие обходит фильтр. Первый запуск ставит zapret и собирает nfqws, это минуты; ответ 202, состояние — GET.
+         * @description Хост запускает nfqws (zapret): YouTube и Discord выходят с адреса самой ноды, TLS-рукопожатие обходит фильтр. Первый запуск ставит готовый nfqws из выпуска zapret; сборка на сервере — только если для его архитектуры готового файла нет. Ответ 202, состояние — GET.
          */
         post: operations["set-node-dpi"];
         delete?: never;

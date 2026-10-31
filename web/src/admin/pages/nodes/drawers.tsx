@@ -387,7 +387,7 @@ export function EditNodeDrawer({ node, onClose }: { node: Node | null; onClose: 
 /**
  * The node's own DPI bypass (nfqws on its host): YouTube and Discord keep the node's own
  * address while the TLS handshake is split past the ISP's filter. The first start installs
- * zapret and builds nfqws on the host, so the switch stays off while the panel polls.
+ * the pinned nfqws on the host, so the switch stays off while the panel polls.
  */
 function NodeDPISection({ node }: { node: Node }) {
   const qc = useQueryClient();

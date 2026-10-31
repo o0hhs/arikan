@@ -143,9 +143,10 @@ const (
 	KeyHappProvider = "happ_provider_id"
 	KeyHappHide     = "happ_hide_settings"
 	KeyHappCrypt    = "happ_crypt"
-	// KeyINCYAuto gives INCY a whole Xray config with an autoselect balancer instead of the
-	// link list (subs.XrayConfigs); off by default, and only the panel answers it — a node's
-	// pre-rendered record carries the link list.
+	// KeyINCYAuto gives INCY a JSON array of Xray configs (subs.XrayConfigs): the autoselect
+	// balancer first, then one config per server, each named by remarks so the servers stay
+	// in the list. Off by default, and only the panel answers it — a node's pre-rendered
+	// record carries the link list.
 	KeyINCYAuto = "incy_autoselect"
 	// KeyLegacySubPath is the path of the subscription links of the panel users were
 	// imported from: "sub" for Marzban and PasarGuard, "api/sub" for Remnawave. The old

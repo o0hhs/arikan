@@ -20,6 +20,7 @@ import (
 
 // xcConfig is a full Xray config as INCY reads it: the fields this package writes.
 type xcConfig struct {
+	Remarks   string           `json:"remarks"`
 	Log       map[string]any   `json:"log"`
 	DNS       map[string]any   `json:"dns"`
 	Inbounds  []map[string]any `json:"inbounds"`
@@ -86,6 +87,12 @@ func TestXrayConfigsShape(t *testing.T) {
 	if got := str(auto.Outbounds[0]["tag"]); got != "Авто" {
 		t.Fatalf("the automatic config is named %q, want the auto group", got)
 	}
+	// remarks is the name INCY shows and the key it keeps the server under. The same
+	// string on two configs is one entry, which is how the list collapsed to "Авто".
+	if auto.Remarks != "Авто" {
+		t.Fatalf("the automatic remarks: %q", auto.Remarks)
+	}
+	seenRemark := map[string]bool{auto.Remarks: true}
 	if auto.Observatory["probeUrl"] != xrayProbeURL || auto.Observatory["probeInterval"] != "300s" || auto.Observatory["enableConcurrency"] != true {
 		t.Fatalf("observatory: %v", auto.Observatory)
 	}
@@ -125,6 +132,10 @@ func TestXrayConfigsShape(t *testing.T) {
 		if name == "" || name == "direct" || name == "block" {
 			t.Fatalf("a server name: %q", name)
 		}
+		if c.Remarks != name || seenRemark[c.Remarks] {
+			t.Fatalf("server remarks %q (tag %q)", c.Remarks, name)
+		}
+		seenRemark[c.Remarks] = true
 		if len(c.Routing.Balancers) != 0 || c.Observatory != nil {
 			t.Fatalf("a server config has no balancer: %v %v", c.Routing.Balancers, c.Observatory)
 		}
@@ -351,7 +362,10 @@ func TestXrayConfigsKnownFields(t *testing.T) {
 		raw := map[string]any{}
 		b, _ := json.Marshal(c)
 		_ = json.Unmarshal(b, &raw)
-		bad := allowed("config", raw, "log", "dns", "inbounds", "outbounds", "routing", "observatory", "stats")
+		// remarks is INCY's name for the entry (docs.incy.cc). Xray's decoder skips a key it
+		// does not know, and INCY reads it before the core does; without it the app keeps
+		// one server for the whole array.
+		bad := allowed("config", raw, "remarks", "log", "dns", "inbounds", "outbounds", "routing", "observatory", "stats")
 		bad = append(bad, allowed("log", anyMap(c.Log), "loglevel")...)
 		bad = append(bad, allowed("dns", c.DNS, "servers", "queryStrategy")...)
 		for _, s := range anyList(c.DNS["servers"]) {
@@ -471,6 +485,44 @@ func TestXrayServiceOnANode(t *testing.T) {
 	}
 }
 
+// A server named like the auto group, and two servers with one name, still come out as
+// their own entries: INCY treats equal remarks as one server.
+func TestXrayConfigsRemarksStayDistinct(t *testing.T) {
+	c, err := presets.NewConfig("vless_reality_vision", "www.example.com:443")
+	if err != nil {
+		t.Fatal(err)
+	}
+	in := func(id int64, port, display string) db.Inbound {
+		return db.Inbound{ID: id, NodeID: 1, Name: "vless", DisplayName: display, Preset: "vless_reality_vision", Port: port, Enabled: 1, Config: c}
+	}
+	prof := Profile{
+		Slot: db.Slot{Name: "s000001", Uuid: "0b4ddc4c-7c4f-4a36-9d62-6f1a44b8c4e1", Secret: "S3cr3t"},
+		Inbounds: []db.Inbound{
+			in(1, "8443", "Авто"),
+			in(2, "8444", "Авто"),
+			in(3, "8445", "Германия"),
+		},
+		Nodes: []Node{{ID: 1, Endpoint: Endpoint{Host: "203.0.113.7"}}},
+	}
+	cfgs := xrayConfigs(t, prof, Groups{}, RoutingAll)
+	if len(cfgs) != 4 {
+		t.Fatalf("%d configs, want the auto entry and three servers", len(cfgs))
+	}
+	seen := map[string]bool{}
+	for _, cfg := range cfgs {
+		if cfg.Remarks == "" || seen[cfg.Remarks] {
+			t.Fatalf("remarks %q in %v", cfg.Remarks, seen)
+		}
+		seen[cfg.Remarks] = true
+		if str(cfg.Outbounds[0]["tag"]) != cfg.Remarks {
+			t.Fatalf("remarks %q, tag %q", cfg.Remarks, cfg.Outbounds[0]["tag"])
+		}
+	}
+	if !seen["Авто"] || !seen["Германия"] {
+		t.Fatalf("remarks: %v", seen)
+	}
+}
+
 // Nothing of the profile is an outbound Xray has: the caller serves the link list instead
 // of a config INCY would fail to start.
 func TestXrayConfigsWithoutXrayServers(t *testing.T) {
@@ -515,9 +567,10 @@ func TestXrayConfigsManyServers(t *testing.T) {
 		t.Fatalf("the body is %d bytes", len(raw))
 	}
 	auto := cfgs[0]
-	if got := str(auto.Outbounds[0]["tag"]); got != "Auto" {
-		t.Fatalf("the first outbound: %q", got)
+	if got := str(auto.Outbounds[0]["tag"]); got != "Auto" || auto.Remarks != "Auto" {
+		t.Fatalf("the first outbound: %q remarks %q", got, auto.Remarks)
 	}
+	remarks := map[string]bool{auto.Remarks: true}
 	seen := map[string]bool{}
 	for _, o := range auto.Outbounds {
 		tag := str(o["tag"])
@@ -525,6 +578,15 @@ func TestXrayConfigsManyServers(t *testing.T) {
 			t.Fatalf("duplicate tag %q", tag)
 		}
 		seen[tag] = true
+	}
+	for _, c := range cfgs[1:] {
+		if c.Remarks == "" || remarks[c.Remarks] || str(c.Outbounds[0]["tag"]) != c.Remarks {
+			t.Fatalf("server remarks %q", c.Remarks)
+		}
+		remarks[c.Remarks] = true
+	}
+	if len(remarks) != 51 {
+		t.Fatalf("%d distinct remarks", len(remarks))
 	}
 	// The auto group is off for every server: all of them are in the balancer, as the
 	// Clash profile does when the switches are all off.
@@ -594,6 +656,13 @@ func TestINCYFullConfigDelivery(t *testing.T) {
 	}
 	if len(cfgs) < 2 || len(cfgs[0].Routing.Balancers) == 0 || cfgs[0].Observatory == nil {
 		t.Fatalf("not the balancer array: %d configs", len(cfgs))
+	}
+	shown := map[string]bool{}
+	for _, c := range cfgs {
+		if c.Remarks == "" || shown[c.Remarks] {
+			t.Fatalf("INCY would collapse remarks %q", c.Remarks)
+		}
+		shown[c.Remarks] = true
 	}
 	// The seeded Hysteria2 inbound is not in the configs: the VLESS and Trojan ones are.
 	for _, c := range cfgs {
