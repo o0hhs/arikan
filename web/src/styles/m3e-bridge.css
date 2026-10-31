@@ -29,7 +29,20 @@ html[data-m3e="sync"] .glass-strong {
   backdrop-filter: none;
 }
 
+/* Admin density: a medium control is 40px, not the 56px expressive default that turns an
+   icon-only action into a large circle. */
+m3e-button {
+  --m3e-button-container-height: 40px;
+  --m3e-button-small-container-height: 40px;
+  --m3e-button-extra-small-container-height: 32px;
+  --m3e-button-medium-container-height: 40px;
+}
 m3e-button.btn-block { width: 100%; }
+@media (max-width: 760px) {
+  /* The label was hidden to save a row; inside an m3e button that leaves a round blob. */
+  .top-actions m3e-button span,
+  .top-actions a.btn span { display: inline !important; }
+}
 m3e-button.is-danger {
   --md-sys-color-primary: var(--md-sys-color-error);
   --md-sys-color-on-primary: var(--md-sys-color-on-error);
@@ -69,17 +82,70 @@ m3e-card.card.sel { box-shadow: 0 0 0 2px var(--md-primary); }
 
 m3e-linear-progress-indicator { display: block; width: 100%; min-width: 0; }
 m3e-chip { vertical-align: middle; }
+m3e-chip.pill { --m3e-chip-container-height: 26px; }
+m3e-chip.pill::before { content: none; }
+.pill-dot { display: inline-block; width: 6px; height: 6px; margin-inline-end: 6px; border-radius: 999px; background: currentColor; flex: none; }
 m3e-avatar { flex: none; }
 
-.sidebar m3e-nav-rail {
-  flex: 1;
+/* The side list fills the drawer and scrolls on its own, so the server card never covers it. */
+.sidebar {
+  gap: 10px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+.sidebar m3e-nav-menu.side-nav,
+.sidebar m3e-nav-menu-item {
+  --m3e-nav-menu-item-height: 36px;
+}
+.sidebar m3e-nav-menu.side-nav {
+  flex: 1 1 auto;
   min-height: 0;
   width: 100%;
-  --m3e-nav-rail-expanded-width: 100%;
-  --m3e-nav-rail-compact-width: 100%;
-  overflow: auto;
 }
-m3e-nav-item .nav-count { margin-left: 8px; }
+m3e-card.node-card {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  --m3e-filled-card-container-color: var(--md-surface-container-low);
+  --m3e-card-padding: 12px;
+}
+.metric { min-width: 0; }
+.metric-net {
+  font: 600 13px/18px var(--font-ui-stack);
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+.opt-center { align-items: center; justify-content: center; text-align: center; min-height: 48px; }
+
+/* Segment labels stay whole. Equal columns were clipping "С датой и временем". */
+m3e-segmented-button {
+  display: inline-flex;
+  max-width: 100%;
+  flex-wrap: wrap;
+  width: auto;
+}
+m3e-button-segment {
+  flex: 0 0 auto !important;
+  min-width: max-content !important;
+}
+
+@media (min-width: 1024px) {
+  html[data-m3e="sync"] .section-layout { grid-template-columns: 300px minmax(0, 1fr); }
+}
+.section-nav,
+.section-nav m3e-nav-menu-item {
+  --m3e-nav-menu-item-height: 40px;
+}
+.section-nav [slot="label"] { white-space: normal; }
+
+m3e-dialog { --m3e-dialog-max-width: min(520px, calc(100vw - 32px)); }
+
+.lang-switch m3e-button {
+  --m3e-button-extra-small-leading-space: 12px;
+  --m3e-button-extra-small-trailing-space: 12px;
+  --m3e-button-leading-space: 12px;
+  --m3e-button-trailing-space: 12px;
+}
 
 m3e-nav-bar.m3e-mnav { display: none; }
 @media (max-width: 1023px) {

@@ -172,7 +172,7 @@ export function TrafficChart({
           return (
             <g key={k}>
               <line x1={PAD.l} x2={W - PAD.r} y1={g.y(v)} y2={g.y(v)} stroke="var(--hairline)" />
-              <text x={PAD.l - 10} y={g.y(v) + 4} textAnchor="end" className="fill-[var(--ink-400)] text-[11px]">
+              <text x={PAD.l - 8} y={g.y(v) + 4} textAnchor="end" fill="var(--ink-400)" fontSize="13" style={{ fontSize: "13px" }}>
                 {k === 0 ? "0" : bytes(v)}
               </text>
             </g>
@@ -180,7 +180,7 @@ export function TrafficChart({
         })}
         {points.map((p, i) =>
           i % tickEvery === 0 || i === g.n - 1 ? (
-            <text key={p.t} x={g.x(i)} y={H - 6} textAnchor={i === 0 ? "start" : i === g.n - 1 ? "end" : "middle"} className="fill-[var(--ink-400)] text-[11px]">
+            <text key={p.t} x={g.x(i)} y={H - 8} textAnchor={i === 0 ? "start" : i === g.n - 1 ? "end" : "middle"} fill="var(--ink-400)" fontSize="13" style={{ fontSize: "13px" }}>
               {label(p.t)}
             </text>
           ) : null,

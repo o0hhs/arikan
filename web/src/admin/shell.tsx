@@ -2,7 +2,7 @@ import { M3eCard } from "@m3e/react/card";
 import { M3eIconButton } from "@m3e/react/icon-button";
 import { M3eMenu, M3eMenuItem, M3eMenuTrigger } from "@m3e/react/menu";
 import { M3eNavBar, M3eNavItem } from "@m3e/react/nav-bar";
-import { M3eNavRail } from "@m3e/react/nav-rail";
+import { M3eNavMenu, M3eNavMenuItem } from "@m3e/react/nav-menu";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import { ArrowUpCircle, BarChart3, ClipboardCheck, LayoutDashboard, LogOut, MoreHorizontal, Network, PanelLeftClose, PanelLeftOpen, Puzzle, ScrollText, Search, SlidersHorizontal, Tag, Users, Wallet, Workflow } from "lucide-react";
@@ -17,7 +17,6 @@ import { useToast } from "../components/toast";
 import { Avatar, Bar, Pill } from "../components/ui";
 import { t, useLocale, type Key } from "../i18n";
 import { num, uptime } from "../lib/format";
-import { useMediaQuery } from "../lib/media";
 import { SupportBar } from "./support-bar";
 import type { Permission } from "./roles";
 
@@ -72,7 +71,6 @@ export function Shell() {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const [folded, setFolded] = useState(readFolded);
   const navigate = useNavigate();
-  const desk = useMediaQuery("(min-width: 1280px)");
   const fold = () =>
     setFolded((f) => {
       try {
@@ -96,18 +94,18 @@ export function Shell() {
               {folded ? <PanelLeftOpen size={18} aria-hidden /> : <PanelLeftClose size={18} aria-hidden />}
             </M3eIconButton>
           </div>
-          <M3eNavRail className="nav" mode={desk && !folded ? "expanded" : "compact"} aria-label={t("shell.sections")}>
+          <M3eNavMenu className="nav side-nav" aria-label={t("shell.sections")}>
             {nav.map((n) => {
               const on = sectionActive(n, path);
               return (
-                <M3eNavItem key={n.to} selected={on} aria-current={on ? "page" : undefined} title={t(`nav.${n.key}` as Key)} onClick={() => void navigate({ to: n.to })}>
-                  <n.icon slot="icon" size={22} aria-hidden />
-                  <span className="nav-label">{t(`nav.${n.key}` as Key)}</span>
-                  {n.to === "/users" && overview.data ? <span className="nav-count num">{num(overview.data.users_total)}</span> : null}
-                </M3eNavItem>
+                <M3eNavMenuItem key={n.to} selected={on} aria-current={on ? "page" : undefined} title={t(`nav.${n.key}` as Key)} onClick={() => void navigate({ to: n.to })}>
+                  <n.icon slot="icon" size={20} aria-hidden />
+                  <span slot="label" className="nav-label">{t(`nav.${n.key}` as Key)}</span>
+                  {n.to === "/users" && overview.data ? <span slot="badge" className="nav-count num">{num(overview.data.users_total)}</span> : null}
+                </M3eNavMenuItem>
               );
             })}
-          </M3eNavRail>
+          </M3eNavMenu>
           <div className="side-foot">
             <UpdateChip />
             <NodeCard />
@@ -199,7 +197,7 @@ function NodeCard() {
   }
   const memPct = n.system.mem_total ? (n.system.mem_used / n.system.mem_total) * 100 : 0;
   return (
-    <M3eCard variant="outlined" className="node-card">
+    <M3eCard variant="filled" className="node-card">
       <div slot="content">
         <div className="node-top">
           <span className="node-name">{t("shell.server")}</span>

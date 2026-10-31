@@ -57,7 +57,7 @@ export function Button({
       }}
       type={type === "submit" || type === "reset" ? type : "button"}
       variant={v}
-      size={size === "sm" ? "small" : "medium"}
+      size={size === "sm" ? "extra-small" : "small"}
       className={clsx(block && "btn-block", danger && "is-danger", className)}
       disabled={disabled || loading}
       aria-busy={loading || undefined}
@@ -99,6 +99,7 @@ const pillTone: Record<"ok" | "warn" | "bad" | "off", CSSProperties> = {
 export function Pill({ tone, children }: { tone: "ok" | "warn" | "bad" | "off"; children: ReactNode }) {
   return (
     <M3eChip variant="elevated" className={clsx("pill", tone)} style={pillTone[tone]}>
+      <i className="pill-dot" aria-hidden />
       {children}
     </M3eChip>
   );
