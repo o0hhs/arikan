@@ -124,6 +124,24 @@ func TestTurnSupervisorReportsACrashAndBacksOff(t *testing.T) {
 	waitTurn(t, "the next try", func() bool { return s.Status().Restarts >= 2 })
 }
 
+// Stopping the node has to stop the child. A signal to the node alone leaves it running,
+// and the port it holds is busy when the node is started again.
+func TestTurnStopKillsTheServer(t *testing.T) {
+	bin := fakeTurnServer(t, "trap 'exit 0' TERM\nsleep 60")
+	s := newTurnSupervisor(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	t.Cleanup(s.Stop)
+	s.Apply(&nodeapi.Turn{Listen: "0.0.0.0:56000", Target: "127.0.0.1:8443", Binary: bin})
+	waitTurn(t, "the server", func() bool { return s.Status().Running })
+	s.Stop()
+	if s.Status().Running || s.Status().Configured {
+		t.Fatalf("after Stop: %+v", s.Status())
+	}
+	s.Tick()
+	if s.Status().Running {
+		t.Fatal("a stopped supervisor started the server again")
+	}
+}
+
 func TestTurnSupervisorWithoutABinary(t *testing.T) {
 	s := newTestTurn()
 	s.Apply(&nodeapi.Turn{Listen: "0.0.0.0:56000", Target: "127.0.0.1:8443",

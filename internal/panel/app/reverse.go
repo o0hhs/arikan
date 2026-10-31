@@ -97,6 +97,13 @@ func (t *tunnels) Open(ctx context.Context, id int64) (net.Conn, bool) {
 	if !live || sess == nil {
 		return nil, false
 	}
+	// A tunnel that accepts the connection and then says nothing must not spend the whole
+	// call: health is five seconds, and whatever is left is the direct path, which is how
+	// a node whose API port works is reached while its tunnel is wedged.
+	budget := tunnelBudget(ctx)
+	if budget < 200*time.Millisecond {
+		return nil, false
+	}
 	c.mu.Lock()
 	if c.open >= tunnelMaxStreams {
 		c.mu.Unlock()
@@ -104,7 +111,7 @@ func (t *tunnels) Open(ctx context.Context, id int64) (net.Conn, bool) {
 	}
 	c.open++
 	c.mu.Unlock()
-	octx, cancel := context.WithTimeout(ctx, tunnelOpen)
+	octx, cancel := context.WithTimeout(ctx, budget)
 	defer cancel()
 	st, err := sess.OpenStream(octx)
 	if err != nil {
@@ -255,6 +262,20 @@ func (t *tunnels) nodeOfPin(ctx context.Context, pin string) (int64, error) {
 		}
 	}
 	return 0, nil
+}
+
+// tunnelBudget is how long Open may wait for a stream. When the caller already has a
+// deadline no longer than tunnelOpen, half of what remains is kept for a direct dial.
+func tunnelBudget(ctx context.Context) time.Duration {
+	budget := tunnelOpen
+	d, ok := ctx.Deadline()
+	if !ok {
+		return budget
+	}
+	if left := time.Until(d); left <= budget {
+		budget = left / 2
+	}
+	return budget
 }
 
 // tunnelMux is the panel's yamux configuration: the node may open no stream at all, and a

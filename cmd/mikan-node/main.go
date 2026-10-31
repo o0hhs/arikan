@@ -97,6 +97,9 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	// The TURN child and the background checks outlive the process otherwise: SIGTERM
+	// returns from here, and a child left behind keeps its port.
+	defer eng.Close()
 	if redirect {
 		eng.Challenge.SetRedirect(true)
 		// A web server of the admin's may hold the port; the challenges then come through it

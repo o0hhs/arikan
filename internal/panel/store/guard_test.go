@@ -10,6 +10,7 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
 )
@@ -54,6 +55,52 @@ func TestMigrateAndRestoreRefuseALivePanel(t *testing.T) {
 	}
 	if _, err := Migrate(ctx, dsn, dir); err != nil {
 		t.Fatal("migrate after the panel stopped:", err)
+	}
+}
+
+// PostgreSQL dropping the session (a restart) drops the advisory lock with it. The panel
+// takes it again, so migrate and restore stay refused without a restart of the panel.
+func TestPanelGuardIsTakenAgainAfterTheSessionDies(t *testing.T) {
+	ctx := context.Background()
+	s, err := OpenTest(ctx, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	release, err := LockPanel(ctx, fixtureDSN(t, s))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer release()
+	var pid int
+	err = s.DB.QueryRowContext(ctx, `
+		SELECT l.pid FROM pg_locks l
+		WHERE l.locktype = 'advisory' AND l.granted AND l.mode = 'ShareLock'
+		  AND l.database = (SELECT oid FROM pg_database WHERE datname = current_database())`).Scan(&pid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.DB.ExecContext(ctx, "SELECT pg_terminate_backend($1)", pid); err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(15 * time.Second)
+	for {
+		c, err := s.DB.Conn(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		unlock, err := lockOffline(ctx, c)
+		if unlock != nil {
+			unlock()
+		}
+		c.Close()
+		if err != nil && strings.Contains(err.Error(), "the panel is running") {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("the guard was not taken again: %v", err)
+		}
+		time.Sleep(200 * time.Millisecond)
 	}
 }
 

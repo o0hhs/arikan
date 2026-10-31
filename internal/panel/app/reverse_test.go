@@ -127,6 +127,42 @@ func TestNodeTunnel(t *testing.T) {
 	}
 }
 
+// A tunnel that takes the connection and then says nothing must leave time to dial the
+// node directly. Health's whole budget used to be spent waiting on that stream.
+func TestTunnelOpenLeavesTimeForTheDirectPath(t *testing.T) {
+	a, b := net.Pipe()
+	defer a.Close()
+	defer b.Close()
+	sess, err := yamux.Client(a, tunnelMux(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer sess.Close()
+	tn := &tunnels{now: time.Now, byID: map[int64]*tunnel{7: {node: 7, conn: a, sess: sess, live: true}}}
+	// The backlog is one stream. The first is accepted locally; the peer never takes it, so
+	// the next open waits. That wait used to be the call's whole deadline.
+	first, cancelFirst := context.WithTimeout(context.Background(), time.Second)
+	defer cancelFirst()
+	st, ok := tn.Open(first, 7)
+	if !ok {
+		t.Fatal("the first stream did not open")
+	}
+	defer st.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	start := time.Now()
+	if _, ok := tn.Open(ctx, 7); ok {
+		t.Fatal("a tunnel that never answers opened a second stream")
+	}
+	elapsed := time.Since(start)
+	if elapsed < 1500*time.Millisecond || elapsed > 4*time.Second {
+		t.Fatalf("waited %s, want about half of the 5s call so the direct dial still fits", elapsed)
+	}
+	if ctx.Err() != nil {
+		t.Fatal("no time left to dial the node directly")
+	}
+}
+
 // A certificate the panel does not know is refused; a plain request without the tunnel's ALPN
 // never reaches the route and is answered like any unknown path; a matching certificate gets
 // the tunnel.

@@ -185,6 +185,38 @@ func TestReverseTunnelServesTheAPI(t *testing.T) {
 	_ = st.Close()
 }
 
+// The node stopping closes the tunnel it opened. Left to the session, AcceptStream waits
+// until the panel drops the connection, which on SIGTERM is never: the process is gone
+// only after this returns.
+func TestReverseTunnelStopsWhenTheNodeStops(t *testing.T) {
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	panelTLSPair, _ := nodetls.Generate("panel-https", x509.ExtKeyUsageServerAuth, time.Now())
+	nodePair, _ := nodetls.Generate("node", x509.ExtKeyUsageServerAuth, time.Now())
+	nodeCert, _ := tls.X509KeyPair([]byte(nodePair.CertPEM), []byte(nodePair.KeyPEM))
+	panel := newReflectPanel(t, panelTLSPair)
+	defer panel.stop()
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		RunReverseTunnel(ctx, ReverseTunnel{
+			URL:     "https://" + panel.addr,
+			Client:  &tls.Config{MinVersion: tls.VersionTLS12, Certificates: []tls.Certificate{nodeCert}, InsecureSkipVerify: true, NextProtos: []string{nodeapi.TunnelALPN}},
+			Server:  &tls.Config{MinVersion: tls.VersionTLS12, Certificates: []tls.Certificate{nodeCert}},
+			Handler: http.NotFoundHandler(),
+			Log:     log,
+		})
+		close(done)
+	}()
+	sess := panel.session(t)
+	defer sess.Close()
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("the tunnel kept running after the node was told to stop")
+	}
+}
+
 // The node reconnects when the panel comes back: the tunnel is not a one-shot.
 func TestReverseTunnelReconnects(t *testing.T) {
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
