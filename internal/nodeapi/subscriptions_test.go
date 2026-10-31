@@ -13,8 +13,15 @@ func TestSubFormatPicksByQueryAgentAndAccept(t *testing.T) {
 		{"", "clash-verge/v2.0.0", "", SubFormatClash},
 		{"", "ClashMetaForAndroid/2.11.1.Meta", "", SubFormatClash},
 		{"", "Stash/2.7.0", "", SubFormatClash},
-		{"", "SFI/1.11.0 (sing-box 1.11.0)", "", SubFormatSingBox},
-		{"", "SFA/1.10.0", "", SubFormatSingBox},
+		{"", "SFI/1.11.0 (sing-box 1.11.0)", "", SubFormatURI}, // a 1.12 config would not load
+		{"", "SFA/1.10.0", "", SubFormatURI},
+		{"", "SFA/1.12.4", "", SubFormatSingBox},
+		{"", "SFA (sing-box 1.14.2; language en_US)", "", SubFormatSingBox},
+		{"", "Karing/1.2.26 platform/tvos sing-box 1.14.0", "", SubFormatURI},
+		{"", "HiddifyNext/2.5.7 (android) like ClashMeta v2ray sing-box", "", SubFormatURI},
+		{"", "Prizrak-Box/1.4.2", "", SubFormatClash},
+		{"", "Murge/2.0", "", SubFormatClash},
+		{"", "Rabbit/1.1", "", SubFormatClash},
 		{"", "Hiddify/2.0", "", SubFormatURI},
 		{"", "Happ/3.0", "", SubFormatURI},
 		{"", "Mozilla/5.0", "text/html,application/xhtml+xml", SubFormatHTML},
@@ -35,7 +42,7 @@ func TestPickSubBodyFallsBackToTheLinks(t *testing.T) {
 		t.Fatalf("clash: %+v %v", b, ok)
 	}
 	// The app asks for a format the record does not carry: the links, which every app reads.
-	b, ok = PickSubBody(all, "", "SFI/1.11", "")
+	b, ok = PickSubBody(all, "", "SFA (sing-box 1.14.2)", "")
 	if !ok || b.Format != SubFormatURI {
 		t.Fatalf("sing-box without a body: %+v %v", b, ok)
 	}

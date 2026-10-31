@@ -225,6 +225,30 @@ func TestGoldenSingBox(t *testing.T) {
 	}
 }
 
+// The full Xray config INCY gets with autoselect on: the same users, in every routing mode.
+// A missing remarks field, or two configs sharing one, is how the server list collapsed
+// to a single "Авто" entry.
+func TestGoldenXray(t *testing.T) {
+	for _, v := range []struct {
+		name   string
+		base   func(*testing.T) Profile
+		groups Groups
+	}{
+		{"single-plain", goldenSingle, Groups{}},
+		{"multi-plain", goldenMulti, Groups{}},
+	} {
+		for _, mode := range goldenModes {
+			t.Run(v.name+"/"+string(mode), func(t *testing.T) {
+				raw, err := XrayConfigs(goldenProfile(t, v.base, false, App{}), v.groups, mode)
+				if err != nil {
+					t.Fatal(err)
+				}
+				golden(t, v.name+"_"+string(mode)+".xray.json", append(raw, '\n'))
+			})
+		}
+	}
+}
+
 // The share links, which do not depend on the mode: one list for each user.
 func TestGoldenURIs(t *testing.T) {
 	for _, v := range goldenVariants {

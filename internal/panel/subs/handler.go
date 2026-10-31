@@ -301,7 +301,7 @@ func (h *Handler) serveProfile(w http.ResponseWriter, r *http.Request, u db.User
 	h.operatorHeaders(w, r, u, cfg)
 	// The full config is INCY's alone, and only when it asks for the link format: every
 	// other app, and a forced ?format=, keeps what it got before.
-	serveXray := cfg.INCYAuto && format == "uri" && IsINCY(r.UserAgent())
+	serveXray := incyFullConfig(cfg.INCYAuto, format, r.UserAgent())
 	switch ua := r.UserAgent(); {
 	case IsINCY(ua):
 		// INCY reads Happ's routing profile from the same header (docs.incy.cc/en/routing),
@@ -967,10 +967,17 @@ func (h *Handler) stub(w http.ResponseWriter, u db.User, cfg Config, format stri
 // the app's core can run, not about the format).
 var linkApps = []string{"streisand", "shadowrocket", "foxray"}
 
+// incyFullConfig is the full Xray body. The switch is INCY-only and uri-only: a forced
+// ?format=, and every other app, keeps the body it had before the switch existed.
+func incyFullConfig(on bool, format, userAgent string) bool {
+	return on && format == "uri" && IsINCY(userAgent)
+}
+
 // Format picks the response format: explicit ?format= wins, then the client's User-Agent,
-// by the family DetectApp makes of it, so the two never disagree about an app.
+// by the family DetectApp makes of it, so the two never disagree about an app. The node's
+// SubFormat mirrors this; TestFormatAgreesWithTheNode keeps the two from drifting.
 func Format(userAgent, accept, query string) string {
-	switch strings.ToLower(query) {
+	switch strings.ToLower(strings.TrimSpace(query)) {
 	case "clash", "mihomo", "yaml":
 		return "clash"
 	case "uri", "v2ray", "base64":
@@ -998,7 +1005,7 @@ func Format(userAgent, accept, query string) string {
 			return "uri"
 		}
 	}
-	if strings.Contains(accept, "text/html") {
+	if strings.Contains(strings.ToLower(accept), "text/html") {
 		return "html"
 	}
 	return "uri"

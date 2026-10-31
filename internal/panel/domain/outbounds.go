@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"net"
 	"net/netip"
 	"net/url"
 	"slices"
@@ -14,6 +15,8 @@ import (
 	"time"
 	"unicode"
 	"unicode/utf8"
+
+	"golang.org/x/net/idna"
 
 	"mikan/internal/panel/store/db"
 )
@@ -92,7 +95,10 @@ func cleanOutboundName(name string) string {
 // only as "no internet". own are the panel's and its nodes' addresses.
 func CheckOutboundLink(raw string, own []string) (OutboundLink, error) {
 	l := OutboundLink{Link: strings.TrimSpace(raw)}
-	if l.Link == "" || len(l.Link) > MaxOutboundLink || strings.ContainsAny(l.Link, "\n\r\t ") {
+	// PostgreSQL rejects text that is not UTF-8, so a link of bad bytes would fail the
+	// insert instead of being told as a bad link. A host that is not a URI authority
+	// ("%") is the same: the node has nothing it can dial.
+	if l.Link == "" || len(l.Link) > MaxOutboundLink || strings.ContainsAny(l.Link, "\n\r\t ") || !utf8.ValidString(l.Link) {
 		return OutboundLink{}, ErrOutboundLink
 	}
 	scheme, _, ok := strings.Cut(l.Link, "://")
@@ -103,7 +109,12 @@ func CheckOutboundLink(raw string, own []string) (OutboundLink, error) {
 	if !slices.Contains(outboundSchemes, l.Kind) {
 		return OutboundLink{}, ErrOutboundLink
 	}
-	l.Name, l.Host = outboundRemark(l.Link), outboundHost(l.Kind, l.Link)
+	// The remark is cleaned here, not only when it is saved: a fragment "%80" unescapes
+	// to a byte that is not UTF-8, and that name cannot be stored or shown.
+	l.Name, l.Host = cleanOutboundName(outboundRemark(l.Link)), outboundHost(l.Kind, l.Link)
+	if l.Host != "" && !outboundHostOK(l.Host) {
+		return OutboundLink{}, ErrOutboundLink
+	}
 	if l.Host != "" && ownHost(l.Host, own) {
 		return OutboundLink{}, ErrOutboundSelf
 	}
@@ -135,6 +146,23 @@ func ownHost(host string, own []string) bool {
 		}
 	}
 	return false
+}
+
+// outboundHostOK: the address can stand in a URI, so the node has something to dial.
+// A domain in another script is written in ASCII first; an address that still does not
+// parse ("%") is refused.
+func outboundHostOK(h string) bool {
+	if h == "" || !utf8.ValidString(h) {
+		return false
+	}
+	if _, err := netip.ParseAddr(h); err == nil {
+		return true
+	}
+	if ascii, err := idna.Lookup.ToASCII(h); err == nil && ascii != "" {
+		h = ascii
+	}
+	u, err := url.Parse("https://" + net.JoinHostPort(h, "1") + "/")
+	return err == nil && u.Hostname() == h
 }
 
 func splitHostMaybePort(s string) (string, string, error) {
