@@ -5,9 +5,9 @@ import { usePerf } from "../lib/perf";
 /**
  * The panel's pages are a Vite React app embedded in the Go binary. M3E is bundled with that
  * app (not loaded from a CDN — the panel's CSP only allows scripts and fonts from itself).
- * One theme element wraps each document: dynamic color from the palette the admin already
- * picked, the expressive color variant, and expressive motion unless this browser asked for
- * the performance mode or less motion.
+ * One theme element wraps each document: dynamic color from a seed, the tonal-spot
+ * variant (the same-hue palette the m3e docs use), and expressive motion unless this
+ * browser asked for the performance mode or less motion.
  *
  * `sync` copies the generated roles onto the tokens the pages already read, so every screen
  * follows the theme. The public subscription page leaves `sync` off: its look is the one the
@@ -51,28 +51,46 @@ function token(el: HTMLElement, name: string): string {
   return getComputedStyle(el).getPropertyValue(name).trim();
 }
 
-function toHex(value: string): string | null {
-  const v = value.trim();
-  if (/^#[0-9a-fA-F]{6}$/.test(v)) return v;
-  if (/^#[0-9a-fA-F]{3}$/.test(v)) return `#${v[1]}${v[1]}${v[2]}${v[2]}${v[3]}${v[3]}`;
-  const m = v.match(/^rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/i);
-  if (!m) return null;
-  const h = (n: string) => Number(n).toString(16).padStart(2, "0");
-  return `#${h(m[1]!)}${h(m[2]!)}${h(m[3]!)}`;
-}
+/** Brand hues. m3e builds the tonal palette from the hue; a dark theme must not feed it the already-lightened primary. */
+const SEEDS: Record<string, string> = {
+  mikan: "#6750A4",
+  midnight: "#6750A4",
+  ocean: "#137D90",
+  sakura: "#C94676",
+  forest: "#277A3C",
+  latte: "#8839EF",
+  snow: "#5E81AC",
+  dawn: "#286983",
+  dune: "#C2562D",
+  graphite: "#8E8E93",
+  abyss: "#36D0E0",
+  ember: "#F2B443",
+  plum: "#FF7EAB",
+  moss: "#6AAA3A",
+  nord: "#88C0D0",
+  mocha: "#CBA6F7",
+  tokyo: "#7AA2F7",
+  dracula: "#FF79C6",
+  aurora: "#5EF2B8",
+  cosmos: "#E6C15A",
+  terminal: "#4AF07F",
+  material: "#6750A4",
+  "material-dark": "#6750A4",
+  "material-blue": "#0B57D0",
+  "material-blue-dark": "#0B57D0",
+  "material-teal": "#006A6A",
+  "material-teal-dark": "#006A6A",
+  "material-green": "#386A20",
+  "material-green-dark": "#386A20",
+  "material-rose": "#9C4146",
+  "material-rose-dark": "#9C4146",
+  "material-expressive": "#6750A4",
+  "material-expressive-dark": "#6750A4",
+};
 
-/** The active palette's primary, read off a probe so a later inline role does not feed itself back in. */
 function seedColor(): string {
-  const root = document.documentElement;
-  const probe = document.createElement("div");
-  probe.setAttribute("data-theme", root.dataset.theme || "mikan");
-  probe.setAttribute("data-tone", root.dataset.tone || "light");
-  if (root.dataset.scheme) probe.setAttribute("data-scheme", root.dataset.scheme);
-  probe.style.cssText = "position:absolute;left:-9999px;visibility:hidden";
-  document.body.appendChild(probe);
-  const raw = getComputedStyle(probe).getPropertyValue("--md-primary") || getComputedStyle(probe).getPropertyValue("--mikan-600");
-  probe.remove();
-  return toHex(raw) ?? toHex(getComputedStyle(root).getPropertyValue("--md-primary")) ?? "#6750A4";
+  const theme = document.documentElement.dataset.theme || "mikan";
+  return SEEDS[theme] ?? "#F07A2E";
 }
 
 function schemeOf(): "light" | "dark" {
@@ -137,14 +155,15 @@ function syncTokens(theme: HTMLElement) {
 export function M3eRoot({ sync = false, children }: { sync?: boolean; children: ReactNode }) {
   const ref = useRef<M3eThemeElement>(null);
   const [perf] = usePerf();
+  const docTheme = typeof document !== "undefined" && document.getElementById("root")?.tagName === "M3E-THEME";
   useEffect(() => {
-    const theme = ref.current;
+    const theme = (docTheme ? document.getElementById("root") : ref.current) as M3eThemeElement | null;
     if (!theme) return;
     const root = document.documentElement;
     if (sync) root.dataset.m3e = "sync";
     else delete root.dataset.m3e;
     const apply = () => {
-      theme.variant = "expressive";
+      theme.variant = "tonal-spot";
       theme.strongFocus = true;
       theme.density = 0;
       const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
@@ -166,8 +185,9 @@ export function M3eRoot({ sync = false, children }: { sync?: boolean; children: 
       mo.disconnect();
     };
   }, [perf, sync]);
+  if (docTheme) return children;
   return (
-    <M3eTheme ref={ref} variant="expressive" motion="expressive" scheme="light" color="#6750A4" strongFocus>
+    <M3eTheme ref={ref} variant="tonal-spot" motion="expressive" scheme="light" color="#6750A4" strongFocus>
       {children}
     </M3eTheme>
   );

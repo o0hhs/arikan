@@ -1,11 +1,12 @@
 import { M3eCard } from "@m3e/react/card";
+import { M3eIcon } from "@m3e/react/icon";
 import { M3eIconButton } from "@m3e/react/icon-button";
 import { M3eMenu, M3eMenuItem, M3eMenuTrigger } from "@m3e/react/menu";
 import { M3eNavBar, M3eNavItem } from "@m3e/react/nav-bar";
 import { M3eNavMenu, M3eNavMenuItem } from "@m3e/react/nav-menu";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
-import { ArrowUpCircle, BarChart3, ClipboardCheck, LayoutDashboard, LogOut, MoreHorizontal, Network, PanelLeftClose, PanelLeftOpen, Puzzle, ScrollText, Search, SlidersHorizontal, Tag, Users, Wallet, Workflow } from "lucide-react";
+import { ArrowUpCircle } from "lucide-react";
 import { useState } from "react";
 import { api, ApiError, errorText, unwrap } from "../api/client";
 import { meQuery, useNode, useOverview, useUpdates } from "../api/hooks";
@@ -21,22 +22,22 @@ import { SupportBar } from "./support-bar";
 import type { Permission } from "./roles";
 
 type NavRoles = readonly ("superadmin" | "support" | "tech")[];
-type NavItem = { to: string; key: string; icon: typeof LayoutDashboard; roles?: NavRoles; permission?: Permission | readonly Permission[]; tabs?: readonly string[] };
+type NavItem = { to: string; key: string; icon: string; roles?: NavRoles; permission?: Permission | readonly Permission[]; tabs?: readonly string[] };
 const NAV: NavItem[] = [
-  { to: "/client", key: "client", icon: Search, roles: ["support"] as const, permission: "support.card" },
-  { to: "/", key: "overview", icon: LayoutDashboard, roles: ["superadmin"] as const, permission: "nodes.read" },
-  { to: "/analytics", key: "analytics", icon: BarChart3, roles: ["superadmin"] as const, permission: "billing.read" },
-  { to: "/users", key: "users", icon: Users, roles: ["superadmin"] as const, permission: "users.read" },
-  { to: "/tariffs", key: "tariffs", icon: Tag, roles: ["superadmin"] as const, permission: "billing.read" },
+  { to: "/client", key: "client", icon: "search", roles: ["support"] as const, permission: "support.card" },
+  { to: "/", key: "overview", icon: "dashboard", roles: ["superadmin"] as const, permission: "nodes.read" },
+  { to: "/analytics", key: "analytics", icon: "monitoring", roles: ["superadmin"] as const, permission: "billing.read" },
+  { to: "/users", key: "users", icon: "group", roles: ["superadmin"] as const, permission: "users.read" },
+  { to: "/tariffs", key: "tariffs", icon: "sell", roles: ["superadmin"] as const, permission: "billing.read" },
   // One section, one entry: the servers, the connections, the exits, the checks and the
   // node filter are tabs over their own routes (section-tabs.tsx).
-  { to: "/nodes", key: "nodes", icon: Network, roles: ["superadmin", "tech"] as const, permission: "nodes.read", tabs: ["/nodes", "/inbounds", "/outbounds", "/diagnostics", "/addons/filters"] },
-  { to: "/payments", key: "payments", icon: Wallet, roles: ["superadmin"] as const, permission: "billing.read" },
-  { to: "/automation", key: "automation", icon: Workflow, roles: ["superadmin"] as const, permission: "automation.read" },
-  { to: "/approvals", key: "approvals", icon: ClipboardCheck, roles: ["superadmin"] as const, permission: ["approvals.read", "approvals.decide"] },
-  { to: "/addons", key: "addons", icon: Puzzle, roles: ["superadmin"] as const },
-  { to: "/audit", key: "audit", icon: ScrollText, roles: ["superadmin", "tech"] as const, permission: "audit.read" },
-  { to: "/settings", key: "settings", icon: SlidersHorizontal, roles: ["superadmin"] as const, permission: "settings.read" },
+  { to: "/nodes", key: "nodes", icon: "dns", roles: ["superadmin", "tech"] as const, permission: "nodes.read", tabs: ["/nodes", "/inbounds", "/outbounds", "/diagnostics", "/addons/filters"] },
+  { to: "/payments", key: "payments", icon: "payments", roles: ["superadmin"] as const, permission: "billing.read" },
+  { to: "/automation", key: "automation", icon: "account_tree", roles: ["superadmin"] as const, permission: "automation.read" },
+  { to: "/approvals", key: "approvals", icon: "fact_check", roles: ["superadmin"] as const, permission: ["approvals.read", "approvals.decide"] },
+  { to: "/addons", key: "addons", icon: "extension", roles: ["superadmin"] as const },
+  { to: "/audit", key: "audit", icon: "history", roles: ["superadmin", "tech"] as const, permission: "audit.read" },
+  { to: "/settings", key: "settings", icon: "settings", roles: ["superadmin"] as const, permission: "settings.read" },
 ] as const;
 
 function navFor(role: string, permissions: string[]): NavItem[] {
@@ -91,7 +92,7 @@ export function Shell() {
             <Logo />
             <span className="brand-name">Arikan</span>
             <M3eIconButton className="fold-btn" onClick={fold} aria-label={foldLabel} title={foldLabel}>
-              {folded ? <PanelLeftOpen size={18} aria-hidden /> : <PanelLeftClose size={18} aria-hidden />}
+              <M3eIcon name={folded ? "left_panel_open" : "left_panel_close"} />
             </M3eIconButton>
           </div>
           <M3eNavMenu className="nav side-nav" aria-label={t("shell.sections")}>
@@ -99,7 +100,7 @@ export function Shell() {
               const on = sectionActive(n, path);
               return (
                 <M3eNavMenuItem key={n.to} selected={on} aria-current={on ? "page" : undefined} title={t(`nav.${n.key}` as Key)} onClick={() => void navigate({ to: n.to })}>
-                  <n.icon slot="icon" size={20} aria-hidden />
+                  <M3eIcon slot="icon" name={n.icon} />
                   <span slot="label" className="nav-label">{t(`nav.${n.key}` as Key)}</span>
                   {n.to === "/users" && overview.data ? <span slot="badge" className="nav-count num">{num(overview.data.users_total)}</span> : null}
                 </M3eNavMenuItem>
@@ -145,14 +146,14 @@ function MobileNav() {
           const on = sectionActive(n, path);
           return (
             <M3eNavItem key={n.to} selected={on} aria-current={on ? "page" : undefined} onClick={() => void navigate({ to: n.to })}>
-              <n.icon slot="icon" size={22} aria-hidden />
+              <M3eIcon slot="icon" name={n.icon} />
               {t(`navShort.${n.key}` as Key)}
             </M3eNavItem>
           );
         })}
         {more.length ? (
           <M3eNavItem selected={inMore} aria-label={t("shell.more")}>
-            <MoreHorizontal slot="icon" size={22} aria-hidden />
+            <M3eIcon slot="icon" name="more_horiz" />
             {t("shell.more")}
             <M3eMenuTrigger htmlFor="shell-more" />
           </M3eNavItem>
@@ -162,7 +163,7 @@ function MobileNav() {
         <M3eMenu id="shell-more">
           {more.map((n) => (
             <M3eMenuItem key={n.to} onClick={() => void navigate({ to: n.to })} aria-current={sectionActive(n, path) ? "page" : undefined}>
-              <n.icon slot="icon" size={16} aria-hidden />
+              <M3eIcon slot="icon" name={n.icon} />
               {t(`nav.${n.key}` as Key)}
             </M3eMenuItem>
           ))}
@@ -259,7 +260,7 @@ function AdminRow() {
         <div className="text-xs text-[var(--md-on-surface-variant)]">{me.data?.admin.totp_enabled ? t("shell.twoFactorOn") : t("shell.owner")}</div>
       </div>
       <M3eIconButton className="logout ml-auto" aria-label={t("shell.logout")} onClick={() => logout.mutate()} disabled={logout.isPending}>
-        <LogOut size={18} />
+        <M3eIcon name="logout" />
       </M3eIconButton>
     </div>
   );

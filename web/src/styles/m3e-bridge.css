@@ -1,19 +1,72 @@
 /*
- * Layout around the M3E components. The components paint themselves; this file only
- * makes the host boxes sit in the panel's layout and lets a slotted native field
- * use the form-field's outline instead of the old .input border.
+ * Layout around the M3E components, and the Material Symbols face m3e-icon draws with.
+ * The font is served from this bundle: the panel's CSP only allows fonts from itself.
  */
+@font-face {
+  font-family: "Material Symbols Outlined";
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: block;
+  src: url("../assets/fonts/material-symbols-outlined.woff2") format("woff2");
+}
 
 html[data-m3e="sync"] {
-  /* Expressive shape: larger corners than the compact scale, still one scale for every theme. */
+  --font-ui-stack: "Roboto Flex Variable", Roboto, system-ui, sans-serif;
+  --font-display-stack: "Roboto Flex Variable", Roboto, system-ui, sans-serif;
   --md-shape-xs: 8px;
   --md-shape-sm: 12px;
   --md-shape-md: 16px;
-  --md-shape-lg: 24px;
+  --md-shape-lg: 20px;
   --md-shape-lg-increased: 28px;
-  --md-shape-xl: 36px;
-  --md-shape-xl-increased: 44px;
-  --md-shape-xxl: 56px;
+  --md-shape-xl: 28px;
+  --md-shape-xl-increased: 36px;
+  --md-shape-xxl: 48px;
+}
+
+/* The page is the M3 surface. Cards are the lowest container, the way the m3e demos sit
+   white (or the dark step) on the tonal background. The old glow backdrop is the other look. */
+html[data-m3e="sync"] .atmo { display: none; }
+html[data-m3e="sync"] .app {
+  gap: 8px;
+  padding: 12px 20px 12px 8px;
+  background: transparent;
+  grid-template-columns: 248px minmax(0, 1fr);
+}
+html[data-m3e="sync"] .sidebar {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  padding: 8px 4px 12px;
+}
+html[data-m3e="sync"] :is(.card, .glass, .glass-strong, .dialog, .drawer):not(m3e-card) {
+  background: var(--md-sys-color-surface-container-lowest, var(--md-surface-container-lowest));
+  color: var(--md-sys-color-on-surface, var(--md-on-surface));
+  border: none;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border-radius: 28px;
+}
+html[data-m3e="sync"][data-tone="dark"] :is(.card, .glass, .glass-strong, .dialog, .drawer):not(m3e-card),
+html[data-m3e="sync"][data-scheme="dark"] :is(.card, .glass, .glass-strong, .dialog, .drawer):not(m3e-card) {
+  background: var(--md-sys-color-surface-container-high, var(--md-surface-container-high));
+}
+html[data-m3e="sync"] .page-appbar {
+  display: block;
+  width: 100%;
+  border-radius: 28px;
+  background: var(--md-sys-color-surface-container-lowest, var(--md-surface-container-lowest));
+}
+html[data-m3e="sync"][data-tone="dark"] .page-appbar,
+html[data-m3e="sync"][data-scheme="dark"] .page-appbar {
+  background: var(--md-sys-color-surface-container-high, var(--md-surface-container-high));
+}
+html[data-m3e="sync"] .brand-name {
+  font: 500 22px/28px var(--font-display-stack);
+  letter-spacing: 0;
 }
 
 /* Solid containers. The blur stays available for a theme that still wants glass; the

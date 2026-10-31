@@ -1,8 +1,8 @@
+import { M3eAppBar } from "@m3e/react/app-bar";
 import { M3eAvatar } from "@m3e/react/avatar";
 import { M3eButton, type M3eButtonElement } from "@m3e/react/button";
 import { M3eChip } from "@m3e/react/chips";
 import { M3eFormField } from "@m3e/react/form-field";
-import { M3eHeading } from "@m3e/react/heading";
 import { M3eLinearProgressIndicator } from "@m3e/react/progress-indicator";
 import { M3eButtonSegment, M3eSegmentedButton } from "@m3e/react/segmented-button";
 import type { M3eSegmentedButtonElement } from "@m3e/react/segmented-button";
@@ -300,13 +300,11 @@ export function PageHeader({ title, sub, actions }: { title: string; sub?: React
   }, []);
   return (
     <header className="topbar" data-stuck={stuck || undefined}>
-      <div className="min-w-0">
-        <M3eHeading className="page-title" variant="headline" size="medium" level={1}>
-          {title}
-        </M3eHeading>
-        {sub ? <p className="page-sub">{sub}</p> : null}
-      </div>
-      {actions ? <div className="top-actions">{actions}</div> : null}
+      <M3eAppBar className="page-appbar">
+        <span slot="title">{title}</span>
+        {sub ? <span slot="subtitle">{sub}</span> : null}
+        {actions ? <div slot="trailing" className="top-actions">{actions}</div> : null}
+      </M3eAppBar>
     </header>
   );
 }
