@@ -109,7 +109,9 @@ m3e-button.btn-block { width: 100%; }
     gap: 8px;
     padding: 0 4px;
   }
-  .main { padding-bottom: calc(160px + env(safe-area-inset-bottom)); }
+  /* The extended FAB is about 80px tall and sits 88px above the bottom edge. The later
+     phone rule in app.css only clears the navigation bar, so this one has to win. */
+  html[data-m3e="sync"] .main { padding-bottom: calc(184px + env(safe-area-inset-bottom)); }
   .top-actions-below m3e-button,
   .top-actions-below a.btn { width: auto; flex: 0 0 auto; white-space: nowrap; }
   .top-actions-below :is(m3e-button, a.btn) span { display: inline !important; }

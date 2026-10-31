@@ -88,7 +88,18 @@ export function buckets(points: TrafficPoint[], range: Range, now = Date.now()):
 
 const W = 720;
 const H = 248;
+/** A shorter plot on a phone, so the time labels sit above the floating action button. */
+const H_NARROW = 180;
 const PAD = { l: 60, r: 8, t: 12, b: 28 };
+
+/** `count` indexes spread from the first point to the last, so a narrow axis still has a few readable times. */
+function evenTicks(n: number, count: number): number[] {
+  if (n <= 1) return [0];
+  const want = Math.min(count, n);
+  const idx: number[] = [];
+  for (let k = 0; k < want; k++) idx.push(Math.round((k * (n - 1)) / (want - 1)));
+  return [...new Set(idx)];
+}
 
 export function TrafficChart({
   points,
@@ -123,14 +134,17 @@ export function TrafficChart({
     const n = points.length;
     const max = niceMax(Math.max(1, ...points.map((p) => p.down), ...points.map((p) => p.up)) * 1.08);
     const x = (i: number) => padL + ((W - padL - PAD.r) * i) / Math.max(1, n - 1);
-    const y = (v: number) => PAD.t + (H - PAD.t - padB) * (1 - v / max);
+    const plotH = narrow ? H_NARROW : H;
+    const y = (v: number) => PAD.t + (plotH - PAD.t - padB) * (1 - v / max);
     const down = monotone(points.map((p, i) => ({ x: x(i), y: y(p.down) })));
     const up = monotone(points.map((p, i) => ({ x: x(i), y: y(p.up) })));
     return { n, max, x, y, down, up, base: y(0) };
-  }, [points, padL, padB]);
+  }, [points, padL, padB, narrow]);
 
+  const plotH = narrow ? H_NARROW : H;
   const label = (iso: string) => (range === "30d" ? dateShort(iso) : range === "7d" ? `${dateShort(iso)}, ${time(iso)}` : time(iso));
-  const tickEvery = range === "24h" ? (narrow ? 8 : 4) : range === "7d" ? (narrow ? 21 : 12) : narrow ? 10 : 5;
+  const tickEvery = range === "24h" ? 4 : range === "7d" ? 12 : 5;
+  const ticks = narrow ? evenTicks(g.n, 4) : null;
   const ySteps = narrow ? 2 : 4;
 
   const onMove = (e: React.PointerEvent) => {
@@ -184,7 +198,7 @@ export function TrafficChart({
       onKeyDown={onKey}
       onBlur={() => setHover(null)}
     >
-      <svg ref={ref} viewBox={`0 0 ${W} ${H}`} className="block h-auto w-full overflow-visible" aria-hidden>
+      <svg ref={ref} viewBox={`0 0 ${W} ${plotH}`} className="block h-auto w-full overflow-visible" aria-hidden>
         <defs>
           <linearGradient id="g-down" x1="0" x2="0" y1="0" y2="1">
             <stop offset="0" style={{ stopColor: "var(--mikan-500)", stopOpacity: 0.24 }} />
@@ -208,11 +222,10 @@ export function TrafficChart({
         })}
         {points.map((p, i) => {
           const lastTick = g.n - 1;
-          const regular = i % tickEvery === 0;
-          const endTick = i === lastTick && lastTick % tickEvery >= Math.ceil(tickEvery / 2);
-          if (!regular && !endTick) return null;
+          const show = ticks ? ticks.includes(i) : i % tickEvery === 0 || (i === lastTick && lastTick % tickEvery >= Math.ceil(tickEvery / 2));
+          if (!show) return null;
           return (
-            <text key={p.t} x={g.x(i)} y={H - 6} textAnchor={i === 0 ? "start" : i === lastTick ? "end" : "middle"} fill="var(--ink-400)" fontSize={font}>
+            <text key={p.t} x={g.x(i)} y={plotH - 6} textAnchor={i === 0 ? "start" : i === lastTick ? "end" : "middle"} fill="var(--ink-400)" fontSize={font}>
               {label(p.t)}
             </text>
           );
@@ -232,7 +245,7 @@ export function TrafficChart({
             <circle cx={g.x(hover)} cy={g.y(hp.up)} r={4} fill="var(--md-surface-container)" stroke="var(--lagoon-500)" strokeWidth={2} />
           </g>
         ) : null}
-        <rect x={padL} y={0} width={W - padL - PAD.r} height={H} fill="transparent" onPointerMove={onMove} onPointerLeave={() => setHover(null)} />
+        <rect x={padL} y={0} width={W - padL - PAD.r} height={plotH} fill="transparent" onPointerMove={onMove} onPointerLeave={() => setHover(null)} />
       </svg>
       {hp && hover !== null ? (
         <div

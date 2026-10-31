@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Plus, ShieldCheck } from "lucide-react";
+import { CalendarPlus, ChevronRight, Plus, ShieldCheck } from "lucide-react";
 import { useMemo, useState } from "react";
 import { errorText, type Overview, type User } from "../../api/client";
 import { onePeriod, useDashboard, useInbounds, useNode, useNodes, useNodeShares, useOverview, userActions, useServerTraffic, useUserMutation, useUsers } from "../../api/hooks";
@@ -455,21 +455,23 @@ function AttentionCard() {
               <div key={u.id} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 py-3">
                 <Avatar name={u.name} seed={u.id} />
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2 text-[13px]">
-                    <b className="truncate font-semibold">{u.name}</b>
+                  <b className="block truncate text-[13px] font-semibold">{u.name}</b>
+                  <div className="mt-0.5 flex min-w-0 items-center gap-2">
                     <StatePill state={u.state} />
-                  </div>
-                  <div className="text-xs text-[var(--md-on-surface-variant)]">
-                    {u.state === "limited" ? t("dashboard.used", { bytes: bytes(u.used_up + u.used_down) }) : u.expires_at ? t("dashboard.until", { date: dateShort(u.expires_at), left: exp.text }) : ""}
+                    <span className="truncate text-xs text-[var(--md-on-surface-variant)]">
+                      {u.state === "limited" ? t("dashboard.used", { bytes: bytes(u.used_up + u.used_down) }) : u.expires_at ? t("dashboard.until", { date: dateShort(u.expires_at), left: exp.text }) : ""}
+                    </span>
                   </div>
                 </div>
                 {u.state === "limited" ? (
-                  <Link to="/users" search={{ state: "all", q: "", user: u.id }} className="btn btn-glass btn-sm">
-                    {t("common.open")}
+                  <Link to="/users" search={{ state: "all", q: "", user: u.id }} className="icon-btn" aria-label={t("common.open")}>
+                    <ChevronRight size={18} aria-hidden />
                   </Link>
                 ) : (
                   <Button
                     size="sm"
+                    aria-label={u.billing_day != null ? t("dashboard.plusMonth") : t("dashboard.plus30")}
+                    title={u.billing_day != null ? t("dashboard.plusMonth") : t("dashboard.plus30")}
                     loading={extend.isPending && extend.variables?.id === u.id}
                     onClick={() =>
                       extend.mutate(
@@ -478,7 +480,7 @@ function AttentionCard() {
                       )
                     }
                   >
-                    {u.billing_day != null ? t("dashboard.plusMonth") : t("dashboard.plus30")}
+                    <CalendarPlus size={16} aria-hidden />
                   </Button>
                 )}
               </div>
@@ -502,7 +504,7 @@ function TopCard() {
       ) : o.isPending ? (
         <Skeleton style={{ height: 120 }} />
       ) : top.length === 0 ? (
-        <p className="flex flex-1 items-center justify-center py-6 text-center text-[13px] text-[var(--md-on-surface-variant)]">{t("dashboard.topEmpty")}</p>
+        <p className="py-2 text-[13px] leading-5 text-[var(--md-on-surface-variant)]">{t("dashboard.topEmpty")}</p>
       ) : (
         top.map((u, i) => (
           <Link key={u.id} to="/users" search={{ state: "all", q: "", user: u.id }} className="grid grid-cols-[24px_minmax(0,1fr)_auto] items-center gap-3 rounded-xl py-2 hover:bg-[var(--md-surface-container-high)]">
