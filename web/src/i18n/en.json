@@ -3399,7 +3399,7 @@
     "apiLockdown": "Node API from the panel's IP only",
     "apiLockdownHint": "The node's API port answers the panel's addresses only: scanners that find the port do not even reach TLS. The node closes the port itself and puts an nftables rule on its server. If the panel moves to another IP, the rule lifts itself after 15 minutes without the panel, the panel connects from its new address, and the rule comes back with it. To lift it at once: mikan api-lockdown off on the node's server.",
     "dpi": "DPI bypass (YouTube and Discord)",
-    "dpiHint": "nfqws on the node's server gets the TLS handshake past the filter: YouTube and Discord leave with this node's own address — its Russian one, without foreign ads. The first start installs zapret and builds nfqws, which takes a few minutes.",
+    "dpiHint": "nfqws on the node's server gets the TLS handshake past the filter: YouTube and Discord leave with this node's own address — its Russian one, without foreign ads. The first start installs the prebuilt nfqws from the zapret release; it is compiled on the server only when that architecture has no binary.",
     "dpiAsked": "The request is on its way to the node's host",
     "dpiError": "The host answered: {error}",
     "dpiNotAnswered": "The host has not answered yet: update the node in the panel to 0.5.5.0.",

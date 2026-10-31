@@ -478,8 +478,8 @@ Description=Arikan: DPI bypass (nfqws) asked for by a node
 
 [Service]
 Type=oneshot
-# The first ask installs zapret and builds nfqws: minutes, not seconds. A stuck build
-# must not hold the next request for ever.
+# The first ask installs the pinned nfqws (prebuilt, or a compile when this
+# architecture has none). A stuck install must not hold the next request for ever.
 TimeoutStartSec=15min
 ExecStart=/usr/local/bin/arikan dpi --requested
 "

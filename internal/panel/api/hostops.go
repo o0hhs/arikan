@@ -61,7 +61,7 @@ func (h *handlers) registerHostOps() {
 		Description: "Что хост ноды ответил о nfqws: включён ли обход YouTube и Discord, и почему нет. Нода должна быть обновлена до 0.5.5.0.",
 		Tags:        []string{"node"}}, h.nodeDPI)
 	huma.Register(h.api, huma.Operation{OperationID: "set-node-dpi", Metadata: sessionOnly, Extensions: sessionOnlyExt, Method: http.MethodPost, Path: "/api/v1/nodes/{id}/dpi", Summary: "Включить или выключить обход DPI ноды",
-		Description: "Хост запускает nfqws (zapret): YouTube и Discord выходят с адреса самой ноды, TLS-рукопожатие обходит фильтр. Первый запуск ставит zapret и собирает nfqws, это минуты; ответ 202, состояние — GET.",
+		Description: "Хост запускает nfqws (zapret): YouTube и Discord выходят с адреса самой ноды, TLS-рукопожатие обходит фильтр. Первый запуск ставит готовый nfqws из выпуска zapret; сборка на сервере — только если для его архитектуры готового файла нет. Ответ 202, состояние — GET.",
 		Tags:        []string{"node"}, DefaultStatus: http.StatusAccepted}, h.setNodeDPI)
 }
 
