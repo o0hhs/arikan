@@ -31,4 +31,13 @@ describe("buckets", () => {
     expect(out.at(-1)?.up).toBe(0);
     expect(new Date(out.at(-1)!.t).getTime()).toBe(open - step);
   });
+
+  it("does not invent empty hours after the last sample", () => {
+    const now = Date.parse("2026-10-31T21:40:00Z");
+    const step = 3_600_000;
+    const open = Math.floor(now / step) * step;
+    const out = buckets([{ t: new Date(open - 2 * step).toISOString(), up: 50, down: 80 }], "24h", now);
+    expect(out.at(-1)?.down).toBe(80);
+    expect(new Date(out.at(-1)!.t).getTime()).toBe(open - 2 * step);
+  });
 });

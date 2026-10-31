@@ -91,10 +91,37 @@ m3e-button {
   --m3e-button-medium-container-height: 40px;
 }
 m3e-button.btn-block { width: 100%; }
+@media (max-width: 1023px) {
+  /* The sidebar is not on the page here. A leftover 248px column would park the
+     content in that strip and leave the rest of the phone blank. */
+  html[data-m3e="sync"] .app {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+    padding: 16px;
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+  }
+}
 @media (max-width: 760px) {
-  /* The label was hidden to save a row; inside an m3e button that leaves a round blob. */
-  .top-actions m3e-button span,
-  .top-actions a.btn span { display: inline !important; }
+  .top-actions-below {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 0 4px;
+  }
+  .main { padding-bottom: calc(160px + env(safe-area-inset-bottom)); }
+  .top-actions-below m3e-button,
+  .top-actions-below a.btn { width: auto; flex: 0 0 auto; white-space: nowrap; }
+  .top-actions-below :is(m3e-button, a.btn) span { display: inline !important; }
+  .page-fab,
+  a.page-fab-anchor {
+    position: fixed;
+    right: max(16px, env(safe-area-inset-right));
+    bottom: calc(88px + env(safe-area-inset-bottom));
+    z-index: 33;
+    text-decoration: none;
+  }
+  a.page-fab-anchor .page-fab { position: static; }
 }
 m3e-button.is-danger {
   --md-sys-color-primary: var(--md-sys-color-error);

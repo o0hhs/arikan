@@ -58,23 +58,29 @@ export function buckets(points: TrafficPoint[], range: Range, now = Date.now()):
   const count = range === "24h" ? 24 : range === "7d" ? 168 : 30;
   const end = Math.floor(now / step) * step;
   const byT = new Map(points.map((p) => [Math.floor(new Date(p.t).getTime() / step) * step, p]));
-  const out: TrafficPoint[] = [];
+  const out: (TrafficPoint & { synthetic: boolean })[] = [];
   for (let i = count - 1; i >= 0; i--) {
     const t = end - i * step;
     const p = byT.get(t);
-    out.push({ t: new Date(t).toISOString(), up: p?.up ?? 0, down: p?.down ?? 0 });
+    out.push({ t: new Date(t).toISOString(), up: p?.up ?? 0, down: p?.down ?? 0, synthetic: !p });
   }
-  // The current hour (or day) is still open. The API often has nothing for it yet, and drawing
-  // that missing bucket as zero pulls both lines off a cliff at the right edge.
+  // Hours after the last sample are not quiet hours the API reported: the current one is
+  // still open, and anything between it and the last sample has not been written yet.
+  // Drawing those as zero pulls both lines off a cliff at the right edge. A zero the API
+  // did send, for a finished hour, stays.
+  if (out.some((p) => !p.synthetic)) {
+    while (out.length > 0 && out[out.length - 1]!.synthetic) out.pop();
+  }
   const openStart = Math.floor(now / step) * step;
   const last = out[out.length - 1];
   const trimmed = last && new Date(last.t).getTime() === openStart && last.up === 0 && last.down === 0 && out.some((p) => p.up > 0 || p.down > 0) ? out.slice(0, -1) : out;
-  if (range !== "7d") return trimmed;
+  const series = trimmed.map(({ t, up, down }) => ({ t, up, down }));
+  if (range !== "7d") return series;
   // 168 hourly points are too dense to hover; merge into 2-hour buckets.
   const merged: TrafficPoint[] = [];
-  for (let i = 0; i < trimmed.length; i += 2) {
-    const a = trimmed[i]!;
-    const b = trimmed[i + 1];
+  for (let i = 0; i < series.length; i += 2) {
+    const a = series[i]!;
+    const b = series[i + 1];
     merged.push({ t: a.t, up: a.up + (b?.up ?? 0), down: a.down + (b?.down ?? 0) });
   }
   return merged;

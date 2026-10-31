@@ -1,6 +1,7 @@
 import { M3eAppBar } from "@m3e/react/app-bar";
 import { M3eAvatar } from "@m3e/react/avatar";
 import { M3eButton, type M3eButtonElement } from "@m3e/react/button";
+import { M3eFab } from "@m3e/react/fab";
 import { M3eChip } from "@m3e/react/chips";
 import { M3eFormField } from "@m3e/react/form-field";
 import { M3eLinearProgressIndicator } from "@m3e/react/progress-indicator";
@@ -9,7 +10,8 @@ import type { M3eSegmentedButtonElement } from "@m3e/react/segmented-button";
 import { M3eSkeleton } from "@m3e/react/skeleton";
 import clsx from "clsx";
 import { LoaderCircle, SearchX, TriangleAlert, UserRound, type LucideIcon } from "lucide-react";
-import { cloneElement, isValidElement, lazy, Suspense, useEffect, useId, useState, type ButtonHTMLAttributes, type CSSProperties, type ReactElement, type ReactNode } from "react";
+import { Children, Fragment, cloneElement, isValidElement, lazy, Suspense, useEffect, useId, useState, type ButtonHTMLAttributes, type CSSProperties, type ReactElement, type ReactNode } from "react";
+import { useMediaQuery } from "../lib/media";
 import type { UserState } from "../api/client";
 import { t } from "../i18n";
 
@@ -19,6 +21,20 @@ import { t } from "../i18n";
  * them: the quiet action that wants an edge, for toolbars and rows of peers.
  */
 type Variant = "primary" | "glass" | "ghost" | "danger" | "danger-solid" | "outlined";
+
+/** The first graphic in a button is its icon slot, so the label stays beside it. */
+function slotLeadingIcon(children: ReactNode): ReactNode {
+  let slotted = false;
+  return Children.map(children, (child) => {
+    if (slotted || !isValidElement<{ slot?: string }>(child) || child.type === "span" || typeof child.type === "string") return child;
+    if (child.props.slot) {
+      slotted = true;
+      return child;
+    }
+    slotted = true;
+    return cloneElement(child, { slot: "icon" });
+  });
+}
 
 export function Button({
   variant = "glass",
@@ -76,7 +92,7 @@ export function Button({
       tabIndex={tabIndex}
     >
       {loading ? <LoaderCircle slot="icon" size={16} className="spin" aria-hidden /> : null}
-      {children}
+      {slotLeadingIcon(children)}
     </M3eButton>
   );
 }
@@ -288,9 +304,56 @@ export function Field({ label, htmlFor, hint, error, children }: { label: string
   );
 }
 
+/** A fragment passed as `actions` stays one node in React 19; open it so each button can move on its own. */
+function flatNodes(node: ReactNode): ReactNode[] {
+  const out: ReactNode[] = [];
+  for (const child of Children.toArray(node)) {
+    if (isValidElement<{ children?: ReactNode }>(child) && child.type === Fragment) out.push(...flatNodes(child.props.children));
+    else out.push(child);
+  }
+  return out;
+}
+
+function isPrimaryAction(node: ReactNode): node is ReactElement<{ children?: ReactNode; onClick?: (e: unknown) => void; to?: string; className?: string; "aria-label"?: string }> {
+  if (!isValidElement(node)) return false;
+  const props = node.props as { variant?: string; className?: string };
+  return props.variant === "primary" || (typeof props.className === "string" && /\bbtn-primary\b/.test(props.className));
+}
+
+function actionLabel(node: ReactElement): string {
+  const bits: string[] = [];
+  for (const child of Children.toArray((node.props as { children?: ReactNode }).children)) {
+    if (typeof child === "string" || typeof child === "number") bits.push(String(child));
+    else if (isValidElement<{ children?: ReactNode }>(child) && (child.type === "span" || typeof child.type === "string")) {
+      const inner = child.props.children;
+      if (typeof inner === "string" || typeof inner === "number") bits.push(String(inner));
+    }
+  }
+  return bits.join(" ").replace(/\s+/g, " ").trim();
+}
+
+function actionIcon(node: ReactElement): ReactNode {
+  return Children.toArray((node.props as { children?: ReactNode }).children).find((child) => isValidElement(child) && child.type !== "span") ?? null;
+}
+
+/** The filled action, as an extended FAB, keeping the link or the click it already had. */
+function PrimaryFab({ action }: { action: ReactElement<{ children?: ReactNode; onClick?: (e: unknown) => void; to?: string; className?: string; "aria-label"?: string }> }) {
+  const label = actionLabel(action) || action.props["aria-label"] || "";
+  const fab = (
+    <M3eFab extended className="page-fab" aria-label={label || undefined} onClick={action.props.to ? undefined : (e) => action.props.onClick?.(e)}>
+      {actionIcon(action)}
+      {label ? <span slot="label">{label}</span> : null}
+    </M3eFab>
+  );
+  if (action.props.to) return cloneElement(action, { className: "page-fab-anchor" }, fab);
+  return fab;
+}
+
 export function PageHeader({ title, sub, actions }: { title: string; sub?: ReactNode; actions?: ReactNode }) {
   // The header lies flat on the page and turns into a floating bar once the page scrolls
-  // under it.
+  // under it. On a phone the title takes the bar, and the filled action becomes a FAB
+  // above the navigation bar so the title is not cut to make room for it.
+  const narrow = useMediaQuery("(max-width: 760px)");
   const [stuck, setStuck] = useState(false);
   useEffect(() => {
     const onScroll = () => setStuck(window.scrollY > 8);
@@ -298,13 +361,19 @@ export function PageHeader({ title, sub, actions }: { title: string; sub?: React
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+  const list = flatNodes(actions);
+  const primaryAt = narrow ? list.findIndex(isPrimaryAction) : -1;
+  const primary = primaryAt >= 0 ? (list[primaryAt] as ReactElement<{ children?: ReactNode; onClick?: (e: unknown) => void; to?: string; className?: string; "aria-label"?: string }>) : null;
+  const rest = primaryAt >= 0 ? list.filter((_, i) => i !== primaryAt) : list;
   return (
     <header className="topbar" data-stuck={stuck || undefined}>
       <M3eAppBar className="page-appbar">
         <span slot="title">{title}</span>
         {sub ? <span slot="subtitle">{sub}</span> : null}
-        {actions ? <div slot="trailing" className="top-actions">{actions}</div> : null}
+        {!narrow && actions ? <div slot="trailing" className="top-actions">{actions}</div> : null}
       </M3eAppBar>
+      {narrow && rest.length > 0 ? <div className="top-actions-below">{rest}</div> : null}
+      {primary ? <PrimaryFab action={primary} /> : null}
     </header>
   );
 }

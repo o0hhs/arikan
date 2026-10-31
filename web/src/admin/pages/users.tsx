@@ -21,7 +21,7 @@ import { UserDrawer } from "./user-drawer";
 import { FolderBadge, FolderMark, FolderMenuItems, FoldersDrawer, type Folder } from "./user-folders";
 
 /** A row of chips: one line to scroll sideways on a phone, wrapping on a wide screen. */
-const CHIP_ROW = "-mx-3 flex items-center gap-2 overflow-x-auto px-3 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:mx-0 lg:flex-wrap lg:overflow-visible lg:px-0 lg:pb-0";
+const CHIP_ROW = "flex flex-wrap items-center gap-2";
 
 /** One choice of the filters menu: a tick when chosen, how many users it holds. */
 function FilterItem({ value, label, count, mark }: { value: string; label: string; count?: number; mark?: React.ReactNode }) {
@@ -182,13 +182,13 @@ export function UsersPage() {
               </button>
             ))}
           </div>
-          <div className="flex items-center gap-2">
-            <label className="search-field">
+          <div className="flex flex-col gap-2 min-[761px]:flex-row min-[761px]:items-center">
+            <label className="search-field w-full min-[761px]:w-auto">
               <Search size={16} aria-hidden />
               <input type="search" placeholder={t("users.searchPlaceholder")} value={q} onChange={(e) => setQ(e.target.value)} aria-label={t("users.searchLabel")} />
             </label>
             <select
-              className="input h-10 max-w-[190px]"
+              className="input h-10 w-full shrink-0 min-[761px]:w-auto min-[761px]:min-w-[12rem]"
               value={search.sort ?? "new"}
               onChange={(e) => setFilter({ sort: e.target.value === "new" ? undefined : (e.target.value as UsersSearch["sort"]) })}
               aria-label={t("users.sort")}

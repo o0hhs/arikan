@@ -15,7 +15,7 @@ import { Logo } from "../components/atmosphere";
 import { LangSwitch } from "../components/lang";
 import { PerfSwitch } from "../components/perf";
 import { useToast } from "../components/toast";
-import { Avatar, Bar, Pill } from "../components/ui";
+import { Avatar, Pill } from "../components/ui";
 import { t, useLocale, type Key } from "../i18n";
 import { num, uptime } from "../lib/format";
 import { SupportBar } from "./support-bar";
@@ -196,7 +196,6 @@ function NodeCard() {
       </div>
     );
   }
-  const memPct = n.system.mem_total ? (n.system.mem_used / n.system.mem_total) * 100 : 0;
   return (
     <M3eCard variant="filled" className="node-card">
       <div slot="content">
@@ -205,16 +204,6 @@ function NodeCard() {
           {n.ok ? <Pill tone="ok">{t("shell.running")}</Pill> : <Pill tone="bad">{t("shell.offline")}</Pill>}
         </div>
         <div className="node-sub">{n.ok ? `${n.core}${n.started_at ? ` · ${uptime(n.started_at)}` : ""}` : t("shell.nodeDown")}</div>
-        {n.ok ? (
-          <div className="node-bars">
-            <span>CPU</span>
-            <Bar pct={n.system.cpu_percent} label="CPU" />
-            <span className="num">{Math.round(n.system.cpu_percent)}%</span>
-            <span>RAM</span>
-            <Bar pct={memPct} label="RAM" />
-            <span className="num">{Math.round(memPct)}%</span>
-          </div>
-        ) : null}
       </div>
     </M3eCard>
   );
