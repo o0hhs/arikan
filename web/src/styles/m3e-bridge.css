@@ -98,10 +98,13 @@ m3e-avatar { flex: none; }
   --m3e-nav-menu-item-height: 36px;
 }
 .sidebar m3e-nav-menu.side-nav {
-  flex: 1 1 auto;
-  min-height: 0;
+  flex: 0 0 auto;
   width: 100%;
 }
+.sidebar m3e-nav-menu-item { width: 100%; }
+.side-foot { margin-top: 8px; }
+.date-choices { display: flex; flex-direction: column; gap: 8px; }
+.date-choices .opt { width: 100%; }
 m3e-card.node-card {
   width: 100%;
   max-width: 100%;
@@ -117,12 +120,12 @@ m3e-card.node-card {
 }
 .opt-center { align-items: center; justify-content: center; text-align: center; min-height: 48px; }
 
-/* Segment labels stay whole. Equal columns were clipping "С датой и временем". */
+/* One rounded track, as wide as its labels. Shrinking them clips "30 дней" to "30…". */
 m3e-segmented-button {
   display: inline-flex;
+  width: max-content;
   max-width: 100%;
-  flex-wrap: wrap;
-  width: auto;
+  flex-wrap: nowrap;
 }
 m3e-button-segment {
   flex: 0 0 auto !important;

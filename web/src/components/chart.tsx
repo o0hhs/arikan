@@ -1,4 +1,4 @@
-import { useId, useMemo, useRef, useState } from "react";
+import { useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { TrafficPoint } from "../api/client";
 import { t } from "../i18n";
 import { bytes, dateShort, time } from "../lib/format";
@@ -64,12 +64,17 @@ export function buckets(points: TrafficPoint[], range: Range, now = Date.now()):
     const p = byT.get(t);
     out.push({ t: new Date(t).toISOString(), up: p?.up ?? 0, down: p?.down ?? 0 });
   }
-  if (range !== "7d") return out;
+  // The current hour (or day) is still open. The API often has nothing for it yet, and drawing
+  // that missing bucket as zero pulls both lines off a cliff at the right edge.
+  const openStart = Math.floor(now / step) * step;
+  const last = out[out.length - 1];
+  const trimmed = last && new Date(last.t).getTime() === openStart && last.up === 0 && last.down === 0 && out.some((p) => p.up > 0 || p.down > 0) ? out.slice(0, -1) : out;
+  if (range !== "7d") return trimmed;
   // 168 hourly points are too dense to hover; merge into 2-hour buckets.
   const merged: TrafficPoint[] = [];
-  for (let i = 0; i < out.length; i += 2) {
-    const a = out[i]!;
-    const b = out[i + 1];
+  for (let i = 0; i < trimmed.length; i += 2) {
+    const a = trimmed[i]!;
+    const b = trimmed[i + 1];
     merged.push({ t: a.t, up: a.up + (b?.up ?? 0), down: a.down + (b?.down ?? 0) });
   }
   return merged;
@@ -92,24 +97,41 @@ export function TrafficChart({
   const [hover, setHover] = useState<number | null>(null);
   const ref = useRef<SVGSVGElement>(null);
   const summaryId = useId();
+  // viewBox units shrink with the drawing. Measure the rendered width so a tick stays ~12px.
+  const [box, setBox] = useState(0);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = () => setBox(el.getBoundingClientRect().width);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const fit = box > 0 ? box / W : 1;
+  const narrow = box > 0 && box < 520;
+  const padL = Math.min(150, Math.max(PAD.l, 64 / fit));
+  const padB = Math.min(64, Math.max(PAD.b, 22 / fit));
+  const font = 12 / fit;
   const g = useMemo(() => {
     const n = points.length;
     const max = niceMax(Math.max(1, ...points.map((p) => p.down), ...points.map((p) => p.up)) * 1.08);
-    const x = (i: number) => PAD.l + ((W - PAD.l - PAD.r) * i) / Math.max(1, n - 1);
-    const y = (v: number) => PAD.t + (H - PAD.t - PAD.b) * (1 - v / max);
+    const x = (i: number) => padL + ((W - padL - PAD.r) * i) / Math.max(1, n - 1);
+    const y = (v: number) => PAD.t + (H - PAD.t - padB) * (1 - v / max);
     const down = monotone(points.map((p, i) => ({ x: x(i), y: y(p.down) })));
     const up = monotone(points.map((p, i) => ({ x: x(i), y: y(p.up) })));
     return { n, max, x, y, down, up, base: y(0) };
-  }, [points]);
+  }, [points, padL, padB]);
 
   const label = (iso: string) => (range === "30d" ? dateShort(iso) : range === "7d" ? `${dateShort(iso)}, ${time(iso)}` : time(iso));
-  const tickEvery = range === "24h" ? 4 : range === "7d" ? 12 : 5;
+  const tickEvery = range === "24h" ? (narrow ? 8 : 4) : range === "7d" ? (narrow ? 21 : 12) : narrow ? 10 : 5;
+  const ySteps = narrow ? 2 : 4;
 
   const onMove = (e: React.PointerEvent) => {
     const r = ref.current?.getBoundingClientRect();
     if (stale || !r || g.n < 2) return;
     const px = ((e.clientX - r.left) * W) / r.width;
-    const i = Math.round(((px - PAD.l) / (W - PAD.l - PAD.r)) * (g.n - 1));
+    const i = Math.round(((px - padL) / (W - padL - PAD.r)) * (g.n - 1));
     setHover(Math.max(0, Math.min(g.n - 1, i)));
   };
 
@@ -167,24 +189,28 @@ export function TrafficChart({
             <stop offset="1" style={{ stopColor: "var(--lagoon-500)", stopOpacity: 0 }} />
           </linearGradient>
         </defs>
-        {[0, 1, 2, 3, 4].map((k) => {
-          const v = (g.max * k) / 4;
+        {Array.from({ length: ySteps + 1 }, (_, k) => {
+          const v = (g.max * k) / ySteps;
           return (
             <g key={k}>
-              <line x1={PAD.l} x2={W - PAD.r} y1={g.y(v)} y2={g.y(v)} stroke="var(--hairline)" />
-              <text x={PAD.l - 8} y={g.y(v) + 4} textAnchor="end" fill="var(--ink-400)" fontSize="13" style={{ fontSize: "13px" }}>
+              <line x1={padL} x2={W - PAD.r} y1={g.y(v)} y2={g.y(v)} stroke="var(--hairline)" />
+              <text x={padL - 8} y={g.y(v) + font * 0.35} textAnchor="end" fill="var(--ink-400)" fontSize={font}>
                 {k === 0 ? "0" : bytes(v)}
               </text>
             </g>
           );
         })}
-        {points.map((p, i) =>
-          i % tickEvery === 0 || i === g.n - 1 ? (
-            <text key={p.t} x={g.x(i)} y={H - 8} textAnchor={i === 0 ? "start" : i === g.n - 1 ? "end" : "middle"} fill="var(--ink-400)" fontSize="13" style={{ fontSize: "13px" }}>
+        {points.map((p, i) => {
+          const lastTick = g.n - 1;
+          const regular = i % tickEvery === 0;
+          const endTick = i === lastTick && lastTick % tickEvery >= Math.ceil(tickEvery / 2);
+          if (!regular && !endTick) return null;
+          return (
+            <text key={p.t} x={g.x(i)} y={H - 6} textAnchor={i === 0 ? "start" : i === lastTick ? "end" : "middle"} fill="var(--ink-400)" fontSize={font}>
               {label(p.t)}
             </text>
-          ) : null,
-        )}
+          );
+        })}
         {g.n > 1 ? (
           <>
             <path d={`${g.down} L${g.x(g.n - 1)},${g.base} L${g.x(0)},${g.base} Z`} fill="url(#g-down)" />
@@ -200,7 +226,7 @@ export function TrafficChart({
             <circle cx={g.x(hover)} cy={g.y(hp.up)} r={4} fill="var(--md-surface-container)" stroke="var(--lagoon-500)" strokeWidth={2} />
           </g>
         ) : null}
-        <rect x={PAD.l} y={0} width={W - PAD.l - PAD.r} height={H} fill="transparent" onPointerMove={onMove} onPointerLeave={() => setHover(null)} />
+        <rect x={padL} y={0} width={W - padL - PAD.r} height={H} fill="transparent" onPointerMove={onMove} onPointerLeave={() => setHover(null)} />
       </svg>
       {hp && hover !== null ? (
         <div

@@ -5,7 +5,7 @@ import { qk, useDashboard } from "../../../api/hooks";
 import { FormActions } from "../../../components/layout";
 import { SwitchRow } from "../../../components/switch";
 import { useToast } from "../../../components/toast";
-import { Field, Segmented, Skeleton } from "../../../components/ui";
+import { Field, Skeleton } from "../../../components/ui";
 import { t } from "../../../i18n";
 import { tickStep, useTick } from "../../../lib/clock";
 import { useDraft } from "../../../lib/draft";
@@ -87,7 +87,13 @@ function DashboardForm({ v }: { v: Layout }) {
           </ul>
         </Field>
         <Field label={t("settings.dash.date")} hint={t("settings.dash.dateHint")}>
-          <Segmented label={t("settings.dash.date")} value={style} onChange={(x) => setDraft((d) => ({ ...d, date: x as typeof d.date }))} options={DATES.map((d) => ({ value: d.id, label: t(d.label) }))} />
+          <div className="date-choices" role="radiogroup" aria-label={t("settings.dash.date")}>
+            {DATES.map((d) => (
+              <button key={d.id} type="button" role="radio" className="opt opt-center" aria-checked={style === d.id} onClick={() => setDraft((draft) => ({ ...draft, date: d.id }))}>
+                {t(d.label)}
+              </button>
+            ))}
+          </div>
           {/* What the choice looks like, now, in the reader's own time zone: the same two
               strings the dashboard writes, so the admin sees exactly what they will get. */}
           <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
