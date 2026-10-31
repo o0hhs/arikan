@@ -1,0 +1,116 @@
+/*
+ * Layout around the M3E components. The components paint themselves; this file only
+ * makes the host boxes sit in the panel's layout and lets a slotted native field
+ * use the form-field's outline instead of the old .input border.
+ */
+
+html[data-m3e="sync"] {
+  /* Expressive shape: larger corners than the compact scale, still one scale for every theme. */
+  --md-shape-xs: 8px;
+  --md-shape-sm: 12px;
+  --md-shape-md: 16px;
+  --md-shape-lg: 24px;
+  --md-shape-lg-increased: 28px;
+  --md-shape-xl: 36px;
+  --md-shape-xl-increased: 44px;
+  --md-shape-xxl: 56px;
+}
+
+/* Solid containers. The blur stays available for a theme that still wants glass; the
+   expressive surface is the color role itself. */
+html[data-m3e="sync"] .glass {
+  background: var(--md-surface-container);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+html[data-m3e="sync"] .glass-strong {
+  background: var(--md-surface-container-high);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+m3e-button.btn-block { width: 100%; }
+m3e-button.is-danger {
+  --md-sys-color-primary: var(--md-sys-color-error);
+  --md-sys-color-on-primary: var(--md-sys-color-on-error);
+  --md-sys-color-primary-container: var(--md-sys-color-error-container);
+  --md-sys-color-on-primary-container: var(--md-sys-color-on-error-container);
+}
+m3e-icon-button { vertical-align: middle; }
+
+m3e-form-field { display: block; width: 100%; margin-bottom: 16px; }
+m3e-form-field :is(input, select, textarea).input {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  height: auto;
+  min-height: 1.5em;
+  padding: 0;
+  border-radius: 0;
+  outline: none;
+}
+m3e-form-field textarea.input { min-height: 72px; padding: 4px 0; }
+
+m3e-card.card,
+m3e-card.panel-card,
+m3e-card.login-card,
+m3e-card.node-card {
+  display: block;
+  width: 100%;
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+m3e-card.card.sel { box-shadow: 0 0 0 2px var(--md-primary); }
+.login-card { width: min(100%, 440px); }
+
+m3e-linear-progress-indicator { display: block; width: 100%; min-width: 0; }
+m3e-chip { vertical-align: middle; }
+m3e-avatar { flex: none; }
+
+.sidebar m3e-nav-rail {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  --m3e-nav-rail-expanded-width: 100%;
+  --m3e-nav-rail-compact-width: 100%;
+  overflow: auto;
+}
+m3e-nav-item .nav-count { margin-left: 8px; }
+
+m3e-nav-bar.m3e-mnav { display: none; }
+@media (max-width: 1023px) {
+  m3e-nav-bar.m3e-mnav {
+    display: flex;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 34;
+    padding-bottom: env(safe-area-inset-bottom);
+    background: var(--md-surface-container);
+  }
+  m3e-nav-bar.m3e-mnav m3e-nav-item {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+}
+
+m3e-tabs { display: block; width: 100%; }
+m3e-tab a { color: inherit; text-decoration: none; }
+m3e-tabs.section-tabs { margin-bottom: 4px; }
+
+m3e-snackbar.snack-err {
+  --m3e-snackbar-container-color: var(--md-sys-color-error-container);
+  --m3e-snackbar-label-color: var(--md-sys-color-on-error-container);
+}
+
+.lang-switch { display: inline-flex; gap: 4px; align-items: center; }
+.sidebar .lang-switch { align-self: flex-start; }
+
+/* Page and card titles are m3e-heading hosts; the old h1/h2 metrics no longer apply. */
+m3e-heading.page-title,
+m3e-heading.card-title { display: block; }

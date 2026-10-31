@@ -1,13 +1,18 @@
-import * as SwitchPrimitive from "@radix-ui/react-switch";
+import { M3eSwitch, type M3eSwitchElement } from "@m3e/react/switch";
 import clsx from "clsx";
 import { useId, type ReactNode } from "react";
 
-/** An on/off switch. Kept out of ui.tsx: the subscription page has none and should not carry Radix. */
+/** An on/off switch. Kept out of ui.tsx: the subscription page has none and should not carry it. */
 export function Switch({ checked, onChange, label, disabled, describedBy }: { checked: boolean; onChange: (v: boolean) => void; label: string; disabled?: boolean; describedBy?: string }) {
   return (
-    <SwitchPrimitive.Root className="switch" checked={checked} onCheckedChange={onChange} aria-label={label} aria-describedby={describedBy} disabled={disabled}>
-      <SwitchPrimitive.Thumb className="thumb" />
-    </SwitchPrimitive.Root>
+    <M3eSwitch
+      checked={checked}
+      disabled={disabled}
+      aria-label={label}
+      aria-describedby={describedBy}
+      icons="none"
+      onChange={(e) => onChange((e.target as M3eSwitchElement).checked)}
+    />
   );
 }
 

@@ -1,3 +1,4 @@
+import { M3eIconButton } from "@m3e/react/icon-button";
 import clsx from "clsx";
 import { Gauge } from "lucide-react";
 import { t } from "../i18n";
@@ -11,16 +12,17 @@ import { usePerf } from "../lib/perf";
 export function PerfSwitch({ className }: { className?: string }) {
   const [on, set] = usePerf();
   return (
-    <button
-      type="button"
-      className={clsx("icon-btn perf-btn", className)}
+    <M3eIconButton
+      className={clsx("perf-btn", className)}
+      toggle
+      selected={on}
       aria-pressed={on}
       title={on ? t("perf.onTitle") : t("perf.offTitle")}
       aria-label={t("perf.title")}
       onClick={() => set(!on)}
     >
       <Gauge size={18} aria-hidden />
-    </button>
+    </M3eIconButton>
   );
 }
 

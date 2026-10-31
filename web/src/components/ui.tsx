@@ -1,3 +1,12 @@
+import { M3eAvatar } from "@m3e/react/avatar";
+import { M3eButton, type M3eButtonElement } from "@m3e/react/button";
+import { M3eChip } from "@m3e/react/chips";
+import { M3eFormField } from "@m3e/react/form-field";
+import { M3eHeading } from "@m3e/react/heading";
+import { M3eLinearProgressIndicator } from "@m3e/react/progress-indicator";
+import { M3eButtonSegment, M3eSegmentedButton } from "@m3e/react/segmented-button";
+import type { M3eSegmentedButtonElement } from "@m3e/react/segmented-button";
+import { M3eSkeleton } from "@m3e/react/skeleton";
 import clsx from "clsx";
 import { LoaderCircle, SearchX, TriangleAlert, UserRound, type LucideIcon } from "lucide-react";
 import { cloneElement, isValidElement, lazy, Suspense, useEffect, useId, useState, type ButtonHTMLAttributes, type CSSProperties, type ReactElement, type ReactNode } from "react";
@@ -19,20 +28,56 @@ export function Button({
   className,
   children,
   disabled,
-  ...rest
+  type = "button",
+  onClick,
+  id,
+  name,
+  title,
+  form,
+  value,
+  autoFocus,
+  tabIndex,
+  "aria-label": ariaLabel,
+  "aria-describedby": ariaDescribedBy,
+  "aria-pressed": ariaPressed,
+  "aria-expanded": ariaExpanded,
+  "aria-controls": ariaControls,
+  "aria-current": ariaCurrent,
 }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; size?: "sm"; loading?: boolean; block?: boolean }) {
-  const v = variant === "danger" ? "btn-ghost danger" : variant === "danger-solid" ? "btn-danger-solid" : `btn-${variant}`;
+  const filled = variant === "primary" || variant === "danger-solid";
+  const text = variant === "ghost" || variant === "danger";
+  const v = filled ? "filled" : variant === "outlined" ? "outlined" : text ? "text" : "tonal";
+  const danger = variant === "danger" || variant === "danger-solid";
   return (
-    <button
-      type="button"
-      className={clsx("btn", v, size === "sm" && "btn-sm", block && "btn-block", className)}
+    <M3eButton
+      ref={(el: M3eButtonElement | null) => {
+        if (!el) return;
+        if (form) el.setAttribute("form", form);
+        else el.removeAttribute("form");
+      }}
+      type={type === "submit" || type === "reset" ? type : "button"}
+      variant={v}
+      size={size === "sm" ? "small" : "medium"}
+      className={clsx(block && "btn-block", danger && "is-danger", className)}
       disabled={disabled || loading}
       aria-busy={loading || undefined}
-      {...rest}
+      aria-label={ariaLabel}
+      aria-describedby={ariaDescribedBy}
+      aria-pressed={ariaPressed}
+      aria-expanded={ariaExpanded}
+      aria-controls={ariaControls}
+      aria-current={ariaCurrent}
+      onClick={onClick ? (e) => onClick(e as unknown as Parameters<typeof onClick>[0]) : undefined}
+      id={id}
+      name={name}
+      title={title}
+      value={typeof value === "string" ? value : undefined}
+      autoFocus={autoFocus}
+      tabIndex={tabIndex}
     >
-      {loading ? <LoaderCircle size={16} className="spin" aria-hidden /> : null}
+      {loading ? <LoaderCircle slot="icon" size={16} className="spin" aria-hidden /> : null}
       {children}
-    </button>
+    </M3eButton>
   );
 }
 
@@ -44,8 +89,19 @@ const stateTone: Record<UserState, "ok" | "warn" | "bad" | "off"> = {
   disabled: "off",
 };
 
+const pillTone: Record<"ok" | "warn" | "bad" | "off", CSSProperties> = {
+  ok: { "--m3e-elevated-chip-container-color": "var(--leaf-50)", "--m3e-chip-label-text-color": "var(--leaf-700)" } as CSSProperties,
+  warn: { "--m3e-elevated-chip-container-color": "var(--honey-50)", "--m3e-chip-label-text-color": "var(--honey-600)" } as CSSProperties,
+  bad: { "--m3e-elevated-chip-container-color": "var(--berry-50)", "--m3e-chip-label-text-color": "var(--berry-600)" } as CSSProperties,
+  off: { "--m3e-elevated-chip-container-color": "var(--md-surface-container-high)", "--m3e-chip-label-text-color": "var(--md-on-surface-variant)" } as CSSProperties,
+};
+
 export function Pill({ tone, children }: { tone: "ok" | "warn" | "bad" | "off"; children: ReactNode }) {
-  return <span className={clsx("pill", tone)}>{children}</span>;
+  return (
+    <M3eChip variant="elevated" className={clsx("pill", tone)} style={pillTone[tone]}>
+      {children}
+    </M3eChip>
+  );
 }
 
 export function StatePill({ state }: { state: UserState }) {
@@ -63,23 +119,33 @@ export function Avatar({ name, seed, size }: { name: string; seed: number; size?
     .slice(0, 2)
     .join("")
     .toUpperCase();
-  const style = { "--av": AVATAR_COLORS[seed % AVATAR_COLORS.length] } as CSSProperties;
+  const color = AVATAR_COLORS[seed % AVATAR_COLORS.length] ?? "#E7E0EB";
+  const dim = size === "lg" ? "56px" : size === "sm" ? "32px" : "40px";
+  const style = { "--av": color, "--m3e-avatar-color": color, "--m3e-avatar-label-color": "#1d1b20", "--m3e-avatar-size": dim } as CSSProperties;
   return (
-    <span className={clsx("avatar", size)} style={style} aria-hidden>
+    <M3eAvatar className={clsx("avatar", size)} style={style} aria-hidden>
       {initials || "?"}
-    </span>
+    </M3eAvatar>
   );
 }
 
 export function Segmented<T extends string>({ value, options, onChange, label, block, disabled }: { value: T; options: { value: T; label: string }[]; onChange: (v: T) => void; label: string; block?: boolean; disabled?: boolean }) {
   return (
-    <div className={block ? "seg seg-block" : "seg"} role="group" aria-label={label}>
+    <M3eSegmentedButton
+      className={block ? "seg seg-block" : "seg"}
+      aria-label={label}
+      disabled={disabled}
+      onChange={(e) => {
+        const next = (e.currentTarget as M3eSegmentedButtonElement).value;
+        if (typeof next === "string" && next !== value) onChange(next as T);
+      }}
+    >
       {options.map((o) => (
-        <button key={o.value} type="button" aria-pressed={o.value === value} disabled={disabled} onClick={() => onChange(o.value)}>
+        <M3eButtonSegment key={o.value} value={o.value} checked={o.value === value} disabled={disabled}>
           {o.label}
-        </button>
+        </M3eButtonSegment>
       ))}
-    </div>
+    </M3eSegmentedButton>
   );
 }
 
@@ -90,12 +156,13 @@ export function Segmented<T extends string>({ value, options, onChange, label, b
 export function Bar({ pct, className, label }: { pct: number; className?: string; label?: string }) {
   const v = Math.max(0, Math.min(100, pct));
   return (
-    <div
+    <M3eLinearProgressIndicator
       className={clsx("bar", className)}
-      {...(label ? { role: "progressbar", "aria-label": label, "aria-valuemin": 0, "aria-valuemax": 100, "aria-valuenow": Math.round(v) } : { "aria-hidden": true })}
-    >
-      <i style={{ width: `${v}%` }} />
-    </div>
+      value={v}
+      max={100}
+      aria-label={label}
+      aria-hidden={label ? undefined : true}
+    />
   );
 }
 
@@ -143,7 +210,7 @@ export function QR({ value, size = 136, label }: { value: string; size?: number;
 }
 
 export function Skeleton({ className, style }: { className?: string; style?: CSSProperties }) {
-  return <span className={clsx("sk", className)} style={style} aria-hidden />;
+  return <M3eSkeleton className={clsx("sk", className)} shape="rounded" animation="wave" style={{ display: "block", height: 12, ...style }} aria-hidden />;
 }
 
 export function Spinner({ size = 16 }: { size?: number }) {
@@ -184,8 +251,23 @@ export function ErrorState({ title, text, onRetry }: { title?: string; text: str
  * direct child); without it the label names the group of controls inside (a segmented
  * switch, a select next to a switch).
  */
+const fieldControl = (node: ReactNode) => isValidElement(node) && (node.type === "input" || node.type === "select" || node.type === "textarea");
+
 export function Field({ label, htmlFor, hint, error, children }: { label: string; htmlFor?: string; hint?: ReactNode; error?: string; children: ReactNode }) {
   const uid = useId();
+  // A single native control wears the outlined M3 field. A group (a switch beside a
+  // select, a segmented control) keeps the label above it.
+  if (htmlFor && fieldControl(children)) {
+    return (
+      <M3eFormField variant="outlined" floatLabel="always" hideRequiredMarker error={!!error} hideSubscript={error || hint ? "never" : "always"}>
+        <label slot="label" htmlFor={htmlFor}>
+          {label}
+        </label>
+        {children}
+        {error ? <span slot="error">{error}</span> : hint ? <span slot="hint">{hint}</span> : null}
+      </M3eFormField>
+    );
+  }
   const noteId = error || hint ? `${uid}-note` : undefined;
   const control = htmlFor && noteId && isValidElement<{ id?: string; "aria-describedby"?: string }>(children) && children.props.id === htmlFor ? children : null;
   return (
@@ -218,7 +300,9 @@ export function PageHeader({ title, sub, actions }: { title: string; sub?: React
   return (
     <header className="topbar" data-stuck={stuck || undefined}>
       <div className="min-w-0">
-        <h1 className="page-title">{title}</h1>
+        <M3eHeading className="page-title" variant="headline" size="medium" level={1}>
+          {title}
+        </M3eHeading>
         {sub ? <p className="page-sub">{sub}</p> : null}
       </div>
       {actions ? <div className="top-actions">{actions}</div> : null}

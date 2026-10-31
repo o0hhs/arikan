@@ -1,3 +1,4 @@
+import { M3eCard } from "@m3e/react/card";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { ShieldCheck } from "lucide-react";
@@ -71,9 +72,10 @@ export function LoginPage() {
   return (
     <div className="grid min-h-screen place-items-center px-4 py-12">
       <LangSwitch className="fixed top-4 right-4" />
+      <M3eCard variant="elevated" className="login-card">
       <motion.form
+        slot="content"
         onSubmit={submit}
-        className="glass-strong w-full max-w-[400px] rounded-2xl p-8"
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
@@ -147,6 +149,7 @@ export function LoginPage() {
           </p>
         )}
       </motion.form>
+      </M3eCard>
     </div>
   );
 }

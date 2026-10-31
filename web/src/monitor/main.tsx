@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import "../styles/app.css";
 import "../styles/fonts-mono.css";
 import { ErrorBoundary } from "../components/error-boundary";
+import { M3eRoot } from "../m3e/root";
 import { initI18n } from "../i18n";
 import { monitorDicts } from "../i18n/monitor";
 import { MonitorPage } from "./page";
@@ -24,7 +25,9 @@ void initI18n(monitorDicts).then(() => {
   createRoot(document.getElementById("root")!).render(
     <StrictMode>
       <ErrorBoundary>
-        <MonitorPage />
+        <M3eRoot sync>
+          <MonitorPage />
+        </M3eRoot>
       </ErrorBoundary>
     </StrictMode>,
   );

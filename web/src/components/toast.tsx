@@ -1,6 +1,6 @@
+import "@m3e/react/snackbar";
 import { Check, TriangleAlert } from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
-import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, createElement, useCallback, useContext, useEffect, useMemo, useRef, useState, type HTMLAttributes, type ReactNode } from "react";
 
 type Toast = { id: number; text: string; error?: boolean };
 type Api = {
@@ -50,30 +50,48 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <Ctx.Provider value={api}>
       {children}
-      {/* Each toast announces itself through its own role (status / alert). */}
-      <div className="toast-region">
-        <AnimatePresence>
-          {items.map((t) => (
-            <motion.div
-              key={t.id}
-              className={t.error ? "toast err" : "toast"}
-              role={t.error ? "alert" : "status"}
-              initial={{ opacity: 0, y: -8, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ type: "spring", stiffness: 500, damping: 34 }}
-              onMouseEnter={() => hold(t.id)}
-              onMouseLeave={() => arm(t.id, LIFETIME.resume)}
-              onFocus={() => hold(t.id)}
-              onBlur={() => arm(t.id, LIFETIME.resume)}
-            >
-              {t.error ? <TriangleAlert size={16} aria-hidden /> : <Check size={16} aria-hidden className="text-[var(--md-inverse-primary)]" />}
-              <span>{t.text}</span>
-            </motion.div>
-          ))}
-        </AnimatePresence>
-      </div>
+      {/* One snackbar at a time: m3e keeps a single current bar. The timer pauses while it is held. */}
+      {items.slice(-1).map((item) => (
+        <Snack key={item.id} item={item} onDone={() => dismiss(item.id)} onHold={() => hold(item.id)} onResume={() => arm(item.id, LIFETIME.resume)} />
+      ))}
     </Ctx.Provider>
+  );
+}
+
+function Snack({ item, onDone, onHold, onResume }: { item: Toast; onDone: () => void; onHold: () => void; onResume: () => void }) {
+  const ref = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const onToggle = (e: Event) => {
+      if ((e as ToggleEvent).newState === "closed") onDone();
+    };
+    el.addEventListener("toggle", onToggle);
+    el.addEventListener("pointerenter", onHold);
+    el.addEventListener("pointerleave", onResume);
+    el.addEventListener("focusin", onHold);
+    el.addEventListener("focusout", onResume);
+    return () => {
+      el.removeEventListener("toggle", onToggle);
+      el.removeEventListener("pointerenter", onHold);
+      el.removeEventListener("pointerleave", onResume);
+      el.removeEventListener("focusin", onHold);
+      el.removeEventListener("focusout", onResume);
+    };
+  }, [onDone, onHold, onResume]);
+  return createElement(
+    "m3e-snackbar",
+    {
+      ref,
+      className: item.error ? "snack-err" : undefined,
+      open: true,
+      duration: 60_000,
+      dismissible: true,
+      closeLabel: "Close",
+      role: item.error ? "alert" : "status",
+    } as HTMLAttributes<HTMLElement>,
+    item.error ? <TriangleAlert size={16} aria-hidden /> : <Check size={16} aria-hidden />,
+    item.text,
   );
 }
 

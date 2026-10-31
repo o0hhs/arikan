@@ -1,5 +1,9 @@
+import { M3eCard } from "@m3e/react/card";
+import { M3eIconButton } from "@m3e/react/icon-button";
+import { M3eMenu, M3eMenuItem, M3eMenuTrigger } from "@m3e/react/menu";
+import { M3eNavBar, M3eNavItem } from "@m3e/react/nav-bar";
+import { M3eNavRail } from "@m3e/react/nav-rail";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import * as Menu from "@radix-ui/react-dropdown-menu";
 import { Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import { ArrowUpCircle, BarChart3, ClipboardCheck, LayoutDashboard, LogOut, MoreHorizontal, Network, PanelLeftClose, PanelLeftOpen, Puzzle, ScrollText, Search, SlidersHorizontal, Tag, Users, Wallet, Workflow } from "lucide-react";
 import { useState } from "react";
@@ -13,6 +17,7 @@ import { useToast } from "../components/toast";
 import { Avatar, Bar, Pill } from "../components/ui";
 import { t, useLocale, type Key } from "../i18n";
 import { num, uptime } from "../lib/format";
+import { useMediaQuery } from "../lib/media";
 import { SupportBar } from "./support-bar";
 import type { Permission } from "./roles";
 
@@ -66,6 +71,8 @@ export function Shell() {
   const nav = navFor(role, meShell.data?.admin.permissions ?? []);
   const path = useRouterState({ select: (s) => s.location.pathname });
   const [folded, setFolded] = useState(readFolded);
+  const navigate = useNavigate();
+  const desk = useMediaQuery("(min-width: 1280px)");
   const fold = () =>
     setFolded((f) => {
       try {
@@ -85,22 +92,22 @@ export function Shell() {
           <div className="brand">
             <Logo />
             <span className="brand-name">Arikan</span>
-            <button type="button" className="icon-btn fold-btn" onClick={fold} aria-label={foldLabel} title={foldLabel}>
+            <M3eIconButton className="fold-btn" onClick={fold} aria-label={foldLabel} title={foldLabel}>
               {folded ? <PanelLeftOpen size={18} aria-hidden /> : <PanelLeftClose size={18} aria-hidden />}
-            </button>
+            </M3eIconButton>
           </div>
-          <nav className="nav" aria-label={t("shell.sections")}>
+          <M3eNavRail className="nav" mode={desk && !folded ? "expanded" : "compact"} aria-label={t("shell.sections")}>
             {nav.map((n) => {
               const on = sectionActive(n, path);
               return (
-                <Link key={n.to} to={n.to} className={on ? "nav-item active" : "nav-item"} aria-current={on ? "page" : undefined} title={t(`nav.${n.key}` as Key)}>
-                  <n.icon size={18} aria-hidden />
+                <M3eNavItem key={n.to} selected={on} aria-current={on ? "page" : undefined} title={t(`nav.${n.key}` as Key)} onClick={() => void navigate({ to: n.to })}>
+                  <n.icon slot="icon" size={22} aria-hidden />
                   <span className="nav-label">{t(`nav.${n.key}` as Key)}</span>
                   {n.to === "/users" && overview.data ? <span className="nav-count num">{num(overview.data.users_total)}</span> : null}
-                </Link>
+                </M3eNavItem>
               );
             })}
-          </nav>
+          </M3eNavRail>
           <div className="side-foot">
             <UpdateChip />
             <NodeCard />
@@ -134,31 +141,36 @@ function MobileNav() {
   const more = nav.slice(MOBILE_MAIN);
   const inMore = more.some((n) => sectionActive(n, path));
   return (
-    <nav className="mnav glass" aria-label={t("shell.sections")}>
-      {nav.slice(0, MOBILE_MAIN).map((n) => (
-        <Link key={n.to} to={n.to} className={sectionActive(n, path) ? "active" : undefined} aria-current={sectionActive(n, path) ? "page" : undefined}>
-          <n.icon size={20} aria-hidden />
-          <span>{t(`navShort.${n.key}` as Key)}</span>
-        </Link>
-      ))}
-      <Menu.Root>
-        <Menu.Trigger asChild>
-          <button type="button" className={inMore ? "active" : undefined} aria-label={t("shell.more")}>
-            <MoreHorizontal size={20} aria-hidden />
-            <span>{t("shell.more")}</span>
-          </button>
-        </Menu.Trigger>
-        <Menu.Portal>
-          <Menu.Content className="menu glass-strong" side="top" align="end" sideOffset={12}>
-            {more.map((n) => (
-              <Menu.Item key={n.to} className="menu-item" onSelect={() => void navigate({ to: n.to })} aria-current={sectionActive(n, path) ? "page" : undefined}>
-                <n.icon size={16} aria-hidden /> {t(`nav.${n.key}` as Key)}
-              </Menu.Item>
-            ))}
-          </Menu.Content>
-        </Menu.Portal>
-      </Menu.Root>
-    </nav>
+    <>
+      <M3eNavBar className="m3e-mnav" aria-label={t("shell.sections")}>
+        {nav.slice(0, MOBILE_MAIN).map((n) => {
+          const on = sectionActive(n, path);
+          return (
+            <M3eNavItem key={n.to} selected={on} aria-current={on ? "page" : undefined} onClick={() => void navigate({ to: n.to })}>
+              <n.icon slot="icon" size={22} aria-hidden />
+              {t(`navShort.${n.key}` as Key)}
+            </M3eNavItem>
+          );
+        })}
+        {more.length ? (
+          <M3eNavItem selected={inMore} aria-label={t("shell.more")}>
+            <MoreHorizontal slot="icon" size={22} aria-hidden />
+            {t("shell.more")}
+            <M3eMenuTrigger htmlFor="shell-more" />
+          </M3eNavItem>
+        ) : null}
+      </M3eNavBar>
+      {more.length ? (
+        <M3eMenu id="shell-more">
+          {more.map((n) => (
+            <M3eMenuItem key={n.to} onClick={() => void navigate({ to: n.to })} aria-current={sectionActive(n, path) ? "page" : undefined}>
+              <n.icon slot="icon" size={16} aria-hidden />
+              {t(`nav.${n.key}` as Key)}
+            </M3eMenuItem>
+          ))}
+        </M3eMenu>
+      ) : null}
+    </>
   );
 }
 
@@ -187,23 +199,25 @@ function NodeCard() {
   }
   const memPct = n.system.mem_total ? (n.system.mem_used / n.system.mem_total) * 100 : 0;
   return (
-    <div className="node-card">
-      <div className="node-top">
-        <span className="node-name">{t("shell.server")}</span>
-        {n.ok ? <Pill tone="ok">{t("shell.running")}</Pill> : <Pill tone="bad">{t("shell.offline")}</Pill>}
-      </div>
-      <div className="node-sub">{n.ok ? `${n.core}${n.started_at ? ` · ${uptime(n.started_at)}` : ""}` : t("shell.nodeDown")}</div>
-      {n.ok ? (
-        <div className="node-bars">
-          <span>CPU</span>
-          <Bar pct={n.system.cpu_percent} label="CPU" />
-          <span className="num">{Math.round(n.system.cpu_percent)}%</span>
-          <span>RAM</span>
-          <Bar pct={memPct} label="RAM" />
-          <span className="num">{Math.round(memPct)}%</span>
+    <M3eCard variant="outlined" className="node-card">
+      <div slot="content">
+        <div className="node-top">
+          <span className="node-name">{t("shell.server")}</span>
+          {n.ok ? <Pill tone="ok">{t("shell.running")}</Pill> : <Pill tone="bad">{t("shell.offline")}</Pill>}
         </div>
-      ) : null}
-    </div>
+        <div className="node-sub">{n.ok ? `${n.core}${n.started_at ? ` · ${uptime(n.started_at)}` : ""}` : t("shell.nodeDown")}</div>
+        {n.ok ? (
+          <div className="node-bars">
+            <span>CPU</span>
+            <Bar pct={n.system.cpu_percent} label="CPU" />
+            <span className="num">{Math.round(n.system.cpu_percent)}%</span>
+            <span>RAM</span>
+            <Bar pct={memPct} label="RAM" />
+            <span className="num">{Math.round(memPct)}%</span>
+          </div>
+        ) : null}
+      </div>
+    </M3eCard>
   );
 }
 
@@ -246,9 +260,9 @@ function AdminRow() {
         <div className="truncate text-[13px] font-medium">{name}</div>
         <div className="text-xs text-[var(--md-on-surface-variant)]">{me.data?.admin.totp_enabled ? t("shell.twoFactorOn") : t("shell.owner")}</div>
       </div>
-      <button type="button" className="icon-btn logout ml-auto" aria-label={t("shell.logout")} onClick={() => logout.mutate()} disabled={logout.isPending}>
+      <M3eIconButton className="logout ml-auto" aria-label={t("shell.logout")} onClick={() => logout.mutate()} disabled={logout.isPending}>
         <LogOut size={18} />
-      </button>
+      </M3eIconButton>
     </div>
   );
 }
