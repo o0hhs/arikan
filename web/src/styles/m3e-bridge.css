@@ -1,0 +1,185 @@
+/*
+ * Layout around the M3E components. The components paint themselves; this file only
+ * makes the host boxes sit in the panel's layout and lets a slotted native field
+ * use the form-field's outline instead of the old .input border.
+ */
+
+html[data-m3e="sync"] {
+  /* Expressive shape: larger corners than the compact scale, still one scale for every theme. */
+  --md-shape-xs: 8px;
+  --md-shape-sm: 12px;
+  --md-shape-md: 16px;
+  --md-shape-lg: 24px;
+  --md-shape-lg-increased: 28px;
+  --md-shape-xl: 36px;
+  --md-shape-xl-increased: 44px;
+  --md-shape-xxl: 56px;
+}
+
+/* Solid containers. The blur stays available for a theme that still wants glass; the
+   expressive surface is the color role itself. */
+html[data-m3e="sync"] .glass {
+  background: var(--md-surface-container);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+html[data-m3e="sync"] .glass-strong {
+  background: var(--md-surface-container-high);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* Admin density: a medium control is 40px, not the 56px expressive default that turns an
+   icon-only action into a large circle. */
+m3e-button {
+  --m3e-button-container-height: 40px;
+  --m3e-button-small-container-height: 40px;
+  --m3e-button-extra-small-container-height: 32px;
+  --m3e-button-medium-container-height: 40px;
+}
+m3e-button.btn-block { width: 100%; }
+@media (max-width: 760px) {
+  /* The label was hidden to save a row; inside an m3e button that leaves a round blob. */
+  .top-actions m3e-button span,
+  .top-actions a.btn span { display: inline !important; }
+}
+m3e-button.is-danger {
+  --md-sys-color-primary: var(--md-sys-color-error);
+  --md-sys-color-on-primary: var(--md-sys-color-on-error);
+  --md-sys-color-primary-container: var(--md-sys-color-error-container);
+  --md-sys-color-on-primary-container: var(--md-sys-color-on-error-container);
+}
+m3e-icon-button { vertical-align: middle; }
+
+m3e-form-field { display: block; width: 100%; margin-bottom: 16px; }
+m3e-form-field :is(input, select, textarea).input {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  height: auto;
+  min-height: 1.5em;
+  padding: 0;
+  border-radius: 0;
+  outline: none;
+}
+m3e-form-field textarea.input { min-height: 72px; padding: 4px 0; }
+
+m3e-card.card,
+m3e-card.panel-card,
+m3e-card.login-card,
+m3e-card.node-card {
+  display: block;
+  width: 100%;
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+m3e-card.card.sel { box-shadow: 0 0 0 2px var(--md-primary); }
+.login-card { width: min(100%, 440px); }
+
+m3e-linear-progress-indicator { display: block; width: 100%; min-width: 0; }
+m3e-chip { vertical-align: middle; }
+m3e-chip.pill { --m3e-chip-container-height: 26px; }
+m3e-chip.pill::before { content: none; }
+.pill-dot { display: inline-block; width: 6px; height: 6px; margin-inline-end: 6px; border-radius: 999px; background: currentColor; flex: none; }
+m3e-avatar { flex: none; }
+
+/* The side list fills the drawer and scrolls on its own, so the server card never covers it. */
+.sidebar {
+  gap: 10px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+.sidebar m3e-nav-menu.side-nav,
+.sidebar m3e-nav-menu-item {
+  --m3e-nav-menu-item-height: 36px;
+}
+.sidebar m3e-nav-menu.side-nav {
+  flex: 0 0 auto;
+  width: 100%;
+}
+.sidebar m3e-nav-menu-item { width: 100%; }
+.side-foot { margin-top: 8px; }
+.date-choices { display: flex; flex-direction: column; gap: 8px; }
+.date-choices .opt { width: 100%; }
+m3e-card.node-card {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  --m3e-filled-card-container-color: var(--md-surface-container-low);
+  --m3e-card-padding: 12px;
+}
+.metric { min-width: 0; }
+.metric-net {
+  font: 600 13px/18px var(--font-ui-stack);
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+.opt-center { align-items: center; justify-content: center; text-align: center; min-height: 48px; }
+
+/* One rounded track, as wide as its labels. Shrinking them clips "30 дней" to "30…". */
+m3e-segmented-button {
+  display: inline-flex;
+  width: max-content;
+  max-width: 100%;
+  flex-wrap: nowrap;
+}
+m3e-button-segment {
+  flex: 0 0 auto !important;
+  min-width: max-content !important;
+}
+
+@media (min-width: 1024px) {
+  html[data-m3e="sync"] .section-layout { grid-template-columns: 300px minmax(0, 1fr); }
+}
+.section-nav,
+.section-nav m3e-nav-menu-item {
+  --m3e-nav-menu-item-height: 40px;
+}
+.section-nav [slot="label"] { white-space: normal; }
+
+m3e-dialog { --m3e-dialog-max-width: min(520px, calc(100vw - 32px)); }
+
+.lang-switch m3e-button {
+  --m3e-button-extra-small-leading-space: 12px;
+  --m3e-button-extra-small-trailing-space: 12px;
+  --m3e-button-leading-space: 12px;
+  --m3e-button-trailing-space: 12px;
+}
+
+m3e-nav-bar.m3e-mnav { display: none; }
+@media (max-width: 1023px) {
+  m3e-nav-bar.m3e-mnav {
+    display: flex;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 34;
+    padding-bottom: env(safe-area-inset-bottom);
+    background: var(--md-surface-container);
+  }
+  m3e-nav-bar.m3e-mnav m3e-nav-item {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+}
+
+m3e-tabs { display: block; width: 100%; }
+m3e-tab a { color: inherit; text-decoration: none; }
+m3e-tabs.section-tabs { margin-bottom: 4px; }
+
+m3e-snackbar.snack-err {
+  --m3e-snackbar-container-color: var(--md-sys-color-error-container);
+  --m3e-snackbar-label-color: var(--md-sys-color-on-error-container);
+}
+
+.lang-switch { display: inline-flex; gap: 4px; align-items: center; }
+.sidebar .lang-switch { align-self: flex-start; }
+
+/* Page and card titles are m3e-heading hosts; the old h1/h2 metrics no longer apply. */
+m3e-heading.page-title,
+m3e-heading.card-title { display: block; }

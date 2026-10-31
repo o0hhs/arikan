@@ -1,3 +1,4 @@
+import { M3eButton } from "@m3e/react/button";
 import clsx from "clsx";
 import { LOCALES, setLocale, t, useLocale } from "../i18n";
 
@@ -5,11 +6,11 @@ import { LOCALES, setLocale, t, useLocale } from "../i18n";
 export function LangSwitch({ className }: { className?: string }) {
   const current = useLocale();
   return (
-    <div className={clsx("seg lang-switch", className)} role="group" aria-label={t("common.language")}>
+    <div className={clsx("lang-switch", className)} role="group" aria-label={t("common.language")}>
       {LOCALES.map((l) => (
-        <button key={l.id} type="button" aria-pressed={l.id === current} lang={l.id} title={l.label} onClick={() => setLocale(l.id)}>
+        <M3eButton key={l.id} type="button" size="extra-small" variant={l.id === current ? "filled" : "text"} lang={l.id} title={l.label} aria-pressed={l.id === current} onClick={() => void setLocale(l.id)}>
           {l.id.toUpperCase()}
-        </button>
+        </M3eButton>
       ))}
     </div>
   );

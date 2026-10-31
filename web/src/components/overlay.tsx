@@ -1,7 +1,9 @@
+import { M3eDialog } from "@m3e/react/dialog";
+import { M3eIconButton } from "@m3e/react/icon-button";
 import * as Dialog from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { useId, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useId, useState, type FormEvent, type ReactNode } from "react";
 import { t } from "../i18n";
 import { Button, Field } from "./ui";
 
@@ -62,9 +64,9 @@ export function Drawer({
                     </div>
                     {meta ? <div className="dr-meta">{meta}</div> : null}
                   </div>
-                  <Dialog.Close className="icon-btn" aria-label={t("common.close")}>
+                  <M3eIconButton aria-label={t("common.close")} onClick={() => onOpenChange(false)}>
                     <X size={18} />
-                  </Dialog.Close>
+                  </M3eIconButton>
                 </header>
                 <div className="dr-body">{children}</div>
                 {footer ? <footer className="dr-foot">{footer}</footer> : null}
@@ -139,26 +141,26 @@ export function NameDialog({
   loading?: boolean;
   onSubmit: (name: string) => void;
 }) {
+  const [shown, setShown] = useState(open);
+  useEffect(() => {
+    if (open) setShown(true);
+  }, [open]);
+  if (!shown) return null;
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <AnimatePresence>
-        {open ? (
-          <Dialog.Portal forceMount>
-            <Dialog.Overlay asChild forceMount>
-              <motion.div className="scrim" style={{ zIndex: 55 }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} />
-            </Dialog.Overlay>
-            <Dialog.Content asChild forceMount aria-describedby={undefined} onEscapeKeyDown={keepOpenForLocalEscape}>
-              <motion.div className="dialog glass-strong" initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }} transition={{ duration: 0.18 }}>
-                <Dialog.Title asChild>
-                  <h2>{title}</h2>
-                </Dialog.Title>
-                <NameForm label={label} initial={initial} placeholder={placeholder} hint={hint} maxLength={maxLength} optional={optional} error={error} loading={loading} onSubmit={onSubmit} />
-              </motion.div>
-            </Dialog.Content>
-          </Dialog.Portal>
-        ) : null}
-      </AnimatePresence>
-    </Dialog.Root>
+    <M3eDialog
+      open={open}
+      dismissible
+      closeLabel={t("common.close")}
+      disableClose={!!loading}
+      onCancel={keepDialogForLocalEscape}
+      onClosed={() => {
+        setShown(false);
+        if (open) onOpenChange(false);
+      }}
+    >
+      <span slot="header">{title}</span>
+      <NameForm label={label} initial={initial} placeholder={placeholder} hint={hint} maxLength={maxLength} optional={optional} error={error} loading={loading} onSubmit={onSubmit} onCancel={() => onOpenChange(false)} />
+    </M3eDialog>
   );
 }
 
@@ -172,6 +174,7 @@ function NameForm({
   error,
   loading,
   onSubmit,
+  onCancel,
 }: {
   label: string;
   initial: string;
@@ -182,6 +185,7 @@ function NameForm({
   error?: string;
   loading?: boolean;
   onSubmit: (name: string) => void;
+  onCancel: () => void;
 }) {
   const id = useId();
   const [name, setName] = useState(initial);
@@ -207,10 +211,10 @@ function NameForm({
           onChange={(e) => setName(e.target.value)}
         />
       </Field>
-      <div className="mt-6 flex justify-end gap-2">
-        <Dialog.Close asChild>
-          <Button variant="ghost">{t("common.cancel")}</Button>
-        </Dialog.Close>
+      <div slot="actions" className="mt-6 flex justify-end gap-2">
+        <Button variant="ghost" onClick={onCancel}>
+          {t("common.cancel")}
+        </Button>
         <Button variant="primary" type="submit" loading={loading} disabled={!ok}>
           {t("common.save")}
         </Button>
@@ -244,45 +248,36 @@ export function Confirm({
   /** What the text cannot hold: a list to approve, a warning. */
   children?: ReactNode;
 }) {
+  const [shown, setShown] = useState(open);
+  useEffect(() => {
+    if (open) setShown(true);
+  }, [open]);
+  if (!shown) return null;
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <AnimatePresence>
-        {open ? (
-          <Dialog.Portal forceMount>
-            <Dialog.Overlay asChild forceMount>
-              <motion.div className="scrim" style={{ zIndex: 55 }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} />
-            </Dialog.Overlay>
-            <Dialog.Content asChild forceMount onEscapeKeyDown={keepOpenForLocalEscape}>
-              {/* Centred by CSS layout, not by the transform: motion owns the transform and drops
-                  it with reduced motion (Android's battery saver), which left the corner at the centre. */}
-              <motion.div
-                className="dialog glass-strong"
-                initial={{ opacity: 0, scale: 0.96 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.98 }}
-                transition={{ duration: 0.18 }}
-              >
-                <Dialog.Title asChild>
-                  <h2>{title}</h2>
-                </Dialog.Title>
-                <Dialog.Description asChild>
-                  <p className="muted mt-2">{text}</p>
-                </Dialog.Description>
-                {children}
-                <div className="mt-6 flex justify-end gap-2">
-                  <Dialog.Close asChild>
-                    <Button variant="ghost">{t("common.cancel")}</Button>
-                  </Dialog.Close>
-                  <Button variant={danger ? "danger-solid" : "primary"} loading={loading} disabled={confirmDisabled} onClick={onConfirm}>
-                    {confirm}
-                  </Button>
-                </div>
-              </motion.div>
-            </Dialog.Content>
-          </Dialog.Portal>
-        ) : null}
-      </AnimatePresence>
-    </Dialog.Root>
+    <M3eDialog
+      open={open}
+      alert={!!danger}
+      dismissible
+      closeLabel={t("common.close")}
+      disableClose={!!loading}
+      onCancel={keepDialogForLocalEscape}
+      onClosed={() => {
+        setShown(false);
+        if (open) onOpenChange(false);
+      }}
+    >
+      <span slot="header">{title}</span>
+      <p className="muted">{text}</p>
+      {children}
+      <div slot="actions" className="flex justify-end gap-2">
+        <Button variant="ghost" onClick={() => onOpenChange(false)}>
+          {t("common.cancel")}
+        </Button>
+        <Button variant={danger ? "danger-solid" : "primary"} loading={loading} disabled={confirmDisabled} onClick={onConfirm}>
+          {confirm}
+        </Button>
+      </div>
+    </M3eDialog>
   );
 }
 
@@ -292,4 +287,8 @@ export function Confirm({
  */
 function keepOpenForLocalEscape(e: KeyboardEvent) {
   if (e.target instanceof Element && e.target.closest("[data-local-escape]")) e.preventDefault();
+}
+
+function keepDialogForLocalEscape(e: Event) {
+  if (document.activeElement instanceof Element && document.activeElement.closest("[data-local-escape]")) e.preventDefault();
 }

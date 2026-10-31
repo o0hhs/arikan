@@ -1,3 +1,7 @@
+import { M3eCard } from "@m3e/react/card";
+import { M3eFormField } from "@m3e/react/form-field";
+import { M3eHeading } from "@m3e/react/heading";
+import { M3eNavMenu, M3eNavMenuItem } from "@m3e/react/nav-menu";
 import clsx from "clsx";
 import { ChevronRight, Eye } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
@@ -14,9 +18,9 @@ export function CardHead({ title, sub, aside, id }: { title: ReactNode; sub?: Re
   return (
     <div className="card-head">
       <div>
-        <h2 className="card-title" id={id}>
+        <M3eHeading className="card-title" id={id} variant="title" size="medium">
           {title}
-        </h2>
+        </M3eHeading>
         {sub ? <div className="card-sub">{sub}</div> : null}
       </div>
       {aside}
@@ -28,10 +32,12 @@ export function CardHead({ title, sub, aside, id }: { title: ReactNode; sub?: Re
  * false: no entrance (a card that comes and goes with a tab inside the page). */
 export function Card({ title, sub, aside, i, reveal = true, className, children }: { title: ReactNode; sub?: ReactNode; aside?: ReactNode; i?: number; reveal?: boolean; className?: string; children: ReactNode }) {
   return (
-    <section className={clsx("card glass", reveal && "reveal", className)} style={i ? ({ "--i": i } as CSSProperties) : undefined}>
-      <CardHead title={title} sub={sub} aside={aside} />
-      {children}
-    </section>
+    <M3eCard variant="elevated" className={clsx("card", reveal && "reveal", className)} style={i ? ({ "--i": i } as CSSProperties) : undefined}>
+      <div slot="content">
+        <CardHead title={title} sub={sub} aside={aside} />
+        {children}
+      </div>
+    </M3eCard>
   );
 }
 
@@ -73,43 +79,43 @@ export function SectionNav<T extends string>({
   return (
     <div className="section-layout">
       {wide ? (
-        <nav className="section-nav" aria-label={label}>
-          <ul>
-            {sections.map((s) => {
-              const open = s.id === value;
-              const Icon = s.icon;
-              return (
-                <li key={s.id}>
-                  <button
-                    type="button"
-                    aria-current={open && !s.parts ? "page" : undefined}
-                    data-open={open && s.parts ? "true" : undefined}
-                    aria-expanded={s.parts ? open : undefined}
-                    onClick={() => onChange(s.id, s.parts ? (open ? part : s.parts[0]?.id) : undefined)}
+        <M3eNavMenu className="section-nav" aria-label={label}>
+          {sections.map((s) => {
+            const open = s.id === value;
+            const Icon = s.icon;
+            return (
+              <M3eNavMenuItem
+                key={s.id}
+                selected={open && !s.parts}
+                open={open && !!s.parts}
+                aria-current={open && !s.parts ? "page" : undefined}
+                onClick={() => onChange(s.id, s.parts ? (open ? part : s.parts[0]?.id) : undefined)}
+              >
+                {Icon ? <Icon slot="icon" size={18} aria-hidden /> : null}
+                <span slot="label">{s.label}</span>
+                {s.badge ? <span slot="badge">{s.badge}</span> : null}
+                {s.parts?.map((p) => (
+                  <M3eNavMenuItem
+                    key={p.id}
+                    selected={open && p.id === part}
+                    aria-current={p.id === part ? "page" : undefined}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onChange(s.id, p.id);
+                    }}
                   >
-                    {Icon ? <Icon size={18} aria-hidden /> : null}
-                    <span className="min-w-0 flex-1 truncate">{s.label}</span>
-                    {s.badge ? <span className="section-nav-badge">{s.badge}</span> : null}
-                  </button>
-                  {open && s.parts ? (
-                    <ul className="sub">
-                      {s.parts.map((p) => (
-                        <li key={p.id}>
-                          <button type="button" aria-current={p.id === part ? "page" : undefined} onClick={() => onChange(s.id, p.id)}>
-                            <span className="min-w-0 flex-1 truncate">{p.label}</span>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : null}
-                </li>
-              );
-            })}
-          </ul>
-        </nav>
+                    <span slot="label">{p.label}</span>
+                  </M3eNavMenuItem>
+                ))}
+              </M3eNavMenuItem>
+            );
+          })}
+        </M3eNavMenu>
       ) : (
-        <div className="field !mb-0">
-          <label htmlFor={selectId}>{label}</label>
+        <M3eFormField variant="outlined" floatLabel="always" hideSubscript="always" className="!mb-0">
+          <label slot="label" htmlFor={selectId}>
+            {label}
+          </label>
           <select
             id={selectId}
             className="input"
@@ -135,7 +141,7 @@ export function SectionNav<T extends string>({
               ),
             )}
           </select>
-        </div>
+        </M3eFormField>
       )}
       <section ref={body} className={clsx("section-body", narrow && "narrow")} aria-label={title}>
         {children}

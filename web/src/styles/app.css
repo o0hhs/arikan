@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "./fonts.css";
 @import "./themes.css";
+@import "./m3e-bridge.css";
 
 
 @theme inline {

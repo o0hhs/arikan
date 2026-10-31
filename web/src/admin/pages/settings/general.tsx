@@ -84,7 +84,7 @@ export function LanguageCard({ s }: { s: Schemas["SettingsView"] }) {
             type="button"
             role="radio"
             aria-checked={current === o.id}
-            className="opt"
+            className="opt opt-center"
             lang={"lang" in o ? o.lang : undefined}
             disabled={save.isPending}
             onClick={() => o.id !== s.default_lang && save.mutate({ default_lang: o.id })}

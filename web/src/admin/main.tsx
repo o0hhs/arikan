@@ -14,6 +14,7 @@ import { Atmosphere } from "../components/atmosphere";
 import { getTheme, setTheme } from "../components/theme";
 import { ErrorBoundary } from "../components/error-boundary";
 import { getPerf, onPerfChange, usePerf } from "../lib/perf";
+import { M3eRoot } from "../m3e/root";
 import { ToastProvider } from "../components/toast";
 import { initI18n } from "../i18n";
 import { adminDicts } from "../i18n/admin";
@@ -78,10 +79,12 @@ void initI18n(adminDicts).then(() => {
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
           <MotionGate>
-            <ToastProvider>
-              <Atmosphere />
-              <RouterProvider router={router} />
-            </ToastProvider>
+            <M3eRoot sync>
+              <ToastProvider>
+                <Atmosphere />
+                <RouterProvider router={router} />
+              </ToastProvider>
+            </M3eRoot>
           </MotionGate>
         </QueryClientProvider>
       </ErrorBoundary>

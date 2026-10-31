@@ -11,6 +11,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { ApiError } from "../api/client";
 import { ErrorBoundary } from "../components/error-boundary";
+import { M3eRoot } from "../m3e/root";
 import { ToastProvider } from "../components/toast";
 import { adminDicts } from "../i18n/admin";
 import { initI18n } from "../i18n";
@@ -32,9 +33,11 @@ void initI18n(adminDicts).then(() => {
     <StrictMode>
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
-          <ToastProvider>
-            <App />
-          </ToastProvider>
+          <M3eRoot sync>
+            <ToastProvider>
+              <App />
+            </ToastProvider>
+          </M3eRoot>
         </QueryClientProvider>
       </ErrorBoundary>
     </StrictMode>,

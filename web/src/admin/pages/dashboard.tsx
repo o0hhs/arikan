@@ -294,7 +294,7 @@ function ServerCard() {
         </div>
         <div className="metric">
           <div className="metric-label">{t("dashboard.netDown")}</div>
-          <div className="metric-value num text-[15px]">{n ? bits(n.system.net_rx_bps) : "—"}</div>
+          <div className="metric-value num metric-net">{n ? bits(n.system.net_rx_bps) : "—"}</div>
         </div>
       </div>
       {inbounds.isError && !inbounds.data ? <CardError error={inbounds.error} onRetry={() => void inbounds.refetch()} /> : null}

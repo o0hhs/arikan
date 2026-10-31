@@ -1,3 +1,4 @@
+import { M3eTab, M3eTabs } from "@m3e/react/tabs";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { meQuery } from "../api/hooks";
@@ -26,15 +27,17 @@ export function ServersTabs() {
   const shown = SERVERS.filter((x) => roleAllows(role, permissions, x.to));
   if (shown.length < 2) return null;
   return (
-    <nav className="section-tabs" aria-label={t("nav.nodes")}>
+    <M3eTabs className="section-tabs" aria-label={t("nav.nodes")}>
       {shown.map((x) => {
         const on = x.to === path || path.startsWith(`${x.to}/`);
         return (
-          <Link key={x.to} to={x.to} aria-current={on ? "page" : undefined}>
-            {t(x.key)}
-          </Link>
+          <M3eTab key={x.to} selected={on}>
+            <Link to={x.to} aria-current={on ? "page" : undefined}>
+              {t(x.key)}
+            </Link>
+          </M3eTab>
         );
       })}
-    </nav>
+    </M3eTabs>
   );
 }
