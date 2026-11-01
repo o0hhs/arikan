@@ -872,13 +872,39 @@ func (p *Panel) Run(ctx context.Context) {
 }
 
 // runAll runs the workers until ctx is done and waits for every one to return, so that
-// nothing is still using what the caller shuts down after it (the database).
+// nothing is still using what the caller shuts down after it (the database). A worker
+// that panics is logged and started again, with a pause that grows so a panic on every
+// pass does not spin; the others keep running.
 func runAll(ctx context.Context, workers ...func(context.Context)) {
 	var wg sync.WaitGroup
 	for _, w := range workers {
-		wg.Go(func() { w(ctx) })
+		wg.Go(func() {
+			fails := 0
+			for ctx.Err() == nil {
+				if !callWorker(w, ctx) || ctx.Err() != nil {
+					return
+				}
+				fails++
+				if !pace.Sleep(ctx, time.Duration(min(fails, 30))*time.Second) {
+					return
+				}
+			}
+		})
 	}
 	wg.Wait()
+}
+
+// callWorker runs w and says whether it panicked. The panic does not leave this function:
+// one worker's panic used to end the whole panel.
+func callWorker(w func(context.Context), ctx context.Context) (panicked bool) {
+	defer func() {
+		if r := recover(); r != nil {
+			panicked = true
+			slog.Error("panel worker panicked", "panic", r)
+		}
+	}()
+	w(ctx)
+	return false
 }
 
 // configCacheTTL: the longest a changed setting is not seen, when the change was made by

@@ -87,7 +87,7 @@ func (s *Site) Start(public bool) {
 		return
 	}
 	if err := s.ensurePage(); err != nil {
-		s.status = nodeapi.SiteStatus{Listen: s.listen, Error: err.Error()}
+		s.setStatus(nodeapi.SiteStatus{Listen: s.listen, Error: err.Error()})
 		s.log.Warn("the node's page does not run", "dir", s.dir, "err", err)
 		return
 	}
@@ -99,7 +99,7 @@ func (s *Site) Start(public bool) {
 	}
 	ln, err := s.listenFunc("tcp", listen)
 	if err != nil {
-		s.status = nodeapi.SiteStatus{Listen: listen, Error: err.Error()}
+		s.setStatus(nodeapi.SiteStatus{Listen: listen, Error: err.Error()})
 		s.log.Warn("the node's page does not run", "listen", listen, "err", err)
 		return
 	}
@@ -274,6 +274,14 @@ func (s *Site) SetCert(certPath, keyPath string) {
 	}
 	s.mu.Lock()
 	s.cert = &cert
+	s.mu.Unlock()
+}
+
+// setStatus records how the page is. Start's failure paths used to write it without the
+// lock Status reads under, and Health asks while Apply is still starting the page.
+func (s *Site) setStatus(st nodeapi.SiteStatus) {
+	s.mu.Lock()
+	s.status = st
 	s.mu.Unlock()
 }
 

@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
 	"io"
 	"log/slog"
 	"math/big"
@@ -71,6 +72,41 @@ func TestSiteServesItsFiles(t *testing.T) {
 	site.SetCert(writeSiteCert(t, dir, true))
 	if page := getSite(t, addr, "/index.html"); page.hsts != hsts {
 		t.Fatalf("HSTS with a trusted certificate: %q", page.hsts)
+	}
+}
+
+// Start's failure is written under the same lock Status reads. Health asks while Apply is
+// still starting the page; the two used to race.
+func TestSiteStartFailureIsSafeToRead(t *testing.T) {
+	dir := t.TempDir()
+	site := newSite(dir, "127.0.0.1:0", slog.New(slog.NewTextHandler(io.Discard, nil)))
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	site.listenFunc = func(string, string) (net.Listener, error) {
+		close(entered)
+		<-release
+		return nil, errors.New("bind: address already in use")
+	}
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		site.Start(false)
+	}()
+	<-entered
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for range 2000 {
+			_ = site.Status()
+		}
+	}()
+	close(release)
+	wg.Wait()
+	<-done
+	st := site.Status()
+	if st == nil || st.OK || !strings.Contains(st.Error, "address already in use") {
+		t.Fatalf("the failed page: %+v", st)
 	}
 }
 

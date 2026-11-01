@@ -1,10 +1,14 @@
 package node
 
 import (
+	"context"
 	"encoding/json"
+	"io"
+	"log/slog"
 	"net"
 	"runtime/debug"
 	"testing"
+	"time"
 
 	"mikan/internal/nodeapi"
 )
@@ -62,6 +66,67 @@ func TestBusyPortIsReportedByCode(t *testing.T) {
 	if string(raw) != `{"name":"tuic","ok":true}` {
 		t.Fatalf("JSON: %s", raw)
 	}
+}
+
+// Health says where the node's own page answers. Without that, the panel treats a
+// REALITY dest of 127.0.0.1:<that port> as a private address and leaves the inbound out.
+func TestHealthReportsTheNodesPage(t *testing.T) {
+	dir := t.TempDir()
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	e := &Engine{
+		dataDir: dir,
+		log:     log,
+		Reg:     NewRegistry("e", 0, time.Minute, time.Now, citrus{}),
+		sys:     newSysSampler(),
+		Site:    newSite(dir, "127.0.0.1:0", log),
+	}
+	if e.Health().Site != nil {
+		t.Fatal("a page that was not started is reported")
+	}
+	cert, key := writeSiteCert(t, dir, false)
+	e.Site.SetCert(cert, key)
+	e.Site.Start(false)
+	st := e.Health().Site
+	if st == nil || !st.OK || st.Port == 0 {
+		t.Fatalf("health has no page: %+v", st)
+	}
+}
+
+// A listener Apply marked up and the core no longer has is reported down, so the panel
+// sends the state again. One that was already failed keeps the reason it failed with.
+func TestHealthReportsAListenerTheCoreDropped(t *testing.T) {
+	gone := noteGoneListeners([]nodeapi.ListenerStatus{{Name: "not-a-real-listener", OK: true}})
+	if gone[0].OK || gone[0].Code != nodeapi.ListenerGone || gone[0].Error == "" {
+		t.Fatalf("a missing listener: %+v", gone[0])
+	}
+	kept := noteGoneListeners([]nodeapi.ListenerStatus{{Name: "not-a-real-listener", Error: "bad config"}})
+	if kept[0].Code == nodeapi.ListenerGone || kept[0].Error != "bad config" {
+		t.Fatalf("a failed listener was rewritten: %+v", kept[0])
+	}
+}
+
+// Close cancels the background work and stops the TURN child Start left running.
+func TestEngineCloseStopsTurn(t *testing.T) {
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	ctx, stop := context.WithCancel(context.Background())
+	e := &Engine{log: log, root: ctx, stop: stop, turn: newTurnSupervisor(log)}
+	t.Cleanup(e.Close)
+	bin := fakeTurnServer(t, "trap 'exit 0' TERM\nsleep 60")
+	e.turn.Apply(&nodeapi.Turn{Listen: "0.0.0.0:56001", Target: "127.0.0.1:8443", Binary: bin})
+	waitTurn(t, "the server", func() bool { return e.turn.Status().Running })
+	e.Close()
+	if e.root.Err() == nil {
+		t.Fatal("background work was not cancelled")
+	}
+	if e.turn.Status().Running {
+		t.Fatal("the TURN server is still running")
+	}
+	e.Close() // a second close is what a deferred Close meets after a shutdown that already called it
+}
+
+func TestSafelyKeepsTheProcess(t *testing.T) {
+	e := &Engine{log: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	e.safely("core logs", func() { panic("boom") })
 }
 
 func TestCoreName(t *testing.T) {

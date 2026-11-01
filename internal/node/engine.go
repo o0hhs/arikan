@@ -132,6 +132,12 @@ type Engine struct {
 	turn *turnSupervisor
 	Site *Site
 
+	// root ends the background jobs (the sampler, the egress check, the registry) when
+	// Close runs. stop cancels it; stopOnce makes Close safe to call twice.
+	root     context.Context
+	stop     context.CancelFunc
+	stopOnce sync.Once
+
 	routes  string             // routesKey of what tunnel's proxies and rules hold now
 	exitDNS string             // exitDNSKey of the sniffer and resolver mihomo holds now
 	probeMu sync.Mutex         // one outbound probe at a time
@@ -254,8 +260,6 @@ func Start(o Options) (*Engine, error) {
 	e.Site = newSite(dataDir, listen, log)
 	e.subs = newSubServer(openSubs(filepath.Join(dataDir, SubsDir), time.Now, log), log)
 	e.Site.SetSubs(e.subs)
-	e.turn = newTurnSupervisor(log)
-	go e.pumpLogs()
 
 	cs, err := loadCounters(filepath.Join(dataDir, countersFile), log)
 	if err != nil {
@@ -283,10 +287,31 @@ func Start(o Options) (*Engine, error) {
 		return nil, err
 	}
 	e.saved = &savedState{state: st, ok: ok, counters: cs}
-	go e.safely("system sampler", e.sys.run)
-	go e.safely("egress", func() { e.runEgress(context.Background()) })
-	go e.safely("registry", func() { e.Reg.Run(context.Background()) })
+	e.turn = newTurnSupervisor(log)
+	root, stop := context.WithCancel(context.Background())
+	e.root, e.stop = root, stop
+	// A panic in the core's log feed used to end the process: the feed is a goroutine of
+	// its own, and an unrecovered panic in any goroutine stops the node.
+	go e.safely("core logs", e.pumpLogs)
+	go e.safely("system sampler", func() { e.sys.run(e.root) })
+	go e.safely("egress", func() { e.runEgress(e.root) })
+	go e.safely("registry", func() { e.Reg.Run(e.root) })
 	return e, nil
+}
+
+// Close stops what Start left running: the background checks and the TURN child. The
+// listeners go with the process; the child does not, and a port it still holds is why the
+// next start cannot bring the VK-call server back. Safe to call more than once.
+func (e *Engine) Close() {
+	if e == nil {
+		return
+	}
+	if e.stop != nil {
+		e.stopOnce.Do(e.stop)
+	}
+	if e.turn != nil {
+		e.turn.Stop()
+	}
 }
 
 var (
@@ -681,12 +706,33 @@ func (e *Engine) Health() nodeapi.Health {
 	return nodeapi.Health{
 		Version: e.version, Core: coreVersion(), Revision: rev, StartedAt: e.started,
 		Caps:      []string{nodeapi.CapCascadeWarp},
-		Listeners: ls, Conns: e.Reg.ConnCount(), System: e.sys.last(), Update: e.UpdateStatus(), Host: e.host.get(), Time: time.Now(), Egress: e.egress.Load(),
+		Listeners: noteGoneListeners(ls), Conns: e.Reg.ConnCount(), System: e.sys.last(), Update: e.UpdateStatus(), Host: e.host.get(), Time: time.Now(), Egress: e.egress.Load(),
 		Redirect: e.redirect.Load(), Router: e.routerStatus.Load(), APILock: e.apiLock().status(),
 		Cascade:    cascadeStatus(e.cascade),
 		Subs:       e.subs.status(),
+		Site:       e.Site.Status(),
 		InboundAPI: e.apiServer.Load().Status(),
 	}
+}
+
+// noteGoneListeners marks a listener the last Apply started and the core no longer has.
+// The status Apply stored stays "up" until the next one, so a listener that died in
+// between looked healthy and the panel never sent the state again.
+func noteGoneListeners(ls []nodeapi.ListenerStatus) []nodeapi.ListenerStatus {
+	for i := range ls {
+		if !ls[i].OK || ls[i].Name == "" {
+			continue
+		}
+		if _, ok := listener.GetInbound(ls[i].Name); ok {
+			continue
+		}
+		ls[i].OK = false
+		ls[i].Code = nodeapi.ListenerGone
+		if ls[i].Error == "" {
+			ls[i].Error = "the listener is not running"
+		}
+	}
+	return ls
 }
 
 // UseInboundAPI gives the engine the node's own API listener: Apply turns it on and off as the

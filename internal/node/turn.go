@@ -55,10 +55,12 @@ type turnSupervisor struct {
 	nextAt    time.Time // when a restart may be tried (backoff)
 	backoff   time.Duration
 	revive    time.Duration
+	stopped   bool          // Stop: the node is going away, do not start the server again
+	stop      chan struct{} // closed by Stop; nil in a supervisor a test drives itself
 }
 
 func newTurnSupervisor(log *slog.Logger) *turnSupervisor {
-	s := &turnSupervisor{log: log, now: time.Now, revive: turnRevive}
+	s := &turnSupervisor{log: log, now: time.Now, revive: turnRevive, stop: make(chan struct{})}
 	go s.loop()
 	return s
 }
@@ -71,8 +73,43 @@ func (s *turnSupervisor) loop() {
 		if every <= 0 {
 			every = turnRevive
 		}
-		time.Sleep(every)
-		s.Tick()
+		timer := time.NewTimer(every)
+		select {
+		case <-s.stop:
+			timer.Stop()
+			return
+		case <-timer.C:
+			s.Tick()
+		}
+	}
+}
+
+// Stop ends the server and the revive loop. A node shutting down has to take the child
+// with it: the process is not in the node's own process group, so the signal that stops
+// the node does not reach it, and the port it holds is busy when the node comes back.
+func (s *turnSupervisor) Stop() {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	if s.stopped {
+		s.mu.Unlock()
+		return
+	}
+	s.stopped = true
+	s.desired = nil
+	run := s.running
+	s.running = nil
+	s.mu.Unlock()
+	if run != nil {
+		run.cancel()
+		select {
+		case <-run.done:
+		case <-time.After(6 * time.Second):
+		}
+	}
+	if s.stop != nil {
+		close(s.stop)
 	}
 }
 
@@ -123,7 +160,7 @@ func (s *turnSupervisor) Status() nodeapi.TurnStatus {
 }
 
 func (s *turnSupervisor) reconcileLocked() {
-	if s.desired == nil || s.running != nil || s.now().Before(s.nextAt) {
+	if s.stopped || s.desired == nil || s.running != nil || s.now().Before(s.nextAt) {
 		return
 	}
 	s.startLocked(s.desired)

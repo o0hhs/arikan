@@ -447,8 +447,14 @@ type ListenerStatus struct {
 	Code string `json:"code,omitempty"`
 }
 
-// ListenerAddrInUse: the listener's address is already taken on the node's server.
-const ListenerAddrInUse = "addr_in_use"
+const (
+	// ListenerAddrInUse: the listener's address is already taken on the node's server.
+	ListenerAddrInUse = "addr_in_use"
+	// ListenerGone: the core had this listener and no longer does (it crashed or was
+	// dropped). The panel applies the state again; a bad config, which will not get
+	// better by being sent again, is not this.
+	ListenerGone = "gone"
+)
 
 // AddrInUse says whether a listen error is "address already in use": the text Go gives
 // EADDRINUSE on Linux, the BSDs and macOS, and WSAEADDRINUSE on Windows.

@@ -5,6 +5,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"io"
+	"log/slog"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -430,4 +433,133 @@ func TestRecordDevicesWritesEveryFewMinutes(t *testing.T) {
 	if at, ls := seen(); at != now.Unix() || ls["203.0.113.9"] != now.Unix() {
 		t.Fatalf("after %s both are written again: online_at %d, devices %v", touchOnline, at, ls)
 	}
+}
+
+// A listener that failed because its port was taken is not sent again at once, and it is
+// sent again once the pause is over, without anything else in the state having changed.
+func TestBusyListenerIsRetriedAfterAPause(t *testing.T) {
+	s, fake, _, _, now := setup(t)
+	ctx := context.Background()
+	n := &listenerNode{fakeNode: fake, listeners: []nodeapi.ListenerStatus{{Name: "vless", Code: nodeapi.ListenerAddrInUse, Error: "busy"}}}
+	s.node = n
+	s.applyState(ctx)
+	s.applyState(ctx)
+	if n.calls != 1 {
+		t.Fatalf("a busy port was applied %d times at once", n.calls)
+	}
+	*now = now.Add(6 * time.Second)
+	n.listeners = nil
+	s.applyState(ctx)
+	if n.calls != 2 {
+		t.Fatalf("after the pause the listener is tried again: %d calls", n.calls)
+	}
+	s.applyState(ctx)
+	if n.calls != 2 {
+		t.Fatalf("a listener that came up was applied again: %d calls", n.calls)
+	}
+}
+
+// A listener the core dropped after a good Apply is noticed from health and the state is
+// sent again. The next health, still inside the pause, does not send it another time.
+func TestGoneListenerIsAppliedAgain(t *testing.T) {
+	s, fake, _, _, _ := setup(t)
+	ctx := context.Background()
+	s.applyState(ctx)
+	if len(fake.applied) != 1 {
+		t.Fatal("the state was not applied")
+	}
+	rev := fake.applied[0].Revision
+	fake.health = nodeapi.Health{Revision: rev, Listeners: []nodeapi.ListenerStatus{{Name: "vless", Code: nodeapi.ListenerGone}}}
+	s.refreshHealth(ctx)
+	select {
+	case <-s.stateDirty:
+	default:
+		t.Fatal("a listener the core dropped was left as it was")
+	}
+	s.refreshHealth(ctx)
+	select {
+	case <-s.stateDirty:
+		t.Fatal("the same listener was queued again inside the pause")
+	default:
+	}
+	s.applyState(ctx)
+	if len(fake.applied) != 2 {
+		t.Fatalf("the state was sent %d times, want 2", len(fake.applied))
+	}
+}
+
+func TestNeedsReapply(t *testing.T) {
+	if needsReapply(nodeapi.Health{}) {
+		t.Fatal("a quiet health check asked for another apply")
+	}
+	busy := nodeapi.Health{Listeners: []nodeapi.ListenerStatus{{Name: "a", Code: nodeapi.ListenerAddrInUse}}}
+	gone := nodeapi.Health{Listeners: []nodeapi.ListenerStatus{{Name: "a", Code: nodeapi.ListenerGone}}}
+	bad := nodeapi.Health{Listeners: []nodeapi.ListenerStatus{{Name: "a", Error: "unknown field"}}}
+	if !needsReapply(busy) || !needsReapply(gone) {
+		t.Fatal("a busy or dropped listener is not tried again")
+	}
+	if needsReapply(bad) {
+		t.Fatal("a config the node refused is sent again")
+	}
+	if !needsReapply(nodeapi.Health{Router: &nodeapi.PortStatus{Error: "bind: address already in use"}}) {
+		t.Fatal("a router that did not bind is not tried again")
+	}
+	if !needsReapply(nodeapi.Health{Site: &nodeapi.SiteStatus{Error: "bind: address already in use"}}) {
+		t.Fatal("a page that did not bind is not tried again")
+	}
+}
+
+// A panic in one pull used to end the panel. The counters loop logs it and keeps pulling.
+func TestCountersPanicDoesNotStopTheSyncer(t *testing.T) {
+	s, fake, _, _, _ := setup(t)
+	n := &panicNode{fakeNode: fake}
+	s.node = n
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		s.run(ctx)
+		close(done)
+	}()
+	deadline := time.Now().Add(8 * time.Second)
+	for n.calls.Load() < 2 && time.Now().Before(deadline) {
+		time.Sleep(20 * time.Millisecond)
+	}
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the syncer did not stop")
+	}
+	if n.calls.Load() < 2 {
+		t.Fatalf("counters were pulled %d times after a panic, want at least 2", n.calls.Load())
+	}
+}
+
+func TestGuardCallRecovers(t *testing.T) {
+	guardCall(slog.New(slog.NewTextHandler(io.Discard, nil)), "counters", func() { panic("boom") })
+}
+
+type listenerNode struct {
+	*fakeNode
+	listeners []nodeapi.ListenerStatus
+	calls     int
+}
+
+func (n *listenerNode) Apply(ctx context.Context, st nodeapi.DesiredState) (nodeapi.ApplyResult, error) {
+	n.calls++
+	res, err := n.fakeNode.Apply(ctx, st)
+	res.Listeners = append([]nodeapi.ListenerStatus(nil), n.listeners...)
+	return res, err
+}
+
+type panicNode struct {
+	*fakeNode
+	calls atomic.Int32
+}
+
+func (n *panicNode) Counters(ctx context.Context) (nodeapi.Counters, error) {
+	if n.calls.Add(1) == 1 {
+		panic("counters")
+	}
+	return n.fakeNode.Counters(ctx)
 }

@@ -150,10 +150,17 @@ func serveReverseTunnel(ctx context.Context, o ReverseTunnel) error {
 		return err
 	}
 	defer sess.Close()
+	// AcceptStream waits on the panel. Without this, the node stopping (SIGTERM) leaves the
+	// session and its streams up until the panel happens to close them.
+	stop := context.AfterFunc(ctx, func() { _ = sess.Close() })
+	defer stop()
 	o.Log.Info("reverse tunnel: the panel took the connection", "panel", u.Host)
 	for {
 		st, err := sess.AcceptStream()
 		if err != nil {
+			if ctx.Err() != nil {
+				return nil
+			}
 			if errors.Is(err, yamux.ErrSessionShutdown) || errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed) {
 				return nil
 			}

@@ -51,6 +51,36 @@ func TestRunAllWaitsForEveryWorker(t *testing.T) {
 	}
 }
 
+// A panic in one worker used to end the process. It is started again; the others are not
+// involved, and cancelling the context still ends the set.
+func TestRunAllRestartsAPanickedWorker(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	var starts atomic.Int32
+	returned := make(chan struct{})
+	go func() {
+		runAll(ctx, func(ctx context.Context) {
+			if starts.Add(1) == 1 {
+				panic("boom")
+			}
+			<-ctx.Done()
+		})
+		close(returned)
+	}()
+	deadline := time.Now().Add(5 * time.Second)
+	for starts.Load() < 2 && time.Now().Before(deadline) {
+		time.Sleep(20 * time.Millisecond)
+	}
+	if starts.Load() < 2 {
+		t.Fatal("a panicked worker was not started again")
+	}
+	cancel()
+	select {
+	case <-returned:
+	case <-time.After(2 * time.Second):
+		t.Fatal("runAll did not return after its context ended")
+	}
+}
+
 func TestConfigCache(t *testing.T) {
 	now := time.Unix(1_800_000_000, 0)
 	var gen atomic.Uint64

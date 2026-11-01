@@ -82,6 +82,13 @@ type Syncer struct {
 	failedKey   string    // the state key the last failed Apply was for
 	retry       retry     // the pace of attempts at a node that does not answer
 	badInbounds string    // the inbounds left out of the state, as last logged
+	// A listener that did not bind, or one the core dropped, is applied again after
+	// listenersRetry. The pause grows with listenerFails; a clean health check resets it.
+	// listenerLog is when that was last written, so a port that stays busy is not a line
+	// every attempt.
+	listenerFails  int
+	listenersRetry time.Time
+	listenerLog    time.Time
 
 	// Only the counters loop touches these.
 	counterFails int       // consecutive failed pulls
@@ -202,32 +209,43 @@ func (s *Syncer) run(ctx context.Context) {
 	wg.Add(3)
 	go func() {
 		defer wg.Done()
-		pace.Tick(ctx, 2*time.Second, s.pullCounters)
+		pace.Tick(ctx, 2*time.Second, func(ctx context.Context) { guardCall(s.log, "counters", func() { s.pullCounters(ctx) }) })
 	}()
 	go func() {
 		defer wg.Done()
-		pace.Tick(ctx, torrentPullEvery, s.pullTorrents)
+		pace.Tick(ctx, torrentPullEvery, func(ctx context.Context) { guardCall(s.log, "torrents", func() { s.pullTorrents(ctx) }) })
 	}()
 	go func() {
 		defer wg.Done()
-		s.refreshHealth(ctx)
-		pace.Tick(ctx, 5*time.Second, s.refreshHealth)
+		guardCall(s.log, "health", func() { s.refreshHealth(ctx) })
+		pace.Tick(ctx, 5*time.Second, func(ctx context.Context) { guardCall(s.log, "health", func() { s.refreshHealth(ctx) }) })
 	}()
-	s.applyState(ctx)
+	guardCall(s.log, "state", func() { s.applyState(ctx) })
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-s.stateDirty:
-			s.applyState(ctx)
+			guardCall(s.log, "state", func() { s.applyState(ctx) })
 		case <-s.policiesDirty:
 			// Coalesce bursts (bulk actions) into one push.
 			if !pace.Sleep(ctx, 150*time.Millisecond) {
 				return
 			}
-			s.pushPolicies(ctx, true)
+			guardCall(s.log, "policies", func() { s.pushPolicies(ctx, true) })
 		}
 	}
+}
+
+// guardCall runs fn. A panic is logged and swallowed: one bad batch from a node is not
+// allowed to end the panel, and the loop that called it tries again on its next tick.
+func guardCall(log *slog.Logger, job string, fn func()) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Error("node sync panicked", "job", job, "panic", r)
+		}
+	}()
+	fn()
 }
 
 // desiredPin builds the node's full state from the database, with the pin of the certificate in it.
@@ -360,8 +378,9 @@ func (s *Syncer) applyState(ctx context.Context) {
 	s.mu.Lock()
 	same := key == s.stateKey
 	// A node that refused this very state is not asked again at once: the pause grows
-	// while it keeps refusing, and a different state is tried straight away.
-	paused := key == s.failedKey && s.retry.waiting(now)
+	// while it keeps refusing, and a different state is tried straight away. The same
+	// pause holds a state whose listeners did not come up.
+	paused := key == s.failedKey && (s.retry.waiting(now) || now.Before(s.listenersRetry))
 	s.mu.Unlock()
 	if same {
 		s.sendPolicies(ctx, st.Epoch, st.Policies, s.policiesStale(now))
@@ -390,10 +409,16 @@ func (s *Syncer) applyState(ctx context.Context) {
 	if err := s.saveRevision(ctx, rev); err != nil {
 		s.log.Error("revision", "err", err)
 	}
+	var retryable []string
 	for _, l := range res.Listeners {
-		if !l.OK {
-			s.log.Error("listener failed", "name", l.Name, "err", l.Error)
+		if l.OK {
+			continue
 		}
+		if retryListener(l) {
+			retryable = append(retryable, l.Name)
+			continue
+		}
+		s.log.Error("listener failed", "name", l.Name, "err", l.Error)
 	}
 	ports := make(map[string]string, len(st.Inbounds)+1)
 	for _, in := range st.Inbounds {
@@ -402,12 +427,33 @@ func (s *Syncer) applyState(ctx context.Context) {
 	if st.Relay != nil {
 		ports[nodeapi.RelayListener] = st.Relay.Port
 	}
+	sort.Strings(retryable)
 	s.mu.Lock()
+	s.lastApplied = res
+	s.ports = ports
+	if len(retryable) > 0 {
+		// The node took the state, but a listener is not serving. Remember the key so the
+		// same state is not sent again until the pause is over; a port that was busy is
+		// tried once it is free, without an admin having to edit the inbound.
+		s.failedKey = key
+		s.listenerFails++
+		s.listenersRetry = now.Add(retryPace.Next(s.listenerFails - 1))
+		log := s.listenerFails == 1 || now.Sub(s.listenerLog) >= retryRelog
+		if log {
+			s.listenerLog = now
+		}
+		s.mu.Unlock()
+		if log {
+			s.log.Error("a listener is down; the state is tried again", "listeners", strings.Join(retryable, ", "))
+		}
+		if old := s.served.Swap(&pin); old == nil || *old != pin {
+			s.m.tlsGen.Add(1)
+		}
+		return
+	}
 	s.stateKey = key
 	s.policyKey = policyKey(st.Policies)
 	s.lastPush = now
-	s.lastApplied = res
-	s.ports = ports
 	s.failedKey = ""
 	recovered := s.retry.ok()
 	s.mu.Unlock()
@@ -1010,6 +1056,58 @@ func (s *Syncer) refreshHealth(ctx context.Context) {
 		s.mu.Unlock()
 		signal(s.stateDirty)
 	}
+	if s.shouldReapply(h) {
+		signal(s.stateDirty)
+	}
+}
+
+// shouldReapply says the node is up but something it should be serving is not (a listener
+// the core dropped, a port that was busy, the router, the page), and the pause since the
+// last try is over. A clean check ends the pause, so a port that comes free is tried at
+// once and one that stays taken is not asked about on every health check.
+func (s *Syncer) shouldReapply(h nodeapi.Health) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !needsReapply(h) {
+		s.listenerFails = 0
+		s.listenersRetry = time.Time{}
+		return false
+	}
+	now := s.m.now()
+	if s.stateKey == "" || now.Before(s.listenersRetry) {
+		return false
+	}
+	s.listenerFails++
+	s.listenersRetry = now.Add(retryPace.Next(s.listenerFails - 1))
+	s.stateKey = ""
+	return true
+}
+
+// needsReapply is a node that answered and still has a listener, router, redirect or page
+// that can come back by being applied again. A config the node refused is not one of
+// these: sending it again changes nothing.
+func needsReapply(h nodeapi.Health) bool {
+	for _, l := range h.Listeners {
+		if retryListener(l) {
+			return true
+		}
+	}
+	if h.Router != nil && !h.Router.OK && h.Router.Error != "" {
+		return true
+	}
+	if h.Redirect != nil && !h.Redirect.OK && nodeapi.AddrInUse(h.Redirect.Error) {
+		return true
+	}
+	if h.Site != nil && !h.Site.OK && h.Site.Error != "" {
+		return true
+	}
+	return false
+}
+
+// retryListener is a listener a later Apply can bring up: its port was taken, or the core
+// no longer has it. A config error is not, and is logged where the state was applied.
+func retryListener(l nodeapi.ListenerStatus) bool {
+	return l.Busy() || (!l.OK && l.Code == nodeapi.ListenerGone)
 }
 
 // stateKey is what the node holds of st besides the policies: the whole state, the
