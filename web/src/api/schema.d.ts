@@ -8197,6 +8197,7 @@ export interface components {
                 [key: string]: string;
             };
             tune?: components["schemas"]["Tune"];
+            youtube_exit?: string;
         };
         RoutesCatalogOutputBody: {
             direct: components["schemas"]["RouteDirectSet"][];

@@ -41,6 +41,12 @@ Only the protocols Xray runs are in the config: VLESS, Trojan and Shadowsocks. S
 
 If the app does not take the config, just turn the switch off: the server list comes back at the next subscription update. Nodes that serve subscriptions themselves (**Settings → Subscription → Subscriptions from nodes**) keep handing out the link list: only the panel serves the full config.
 
+### The "YouTube without ads" exit in INCY
+
+The offer from **Settings → Routing → YouTube without ads** also has an exit of its own: the entry node's **own address** (the offer's point — the Russian YouTube has no ads) or another node. The choice is in the card, not in each connection, so a node that carries the whole cascade never has its traffic moved out by a click.
+
+INCY gets this exit in its full config when the switch above is on and the exit is another node: the configs name that node by its address and end every rule on it, and the list gets an item of the offer named after the auto group and the node ("Auto · Russia"). INCY then reaches the Russian YouTube through the cascade, and its rules cannot send that traffic out of the node's own address in between. An exit by the entry's own address is not something INCY can reach as an outbound: the configs end on the auto group there, as before. Clash apps get the exit from the routing profile; Happ and the other Xray apps from their own profile.
+
 ## Subscription settings
 
 **Settings → Subscription**:

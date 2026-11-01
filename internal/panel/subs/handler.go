@@ -49,6 +49,10 @@ type Config struct {
 	// INCYAuto: INCY gets a whole Xray config with the autoselect balancer (XrayConfigs)
 	// instead of the link list. Off: the list, as every Xray app gets it.
 	INCYAuto bool
+	// XrayExit is the address of the "YouTube without ads" entry (YouTubeExitHost): the
+	// INCY configs end on it, since a config cannot carry the state of the node's
+	// connections and would lose the entry on every refresh. "": no entry.
+	XrayExit string
 	// SubBase is https://host:port/<sub path> as the panel hands links out; "" without an
 	// address, and the request's own address is taken.
 	SubBase string
@@ -394,7 +398,7 @@ func (h *Handler) serveProfile(w http.ResponseWriter, r *http.Request, u db.User
 			// servers from the app's list, and losing half the servers is worse than having
 			// no automatic entry.
 			prof.Rules, prof.Routes, prof.Lang = cfg.Rules, cfg.Routes, cfg.Lang
-			body, cerr := XrayConfigs(prof, cfg.Groups, cfg.Routing)
+			body, cerr := XrayConfigsVia(prof, cfg.Groups, cfg.Routing, cfg.XrayExit)
 			switch {
 			case cerr == nil:
 				w.Header().Set("Content-Type", "application/json; charset=utf-8")

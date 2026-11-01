@@ -168,3 +168,38 @@ func TestTurnFormatIsChosenByQuery(t *testing.T) {
 		t.Fatalf("?format=wl → %s", got)
 	}
 }
+
+// A WL copy takes its node's place in the auto group: a profile whose auto group took only
+// the node's own entries left the copy out, and with it the one way in for a whitelist
+// subscriber. The copy is not measured on its own (it goes through a program on the user's
+// machine), so it joins the group only with its node's own entry; the country group still
+// lists it.
+func TestTurnCopyKeepsItsNodeInTheAutoGroup(t *testing.T) {
+	base := profile(t, "ab12")
+	mirror := inboundNamed(t, base, "vless-xhttp")
+	p := withTurn(t, base, mirror, nil)
+	p.Nodes[0].AutoInclude = true
+	for i := range p.Inbounds {
+		if p.Inbounds[i].ID == mirror.ID {
+			p.Inbounds[i].AutoInclude = 1
+		}
+	}
+	ps, err := build(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var own, copyOf bool
+	for _, x := range ps {
+		if !x.auto {
+			continue
+		}
+		if strings.Contains(x.name, "WL") {
+			copyOf = true
+		} else {
+			own = true
+		}
+	}
+	if !own || !copyOf {
+		t.Fatalf("the auto group: its own entry %v, the copy %v", own, copyOf)
+	}
+}

@@ -70,6 +70,11 @@ func TestExitDNSConfigParses(t *testing.T) {
 			if tc.servers > 0 && cfg.DNS.Listen != "" {
 				t.Fatal("the node listens for DNS")
 			}
+			// A short AAAA wait: every lookup waits for it, and a resolver or a DoH server
+			// with no IPv6 on the way used to hold each connection for 100 ms.
+			if cfg.DNS.IPv6Timeout != 50 {
+				t.Fatalf("ipv6-timeout %d", cfg.DNS.IPv6Timeout)
+			}
 		})
 	}
 }

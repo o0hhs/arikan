@@ -76,6 +76,7 @@ function tidy(r: Routes): Routes {
   if (!out.lists?.length) delete out.lists;
   if (!out.servers?.auto && !out.servers?.interval && !out.servers?.no_countries) delete out.servers;
   if (!out.tune?.block_quic && !out.tune?.sniffer && !out.tune?.real_ip) delete out.tune;
+  if (!out.youtube_exit) delete out.youtube_exit;
   if (!out.dns?.nameserver?.length && !out.dns?.default_nameserver?.length && !out.dns?.proxy_server_nameserver?.length && !out.dns?.policy?.length) delete out.dns;
   return out;
 }
@@ -113,6 +114,7 @@ function partOf(e: ApiError): RoutingPart | null {
   const code = e.codes.sub_routes ?? "";
   if (code === "routes_servers") return "advanced";
   if (code === "routes_dns") return "dns";
+  if (code === "routes_youtube_exit") return "mode";
   if (code.startsWith("routes_list")) return "rules"; // routes_list_name, routes_lists_many…
   if (code) return "mode"; // a service, an app or a target: the routes screen
   return null;
@@ -363,11 +365,12 @@ function useCatalog() {
 }
 
 /**
- * The "YouTube without ads" offer: one switch sends YouTube, Discord and Telegram through
- * the chosen node, and the node's own host gets the DPI bypass (the switch in its settings,
- * nfqws). The exit must be direct — the whole point is the node's Russian address, not a
- * foreign one — so the card names it and offers to move the node's connections back to
- * direct. The subscription page shows its card while the routes say the offer is on
+ * The "YouTube without ads" offer: one switch sends YouTube and Discord through the chosen
+ * node (the one the user's ISP reaches), and that node's own host gets the DPI bypass (the
+ * switch in its settings, nfqws). The offer's exit is a setting of its own here, not a
+ * per-connection flip: its own address (the point — the Russian YouTube has no ads) or a
+ * node (the entry's traffic leaves through it; the cascade stays as it is). The
+ * subscription page shows its card while the routes say the offer is on
  * (Routes.YouTubeAdFree).
  */
 function YouTubeCard({ routes, setRoutes }: { routes: Routes; setRoutes: SetRoutes }) {
@@ -386,13 +389,14 @@ function YouTubeCard({ routes, setRoutes }: { routes: Routes; setRoutes: SetRout
     if (pick === 0 && nodes.length > 0) setPick(nodes[0]!.id);
   }, [nodes, pick]);
   const own = inbounds.filter((i) => i.node_id === entry && i.enabled);
-  const direct = own.length > 0 && own.every((i) => i.outbound === "direct");
-  const foreign = own.filter((i) => i.outbound !== "direct").length;
+  // Where the offer's entry leaves: its own address (the point of the offer: the Russian
+  // YouTube has no ads), or a node the admin picked below.
+  const cascading = own.filter((i) => i.exit_node_id && i.exit_node_id > 0).length;
   const current = !own.length
     ? t("settings.youtubeNoInbounds")
-    : direct
-      ? t("settings.youtubeExitDirectGood")
-      : t("settings.youtubeExitForeign", { n: foreign });
+    : cascading
+      ? t("settings.youtubeExitForeign", { n: cascading })
+      : t("settings.youtubeExitDirectGood");
   const apply = (want: boolean) => {
     const id = want ? pick || nodes[0]?.id || 0 : 0;
     if (want && !id) return;
@@ -407,7 +411,10 @@ function YouTubeCard({ routes, setRoutes }: { routes: Routes; setRoutes: SetRout
         for (const key of ["youtube", "discord"]) if (services[key]?.startsWith("node:")) delete services[key];
         if (services.ads === "block") delete services.ads;
       }
-      return { ...r, services, tune: { ...(r.tune ?? {}), block_quic: want ? true : r.tune?.block_quic } };
+      // The offer's exit is the entry's own address unless the admin says otherwise: a
+      // foreign exit is what brought the ads back.
+      const { youtube_exit: _old, ...rest } = r;
+      return { ...rest, services, tune: { ...(r.tune ?? {}), block_quic: want ? true : r.tune?.block_quic } };
     });
   };
   const changeEntry = (id: number) => {
@@ -419,6 +426,10 @@ function YouTubeCard({ routes, setRoutes }: { routes: Routes; setRoutes: SetRout
       return { ...r, services };
     });
   };
+  // The entry leaves with its own address unless the admin sends it through a node: the
+  // service's target is the entry (so the entry's address sees the request), not the exit.
+  const changeExit = (v: string) => setRoutes((r) => ({ ...r, youtube_exit: v }));
+  const exitOptions = nodes.filter((n) => n.id !== entry);
   return (
     <Card title={t("settings.youtubeTitle")} sub={t("settings.youtubeSub")}>
       {!nodes.length ? (
@@ -438,9 +449,24 @@ function YouTubeCard({ routes, setRoutes }: { routes: Routes; setRoutes: SetRout
             </Field>
           </div>
           {on ? (
-            <div className="mt-3 flex flex-col gap-1">
-              <span className="text-xs text-[var(--ink-500)]">{current}</span>
-              {foreign > 0 ? <p className="text-xs text-[var(--md-error)]">{t("settings.youtubeExitLeak", { n: foreign })}</p> : null}
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <Field label={t("settings.youtubeExit")} htmlFor="yt-exit" hint={t("settings.youtubeExitHint")}>
+                <select id="yt-exit" className="input" value={routes.youtube_exit ?? ""} onChange={(e) => changeExit(e.target.value)}>
+                  <option value="">{t("settings.youtubeExitOwn")}</option>
+                  <option value="direct">{t("settings.routesDirect")}</option>
+                  <optgroup label={t("settings.routesServer")}>
+                    {exitOptions.map((n) => (
+                      <option key={n.id} value={`node:${n.id}`}>
+                        {nodeLabel(n)}
+                      </option>
+                    ))}
+                  </optgroup>
+                </select>
+              </Field>
+              <div className="flex flex-col gap-1 self-end">
+                <span className="text-xs text-[var(--ink-500)]">{current}</span>
+                {cascading > 0 ? <p className="text-xs text-[var(--md-error)]">{t("settings.youtubeExitLeak", { n: cascading })}</p> : null}
+              </div>
             </div>
           ) : null}
           <p className="mt-3 text-xs text-[var(--ink-500)]">{t("settings.youtubeDpiHint")}</p>

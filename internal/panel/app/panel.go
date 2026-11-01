@@ -553,6 +553,9 @@ func NewPanel(st *store.Store, o Options) (*Panel, error) {
 		if cfg.Routes, _, err = settings.Get[subs.Routes](ctx, set, settings.KeyRoutes); err != nil {
 			return subs.Config{}, err
 		}
+		if cfg.XrayExit, err = subs.YouTubeExitHost(ctx, st.Q, cfg.Routes); err != nil {
+			return subs.Config{}, err
+		}
 		if cfg.Template, err = set.String(ctx, settings.KeyTemplate); err != nil {
 			return subs.Config{}, err
 		}

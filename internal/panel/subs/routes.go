@@ -26,6 +26,12 @@ type Routes struct {
 	DNS     DNS         `json:"dns,omitzero"`
 	Servers Servers     `json:"servers,omitzero"`
 	Tune    Tune        `json:"tune,omitzero"`
+	// YouTubeExit is where the entry node of the "YouTube without ads" offer leaves:
+	// "direct" (its own address, which is what the offer is for: the Russian YouTube has
+	// no ads), or "node:<id>". Empty: direct, the offer's point. Not the service's target:
+	// YouTube is sent to the entry node so its address sees the request; the entry node
+	// carrying it out of a foreign address is what brought the ads back.
+	YouTubeExit string `json:"youtube_exit,omitempty"`
 }
 
 // RouteList is a rule list the apps download (a mihomo rule-provider): a site of the admin's
@@ -107,6 +113,26 @@ func nodeOf(target string) (int64, bool) {
 func (r Routes) YouTubeAdFree() bool {
 	_, viaNode := nodeOf(r.Services["youtube"])
 	return viaNode && r.Services["ads"] == TargetBlock
+}
+
+// YouTubeEntry is the node the "YouTube without ads" offer goes through.
+func (r Routes) YouTubeEntry() (int64, bool) {
+	return nodeOf(r.Services["youtube"])
+}
+
+// YouTubeExitDirect says whether the entry leaves with its own address: "direct", or
+// nothing set (the offer's point). An exit through another node is why the Russian
+// YouTube was lost: the site saw the foreign address and its ads came back.
+func (r Routes) YouTubeExitDirect() bool {
+	return r.YouTubeExit == "" || r.YouTubeExit == TargetDirect
+}
+
+// YouTubeExitNode is the node the entry leaves through when the admin sent it elsewhere.
+func (r Routes) YouTubeExitNode() (int64, bool) {
+	if r.YouTubeExitDirect() {
+		return 0, false
+	}
+	return nodeOf(r.YouTubeExit)
 }
 
 // DNS overrides the profile's resolvers (GitHub issue #70); an empty list keeps the
@@ -296,6 +322,9 @@ func (r Routes) Check(nodeExists func(int64) bool) error {
 		if !target(t) {
 			return errors.New("routes_target")
 		}
+	}
+	if r.YouTubeExit != "" && !target(r.YouTubeExit) {
+		return errors.New("routes_youtube_exit")
 	}
 	if err := checkLists(r.Lists, target); err != nil {
 		return err

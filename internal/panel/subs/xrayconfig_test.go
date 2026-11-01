@@ -766,3 +766,116 @@ func TestINCYFullConfigDelivery(t *testing.T) {
 		t.Fatalf("INCY with the switch off got no base64: %v", err)
 	}
 }
+
+// The "YouTube without ads" offer with its entry leaving through another node: the list
+// gets an item for the offer, and every config of it ends on the exit, so INCY's rules
+// cannot send that traffic out of the node's own address (where the ads come back).
+func TestXrayConfigsWithYouTubeExit(t *testing.T) {
+	prof := xrayOnlyProfile(t)
+	prof.Routes = Routes{YouTubeExit: "node:2"}
+	raw, err := XrayConfigsVia(prof, Groups{Auto: "Auto"}, RoutingRUDirect, "203.0.113.8:443|NL")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var cfgs []xcConfig
+	if err := json.Unmarshal(raw, &cfgs); err != nil {
+		t.Fatalf("%v\n%s", err, raw)
+	}
+	if len(cfgs) != len(xrayConfigs(t, prof, Groups{Auto: "Auto"}, RoutingRUDirect))+1 {
+		t.Fatalf("%d configs: the offer's own entry is missing", len(cfgs))
+	}
+	remarks := map[string]bool{}
+	for _, c := range cfgs {
+		if remarks[c.Remarks] {
+			t.Fatalf("INCY would collapse remarks %q", c.Remarks)
+		}
+		remarks[c.Remarks] = true
+	}
+	if !remarks["Auto · NL"] || !remarks["Auto"] {
+		t.Fatalf("remarks: %v", remarks)
+	}
+	exit := cfgs[0]
+	var via map[string]any
+	for _, o := range exit.Outbounds {
+		if o["tag"] == "via" {
+			via = o
+		}
+	}
+	if via == nil {
+		t.Fatalf("no outbound of the exit: %v", exit.Outbounds)
+	}
+	servers := via["settings"].(map[string]any)["servers"].([]any)
+	if addr := servers[0].(map[string]any)["address"]; addr != "203.0.113.8" {
+		t.Fatalf("the exit address %v", addr)
+	}
+	last := exit.Routing.Rules[len(exit.Routing.Rules)-1]
+	if last["outboundTag"] != "via" {
+		t.Fatalf("the offer's config ends on %v", last)
+	}
+	// Every server's config ends on the exit too: that is what keeps YouTube off the node's
+	// own address in the app.
+	for _, c := range cfgs[1:] {
+		last := c.Routing.Rules[len(c.Routing.Rules)-1]
+		if last["outboundTag"] != "via" {
+			t.Fatalf("%q ends on %v", c.Remarks, last)
+		}
+		first := c.Routing.Rules[0]
+		if first["outboundTag"] != "direct" {
+			t.Fatalf("%q starts on %v, want the resolvers direct", c.Remarks, first)
+		}
+	}
+	// The whole-node settings of the offer are what the app's list needs: YouTube walks the
+	// cascade, and the Russian entry is a group of its own.
+	if cfgs[1].Remarks != "Auto" {
+		t.Fatalf("the auto group comes after the offer: %q", cfgs[1].Remarks)
+	}
+}
+
+// The offer is off, or its entry leaves directly: no item and no outbound, as before.
+func TestXrayConfigsWithoutYouTubeExit(t *testing.T) {
+	for _, r := range []Routes{{}, {YouTubeExit: "direct"}, {YouTubeExit: "node:1"}} {
+		prof := xrayOnlyProfile(t)
+		prof.Routes = r
+		cfgs := xrayConfigs(t, prof, Groups{Auto: "Auto"}, RoutingRUDirect)
+		for _, c := range cfgs {
+			for _, o := range c.Outbounds {
+				if o["tag"] == "via" {
+					t.Fatalf("%+v: an exit the offer has not", r)
+				}
+			}
+		}
+	}
+}
+
+// The exit as the panel hands it to the generator: the address and the name of the node.
+func TestXrayExitParsing(t *testing.T) {
+	if v := xrayExit(""); v != nil {
+		t.Fatalf("%+v", v)
+	}
+	if v := xrayExit("203.0.113.8:443|NL"); v == nil || v.addr != "203.0.113.8:443" || v.name != "NL" {
+		t.Fatalf("%+v", v)
+	}
+	if v := xrayExit("203.0.113.8:443"); v == nil || v.addr != "203.0.113.8:443" || v.name != "" {
+		t.Fatalf("%+v", v)
+	}
+	if v := xrayExit(" |x"); v != nil {
+		t.Fatalf("%+v", v)
+	}
+}
+
+// xrayOnlyProfile is profile(t) without the servers Xray cannot run: the generator refuses
+// a partial profile, so only this one can be turned into configs.
+func xrayOnlyProfile(t *testing.T) Profile {
+	t.Helper()
+	prof := profile(t, "")
+	ins := make([]db.Inbound, 0, len(prof.Inbounds))
+	for _, in := range prof.Inbounds {
+		switch in.Preset {
+		case "hysteria2", "tuic_v5", presets.PresetGecko:
+			continue
+		}
+		ins = append(ins, in)
+	}
+	prof.Inbounds = ins
+	return prof
+}

@@ -414,8 +414,16 @@ func build(p Profile) ([]proxy, error) {
 				continue
 			}
 			used[name] = true
-			out = append(out, proxy{name: name, node: n.ID, pool: in.PoolID.Int64, auto: n.AutoInclude && in.AutoInclude != 0, uri: c.URI, yaml: c.Mihomo})
-			out = append(out, turnCopies(p, n, in, t, base, used, slot)...)
+			// The node's own entry is in the auto group when the admin left both the node and
+			// the protocol in it, and its WL copy (turnCopies) goes with it: the copy lives at
+			// the client's own 127.0.0.1, so a group that took only the server's direct
+			// entries left it out — the one way in for a whitelist subscriber.
+			own := proxy{name: name, node: n.ID, pool: in.PoolID.Int64, auto: n.AutoInclude && in.AutoInclude != 0, uri: c.URI, yaml: c.Mihomo}
+			out = append(out, own)
+			for _, cp := range turnCopies(p, n, in, t, base, used, slot) {
+				cp.auto = own.auto
+				out = append(out, cp)
+			}
 		}
 	}
 	if banner == nil {

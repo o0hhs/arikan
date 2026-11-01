@@ -3,6 +3,19 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
+## 0.5.5.7
+### en
+**"YouTube without ads" works again, and its exit is set in one place.**
+- **The card sets the exit, the cascade stays.** The “YouTube without ads” card now has its own exit choice: **its own address** (the offer's point — the Russian YouTube has no ads) or a node. The choice lives in the routing (`routes.youtube_exit`), so nothing is flipped per connection and a cascading node keeps carrying the cascade. A foreign exit is called out on the card: YouTube would see the foreign address and bring the ads back.
+- **INCY's full config carries the exit.** A full Xray config brings its own routing, and INCY cannot keep the panel's entry across a refresh or send a rule out of the phone. When the offer's exit is another node, the configs now name that node by its address and end every rule on it: an item of the offer appears in the app's list, and the configs of the individual servers leave through the exit too. An exit by the entry's own address is not something INCY can reach as an outbound, so the configs end on the auto group there, as before; the panel now says so instead of quietly losing the offer.
+- **The auto entry stays “Auto”.** The offer's item in the list is named “Auto · <node>”, and the auto group keeps its old name, so no server is renamed or lost when the offer is on.
+
+### ru
+**«YouTube без рекламы» снова работает, а выход задаётся в одном месте.**
+- **Карточка задаёт выход, каскад остаётся.** У карточки «YouTube без рекламы» теперь свой выбор выхода: **свой адрес** (в этом и смысл предложения — российский YouTube без рекламы) или нода. Выбор живёт в маршрутизации (`routes.youtube_exit`), поэтому по подключениям ничего не переключается и каскадная нода продолжает нести каскад. Зарубежный выход карточка называет прямо: YouTube увидит зарубежный адрес и вернёт рекламу.
+- **Полный конфиг INCY несёт этот выход.** У полного конфига Xray своя маршрутизация, а INCY не может сохранить запись панели при обновлении и не выпускает правила за пределы телефона. Когда выход предложения — другая нода, конфиги теперь называют её адресом и заканчивают на ней все правила: в списке приложения появляется запись предложения, а конфиги отдельных серверов тоже выходят через этот выход. Выход с собственного адреса ноды INCY не достать как исходящее, так что там конфиги заканчиваются на группе автовыбора, как раньше; панель теперь это прямо говорит, а не теряет предложение молча.
+- **Запись автовыбора остаётся «Авто».** Запись предложения в списке называется «Авто · <нода>», а группа автовыбора сохраняет старое имя, так что при включённом предложении ни один сервер не переименовывается и не теряется.
+
 ## 0.5.5.6
 ### en
 **One click can no longer send a cascading node's traffic out of its own address.**

@@ -3,8 +3,10 @@ package subs
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/netip"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -75,14 +77,21 @@ func (s xrayServer) tagged(tag string) map[string]any {
 // when nothing of the profile is an outbound Xray has, and ErrXrayPartial when only some
 // are: the caller serves the link list in both cases, so no server ever disappears.
 func XrayConfigs(p Profile, g Groups, r Routing) ([]byte, error) {
-	cfgs, err := xrayConfigList(p, g, r)
+	return XrayConfigsVia(p, g, r, "")
+}
+
+// XrayConfigsVia is XrayConfigs with the admin's own exit (the "YouTube without ads"
+// entry node): a config of the exit goes first in the list, and the rules of every config
+// that have no target of their own send the traffic through it.
+func XrayConfigsVia(p Profile, g Groups, r Routing, addr string) ([]byte, error) {
+	cfgs, err := xrayConfigList(addr, p, g, r)
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(cfgs)
 }
 
-func xrayConfigList(p Profile, g Groups, r Routing) ([]map[string]any, error) {
+func xrayConfigList(exitAddr string, p Profile, g Groups, r Routing) ([]map[string]any, error) {
 	// The rules and the service groups as a current mihomo would make them: the same
 	// routing the Clash profile gets, as far as Xray can express it.
 	p.App = App{}
@@ -226,25 +235,39 @@ func xrayConfigList(p Profile, g Groups, r Routing) ([]map[string]any, error) {
 	// under. The same string is the first outbound's tag, so a client that names a
 	// config from that tag shows the same entry.
 	autoRemark := tags[first]
+	// via is the admin's own exit (xrayExit): what the rules with no target of their own
+	// go to, and the entry the app picks for YouTube.
+	via := xrayExit(exitAddr)
+	// A config of the admin's own exit is one item of the list and the auto group another:
+	// the list names the second as it always did, so nothing is lost or renamed.
+	autoName := autoRemark
+	if via != nil {
+		autoName = xrayTag(g.Auto, map[string]bool{"direct": true, "block": true})
+		taken[strings.ToLower(autoName)] = true
+	}
+	cfgs := []map[string]any{}
+	if cfg := xrayExitConfig(exitAddr, p, g, r, texts, servers, probe); cfg != nil {
+		cfgs = append(cfgs, cfg)
+	}
 	auto := map[string]any{
-		"remarks":  autoRemark,
+		"remarks":  autoName,
 		"log":      map[string]any{"loglevel": "warning"},
 		"dns":      xrayDNS(p.Routes.DNS, r),
 		"inbounds": xrayInbounds(),
 		"outbounds": func() []any {
-			out := make([]any, 0, len(servers)+2)
+			out := make([]any, 0, len(servers)+3)
 			out = append(out, servers[first].tagged(tags[first]))
 			for i, s := range servers {
 				if i != first {
 					out = append(out, s.tagged(tags[i]))
 				}
 			}
-			return append(out, xrayDirect(), xrayBlock())
+			return append(append(out, xrayDirect(), xrayBlock()), xrayViaOut(viaAddr(via))...)
 		}(),
 		"routing": map[string]any{
 			"domainStrategy": "IPIfNonMatch",
 			"balancers":      balancers,
-			"rules":          append(xrayRules(texts, pickAuto), xrayFallback(r)),
+			"rules":          append(xrayRules(texts, pickAuto), xrayFallbackVia(viaAddr(via), r)...),
 		},
 		"observatory": map[string]any{
 			"subjectSelector":   selector,
@@ -254,12 +277,20 @@ func xrayConfigList(p Profile, g Groups, r Routing) ([]map[string]any, error) {
 		},
 		"stats": map[string]any{},
 	}
-	cfgs := []map[string]any{auto}
+	cfgs = append(cfgs, auto)
 
 	// One config per server: the same rules, with every proxy target on this very server.
 	// remarks stays unique across the list, including the automatic entry: two configs
 	// with one remarks are one server in INCY, and the others disappear.
-	seenRemark := map[string]bool{"direct": true, "block": true, autoRemark: true}
+	seenRemark := map[string]bool{"direct": true, "block": true}
+	// The same name is the same entry in INCY: a server that took the exit's or the auto
+	// group's name would leave the list, so those names are taken too.
+	for _, n := range []string{autoName} {
+		seenRemark[n] = true
+	}
+	if via != nil {
+		seenRemark[xrayViaRemark(g.Auto, via.name)] = true
+	}
 	for _, s := range servers {
 		tag := xrayTag(s.name, seenRemark)
 		seenRemark[tag] = true
@@ -277,17 +308,155 @@ func xrayConfigList(p Profile, g Groups, r Routing) ([]map[string]any, error) {
 			"log":       map[string]any{"loglevel": "warning"},
 			"dns":       xrayDNS(p.Routes.DNS, r),
 			"inbounds":  xrayInbounds(),
-			"outbounds": []any{s.tagged(tag), xrayDirect(), xrayBlock()},
+			"outbounds": append([]any{s.tagged(tag), xrayDirect(), xrayBlock()}, xrayViaOut(viaAddr(via))...),
 			"routing": map[string]any{
 				"domainStrategy": "IPIfNonMatch",
-				"rules":          append(xrayRules(texts, pick), xrayFallbackOutbound(tag, r)),
+				"rules":          append(xrayRules(texts, pick), xrayFallbackOutbound(tag, viaAddr(via), r)...),
 			},
 		})
 	}
 	return cfgs, nil
 }
 
-// xrayFallback is the last rule of the balancer config: what matched nothing goes through
+// xrayViaTag is the tag of the admin's own exit in every Xray config (XrayExit): a proxy
+// outbound of the config of the exit itself, and where the rest of a config goes.
+const xrayViaTag = "via"
+
+// xrayViaPort is the port of the exit (XrayExit of the entry node): the SOCKS the entry
+// listens on for its own users.
+const xrayViaPort = 1080
+
+// xrayVia is the admin's own exit: its address, and the name the app shows for it.
+type xrayVia struct {
+	addr, name string
+}
+
+// xrayExit is the exit of the "YouTube without ads" offer (YouTubeExitHost) in the config,
+// nil when the offer is off. A full config carries its own routing: a refresh would
+// otherwise drop the entry, and nothing of INCY's rules would send traffic to the Russian
+// node. An address there on its own is one too, so the config can be built by hand.
+func xrayExit(addr string) *xrayVia {
+	raw, name, _ := strings.Cut(addr, "|")
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil
+	}
+	return &xrayVia{addr: raw, name: strings.TrimSpace(name)}
+}
+
+// viaAddr is the address of an exit, "" when there is none.
+func viaAddr(v *xrayVia) string {
+	if v == nil {
+		return ""
+	}
+	return v.addr
+}
+
+// xrayDNSDirect sends the config's own resolvers to Xray's "direct" outbound. INCY adds the
+// same rule for a config with an observatory and balancers; it is written here so the order
+// of the rules is the config's own, not the app's.
+func xrayDNSDirect(d DNS) map[string]any {
+	var ips []string
+	for _, s := range xrayNameservers(d.Nameserver) {
+		rest, ok := strings.CutPrefix(s, "https://")
+		if !ok {
+			rest, ok = strings.CutPrefix(s, "tcp://")
+		}
+		if !ok {
+			continue
+		}
+		host, _, _ := strings.Cut(strings.SplitN(rest, "/", 2)[0], ":")
+		if _, err := netip.ParseAddr(host); err == nil && !slices.Contains(ips, host) {
+			ips = append(ips, host)
+		}
+	}
+	if len(ips) == 0 {
+		return map[string]any{"type": "field", "network": "tcp,udp", "outboundTag": "direct"}
+	}
+	return map[string]any{"type": "field", "ip": ips, "outboundTag": "direct"}
+}
+
+// xrayViaRemark names the item of the exit in the list: the auto group's name, and the
+// node it is (the Russian address the offer is about) when the node has one.
+func xrayViaRemark(auto, name string) string {
+	if name = strings.TrimSpace(name); name == "" {
+		return auto
+	}
+	return auto + " · " + name
+}
+
+// xrayViaOut is the admin's own exit as an outbound of a config, or nothing.
+func xrayViaOut(addr string) []any {
+	if addr == "" {
+		return nil
+	}
+	host := addr
+	port := strconv.Itoa(xrayViaPort)
+	if h, pt, err := net.SplitHostPort(addr); err == nil {
+		host, port = h, pt
+	}
+	return []any{map[string]any{"tag": xrayViaTag, "protocol": "socks", "settings": map[string]any{
+		"servers": []any{map[string]any{"address": host, "port": port}},
+	}}}
+}
+
+// xrayExitConfig is the item of the list for the admin's own exit: a config that reaches
+// the exit's network directly (rules go straight to the servers there) and sends
+// everything else to the exit — where YouTube then leaves with the entry node's Russian
+// address. Not the auto group: INCY shows one item per config, and the item is the offer.
+func xrayExitConfig(exitAddr string, p Profile, g Groups, r Routing, texts []string, servers []xrayServer, probe int) map[string]any {
+	exit := xrayExit(exitAddr)
+	if exit == nil {
+		return nil
+	}
+	tags := make([]string, len(servers))
+	used := map[string]bool{"direct": true, "block": true, xrayViaTag: true}
+	for i, s := range servers {
+		tags[i] = xrayTag(fmt.Sprintf("server-%d-%d", s.node, i+1), used)
+		used[tags[i]] = true
+	}
+	pick := func(target string) (string, string) {
+		switch {
+		case target == "DIRECT":
+			return "direct", ""
+		case strings.HasPrefix(target, "REJECT"):
+			return "block", ""
+		}
+		return "", "auto"
+	}
+	outbounds := make([]any, 0, len(servers)+3)
+	for i, s := range servers {
+		outbounds = append(outbounds, s.tagged(tags[i]))
+	}
+	outbounds = append(append(outbounds, xrayDirect(), xrayBlock()), xrayViaOut(exit.addr)...)
+	return map[string]any{
+		"remarks":   xrayViaRemark(g.Auto, exit.name),
+		"log":       map[string]any{"loglevel": "warning"},
+		"dns":       xrayDNS(p.Routes.DNS, r),
+		"inbounds":  xrayInbounds(),
+		"outbounds": outbounds,
+		"routing": map[string]any{
+			"domainStrategy": "IPIfNonMatch",
+			"balancers": []map[string]any{
+				{"tag": "auto", "selector": dedup(tags), "strategy": map[string]any{"type": "leastPing"}},
+			},
+			// The config's own resolvers go direct: without that they would wait for the exit
+			// to bootstrap itself — a loop. The exit's own network is reached directly, so the
+			// SERVERS of this item are its network; the rest is the exit.
+			"rules": append(append([]map[string]any{xrayDNSDirect(p.Routes.DNS)}, xrayRules(texts, pick)...),
+				map[string]any{"type": "field", "network": "tcp,udp", "outboundTag": xrayViaTag}),
+		},
+		"observatory": map[string]any{
+			"subjectSelector":   tags,
+			"probeUrl":          xrayProbeURL,
+			"probeInterval":     strconv.Itoa(probe) + "s",
+			"enableConcurrency": true,
+		},
+		"stats": map[string]any{},
+	}
+}
+
+// xrayFallback is the last rule of the balancer config// xrayFallback is the last rule of the balancer config: what matched nothing goes through
 // the auto group; in the "blocked" mode, as in the Clash profile, it goes direct.
 func xrayFallback(r Routing) map[string]any {
 	if r == RoutingBlocked {
@@ -296,13 +465,27 @@ func xrayFallback(r Routing) map[string]any {
 	return map[string]any{"type": "field", "network": "tcp,udp", "balancerTag": "auto"}
 }
 
-// xrayFallbackOutbound is the last rule of a single-server config: the rest goes through
-// that server, or direct in the "blocked" mode.
-func xrayFallbackOutbound(tag string, r Routing) map[string]any {
-	if r == RoutingBlocked {
-		return map[string]any{"type": "field", "network": "tcp,udp", "outboundTag": "direct"}
+// xrayFallbackOutbound is the last rule of a single-server config: what matched nothing
+// goes through the admin's own entry when it has one (it keeps that server's own address),
+// else through the server, or direct in the "blocked" mode.
+func xrayFallbackOutbound(tag, via string, r Routing) []map[string]any {
+	if via != "" {
+		return []map[string]any{{"type": "field", "network": "tcp,udp", "outboundTag": xrayViaTag}}
 	}
-	return map[string]any{"type": "field", "network": "tcp,udp", "outboundTag": tag}
+	if r == RoutingBlocked {
+		return []map[string]any{{"type": "field", "network": "tcp,udp", "outboundTag": "direct"}}
+	}
+	return []map[string]any{{"type": "field", "network": "tcp,udp", "outboundTag": tag}}
+}
+
+// xrayFallbackVia is the last rule of the auto config: the rest goes through the admin's
+// own entry when there is one (and from there through the auto group), else the auto group
+// itself; the "blocked" mode keeps its direct end.
+func xrayFallbackVia(via string, r Routing) []map[string]any {
+	if via != "" {
+		return []map[string]any{{"type": "field", "network": "tcp,udp", "outboundTag": xrayViaTag}}
+	}
+	return []map[string]any{xrayFallback(r)}
 }
 
 // xrayRuleTexts are the Clash rules of p in the order the profile applies them, before

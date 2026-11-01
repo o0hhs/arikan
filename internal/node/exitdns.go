@@ -45,6 +45,10 @@ func snifferConfig(d *nodeapi.ExitDNS) map[string]any {
 	}
 }
 
+// dnsIPv6Timeout is how long a lookup waits for a name's AAAA (ms): mihomo's own 100 is
+// long enough for every connection to lose a tenth of a second on a resolver with no IPv6.
+const dnsIPv6Timeout = 50
+
 // dnsConfig is mihomo's resolver: the state's servers (the admin's Routing → DNS first,
 // then Exit DNS's own), its bootstraps and its per-domain overrides; without any, the
 // node's defaults. A server that does not parse is left out, as the egress rules are: a
@@ -70,8 +74,13 @@ func dnsConfig(d *nodeapi.ExitDNS) map[string]any {
 		boot = cleanServers(d.Default)
 	}
 	out := map[string]any{
-		"enable":             true,
-		"ipv6":               true,
+		"enable": true,
+		"ipv6":   true,
+		// One timer for the AAAA of every name (mihomo's 100 ms when the key is absent): a
+		// lookup waits for both answers, so an IPv6 path to a resolver that does not answer
+		// holds every connection for that long. This is the delay behind "DNS tuned for
+		// Gemini breaks TikTok".
+		"ipv6-timeout":       dnsIPv6Timeout,
 		"enhanced-mode":      "normal",
 		"default-nameserver": boot,
 		"nameserver":         servers,

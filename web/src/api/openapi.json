@@ -11439,6 +11439,9 @@
             },
             "type": "array"
           },
+          "youtube_exit": {
+            "type": "string"
+          },
           "dns": {
             "$ref": "#/components/schemas/DNS"
           },
