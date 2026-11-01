@@ -60,9 +60,9 @@ func xrayProtocols(c xcConfig) []string {
 	return out
 }
 
-func xrayProfile(t *testing.T) Profile {
-	t.Helper()
-	prof := profile(t, "")
+// keepXray drops the servers Xray has no outbound for: a whole config is built only when
+// every server of the subscription is one Xray can run.
+func keepXray(prof Profile) Profile {
 	kept := prof.Inbounds[:0]
 	for _, in := range prof.Inbounds {
 		switch in.Preset {
@@ -73,6 +73,11 @@ func xrayProfile(t *testing.T) Profile {
 	}
 	prof.Inbounds = kept
 	return prof
+}
+
+func xrayProfile(t *testing.T) Profile {
+	t.Helper()
+	return keepXray(profile(t, ""))
 }
 
 // The body is the array INCY imports server by server: every server the profile has as
@@ -455,7 +460,7 @@ func TestXrayConfigsKnownFields(t *testing.T) {
 // A service the admin pinned to a node gets a balancer of that node's servers, as the
 // Clash profile gives it a group of its own.
 func TestXrayServiceOnANode(t *testing.T) {
-	prof := twoNodes(t)
+	prof := keepXray(twoNodes(t))
 	prof.Routes = Routes{Services: map[string]string{"youtube": "node:2"}}
 	cfgs := xrayConfigs(t, prof, Groups{}, RoutingRUDirect)
 	auto := cfgs[0]
