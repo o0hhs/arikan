@@ -60,11 +60,26 @@ func xrayProtocols(c xcConfig) []string {
 	return out
 }
 
+func xrayProfile(t *testing.T) Profile {
+	t.Helper()
+	prof := profile(t, "")
+	kept := prof.Inbounds[:0]
+	for _, in := range prof.Inbounds {
+		switch in.Preset {
+		case "hysteria2", "tuic_v5", PresetGecko:
+			continue // an outbound Xray has not
+		}
+		kept = append(kept, in)
+	}
+	prof.Inbounds = kept
+	return prof
+}
+
 // The body is the array INCY imports server by server: every server the profile has as
 // Xray can run it, the balancer entry first, and the automatic entry named after the auto
 // group.
 func TestXrayConfigsShape(t *testing.T) {
-	prof := profile(t, "")
+	prof := xrayProfile(t)
 	cfgs := xrayConfigs(t, prof, Groups{}, RoutingRUDirect)
 	// The default presets: two VLESS, Hysteria2 and TUIC. Xray has no outbound for the
 	// last two, so two server configs and the automatic one.
@@ -266,7 +281,7 @@ func TestXrayOutboundFromLinks(t *testing.T) {
 // admin's rules, a service and its block, the Russian sites direct, the QUIC twin, and a
 // rule Xray cannot match left out rather than broken.
 func TestXrayRules(t *testing.T) {
-	prof := profile(t, "")
+	prof := xrayProfile(t)
 	prof.Direct = []string{"203.0.113.7", "vpn.example.com"}
 	prof.Rules = []string{
 		"DOMAIN-SUFFIX,sber.ru,DIRECT",
@@ -339,7 +354,7 @@ func TestXrayRules(t *testing.T) {
 // and a misspelt field is either ignored or fails the config on the phone, where nobody
 // sees it: the shapes are pinned here instead.
 func TestXrayConfigsKnownFields(t *testing.T) {
-	prof := profile(t, "")
+	prof := xrayProfile(t)
 	prof.Direct = []string{"203.0.113.7"}
 	prof.Rules = []string{"DOMAIN-SUFFIX,sber.ru,DIRECT", "IP-CIDR,198.51.100.0/24,DIRECT,no-resolve"}
 	prof.Routes = Routes{Services: map[string]string{"youtube": TargetVPN, "ads": TargetBlock}, Tune: Tune{BlockQUIC: true}}
@@ -630,6 +645,21 @@ func TestINCYFullConfigDelivery(t *testing.T) {
 	if err := domain.Seed(ctx, st, now); err != nil {
 		t.Fatal(err)
 	}
+	// The seed has Hysteria2 and TUIC inbounds: Xray cannot run them, so a subscription with
+	// them is served as the link list (checked at the end of this test). The config itself is
+	// checked on an all-Xray subscription.
+	if ins, err := st.Q.ListInbounds(ctx); err != nil {
+		t.Fatal(err)
+	} else {
+		for _, in := range ins {
+			switch in.Preset {
+			case "hysteria2", "tuic_v5", PresetGecko:
+				if err := st.Q.DeleteInbound(ctx, in.ID); err != nil {
+					t.Fatal(err)
+				}
+			}
+		}
+	}
 	pool := domain.NewPool(st, clock)
 	users := domain.NewUsers(st, pool, subChanges{}, clock)
 	tariffs, err := st.Q.ListTariffs(ctx)
@@ -699,6 +729,23 @@ func TestINCYFullConfigDelivery(t *testing.T) {
 	}
 	if _, err := base64.StdEncoding.DecodeString(strings.TrimSpace(w.Body.String())); err != nil {
 		t.Fatalf("Happ got no base64: %v", err)
+	}
+
+	// A Hysteria2 inbound joins the subscription: Xray cannot run it, so a config would drop
+	// it and the panel serves the list instead — every server stays in the app.
+	hy, err := presets.NewConfig("hysteria2", "www.example.com:443")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.Q.CreateInbound(ctx, db.CreateInboundParams{NodeID: 1, Name: "hysteria2 again", Preset: "hysteria2", Port: "443", Config: hy, CreatedAt: now.Unix(), UpdatedAt: now.Unix()}); err != nil {
+		t.Fatal(err)
+	}
+	w = serve("INCY/2.1.0")
+	if ct := w.Header().Get("Content-Type"); !strings.HasPrefix(ct, "text/plain") {
+		t.Fatalf("a mixed subscription got %q, want the link list", ct)
+	}
+	if w.Header().Get("routing") == "" {
+		t.Fatal("the link list keeps its routing header")
 	}
 
 	// The switch off: INCY gets the list and the header again.
