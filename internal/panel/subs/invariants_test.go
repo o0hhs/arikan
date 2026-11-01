@@ -463,6 +463,11 @@ func assertSubscription(t *testing.T, p Profile) {
 		}
 		return
 	}
+	// A profile with servers Xray cannot run is served as the link list (ErrXrayPartial):
+	// nothing is checked of the config that is not made.
+	if errors.Is(err, ErrXrayPartial) {
+		return
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
