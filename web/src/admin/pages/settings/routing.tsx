@@ -3,7 +3,7 @@ import { useBlocker } from "@tanstack/react-router";
 import { Eye, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api, ApiError, errorText, unwrap, type Schemas } from "../../../api/client";
-import { qk, useExitDns, useInbounds, useNodes } from "../../../api/hooks";
+import { useExitDns, useInbounds, useNodes } from "../../../api/hooks";
 import { Card, FormActions, SaveBar } from "../../../components/layout";
 import { Confirm, Drawer } from "../../../components/overlay";
 import { SwitchRow } from "../../../components/switch";
