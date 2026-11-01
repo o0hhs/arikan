@@ -72,7 +72,8 @@ func (s xrayServer) tagged(tag string) map[string]any {
 
 // XrayConfigs renders the whole subscription body for INCY with the autoselect switch on:
 // a JSON array, the balancer config first, then one full config per server. ErrNoProxies
-// when nothing of the profile is an outbound Xray has: the caller serves the link list.
+// when nothing of the profile is an outbound Xray has, and ErrXrayPartial when only some
+// are: the caller serves the link list in both cases, so no server ever disappears.
 func XrayConfigs(p Profile, g Groups, r Routing) ([]byte, error) {
 	cfgs, err := xrayConfigList(p, g, r)
 	if err != nil {
@@ -91,18 +92,26 @@ func xrayConfigList(p Profile, g Groups, r Routing) ([]map[string]any, error) {
 		return nil, err
 	}
 	servers := make([]xrayServer, 0, len(ps))
+	notXray := 0
 	for _, x := range ps {
 		if x.uri == "" {
 			continue
 		}
 		out, ok := xrayOutbound(x.uri)
 		if !ok {
-			continue // a protocol Xray has no outbound for
+			// Hysteria2 and the newer kinds. A whole config has no outbound for them, so
+			// sending it would quietly take those servers out of the app's list: the caller
+			// serves the link list instead (see ErrXrayPartial).
+			notXray++
+			continue
 		}
 		servers = append(servers, xrayServer{name: x.name, node: x.node, auto: x.auto, out: out})
 	}
 	if len(servers) == 0 {
 		return nil, ErrNoProxies
+	}
+	if notXray > 0 {
+		return nil, fmt.Errorf("%w: %d of %d servers", ErrXrayPartial, notXray, notXray+len(servers))
 	}
 	nodeOfName := make(map[string]int64, len(servers))
 	names := make([]string, len(servers))

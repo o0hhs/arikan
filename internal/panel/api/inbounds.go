@@ -190,6 +190,51 @@ func (h *handlers) listPresets(context.Context, *struct{}) (*presetsOutput, erro
 	return &presetsOutput{Body: presets.All}, nil
 }
 
+// refuseWholeNodeDirect stops one request from sending every connection of a node out
+// directly when some of them leave through another node or WARP: that turns a cascading
+// node into a plain exit and sends all of its traffic out of its own address. A subset, or
+// one connection at a time, is how it is done on purpose.
+func (h *handlers) refuseWholeNodeDirect(ctx context.Context, ids []int64) error {
+	all, err := h.d.Store.Q.ListInbounds(ctx)
+	if err != nil {
+		return err
+	}
+	chosen := make(map[int64]bool, len(ids))
+	for _, id := range ids {
+		chosen[id] = true
+	}
+	type count struct {
+		enabled, picked int
+		cascading       bool
+	}
+	per := map[int64]*count{}
+	for _, in := range all {
+		if in.Enabled == 0 {
+			continue
+		}
+		c := per[in.NodeID]
+		if c == nil {
+			c = &count{}
+			per[in.NodeID] = c
+		}
+		c.enabled++
+		if chosen[in.ID] {
+			c.picked++
+			if in.ExitNodeID.Valid || in.Outbound == "warp" {
+				c.cascading = true
+			}
+		}
+	}
+	for _, c := range per {
+		if c.enabled > 0 && c.picked == c.enabled && c.cascading {
+			return huma.Error409Conflict("exit_direct_whole_node", &huma.ErrorDetail{
+				Message: "every connection of this node leaves through another node or WARP: sending all of them out directly would put all of its traffic on this server's own address; change the connections one at a time, or leave one as it is",
+			})
+		}
+	}
+	return nil
+}
+
 // lastAuto maps inbound ids to their latest automatic change.
 func (h *handlers) lastAuto(ctx context.Context) (map[int64]db.InboundEvent, error) {
 	rows, err := h.d.Store.Q.LastInboundEvents(ctx)
@@ -384,6 +429,15 @@ func (h *handlers) setInboundExits(ctx context.Context, in *setExitsInput) (*inb
 	}
 	if b.Outbound == "node" && b.ExitWarp {
 		if err := h.warpRouteRefusal(ctx, b.ExitNodeID, "body.exit_warp"); err != nil {
+			return nil, err
+		}
+	}
+	if b.Outbound == "direct" {
+		// Flipping every connection of a node to a direct exit in one request is how a node
+		// that carries the whole cascade started sending all of it out of its own address
+		// (the "YouTube without ads" card did exactly that). One connection at a time, or a
+		// subset, stays allowed; the whole node at once has to be deliberate.
+		if err := h.refuseWholeNodeDirect(ctx, b.IDs); err != nil {
 			return nil, err
 		}
 	}

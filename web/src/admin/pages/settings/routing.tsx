@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useBlocker } from "@tanstack/react-router";
 import { Eye, Search } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -7,7 +7,6 @@ import { qk, useExitDns, useInbounds, useNodes } from "../../../api/hooks";
 import { Card, FormActions, SaveBar } from "../../../components/layout";
 import { Confirm, Drawer } from "../../../components/overlay";
 import { SwitchRow } from "../../../components/switch";
-import { useToast } from "../../../components/toast";
 import { Button, EmptyState, ErrorState, Field, Pill, Segmented, Skeleton } from "../../../components/ui";
 import { t, useLocale } from "../../../i18n";
 import { useDraft } from "../../../lib/draft";
@@ -374,12 +373,9 @@ function useCatalog() {
 function YouTubeCard({ routes, setRoutes }: { routes: Routes; setRoutes: SetRoutes }) {
   const nodesQ = useNodes();
   const inboundsQ = useInbounds();
-  const qc = useQueryClient();
-  const toast = useToast();
   const nodes = (nodesQ.data ?? []).filter((n) => n.enabled);
   const inbounds = inboundsQ.data ?? [];
   const [pick, setPick] = useState(0);
-  const [ask, setAsk] = useState(false);
   const yt = routes.services?.youtube ?? "";
   const entry = yt.startsWith("node:") ? Number(yt.slice(5)) : 0;
   const on = entry > 0 && routes.services?.ads === "block";
@@ -389,7 +385,6 @@ function YouTubeCard({ routes, setRoutes }: { routes: Routes; setRoutes: SetRout
   useEffect(() => {
     if (pick === 0 && nodes.length > 0) setPick(nodes[0]!.id);
   }, [nodes, pick]);
-  const entryNode = nodes.find((n) => n.id === entry);
   const own = inbounds.filter((i) => i.node_id === entry && i.enabled);
   const direct = own.length > 0 && own.every((i) => i.outbound === "direct");
   const foreign = own.filter((i) => i.outbound !== "direct").length;
@@ -398,14 +393,6 @@ function YouTubeCard({ routes, setRoutes }: { routes: Routes; setRoutes: SetRout
     : direct
       ? t("settings.youtubeExitDirectGood")
       : t("settings.youtubeExitForeign", { n: foreign });
-  const move = useMutation({
-    mutationFn: (body: Schemas["SetExitsInputBody"]) => unwrap(api.POST("/api/v1/inbounds/exit", { body })),
-    onSuccess: () => {
-      toast.ok(t("settings.youtubeExitDirectDone"));
-      void qc.invalidateQueries({ queryKey: qk.inbounds });
-    },
-    onError: (e) => toast.error(errorText(e)),
-  });
   const apply = (want: boolean) => {
     const id = want ? pick || nodes[0]?.id || 0 : 0;
     if (want && !id) return;
@@ -451,28 +438,14 @@ function YouTubeCard({ routes, setRoutes }: { routes: Routes; setRoutes: SetRout
             </Field>
           </div>
           {on ? (
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <Button size="sm" variant="ghost" disabled={!own.length || direct || move.isPending} onClick={() => setAsk(true)}>
-                {t("settings.youtubeExitDirectNow")}
-              </Button>
+            <div className="mt-3 flex flex-col gap-1">
               <span className="text-xs text-[var(--ink-500)]">{current}</span>
+              {foreign > 0 ? <p className="text-xs text-[var(--md-error)]">{t("settings.youtubeExitLeak", { n: foreign })}</p> : null}
             </div>
           ) : null}
           <p className="mt-3 text-xs text-[var(--ink-500)]">{t("settings.youtubeDpiHint")}</p>
         </>
       )}
-      <Confirm
-        open={ask}
-        onOpenChange={setAsk}
-        title={t("settings.youtubeDirectConfirmTitle")}
-        text={t("settings.youtubeDirectConfirmText", { entry: entryNode ? nodeLabel(entryNode) : `#${entry}` })}
-        confirm={t("settings.youtubeDirectConfirm")}
-        danger
-        onConfirm={() => {
-          setAsk(false);
-          move.mutate({ ids: own.map((i) => i.id), outbound: "direct" });
-        }}
-      />
     </Card>
   );
 }

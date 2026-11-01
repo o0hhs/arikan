@@ -140,6 +140,12 @@ func ValidName(s string) error {
 // ErrNoProxies: nothing of the profile is left for the app, or for any app.
 var ErrNoProxies = errors.New("no proxies")
 
+// ErrXrayPartial: only some of the profile's servers are outbounds Xray has (the rest are
+// Hysteria2 and the newer kinds). A whole Xray config would drop them, and a subscription
+// that quietly loses half its servers is worse than the link list: the caller serves the
+// list when it sees this.
+var ErrXrayPartial = errors.New("xray: not every server is an xray outbound")
+
 type Profile struct {
 	// Skip, when set, hears of an inbound that is left out because it cannot be rendered
 	// (a port that is no number, a template that no longer parses): one broken inbound must

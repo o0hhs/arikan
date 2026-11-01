@@ -37,7 +37,7 @@ Switched on, it serves INCY a whole Xray config: each server is imported as an e
 
 Routes in this mode come from the config itself: the route mode, services, direct lists, your own rules and DNS from **Settings → Routing** are carried into Xray's rules. The `routing` header is not sent then, so there are never two sources of routes. What is not carried: rules by app (process) name — Xray cannot match them; your own list files — Xray does not download Clash lists; geosite and geoip categories the app's geodata does not have. A service sent to a particular server gets a balancer of that server's servers.
 
-Only the protocols Xray runs are in the config: VLESS, Trojan and Shadowsocks. Hysteria2 and TUIC servers take no part in it — they stay in the list with the switch off.
+Only the protocols Xray runs are in the config: VLESS, Trojan and Shadowsocks. So the config is built only when **every** server of the subscription is one of them: a subscription with Hysteria2 or TUIC is served as the ordinary link list instead — otherwise those servers would disappear from the app. Remove such servers from the subscription (or turn the switch off) to get the autoselect back.
 
 If the app does not take the config, just turn the switch off: the server list comes back at the next subscription update. Nodes that serve subscriptions themselves (**Settings → Subscription → Subscriptions from nodes**) keep handing out the link list: only the panel serves the full config.
 

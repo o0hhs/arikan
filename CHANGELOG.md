@@ -3,6 +3,19 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
+## 0.5.5.6
+### en
+**One click can no longer send a cascading node's traffic out of its own address.**
+- **The "YouTube without ads" card stopped flipping the node's exit.** Its button moved every connection of the chosen node to a direct exit in one request; on a node that carries the whole cascade that sent *all* traffic out of its own address, not just YouTube. The button is gone: the card still names the node's exit and now says plainly what a direct exit would do, and the exit is changed per connection on the Protocols page.
+- **The API refuses the whole-node flip.** Sending every connection of a node out directly at once, when any of them leaves through another node or WARP, is refused with `exit_direct_whole_node` — a subset, or one connection at a time, is how it is done on purpose.
+- **A subscription that mixes Hysteria2 with Xray servers keeps every server.** A whole Xray config has no outbound for Hysteria2 or TUIC, so the INCY config carried only the VLESS/Trojan/Shadowsocks servers — the rest silently vanished from the app's list. The config is now built only when **every** server is one Xray can run; a mixed subscription gets the ordinary link list, and the switch's card says why.
+
+### ru
+**Один щелчок больше не может отправить трафик каскадной ноды с её собственного адреса.**
+- **Карточка «YouTube без рекламы» перестала переключать выход ноды.** Её кнопка одним запросом переводила все подключения выбранной ноды на прямой выход; на ноде, через которую идёт весь каскад, это отправляло с её адреса **весь** трафик, а не только YouTube. Кнопки больше нет: карточка по-прежнему показывает выход ноды и теперь прямо говорит, что сделает прямой выход, а выход меняется у конкретных подключений на странице «Протоколы».
+- **API не даёт перевести всю ноду разом.** Перевести все подключения ноды на прямой выход одним запросом, когда хоть одно из них выходит через другую ноду или WARP, теперь нельзя — ответ `exit_direct_whole_node`; подмножество или по одному подключению — это осознанное действие.
+- **Подписка, где Hysteria2 соседствует с серверами Xray, сохраняет все серверы.** В полном конфиге Xray нет outbound для Hysteria2 и TUIC, поэтому конфиг для INCY нёс только серверы VLESS/Trojan/Shadowsocks — остальные молча исчезали из списка приложения. Теперь конфиг строится, только когда **все** серверы такие, какие Xray умеет; смешанная подписка получает обычный список ссылок, и карточка переключателя объясняет почему.
+
 ## 0.5.5.5
 ### en
 **INCY's auto-select keeps the servers, and the DPI bypass installs a ready nfqws.**

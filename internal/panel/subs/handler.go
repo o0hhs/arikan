@@ -388,9 +388,11 @@ func (h *Handler) serveProfile(w http.ResponseWriter, r *http.Request, u db.User
 		_, _ = w.Write([]byte(TurnSubscription(prof)))
 	default:
 		if serveXray {
-			// A whole Xray config with the autoselect balancer (xrayconfig.go). Nothing Xray
-			// can run — a hysteria2-only subscription — falls back to the link list rather
-			// than leaving the app without a profile.
+			// A whole Xray config with the autoselect balancer (xrayconfig.go). A profile
+			// Xray cannot run whole — a hysteria2-only one, or one that mixes Hysteria2 with
+			// what Xray has — falls back to the link list: a config would quietly drop those
+			// servers from the app's list, and losing half the servers is worse than having
+			// no automatic entry.
 			prof.Rules, prof.Routes, prof.Lang = cfg.Rules, cfg.Routes, cfg.Lang
 			body, cerr := XrayConfigs(prof, cfg.Groups, cfg.Routing)
 			switch {
@@ -398,6 +400,8 @@ func (h *Handler) serveProfile(w http.ResponseWriter, r *http.Request, u db.User
 				w.Header().Set("Content-Type", "application/json; charset=utf-8")
 				_, _ = w.Write(body)
 				return
+			case errors.Is(cerr, ErrXrayPartial):
+				h.log.Info("incy autoselect: the profile has servers Xray cannot run; the link list is served", "err", cerr)
 			case !errors.Is(cerr, ErrNoProxies):
 				h.profileFailed(w, u, cfg, format, cerr)
 				return

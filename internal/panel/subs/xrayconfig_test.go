@@ -542,6 +542,22 @@ func TestXrayConfigsWithoutXrayServers(t *testing.T) {
 	}
 }
 
+// A profile that mixes what Xray runs with Hysteria2: a whole config would silently drop
+// the Hysteria2 servers from the app's list, so the generator refuses and the caller serves
+// the link list (the delivery test below checks that).
+func TestXrayConfigsRefuseAPartialProfile(t *testing.T) {
+	prof := profile(t, "")
+	hy, err := presets.NewConfig("hysteria2", "www.example.com:443")
+	if err != nil {
+		t.Fatal(err)
+	}
+	prof.Inbounds = append(prof.Inbounds, db.Inbound{ID: 2, NodeID: 2, Name: "NL hysteria2", Preset: "hysteria2", Port: "443", Enabled: 1, Config: hy})
+	prof.Nodes = append(prof.Nodes, Node{ID: 2, Name: "NL", Endpoint: Endpoint{Host: "203.0.113.8"}})
+	if _, err := XrayConfigs(prof, Groups{Auto: "Auto"}, RoutingAll); !errors.Is(err, ErrXrayPartial) {
+		t.Fatalf("err: %v, want ErrXrayPartial", err)
+	}
+}
+
 // Fifty servers: one config each and the automatic one, every tag unique, the balancer
 // over all of them.
 func TestXrayConfigsManyServers(t *testing.T) {
