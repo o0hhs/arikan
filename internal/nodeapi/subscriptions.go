@@ -1,6 +1,8 @@
 package nodeapi
 
 import (
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -132,9 +134,19 @@ type SubsServer struct {
 	TLS *TLSFiles `json:"tls,omitempty"`
 }
 
+// The core the official sing-box apps name, and the "SFA/1.12.4" token when they do not.
+// Kept in step with subs.DetectApp; a config of sing-box 1.12 does not load in 1.11.
+var (
+	subSingboxCore = regexp.MustCompile(`sing-box[ /]v?(\d+)\.(\d+)\.(\d+)`)
+	subSingboxApp  = regexp.MustCompile(`^(?:sfa|sfi|sfm|sft)/v?(\d+)\.(\d+)\.(\d+)`)
+)
+
 // SubFormat picks the format a client asks for: ?format= first, then the User-Agent, then
-// Accept. It mirrors the panel's own pick closely enough for the bodies the panel rendered;
-// where it is unsure it says SubFormatURI, which every app reads.
+// Accept. It mirrors subs.Format: Hiddify says "like ClashMeta" and reads links, Karing
+// and the other sing-box apps route by their own settings and read links, and only the
+// official apps (SFA, SFI, SFM, SFT) on core 1.12 or newer get the sing-box config. Where
+// it is unsure it says SubFormatURI, which every app reads. TestFormatAgreesWithTheNode
+// in package subs locks the two.
 func SubFormat(query, userAgent, accept string) string {
 	switch strings.ToLower(strings.TrimSpace(query)) {
 	case "clash", "mihomo", "yaml":
@@ -149,17 +161,59 @@ func SubFormat(query, userAgent, accept string) string {
 		return SubFormatHTML
 	}
 	ua := strings.ToLower(userAgent)
+	has := func(words ...string) bool {
+		for _, w := range words {
+			if strings.Contains(ua, w) {
+				return true
+			}
+		}
+		return false
+	}
+	whole := strings.HasPrefix(ua, "sfa") || strings.HasPrefix(ua, "sfi") || strings.HasPrefix(ua, "sfm") || strings.HasPrefix(ua, "sft")
 	switch {
-	case strings.Contains(ua, "clash"), strings.Contains(ua, "mihomo"), strings.Contains(ua, "stash"):
+	case strings.HasPrefix(ua, "stash"):
 		return SubFormatClash
-	case strings.Contains(ua, "sing-box"), strings.Contains(ua, "singbox"),
-		strings.Contains(ua, "sfa/"), strings.Contains(ua, "sfi/"), strings.Contains(ua, "sfm/"), strings.Contains(ua, "sft/"):
+	case has("hiddify"):
+		// "like ClashMeta" is how Hiddify asks other panels for Clash. It reads links.
+		return SubFormatURI
+	case whole && subSingboxAtLeast112(ua):
 		return SubFormatSingBox
+	case whole || has("karing", "sing-box", "singbox", "nekobox", "nekoray", "husi", "throne", "deskbox", "inhive"):
+		return SubFormatURI
+	case has("mihomo", "clash", "koala", "kabosu", "verge", "prizrak", "flowvy", "murge", "rabbit"):
+		return SubFormatClash
+	case has("happ", "v2raytun", "incy", "v2rayng", "v2rayn", "onexray", "v2box", "simplexray", "renoarx",
+		"streisand", "shadowrocket", "foxray"):
+		// An app that names itself, even one whose Accept asks for a page.
+		return SubFormatURI
 	}
 	if strings.Contains(strings.ToLower(accept), "text/html") {
 		return SubFormatHTML
 	}
 	return SubFormatURI
+}
+
+// subSingboxAtLeast112 reports a core of 1.12 or newer, from the "sing-box x.y.z" phrase
+// or, without one, from the official app's own token. Unknown is not newer.
+func subSingboxAtLeast112(ua string) bool {
+	m := subSingboxCore.FindStringSubmatch(ua)
+	if m == nil {
+		m = subSingboxApp.FindStringSubmatch(ua)
+	}
+	if m == nil {
+		return false
+	}
+	var v [3]int
+	for i := range v {
+		v[i], _ = strconv.Atoi(m[i+1])
+	}
+	min := [3]int{1, 12, 0}
+	for i := range v {
+		if v[i] != min[i] {
+			return v[i] > min[i]
+		}
+	}
+	return true
 }
 
 // PickSubBody is the body of bodies for a request: the one its format asks for, or the link

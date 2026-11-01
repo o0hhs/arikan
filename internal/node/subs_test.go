@@ -211,8 +211,15 @@ func TestSubsAnsweredByFormat(t *testing.T) {
 		!strings.Contains(resp.Header.Get("Content-Disposition"), "VPN.yaml") {
 		t.Fatalf("clash: %d %q %q", resp.StatusCode, body, resp.Header.Get("Content-Disposition"))
 	}
-	if resp, body := get("/"+testToken, "SFI/1.11 sing-box/1.11", ""); resp.StatusCode != http.StatusOK || !strings.HasPrefix(body, `{"outbounds"`) {
+	if resp, body := get("/"+testToken, "SFA (sing-box 1.14.2; language en_US)", ""); resp.StatusCode != http.StatusOK || !strings.HasPrefix(body, `{"outbounds"`) {
 		t.Fatalf("sing-box: %d %q", resp.StatusCode, body)
+	}
+	// 1.11 cannot load the 1.12 config, and Hiddify says "like ClashMeta" but reads links.
+	if _, body := get("/"+testToken, "SFI/1.11 sing-box/1.11", ""); body != "dmxlc3M6Ly9saW5r" {
+		t.Fatalf("old sing-box: %q", body)
+	}
+	if _, body := get("/"+testToken, "HiddifyNext/2.5.7 (android) like ClashMeta v2ray sing-box", ""); body != "dmxlc3M6Ly9saW5r" {
+		t.Fatalf("hiddify: %q", body)
 	}
 	if resp, body := get("/"+testToken, "Mozilla/5.0", "text/html"); resp.StatusCode != http.StatusOK || !strings.HasPrefix(body, "<!doctype html>") {
 		t.Fatalf("the page: %d %q", resp.StatusCode, body)

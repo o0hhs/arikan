@@ -33,7 +33,7 @@ func TestDetectApp(t *testing.T) {
 		"HiddifyNextX/4.0.4 (windows) like ClashMeta v2ray sing-box": {Family: FamilySingBox},
 		"Hiddify":                                     {Family: FamilySingBox, Legacy: true},
 		"karing/1.1.4.920":                            {Family: FamilySingBox},
-		"SFA/1.12.4":                                  {Family: FamilySingBox, Whole: true},
+		"SFA/1.12.4":                                  {Family: FamilySingBox, Whole: true, Core: Version{1, 12, 4}},
 		"SFA (sing-box 1.14.2; language en_US)":       {Family: FamilySingBox, Core: Version{1, 14, 2}, Whole: true},
 		"SFI (sing-box 1.11.4; language ru_RU)":       {Family: FamilySingBox, Core: Version{1, 11, 4}, Whole: true},
 		"Karing/1.2.26 platform/tvos sing-box 1.14.0": {Family: FamilySingBox, Core: Version{1, 14, 0}},

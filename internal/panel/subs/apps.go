@@ -56,8 +56,13 @@ var (
 	// HiddifyNextX with the Xray core on.
 	hiddifyVersion = regexp.MustCompile(`hiddifynextx?/v?(\d+)\.(\d+)\.(\d+)`)
 	koalaVersion   = regexp.MustCompile(`koala-clash/v?(\d+)\.(\d+)\.(\d+)`)
-	// singboxVersion: the core the official sing-box apps, Karing and Husi name.
-	singboxVersion = regexp.MustCompile(`sing-box v?(\d+)\.(\d+)\.(\d+)`)
+	// singboxVersion: the core the official sing-box apps, Karing and Husi name,
+	// "sing-box 1.14.2" or "sing-box/1.14.2".
+	singboxVersion = regexp.MustCompile(`sing-box[ /]v?(\d+)\.(\d+)\.(\d+)`)
+	// singboxAppVersion: "SFA/1.12.4" when the app does not also say "sing-box 1.12.4".
+	// The official apps version the token with the core, and a config of 1.12 does not
+	// load in 1.11.
+	singboxAppVersion = regexp.MustCompile(`^(?:sfa|sfi|sfm|sft)/v?(\d+)\.(\d+)\.(\d+)`)
 )
 
 func versionOf(m []string) Version {
@@ -108,6 +113,8 @@ func DetectApp(userAgent string) App {
 		// "SFA (sing-box 1.14.2; language en_US)"
 		a := App{Family: FamilySingBox, Whole: strings.HasPrefix(ua, "sfa") || strings.HasPrefix(ua, "sfi") || strings.HasPrefix(ua, "sfm") || strings.HasPrefix(ua, "sft")}
 		if m := singboxVersion.FindStringSubmatch(ua); m != nil {
+			a.Core = versionOf(m)
+		} else if m := singboxAppVersion.FindStringSubmatch(ua); m != nil {
 			a.Core = versionOf(m)
 		}
 		return a

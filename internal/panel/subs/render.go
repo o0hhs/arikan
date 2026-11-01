@@ -6,8 +6,11 @@ import (
 	"cmp"
 	"errors"
 	"fmt"
+	"net"
 	"net/netip"
 	"net/url"
+
+	"golang.org/x/net/idna"
 	"slices"
 	"strconv"
 	"strings"
@@ -95,8 +98,11 @@ var geoxURL = map[string]string{
 }
 
 // WithDefaults fills in the names the admin left empty, in the panel's default language
-// ("en", Russian otherwise).
+// ("en", Russian otherwise). Text that is not valid UTF-8 is dropped first: it would
+// make the JSON profiles fail to encode, and with them the whole subscription.
 func (g Groups) WithDefaults(lang string) Groups {
+	g.Main = strings.ToValidUTF8(g.Main, "")
+	g.Auto = strings.ToValidUTF8(g.Auto, "")
 	if g.Main == "" {
 		g.Main = "VPN"
 	}
@@ -212,6 +218,106 @@ func NodePrefix(name string) string {
 
 func isRegional(r rune) bool { return r >= 0x1F1E6 && r <= 0x1F1FF }
 
+// cleanText drops bytes that are not UTF-8 and control characters, and trims space.
+// What is left can go into a URI fragment, a YAML value or a JSON string.
+func cleanText(s string) string {
+	s = strings.TrimSpace(strings.ToValidUTF8(s, ""))
+	s = strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) {
+			return -1
+		}
+		return r
+	}, s)
+	return strings.TrimSpace(s)
+}
+
+// proxyLabel is the name a profile shows for a server. mihomo refuses a profile whose
+// proxy is blank or named as one of its built-in policies (or PROXY, the alias group
+// the rules inject), and a name that is not valid UTF-8 makes the JSON profiles fail
+// to encode. A reserved word keeps a suffix, so the admin's word stays visible.
+func proxyLabel(name string) string {
+	name = cleanText(name)
+	if name == "" {
+		return "server"
+	}
+	if reservedName(name) {
+		return name + " 2"
+	}
+	return name
+}
+
+func reservedName(s string) bool {
+	if strings.EqualFold(s, AliasGroup) {
+		return true
+	}
+	for _, x := range reserved {
+		if strings.EqualFold(s, x) {
+			return true
+		}
+	}
+	return false
+}
+
+// hostOK: the address can stand in a URI authority and in a JSON string.
+func hostOK(h string) bool {
+	if !textOK(h) {
+		return false
+	}
+	return !strings.ContainsAny(h, "/?#@\\")
+}
+
+// dialHost is the host clients dial: an IP as it is, a domain in ASCII (punycode).
+// An ASCII name IDNA refuses (an underscore) is kept; one that is not ASCII and cannot
+// be written in ASCII cannot stand in a URI.
+func dialHost(h string) (string, bool) {
+	if !hostOK(h) {
+		return "", false
+	}
+	host := h
+	if _, err := netip.ParseAddr(h); err != nil {
+		if ascii, err := idna.Lookup.ToASCII(h); err == nil && hostOK(ascii) {
+			host = ascii
+		} else {
+			for _, r := range h {
+				if r > unicode.MaxASCII {
+					return "", false
+				}
+			}
+		}
+	}
+	// A host that does not survive url.Parse cannot be written into a share link:
+	// "%" is a percent-escape, and the link then does not parse at all.
+	if !authorityOK(host) {
+		return "", false
+	}
+	return host, true
+}
+
+// authorityOK reports whether host is a URI authority on its own.
+func authorityOK(h string) bool {
+	u, err := url.Parse("https://" + net.JoinHostPort(h, "1") + "/")
+	return err == nil && u.Hostname() == h
+}
+
+// textOK: non-empty valid text with no spaces or controls. An SNI, and a direct host
+// after its own extra checks, have to be one token.
+func textOK(s string) bool {
+	if s == "" || !utf8.ValidString(s) {
+		return false
+	}
+	for _, r := range s {
+		if unicode.IsControl(r) || unicode.IsSpace(r) {
+			return false
+		}
+	}
+	return true
+}
+
+// directHostOK: a host that can be written into a Clash rule as one field.
+func directHostOK(h string) bool {
+	return textOK(h) && !strings.ContainsAny(h, ",\"'\\")
+}
+
 // noticeProxy is one line of the banner as a proxy entry: an address that answers nothing
 // (127.0.0.1:1, the port reserved for nothing), named with the whole line. Every format
 // carries it — mihomo and sing-box take a SOCKS server with no keys, the share links a
@@ -234,6 +340,14 @@ func build(p Profile) ([]proxy, error) {
 	used := map[string]bool{}
 	if p.Notice != nil {
 		for _, line := range p.Notice.Lines {
+			// An empty line is not a server. A line that is not valid text would fail
+			// the JSON profiles; one named like a built-in policy is suffixed, so the
+			// banner still shows and the profile still loads.
+			line = cleanText(line)
+			if line == "" {
+				continue
+			}
+			line = proxyLabel(line)
 			banner = append(banner, noticeProxy(line))
 			used[line] = true
 		}
@@ -243,7 +357,7 @@ func build(p Profile) ([]proxy, error) {
 	inbounds := orderInbounds(p.Inbounds, p.ProtocolOrder)
 	for _, n := range p.Nodes {
 		for _, in := range inbounds {
-			if in.NodeID != n.ID {
+			if in.NodeID != n.ID || in.Enabled == 0 {
 				continue
 			}
 			port := domain.FirstPort(in.Port)
@@ -257,6 +371,27 @@ func build(p Profile) ([]proxy, error) {
 				p.skip(in, err)
 				continue
 			}
+			// A host the URI cannot carry is left out. One bad address must not fail every
+			// other server: encoding a profile with invalid text fails the whole
+			// subscription. A bad SNI is dropped instead of the server — REALITY names
+			// its own, and the rest connect without one rather than breaking the profile.
+			host, ok := dialHost(n.Endpoint.Host)
+			if !ok {
+				p.skip(in, fmt.Errorf("bad host %q", n.Endpoint.Host))
+				continue
+			}
+			sni := n.Endpoint.SNI
+			if sni != "" && !textOK(sni) {
+				sni = ""
+			} else if sni != "" {
+				// The name in the TLS handshake is ASCII. One that cannot be written
+				// that way is left out; the server stays, REALITY still has its own.
+				if ascii, ok := dialHost(sni); ok {
+					sni = ascii
+				} else if _, err := netip.ParseAddr(sni); err != nil {
+					sni = ""
+				}
+			}
 			spec := in.Port
 			if n.Endpoint.SNIRouter && proto.SNI443(t) {
 				port, spec = 443, "443"
@@ -266,13 +401,14 @@ func build(p Profile) ([]proxy, error) {
 			if prefix := NodePrefix(n.Name); multi && in.DisplayName == "" && prefix != "" {
 				base = prefix + " " + base
 			}
+			base = proxyLabel(base)
 			// mihomo refuses a profile with two proxies of the same name.
 			name := base
 			for i := 2; used[name]; i++ {
 				name = base + " " + strconv.Itoa(i)
 			}
-			c, err := proto.ClientConfig(t, proto.ClientInput{Name: name, Host: n.Endpoint.Host, Port: port, PortSpec: spec,
-				SNI: n.Endpoint.SNI, PinSHA256: n.Endpoint.PinSHA256, Fingerprint: p.Fingerprint, Slot: slot, SSOneKey: n.SSOneKey})
+			c, err := proto.ClientConfig(t, proto.ClientInput{Name: name, Host: host, Port: port, PortSpec: spec,
+				SNI: sni, PinSHA256: n.Endpoint.PinSHA256, Fingerprint: p.Fingerprint, Slot: slot, SSOneKey: n.SSOneKey})
 			if err != nil {
 				p.skip(in, err)
 				continue
@@ -363,9 +499,9 @@ func turnCopies(p Profile, n Node, in db.Inbound, t proto.Template, base string,
 		p.skip(in, err)
 		return nil
 	}
-	name := tc.Name(base)
+	name := proxyLabel(tc.Name(base))
 	for i := 2; used[name]; i++ {
-		name = tc.Name(base) + " " + strconv.Itoa(i)
+		name = proxyLabel(tc.Name(base)) + " " + strconv.Itoa(i)
 	}
 	c, err := proto.ClientConfig(direct, proto.ClientInput{Name: name, Host: tc.ClientHost, Port: tc.Port(),
 		PortSpec: strconv.Itoa(tc.Port()), SNI: n.Endpoint.SNI, PinSHA256: n.Endpoint.PinSHA256,
@@ -585,12 +721,15 @@ func countryGroups(nodes []Node, ps []proxy, g Groups, names []string) []map[str
 				own = append(own, x.name)
 			}
 		}
-		key := strings.ToLower(n.Name)
-		if len(own) == 0 || ValidName(n.Name) != nil || taken[key] {
+		// The group is named after the node. A name that is not valid text is not a group
+		// mihomo can load; the servers stay in the plain list.
+		label := strings.TrimSpace(strings.ToValidUTF8(n.Name, ""))
+		key := strings.ToLower(label)
+		if len(own) == 0 || ValidName(label) != nil || taken[key] {
 			continue
 		}
 		taken[key] = true
-		out = append(out, urlTest(n.Name, own))
+		out = append(out, urlTest(label, own))
 	}
 	return out
 }
@@ -601,7 +740,10 @@ func directRules(hosts []string) []string {
 	var out []string
 	seen := map[string]bool{}
 	for _, h := range hosts {
-		if h == "" || seen[h] {
+		h = strings.TrimSpace(h)
+		// A comma or a control character becomes a rule mihomo cannot parse, and one such
+		// rule fails the whole profile. The host is left direct by not being listed at all.
+		if !directHostOK(h) || seen[h] {
 			continue
 		}
 		seen[h] = true
