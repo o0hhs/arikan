@@ -66,7 +66,7 @@ func xrayProfile(t *testing.T) Profile {
 	kept := prof.Inbounds[:0]
 	for _, in := range prof.Inbounds {
 		switch in.Preset {
-		case "hysteria2", "tuic_v5", PresetGecko:
+		case "hysteria2", "tuic_v5", presets.PresetGecko:
 			continue // an outbound Xray has not
 		}
 		kept = append(kept, in)
@@ -653,7 +653,7 @@ func TestINCYFullConfigDelivery(t *testing.T) {
 	} else {
 		for _, in := range ins {
 			switch in.Preset {
-			case "hysteria2", "tuic_v5", PresetGecko:
+			case "hysteria2", "tuic_v5", presets.PresetGecko:
 				if err := st.Q.DeleteInbound(ctx, in.ID); err != nil {
 					t.Fatal(err)
 				}
