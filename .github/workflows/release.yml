@@ -60,6 +60,10 @@ jobs:
   # published only after all of them pass.
   test:
     needs: guard
+    # A release cut with [fast-release] in its commit message skips the checks: they ran
+    # on main, and only the build is repeated here. The jobs stay in the graph, so the
+    # build jobs still fail with them when they do run.
+    if: ${{ !contains(github.event.head_commit.message, '[fast-release]') }}
     runs-on: ubuntu-24.04
     strategy:
       # One group's failure must not take the others' evidence with it.
@@ -120,6 +124,10 @@ jobs:
   # untested with nobody touching the group file.
   test-rest:
     needs: guard
+    # A release cut with [fast-release] in its commit message skips the checks: they ran
+    # on main, and only the build is repeated here. The jobs stay in the graph, so the
+    # build jobs still fail with them when they do run.
+    if: ${{ !contains(github.event.head_commit.message, '[fast-release]') }}
     runs-on: ubuntu-24.04
     services:
       postgres:
@@ -178,6 +186,10 @@ jobs:
   # before them.
   lint:
     needs: guard
+    # A release cut with [fast-release] in its commit message skips the checks: they ran
+    # on main, and only the build is repeated here. The jobs stay in the graph, so the
+    # build jobs still fail with them when they do run.
+    if: ${{ !contains(github.event.head_commit.message, '[fast-release]') }}
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -197,6 +209,10 @@ jobs:
   # builds it), and a failure names the frontend instead of hiding behind the tests.
   web:
     needs: guard
+    # A release cut with [fast-release] in its commit message skips the checks: they ran
+    # on main, and only the build is repeated here. The jobs stay in the graph, so the
+    # build jobs still fail with them when they do run.
+    if: ${{ !contains(github.event.head_commit.message, '[fast-release]') }}
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -219,6 +235,7 @@ jobs:
 
   image:
     needs: [test, test-rest, lint, web]
+    if: ${{ !cancelled() && !failure() }}
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -286,6 +303,7 @@ jobs:
 
   installer:
     needs: [test, test-rest, lint, web]
+    if: ${{ !cancelled() && !failure() }}
     runs-on: ubuntu-24.04
     permissions:
       contents: read
