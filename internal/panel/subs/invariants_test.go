@@ -23,23 +23,11 @@ func TestSubscriptionInvariants(t *testing.T) {
 	t.Run("mixed", func(t *testing.T) {
 		p := mixedProfile()
 		assertSubscription(t, p)
-		// Hysteria2 and TUIC have no Xray outbound; the others do, each once, plus Auto.
-		raw, err := XrayConfigs(p, Groups{}, RoutingRUDirect)
-		if err != nil {
-			t.Fatal(err)
-		}
-		cfgs := decodeXray(t, raw)
-		if len(cfgs) != 5 { // vision, xhttp, trojan, shadowsocks, and the auto entry
-			t.Fatalf("%d configs, want 5", len(cfgs))
-		}
-		for _, c := range cfgs {
-			for _, proto := range xrayProxyProtocols(c) {
-				switch proto {
-				case "vless", "trojan", "shadowsocks":
-				default:
-					t.Fatalf("an outbound Xray has not: %s", proto)
-				}
-			}
+		// Hysteria2, TUIC and AnyTLS have no Xray outbound: a whole config would drop them,
+		// so the generator refuses and the panel serves the link list (the delivery test in
+		// xrayconfig_test.go). The config itself is checked on an all-Xray profile below.
+		if _, err := XrayConfigs(p, Groups{}, RoutingRUDirect); !errors.Is(err, ErrXrayPartial) {
+			t.Fatalf("a mixed profile: %v, want ErrXrayPartial", err)
 		}
 	})
 
@@ -253,7 +241,7 @@ func TestINCYAutoselectToggle(t *testing.T) {
 			t.Errorf("on=%v format=%s ua=%s: %v, want %v", c.on, c.format, c.ua, got, c.full)
 		}
 	}
-	raw, err := XrayConfigs(p, Groups{}, RoutingAll)
+	raw, err := XrayConfigs(xrayOnlyProfile(t), Groups{}, RoutingAll)
 	if err != nil {
 		t.Fatal(err)
 	}
