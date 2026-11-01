@@ -343,7 +343,8 @@ jobs:
           path: dist/arikan-${{ matrix.arch }}
 
   publish:
-    needs: [image, installer]
+    needs: [test, test-rest, lint, web, image, installer]
+    if: ${{ !cancelled() && !failure() }}
     runs-on: ubuntu-24.04
     # One release at a time writes the index: the second waits and carries the first on.
     concurrency:
@@ -428,7 +429,8 @@ jobs:
   # which a source (github.com/<owner>/<repo>) is read from. The admin adds the source,
   # installs the addon and hands the bot to it once (addons/telegram/README.md).
   addon:
-    needs: [image, publish]
+    needs: [test, test-rest, lint, web, image, publish]
+    if: ${{ !cancelled() && !failure() }}
     runs-on: ubuntu-24.04
     permissions:
       contents: write # mikan-addon.json goes beside the installers
@@ -500,8 +502,8 @@ jobs:
   # release exists, and never to a pre-release. The tag points at the pushed digest, so
   # nothing is rebuilt.
   latest:
-    needs: [image, publish]
-    if: ${{ !contains(github.ref_name, '-') }}
+    needs: [test, test-rest, lint, web, image, publish]
+    if: ${{ !cancelled() && !failure() && !contains(github.ref_name, '-') }}
     runs-on: ubuntu-24.04
     permissions:
       packages: write
