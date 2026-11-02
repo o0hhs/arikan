@@ -84,7 +84,6 @@ func newTLSClient(address string, cfg *tls.Config, raw func(ctx context.Context)
 	}}}
 }
 
-
 var ErrUnavailable = errors.New("node unavailable")
 
 // StatusError is a node's failure answer without an Error body, such as the 404 of a node
