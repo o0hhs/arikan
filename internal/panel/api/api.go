@@ -69,16 +69,16 @@ type Deps struct {
 	Log        *slog.Logger
 	Now        func() time.Time
 
-	Users    *domain.Users
+	Users *domain.Users
 	// Campaigns are the ad campaign tags of the bot's links (domain.Campaigns).
 	Campaigns *domain.Campaigns
-	Inbounds *domain.Inbounds
-	Devices  *domain.Devices
-	Packages *domain.Packages
-	Balancer *domain.Balancer
-	Pool     *domain.Pool
-	Changes  domain.Changes
-	Online   func() map[string]nodeapi.Online
+	Inbounds  *domain.Inbounds
+	Devices   *domain.Devices
+	Packages  *domain.Packages
+	Balancer  *domain.Balancer
+	Pool      *domain.Pool
+	Changes   domain.Changes
+	Online    func() map[string]nodeapi.Online
 	// NodeOnline is the live view of each node apart, by node id (nodesync.Manager.OnlineByNode);
 	// nil when the panel runs without nodes.
 	NodeOnline func() map[int64]map[string]nodeapi.Online
