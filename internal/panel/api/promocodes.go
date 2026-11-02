@@ -399,3 +399,12 @@ func (h *handlers) promocodeStats(ctx context.Context, _ *struct{}) (*promoStats
 	}
 	return &promoStatsOutput{Body: PromoStatsView{PromoCodes: n, Active: active, SuccessfulActivations: st.SuccessfulActivations, BonusDays: st.BonusDays, BonusBytes: st.BonusBytes, DiscountAmount: st.DiscountAmount, DiscountOrders: st.DiscountOrders}}, nil
 }
+
+// ts is a nullable time as the API shows it: nil when the column is null.
+func ts(v sql.NullInt64) *time.Time {
+	if v.Valid {
+		t := time.Unix(v.Int64, 0).UTC()
+		return &t
+	}
+	return nil
+}

@@ -23,11 +23,15 @@ import (
 	"mikan/internal/panel/addons"
 	addonpages "mikan/internal/panel/addons/pages"
 	"mikan/internal/panel/addons/panelapi"
+	"mikan/internal/panel/agents"
 	"mikan/internal/panel/api"
 	"mikan/internal/panel/auth"
+	"mikan/internal/panel/automation"
 	"mikan/internal/panel/autotune"
 	"mikan/internal/panel/billing"
 	"mikan/internal/panel/botpanel"
+	"mikan/internal/panel/campaigns"
+	"mikan/internal/panel/discounts"
 	"mikan/internal/panel/dnscheck"
 	"mikan/internal/panel/domain"
 	"mikan/internal/panel/events"
@@ -38,8 +42,11 @@ import (
 	"mikan/internal/panel/nodesync"
 	"mikan/internal/panel/nodeupdate"
 	"mikan/internal/panel/panelimport"
+	"mikan/internal/panel/partners"
 	"mikan/internal/panel/promo"
 	"mikan/internal/panel/reach"
+	"mikan/internal/panel/referral"
+	"mikan/internal/panel/s3backup"
 	"mikan/internal/panel/server"
 	"mikan/internal/panel/settings"
 	"mikan/internal/panel/store"
@@ -58,8 +65,14 @@ import (
 
 // Panel is the fully wired HTTP side of the panel, without the listener.
 type Panel struct {
-	Handler  http.Handler
-	Settings *settings.Settings
+	// S3Backups keeps the database in an S3-compatible bucket; nil: not set up.
+	S3Backups *s3backup.Service
+	// Automation runs the admin's event-driven rules; nil: none.
+	Automation *automation.Service
+	// agentAuth is the advertising agents' service: their panel's sessions and logins.
+	agentAuth *agents.Service
+	Handler   http.Handler
+	Settings  *settings.Settings
 	// reload is what Run reads the paths and the language with every five seconds.
 	reload *settings.Settings
 	Nodes  *nodesync.Manager
@@ -247,7 +260,6 @@ func NewPanel(st *store.Store, o Options) (*Panel, error) {
 	deps.Devices.SetEvents(hub)
 	p.st, p.devices, p.users = st, deps.Devices, deps.Users
 	deps.Packages = domain.NewPackages(st, o.Now)
-	deps.Campaigns = domain.NewCampaigns(st, o.Now)
 	deps.Balancer = domain.NewBalancer(st, o.Now, o.Log)
 	if o.Certs != nil {
 		deps.Cert, deps.RenewCert, deps.RenewCertNow = o.Certs.Status, o.Certs.Renew, o.Certs.RenewNow
@@ -295,11 +307,42 @@ func NewPanel(st *store.Store, o Options) (*Panel, error) {
 	deps.Logs, deps.Host = o.Logs, hostchan.New(o.DataDir)
 	promos := promo.New(st, o.Now)
 	promos.Changed = deps.Users.Changed
+	// The panel's own sales: while a discount stands, the price of some tariffs is lower
+	// and the panel takes the money off by itself. A discount carries its own mailing, and
+	// the bot reminds about the end of the sale.
+	sales := discounts.New(st, o.Now)
+	// The referral programme: what an invitee's payment brings the account that invited
+	// them, and what a balance pays of an invoice.
+	refs := referral.New(st, set, o.Log, o.Now)
+	refs.Changed = deps.Users.Changed
+	// The ad campaign tags: which tagged link a buyer arrived through, so a campaign's
+	// arrivals, first purchases and renewals are counted. A campaign may belong to an
+	// advertising agent; the agent's percent is taken where the payment is applied.
+	camps := campaigns.New(st, o.Log, o.Now)
+	camps.StarsRate = refs.StarsRate
+	// The advertising agents: their money is the campaigns' commissions, their panel its
+	// own page under its own secret path.
+	agts := agents.New(st, o.Log, o.Now)
+	parts := partners.New(st, func() int64 { return o.Now().Unix() })
+	p.agentAuth = agts
 	p.Billing = billing.New(billing.Deps{Store: st, Settings: set, Users: deps.Users, Log: o.Log, Now: o.Now, TrustProxy: o.TrustProxy,
 		MaxLinks: model.MaxLinks,
 		Addons:   deps.Addons, SubBase: subBase, Promo: promos, Events: hub,
+		Referral: refs, Campaigns: camps, Discounts: sales, Partners: parts,
 		TopupWaiting: func(ctx context.Context, t db.Topup) { p.tellAdminOfTopup(ctx, t) }})
 	deps.Billing, deps.SubBase = p.Billing, subBase
+	deps.Referral, deps.Campaigns, deps.Agents = refs, camps, agts
+	deps.Discounts = sales
+	// The server's name in a backup's file name: its domain, else its address.
+	serverName := func(ctx context.Context) string {
+		if d, err := set.String(ctx, settings.KeyDomain); err == nil && d != "" {
+			return d
+		}
+		h, _ := set.String(ctx, settings.KeyPublicHost)
+		return h
+	}
+	p.S3Backups = s3backup.New(selfDump, set, st, o.DataDir, serverName, deps.Host, o.Now, o.Log)
+	deps.S3Backups = p.S3Backups
 	// The bot may reach Telegram through a node when the panel's server cannot.
 	var tunnel func(ctx context.Context, nodeID int64, addr string) (net.Conn, error)
 	if p.Nodes != nil {
@@ -341,14 +384,6 @@ func NewPanel(st *store.Store, o Options) (*Panel, error) {
 	p.Alerts = infraalerts.New(st, settings.Cached(st.Q, loopSettingsTTL), p.Nodes, p.Tuner, certStatus, p.Updates, p.Gateway, o.Log, o.Now)
 	if p.NodeUpdates != nil {
 		p.Alerts.WatchNodeUpdates(p.NodeUpdates)
-	}
-	// The server's name in a backup's file name: its domain, else its address.
-	serverName := func(ctx context.Context) string {
-		if d, err := set.String(ctx, settings.KeyDomain); err == nil && d != "" {
-			return d
-		}
-		h, _ := set.String(ctx, settings.KeyPublicHost)
-		return h
 	}
 	p.Backups = tgbackup.New(selfDump, set, p.Gateway, o.DataDir, serverName, o.Now, o.Log)
 	deps.Backups = p.Backups

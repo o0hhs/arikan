@@ -20,12 +20,17 @@ import (
 	"mikan/internal/panel/acme"
 	"mikan/internal/panel/addons"
 	"mikan/internal/panel/addons/pages"
+	"mikan/internal/panel/agents"
 	"mikan/internal/panel/audit"
 	"mikan/internal/panel/auth"
+	"mikan/internal/panel/automation"
 	"mikan/internal/panel/autotune"
 	"mikan/internal/panel/billing"
 	"mikan/internal/panel/botpanel"
+	"mikan/internal/panel/campaigns"
 	"mikan/internal/panel/certcheck"
+	"mikan/internal/panel/checkhost"
+	"mikan/internal/panel/discounts"
 	"mikan/internal/panel/dnscheck"
 	"mikan/internal/panel/domain"
 	"mikan/internal/panel/ipgeo"
@@ -33,6 +38,8 @@ import (
 	"mikan/internal/panel/nodeupdate"
 	"mikan/internal/panel/panelimport"
 	"mikan/internal/panel/reach"
+	"mikan/internal/panel/referral"
+	"mikan/internal/panel/s3backup"
 	"mikan/internal/panel/secure"
 	"mikan/internal/panel/server"
 	"mikan/internal/panel/settings"
@@ -61,15 +68,14 @@ type Deps struct {
 	Log        *slog.Logger
 	Now        func() time.Time
 
-	Users     *domain.Users
-	Inbounds  *domain.Inbounds
-	Devices   *domain.Devices
-	Packages  *domain.Packages
-	Campaigns *domain.Campaigns
-	Balancer  *domain.Balancer
-	Pool      *domain.Pool
-	Changes   domain.Changes
-	Online    func() map[string]nodeapi.Online
+	Users    *domain.Users
+	Inbounds *domain.Inbounds
+	Devices  *domain.Devices
+	Packages *domain.Packages
+	Balancer *domain.Balancer
+	Pool     *domain.Pool
+	Changes  domain.Changes
+	Online   func() map[string]nodeapi.Online
 	// NodeOnline is the live view of each node apart, by node id (nodesync.Manager.OnlineByNode);
 	// nil when the panel runs without nodes.
 	NodeOnline func() map[int64]map[string]nodeapi.Online
@@ -172,7 +178,15 @@ type Deps struct {
 	Logs *logbuf.Buffer
 	// Host asks the panel's own server for `mikan doctor` and a restart of the containers
 	// (the files its units watch); nil: not offered.
-	Host *hostchan.Channel
+	Host       *hostchan.Channel
+	S3Backups  *s3backup.Service
+	Automation *automation.Service
+	Referral   *referral.Service
+	Campaigns  *campaigns.Service
+	Discounts  *discounts.Service
+	Agents     *agents.Service
+	CheckHost  *checkhost.Client
+	IPGeo      *ipgeo.Client
 }
 
 // NodeRuntime is what the API needs from the running nodes.
@@ -338,6 +352,7 @@ func New(d Deps) (http.Handler, huma.API, error) {
 	h.registerCerts()
 	h.registerSubDomain()
 	h.registerCampaigns()
+	h.registerReferrals()
 	h.registerBalance()
 	h.registerWallet()
 	h.registerSites()
