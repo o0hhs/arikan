@@ -22,16 +22,16 @@ type Routes struct {
 	// Direct: ids of DirectSets whose apps and sites go past the tunnel.
 	Direct []string `json:"direct,omitempty"`
 	// Lists are rule lists of the admin's own, by link, each sent one way like a service.
-	Lists   []RouteList `json:"lists,omitempty"`
+	Lists []RouteList `json:"lists,omitempty"`
 	// YouTubeExit is where the entry node of the "YouTube without ads" offer leaves: "direct"
 	// (its own address, which is what the offer is for: the Russian YouTube has no ads), or
 	// "node:<id>". Empty: direct, the offer's point. Not the service's target: YouTube is sent
 	// to the entry node so its address sees the request; the entry node carrying it out of a
 	// foreign address is what brought the ads back.
-	YouTubeExit string `json:"youtube_exit,omitempty"`
-	DNS         DNS    `json:"dns,omitzero"`
-	Servers Servers     `json:"servers,omitzero"`
-	Tune    Tune        `json:"tune,omitzero"`
+	YouTubeExit string  `json:"youtube_exit,omitempty"`
+	DNS         DNS     `json:"dns,omitzero"`
+	Servers     Servers `json:"servers,omitzero"`
+	Tune        Tune    `json:"tune,omitzero"`
 }
 
 // RouteList is a rule list the apps download (a mihomo rule-provider): a site of the admin's
