@@ -61,6 +61,7 @@ const (
 	SubSyncChunk      = 20      // records the panel sends in one request
 )
 
+
 // SubsRequest is a chunk of records the panel hands a node (PUT /v1/subs). The records are
 // written one by one; the whole set of a sync is done once Prune has run with its
 // generation, which drops everything not sent with it.

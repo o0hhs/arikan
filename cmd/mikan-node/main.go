@@ -83,10 +83,13 @@ func run() error {
 			return fmt.Errorf("MIKAN_NODE_JOIN: %w", err)
 		}
 	}
-	eng, err := node.Start(node.Options{DataDir: dataDir, Version: version, Log: log, DeviceRelease: release, AllowPrivate: allowPrivate, ACMEListen: acmeListen, Logs: logs})
+	eng, err := node.Start(node.Options{DataDir: dataDir, Version: version, Log: log, DeviceRelease: release, AllowPrivate: allowPrivate, ACMEListen: acmeListen, Logs: logs, SiteListen: os.Getenv("MIKAN_SITE_LISTEN")})
 	if err != nil {
 		return err
 	}
+	// The TURN child and the background checks outlive the process otherwise: SIGTERM
+	// returns from here, and a child left behind keeps its port.
+	defer eng.Close()
 	if err := os.MkdirAll(filepath.Dir(sock), 0o700); err != nil {
 		return err
 	}
