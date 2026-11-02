@@ -106,6 +106,9 @@ type Options struct {
 	Now        func() time.Time
 	// Connect reaches a node; nil when the panel runs without nodes (tests, UI development).
 	Connect nodesync.Connect
+	// Tunnel answers a node's request to open its reverse tunnel, on the panel's own HTTPS
+	// (reverse.go); nil without one.
+	Tunnel func(w http.ResponseWriter, r *http.Request) bool
 	// TLS picks the certificate of a node's protocols on TLS and the pin links carry for
 	// it; nil leaves links unpinned (tests).
 	TLS *NodeTLS
@@ -438,6 +441,7 @@ func NewPanel(st *store.Store, o Options) (*Panel, error) {
 	}))
 	adminMux.Handle("/", p.spa)
 	p.server = server.New(adminMux, subHandler)
+	p.server.SetTunnel(o.Tunnel)
 	p.server.SetLegacy(subHandler.Legacy())
 	if o.DataDir != "" {
 		set := settings.New(st.Q)

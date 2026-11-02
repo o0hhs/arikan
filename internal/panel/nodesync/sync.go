@@ -56,6 +56,7 @@ type Syncer struct {
 	tls     TLSSource
 	local   bool
 	address string
+	tunnel  func() (TunnelView, bool)
 	log     *slog.Logger
 
 	policiesDirty chan struct{}
@@ -123,6 +124,9 @@ type HealthView struct {
 	// have moved since.
 	Ports     map[string]string
 	CheckedAt time.Time
+	// Tunnel is the node's reverse tunnel as of this check (nil: the panel has none for it):
+	// the node connected out to the panel, and its calls go over that connection.
+	Tunnel *TunnelView
 	// Relay is the relay's open connections by the source node's relay user, as of the
 	// last counters (the other nodes' cascades through this one); none from older nodes.
 	Relay map[string]int
@@ -138,7 +142,7 @@ func (v HealthView) HostPorts() *nodeapi.HostPorts {
 }
 
 func newSyncer(m *Manager, id int64, t Target) *Syncer {
-	s := &Syncer{id: id, m: m, node: t.Node, tls: t.TLS, local: t.Local, address: t.Address, log: m.log.With("node", id),
+	s := &Syncer{id: id, m: m, node: t.Node, tls: t.TLS, local: t.Local, address: t.Address, tunnel: t.Tunnel, log: m.log.With("node", id),
 		policiesDirty: make(chan struct{}, 1), stateDirty: make(chan struct{}, 1)}
 	empty := map[string]nodeapi.Online{}
 	s.online.Store(&empty)
@@ -807,6 +811,13 @@ func (s *Syncer) refreshHealth(ctx context.Context) {
 	sent := s.m.now()
 	h, err := s.node.Health(ctx)
 	view := &HealthView{CheckedAt: s.m.now()}
+	// The tunnel is the panel's own side of the connection: it is known even when the node
+	// does not answer at all, and it is what says "the direct path is gone, this still works".
+	if s.tunnel != nil {
+		if tv, ok := s.tunnel(); ok {
+			view.Tunnel = &tv
+		}
+	}
 	prev := s.health.Load()
 	view.LastOK = prev.LastOK
 	if err != nil {
