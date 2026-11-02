@@ -40,11 +40,11 @@ type sniRouter struct {
 	routes map[string]string // name (lowercase) → backend address
 	// web are the names that go to a web server on loopback (the panel's listener), and
 	// subs the subscription domain's: they go to the subscription server before any other.
-	web  map[string]string
-	subs map[string]bool
-	def    string            // backend for any other name; "": closed
-	stub   map[string]bool   // names that get the front page instead ("": no name)
-	front  *frontPage        // the node's front page; nil: none
+	web   map[string]string
+	subs  map[string]bool
+	def   string          // backend for any other name; "": closed
+	stub  map[string]bool // names that get the front page instead ("": no name)
+	front *frontPage      // the node's front page; nil: none
 	// subsrv is the node's subscription server; nil: it answers nothing.
 	subsrv *subServer
 	wg     sync.WaitGroup
