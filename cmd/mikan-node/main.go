@@ -124,7 +124,13 @@ func run() error {
 		// that answer across restarts; its server's admin can keep the port closed whatever the
 		// panel says (MIKAN_NODE_INBOUND_API=off, or MIKAN_NODE_API_LISTEN=off).
 		addr := net.JoinHostPort(envOr("MIKAN_NODE_API_LISTEN", ""), strconv.Itoa(join.Port))
-		inbound = node.NewInboundAPI(addr, cfg, node.Handler(eng, log), eng.APIListener, log)
+		// The panel's own addresses are remembered as it connects: with the lock on, its
+		// firewall rule lets only those in, and a panel behind a changing address would be
+		// shut out by its own lock.
+		watch := func(ln net.Listener) net.Listener {
+			return node.WatchPanelAddr(eng.APIListener(ln), filepath.Join(dataDir, node.PanelAddrFile), log)
+		}
+		inbound = node.NewInboundAPI(addr, cfg, node.Handler(eng, log), watch, log)
 		eng.UseInboundAPI(inbound)
 		if inboundAPIAllowed() && node.SavedInboundAPI(dataDir) {
 			inbound.Set(true)

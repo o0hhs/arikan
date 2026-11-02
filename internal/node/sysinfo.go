@@ -1,6 +1,7 @@
 package node
 
 import (
+	"context"
 	"bufio"
 	"errors"
 	"os"
@@ -27,14 +28,19 @@ func (s *sysSampler) last() nodeapi.System {
 	return s.cur
 }
 
-func (s *sysSampler) run() {
+func (s *sysSampler) run(ctx context.Context) {
 	const every = 2 * time.Second
 	prevIdle, prevTotal, _ := cpuTimes()
 	prevProc, _ := procCPUTime()
 	prevRx, prevTx, _ := netBytes()
 	t := time.NewTicker(every)
 	defer t.Stop()
-	for range t.C {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+		}
 		var cur nodeapi.System
 		idle, total, errCPU := cpuTimes()
 		proc, errProc := procCPUTime()

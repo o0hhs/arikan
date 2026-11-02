@@ -84,6 +84,21 @@ func newTLSClient(address string, cfg *tls.Config, raw func(ctx context.Context)
 	}}}
 }
 
+// Disk is the node's data directory's filesystem and its directories, with what a clean
+// would remove. Nodes that predate it answer 404 (a *StatusError).
+func (c *Client) Disk(ctx context.Context) (DiskStatus, error) {
+	var s DiskStatus
+	err := c.do(ctx, http.MethodGet, "/v1/disk", nil, &s, 20*time.Second)
+	return s, err
+}
+
+// CleanDisk removes the node's junk (update leftovers, temporary files) and reports the
+// disk after.
+func (c *Client) CleanDisk(ctx context.Context) (DiskStatus, error) {
+	var s DiskStatus
+	err := c.do(ctx, http.MethodPost, "/v1/disk/clean", nil, &s, 60*time.Second)
+	return s, err
+}
 var ErrUnavailable = errors.New("node unavailable")
 
 // StatusError is a node's failure answer without an Error body, such as the 404 of a node

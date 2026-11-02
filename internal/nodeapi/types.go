@@ -285,6 +285,10 @@ type Health struct {
 	// Cascade is the node's part in the cascade as it is now: the entry's bridge and the
 	// panel's connection to it, or the exit's stream. nil: no part, or an older node.
 	Cascade *CascadeStatus `json:"cascade,omitempty"`
+	// Egress is the node's own way to the internet, as last checked: a node that answers the
+	// panel while its uplink or DNS is down serves nobody, and that must not look like a
+	// healthy node. nil: not checked (older nodes, or the first seconds after the start).
+	Egress *EgressStatus `json:"egress,omitempty"`
 	// InboundAPI is the node's own API port: On while it listens, and nil on a node older than
 	// the field. A node the panel keeps on its reverse tunnel alone says Off, so the Nodes page
 	// shows why its own address does not answer.
@@ -695,4 +699,52 @@ type DPIStatus struct {
 	On    bool   `json:"on"`
 	Error string `json:"error,omitempty"`
 	At    int64  `json:"at,omitempty"`
+}
+
+// DirUsage is one directory's share of a node's data.
+type DirUsage struct {
+	// Path is relative to the node's data directory: "mihomo", "update".
+	Path  string `json:"path"`
+	Bytes int64  `json:"bytes"`
+}
+
+// DiskStatus is how a node's disk looks: the filesystem of its data directory, what its
+// directories take, and what a cleanup (POST /v1/disk/clean) will remove. The panel shows
+// it on the node page and runs the cleanup with one button.
+type DiskStatus struct {
+	// Total, Free and Used are the data directory's filesystem, in bytes.
+	Total int64 `json:"total"`
+	Free  int64 `json:"free"`
+	Used  int64 `json:"used"`
+	// Dirs are the sizes of the data directory's own subdirectories.
+	Dirs []DirUsage `json:"dirs"`
+	// Junk is what Clean removes: update leftovers and temporary files. Files names them.
+	Junk  int64    `json:"junk"`
+	Files []string `json:"files"`
+	// Freed is what the last clean removed, in bytes; 0 when none ran or none was removed.
+	Freed int64 `json:"freed"`
+}
+
+// EgressStatus is one check of the node's own way out: a direct TCP connect to a public
+// address and the host's resolver for a public name. Neither goes through the core: a failure
+// here is the server's uplink or DNS, while a healthy egress with users failing points at the
+// core, the rules or the network between the client and the node.
+type EgressStatus struct {
+	OK        bool      `json:"ok"`
+	CheckedAt time.Time `json:"checked_at"`
+	LatencyMS int64     `json:"latency_ms,omitempty"`
+	Error     string    `json:"error,omitempty"`
+}
+
+// PortStatus is how a port the node holds for a feature of its own went (the 301 on port
+// 80, the SNI router on 443, the firewall rule on the API port): Error says why it is not
+// held (another program has it, the host could not put the rule in).
+// SiteStatus is the node's own page as it runs: where it answers, and what went wrong
+// when it does not. Listen is "" while the page is off (MIKAN_SITE_LISTEN=off, or no www
+// directory).
+type SiteStatus struct {
+	Listen string `json:"listen,omitempty"`
+	Port   int    `json:"port,omitempty"`
+	OK     bool   `json:"ok"`
+	Error  string `json:"error,omitempty"`
 }

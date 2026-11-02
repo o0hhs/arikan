@@ -81,6 +81,8 @@ type Engine struct {
 	tun *Tunnel
 	// turn is the VK-call way in: a child process the panel turns on per node.
 	turn *turnSupervisor
+	// egress is the node's own way to the internet, as last checked (egress.go).
+	egress atomic.Pointer[nodeapi.EgressStatus]
 
 	// apiServer is the node's own API listener (inboundapi.go); nil when this binary has none
 	// (tests, a node run without a join key).
@@ -96,6 +98,12 @@ type Engine struct {
 	routerStatus atomic.Pointer[nodeapi.PortStatus]
 	// front is the page the router gives strangers on the node's own names (front.go).
 	front *frontPage
+
+	// root ends the background jobs (the sampler, the egress check, the registry) when
+	// Close runs. stop cancels it; stopOnce makes Close safe to call twice.
+	root     context.Context
+	stop     context.CancelFunc
+	stopOnce sync.Once
 
 	mu         sync.Mutex // serializes Apply
 	savedShape string     // policyShape of the policies in the state file
@@ -247,8 +255,6 @@ func Start(o Options) (*Engine, error) {
 		sys:       newSysSampler(),
 		Challenge: acmechallenge.New(cmp.Or(o.ACMEListen, acmechallenge.DefaultListen)),
 	}
-	go e.pumpLogs()
-
 	cs, err := loadCounters(filepath.Join(dataDir, countersFile), log)
 	if err != nil {
 		return nil, err
@@ -275,9 +281,39 @@ func Start(o Options) (*Engine, error) {
 		return nil, err
 	}
 	e.saved = &savedState{state: st, ok: ok, counters: cs}
-	go e.sys.run()
-	go e.Reg.Run(context.Background())
+	root, stop := context.WithCancel(context.Background())
+	e.root, e.stop = root, stop
+	// A panic in the core's log feed used to end the process: the feed is a goroutine of
+	// its own, and an unrecovered panic in any goroutine stops the node.
+	go e.safely("core logs", e.pumpLogs)
+	go e.safely("system sampler", func() { e.sys.run(e.root) })
+	go e.safely("egress", func() { e.runEgress(e.root) })
+	go e.safely("registry", func() { e.Reg.Run(e.root) })
 	return e, nil
+}
+
+// Close stops what Start left running: the background checks and the TURN child. The
+// listeners go with the process; the child does not, and a port it still holds is why the
+// next start cannot bring the VK-call server back. Safe to call more than once.
+func (e *Engine) Close() {
+	if e == nil {
+		return
+	}
+	if e.stop != nil {
+		e.stopOnce.Do(e.stop)
+	}
+	if e.turn != nil {
+		e.turn.Stop()
+	}
+}
+
+func (e *Engine) safely(job string, fn func()) {
+	defer func() {
+		if r := recover(); r != nil {
+			e.log.Error("node: a background job panicked", "job", job, "panic", r)
+		}
+	}()
+	fn()
 }
 
 var (
@@ -581,6 +617,7 @@ func (e *Engine) Health() nodeapi.Health {
 		Caps:      []string{nodeapi.CapCascadeWarp},
 		Listeners: ls, Conns: e.Reg.ConnCount(), System: e.sys.last(), Update: e.UpdateStatus(), Host: e.host.get(), Time: time.Now(),
 		Redirect: e.redirect.Load(), Router: e.routerStatus.Load(), APILock: e.apiLock().status(),
+		Egress:     e.egress.Load(),
 		InboundAPI: e.apiServer.Load().Status(),
 	}
 }
