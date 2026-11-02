@@ -79,8 +79,6 @@ type Engine struct {
 
 	Reg *Registry
 	tun *Tunnel
-	// turn is the VK-call way in: a child process the panel turns on per node.
-	turn *turnSupervisor
 	// egress is the node's own way to the internet, as last checked (egress.go).
 	egress atomic.Pointer[nodeapi.EgressStatus]
 
@@ -207,15 +205,6 @@ func SavedInboundAPI(dataDir string) bool {
 // the panel's state says, and Health reports it.
 func (e *Engine) UseInboundAPI(a *InboundAPI) { e.apiServer.Store(a) }
 
-// TurnStatus is the node's TURN server as it is now: what the panel shows in the node's
-// setup drawer.
-func (e *Engine) TurnStatus() nodeapi.TurnStatus {
-	if e.turn == nil {
-		return nodeapi.TurnStatus{}
-	}
-	return e.turn.Status()
-}
-
 // logWarp writes a failed WARP check to the log once per change (ok to failed, failed
 // to ok, another reason), not once per probe: the panel polls every cycle.
 func (e *Engine) logWarp(s nodeapi.WarpStatus, endpoint string) {
@@ -264,7 +253,6 @@ func Start(o Options) (*Engine, error) {
 	statistic.DefaultManager.Users().IPRelease = o.DeviceRelease
 	e.Reg = NewRegistry(cs.Epoch, cs.Seq, o.DeviceRelease, time.Now, citrus{})
 	e.tun = &Tunnel{inner: tunnel.Tunnel, reg: e.Reg}
-	e.turn = newTurnSupervisor(log)
 	reg := e.Reg
 	statistic.DefaultManager.SetOnLeave(func(c statistic.Tracker) {
 		i := c.Info()
@@ -301,9 +289,6 @@ func (e *Engine) Close() {
 	}
 	if e.stop != nil {
 		e.stopOnce.Do(e.stop)
-	}
-	if e.turn != nil {
-		e.turn.Stop()
 	}
 }
 
@@ -466,11 +451,6 @@ func (e *Engine) apply(st nodeapi.DesiredState) (nodeapi.ApplyResult, error) {
 		a.Set(st.InboundAPINeeded())
 	}
 	e.Reg.SetDetail(st.Detail)
-	// The TURN server is a child process of this agent, not a mihomo listener: it is
-	// started, restarted and stopped here, beside the rest of the state.
-	if e.turn != nil {
-		e.turn.Apply(st.Turn)
-	}
 	pools := map[string]string{}
 	for _, in := range st.Inbounds {
 		if in.Pool != "" {

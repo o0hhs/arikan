@@ -23,7 +23,6 @@ const (
 	SubFormatURI     = "uri"     // base64 share links: v2rayN, Streisand, Shadowrocket, Happ
 	SubFormatClash   = "clash"   // the mihomo/Clash profile (YAML)
 	SubFormatSingBox = "singbox" // the sing-box profile (JSON)
-	SubFormatTurn    = "turn"    // the WL/TURN servers for the client program next to the apps
 	SubFormatHTML    = "html"    // the page a browser gets: what to do with the link
 )
 
@@ -155,8 +154,6 @@ func SubFormat(query, userAgent, accept string) string {
 		return SubFormatURI
 	case "singbox", "sing-box":
 		return SubFormatSingBox
-	case "turn", "wl":
-		return SubFormatTurn
 	case "html":
 		return SubFormatHTML
 	}
@@ -229,7 +226,7 @@ func PickSubBody(bodies []SubBody, query, userAgent, accept string) (SubBody, bo
 		}
 		return SubBody{}, false
 	}
-	for _, f := range []string{want, SubFormatURI, SubFormatClash, SubFormatSingBox, SubFormatHTML, SubFormatTurn} {
+	for _, f := range []string{want, SubFormatURI, SubFormatClash, SubFormatSingBox, SubFormatHTML} {
 		if b, ok := find(f); ok {
 			return b, true
 		}
