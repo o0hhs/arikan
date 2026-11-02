@@ -350,14 +350,14 @@ func (h *Handler) answer(w http.ResponseWriter, r *http.Request, sub Subscriptio
 			return h.profileFailed(w, cfg, ex, err)
 		}
 		h.groupsHeader(ctx, hd, r, sub, ps)
-		profileHeaders(hd, format, profileTitle(cfg, vars))
+		profileHeaders(hd, format, ProfileTitle(cfg, vars))
 		_, _ = w.Write(body)
 	case FormatSingBox:
 		body, err := h.render(tpl, func(t model.Template) ([]byte, error) { return singbox.Render(ctx, prof, cfg.Groups, cfg.Mode, t) })
 		if err != nil {
 			return h.profileFailed(w, cfg, ex, err)
 		}
-		profileHeaders(hd, format, profileTitle(cfg, vars))
+		profileHeaders(hd, format, ProfileTitle(cfg, vars))
 		_, _ = w.Write(body)
 	case FormatXray:
 		body, err := h.render(tpl, func(t model.Template) ([]byte, error) { return xray.Render(prof, cfg.Groups, cfg.Mode, t) })

@@ -139,7 +139,7 @@ func cutText(s string, n int) string {
 
 // profileTitle is the name the apps show for the profile: the title filled for the user,
 // the brand when there is none or it fills to nothing (just {name} of a user without one).
-func profileTitle(cfg Config, vars map[string]string) string {
+func ProfileTitle(cfg Config, vars map[string]string) string {
 	if cfg.Title != "" {
 		if filled := fillTitle(cfg.Title, vars); strings.TrimSpace(filled) != "" {
 			return filled
@@ -150,7 +150,7 @@ func profileTitle(cfg Config, vars map[string]string) string {
 
 // fileName makes a profile title a file name: no path separators or characters Windows
 // refuses, and never empty.
-func fileName(title string) string {
+func FileName(title string) string {
 	name := strings.TrimSpace(strings.Map(func(r rune) rune {
 		if r < ' ' || r == 0x7f || strings.ContainsRune(`/\:*?"<>|`, r) {
 			return ' '
