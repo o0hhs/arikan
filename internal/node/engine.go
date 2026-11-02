@@ -81,6 +81,10 @@ type Engine struct {
 	tun *Tunnel
 	// turn is the VK-call way in: a child process the panel turns on per node.
 	turn *turnSupervisor
+
+	// apiServer is the node's own API listener (inboundapi.go); nil when this binary has none
+	// (tests, a node run without a join key).
+	apiServer atomic.Pointer[InboundAPI]
 	// Challenge answers the ACME challenges the panel orders for the node's address, on
 	// port 80 while one is pending.
 	Challenge *acmechallenge.Server
@@ -180,6 +184,20 @@ func (e *Engine) WarpStatus(ctx context.Context, force bool) nodeapi.WarpStatus 
 	}
 	return st
 }
+
+// SavedInboundAPI says whether the state saved before the restart had the node's API port on:
+// a panel that told it to keep the port closed is answered before it says anything new.
+func SavedInboundAPI(dataDir string) bool {
+	st, ok, err := loadState(filepath.Join(dataDir, stateFile), slog.Default())
+	if err != nil || !ok {
+		return true
+	}
+	return st.InboundAPINeeded()
+}
+
+// UseInboundAPI gives the engine the node's own API listener: Apply turns it on and off as
+// the panel's state says, and Health reports it.
+func (e *Engine) UseInboundAPI(a *InboundAPI) { e.apiServer.Store(a) }
 
 // TurnStatus is the node's TURN server as it is now: what the panel shows in the node's
 // setup drawer.
@@ -406,6 +424,11 @@ func (e *Engine) apply(st nodeapi.DesiredState) (nodeapi.ApplyResult, error) {
 	e.Reg.SetIngress(st.Filters)
 	e.setRedirect(st.HTTPRedirect)
 	e.apiLock().set(st.APIAllow)
+	// The panel may keep the node's API port closed and reach it over the reverse tunnel alone;
+	// the node keeps the answer for the next start (see SavedInboundAPI).
+	if a := e.apiServer.Load(); a != nil {
+		a.Set(st.InboundAPINeeded())
+	}
 	e.Reg.SetDetail(st.Detail)
 	// The TURN server is a child process of this agent, not a mihomo listener: it is
 	// started, restarted and stopped here, beside the rest of the state.
@@ -558,6 +581,7 @@ func (e *Engine) Health() nodeapi.Health {
 		Caps:      []string{nodeapi.CapCascadeWarp},
 		Listeners: ls, Conns: e.Reg.ConnCount(), System: e.sys.last(), Update: e.UpdateStatus(), Host: e.host.get(), Time: time.Now(),
 		Redirect: e.redirect.Load(), Router: e.routerStatus.Load(), APILock: e.apiLock().status(),
+		InboundAPI: e.apiServer.Load().Status(),
 	}
 }
 

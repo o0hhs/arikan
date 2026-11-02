@@ -39,6 +39,12 @@ type DesiredState struct {
 	// Turn is the traffic-through-a-VK-call server on the node; nil: off. Nodes older
 	// than it ignore the field.
 	Turn *Turn `json:"turn,omitempty"`
+	// InboundAPI: false tells the node not to listen on its API port at all — the panel
+	// reaches it over the node's reverse tunnel (TunnelPath) alone. nil is on, as every node
+	// was before the field, so a panel older than it can never close a node's port. Nodes
+	// older than it ignore it. The node keeps the answer: one that was told to close the
+	// port does not open it again on a restart, before the panel says otherwise.
+	InboundAPI *bool `json:"inbound_api,omitempty"`
 	// Shaping splits the node's channel evenly between the users moving traffic; nil: off.
 	// Nodes older than it ignore it.
 	Shaping *Shaping `json:"shaping,omitempty"`
@@ -67,6 +73,17 @@ type DesiredState struct {
 	// same rule; both lift by themselves after APILockStale without the panel. Nodes older
 	// than it ignore it.
 	APIAllow []string `json:"api_allow,omitzero"`
+}
+
+// InboundAPINeeded says whether the state has the node listen on its API port: true unless the
+// panel said otherwise, and so true for a state from before the field.
+func (s DesiredState) InboundAPINeeded() bool { return s.InboundAPI == nil || *s.InboundAPI }
+
+// InboundAPIStatus is the node's own API port as Health reports it: On while it listens, Error
+// why a wanted one does not.
+type InboundAPIStatus struct {
+	On    bool   `json:"on"`
+	Error string `json:"error,omitempty"`
 }
 
 // APILockStale is how long the panel may stay away before a node with APIAllow opens its
@@ -268,6 +285,10 @@ type Health struct {
 	// Cascade is the node's part in the cascade as it is now: the entry's bridge and the
 	// panel's connection to it, or the exit's stream. nil: no part, or an older node.
 	Cascade *CascadeStatus `json:"cascade,omitempty"`
+	// InboundAPI is the node's own API port: On while it listens, and nil on a node older than
+	// the field. A node the panel keeps on its reverse tunnel alone says Off, so the Nodes page
+	// shows why its own address does not answer.
+	InboundAPI *InboundAPIStatus `json:"inbound_api,omitempty"`
 	// Update is how the last update the panel asked for went, as the host's updater wrote
 	// it; nil while there is none. Nodes before 0.5.0.2 send nothing.
 	Update *UpdateStatus `json:"update,omitempty"`
