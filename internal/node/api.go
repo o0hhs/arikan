@@ -147,6 +147,8 @@ func Handler(e *Engine, log *slog.Logger) http.Handler {
 	})
 	mux.HandleFunc("POST /v1/diagnose", diagnoseHandler(e))
 	mux.HandleFunc("GET /v1/logs", logsHandler(e))
+	mux.HandleFunc("GET /v1/dpi", dpiStatusHandler(e))
+	mux.HandleFunc("POST /v1/dpi", dpiHandler(e))
 	mux.HandleFunc("POST /v1/doctor", doctorHandler(e))
 	mux.HandleFunc("POST /v1/restart", restartHandler(e))
 	mux.HandleFunc("POST /v1/terminal", terminalHandler(e))

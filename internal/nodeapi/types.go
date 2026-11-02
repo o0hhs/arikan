@@ -36,6 +36,9 @@ type DesiredState struct {
 	// Filters keep users' traffic from places and strangers from the node; nil: none.
 	// Nodes older than the filters ignore it.
 	Filters *Filters `json:"filters,omitempty"`
+	// Turn is the traffic-through-a-VK-call server on the node; nil: off. Nodes older
+	// than it ignore the field.
+	Turn *Turn `json:"turn,omitempty"`
 	// Shaping splits the node's channel evenly between the users moving traffic; nil: off.
 	// Nodes older than it ignore it.
 	Shaping *Shaping `json:"shaping,omitempty"`
@@ -258,6 +261,13 @@ type Health struct {
 	Listeners []ListenerStatus `json:"listeners"`
 	Conns     int              `json:"conns"`
 	System    System           `json:"system"`
+	// Caps are the features of the cascade and the rest this node's code knows: what the
+	// panel builds only for nodes that can carry it (a route through an exit's WARP needs
+	// both ends to know the mark). A node older than the field sends none.
+	Caps []string `json:"caps,omitempty"`
+	// Cascade is the node's part in the cascade as it is now: the entry's bridge and the
+	// panel's connection to it, or the exit's stream. nil: no part, or an older node.
+	Cascade *CascadeStatus `json:"cascade,omitempty"`
 	// Update is how the last update the panel asked for went, as the host's updater wrote
 	// it; nil while there is none. Nodes before 0.5.0.2 send nothing.
 	Update *UpdateStatus `json:"update,omitempty"`
@@ -655,4 +665,13 @@ type Relay struct {
 	Port   string          `json:"port"`
 	Config json.RawMessage `json:"config"` // proto.Template as JSON
 	Users  []Slot          `json:"users"`  // one per source node
+}
+
+// DPIStatus is the node's DPI bypass as the host last reported it: whether nfqws runs, and
+// why not when it does not. At is when the host wrote the answer (unix seconds); 0 when the
+// host never did (the unit is not installed yet).
+type DPIStatus struct {
+	On    bool   `json:"on"`
+	Error string `json:"error,omitempty"`
+	At    int64  `json:"at,omitempty"`
 }

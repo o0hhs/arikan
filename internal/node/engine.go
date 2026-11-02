@@ -79,6 +79,8 @@ type Engine struct {
 
 	Reg *Registry
 	tun *Tunnel
+	// turn is the VK-call way in: a child process the panel turns on per node.
+	turn *turnSupervisor
 	// Challenge answers the ACME challenges the panel orders for the node's address, on
 	// port 80 while one is pending.
 	Challenge *acmechallenge.Server
@@ -179,6 +181,15 @@ func (e *Engine) WarpStatus(ctx context.Context, force bool) nodeapi.WarpStatus 
 	return st
 }
 
+// TurnStatus is the node's TURN server as it is now: what the panel shows in the node's
+// setup drawer.
+func (e *Engine) TurnStatus() nodeapi.TurnStatus {
+	if e.turn == nil {
+		return nodeapi.TurnStatus{}
+	}
+	return e.turn.Status()
+}
+
 // logWarp writes a failed WARP check to the log once per change (ok to failed, failed
 // to ok, another reason), not once per probe: the panel polls every cycle.
 func (e *Engine) logWarp(s nodeapi.WarpStatus, endpoint string) {
@@ -229,6 +240,7 @@ func Start(o Options) (*Engine, error) {
 	statistic.DefaultManager.Users().IPRelease = o.DeviceRelease
 	e.Reg = NewRegistry(cs.Epoch, cs.Seq, o.DeviceRelease, time.Now, citrus{})
 	e.tun = &Tunnel{inner: tunnel.Tunnel, reg: e.Reg}
+	e.turn = newTurnSupervisor(log)
 	reg := e.Reg
 	statistic.DefaultManager.SetOnLeave(func(c statistic.Tracker) {
 		i := c.Info()
@@ -395,6 +407,11 @@ func (e *Engine) apply(st nodeapi.DesiredState) (nodeapi.ApplyResult, error) {
 	e.setRedirect(st.HTTPRedirect)
 	e.apiLock().set(st.APIAllow)
 	e.Reg.SetDetail(st.Detail)
+	// The TURN server is a child process of this agent, not a mihomo listener: it is
+	// started, restarted and stopped here, beside the rest of the state.
+	if e.turn != nil {
+		e.turn.Apply(st.Turn)
+	}
 	pools := map[string]string{}
 	for _, in := range st.Inbounds {
 		if in.Pool != "" {
@@ -538,6 +555,7 @@ func (e *Engine) Health() nodeapi.Health {
 	}
 	return nodeapi.Health{
 		Version: e.version, Core: coreVersion(), Revision: rev, StartedAt: e.started,
+		Caps:      []string{nodeapi.CapCascadeWarp},
 		Listeners: ls, Conns: e.Reg.ConnCount(), System: e.sys.last(), Update: e.UpdateStatus(), Host: e.host.get(), Time: time.Now(),
 		Redirect: e.redirect.Load(), Router: e.routerStatus.Load(), APILock: e.apiLock().status(),
 	}
