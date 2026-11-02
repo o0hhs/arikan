@@ -47,6 +47,10 @@ type SettingsView struct {
 	PublicHost     string `json:"public_host"`
 	Domain         string `json:"domain"`
 	SubDomain      string `json:"sub_domain" doc:"Свой домен для ссылок подписки; пусто — адрес панели"`
+	// SubsFromNodes: the nodes that answer the links themselves; SubNodes is how each one
+	// is doing it.
+	SubsFromNodes subsrc.FromNodes `json:"subs_from_nodes" doc:"Отдавать подписку с нод: выбранные ноды сами отвечают по ссылкам подписки профилями, которые панель им присылает, — ссылки работают, когда панель недоступна. Домен ссылки остаётся доменом подписки (sub_domain): направьте его на эти ноды"`
+	SubNodes      []SubNodeView    `json:"sub_nodes,omitempty" doc:"Выбранные ноды: когда каждая последний раз получала подписки и отвечает ли по ссылкам"`
 	// SubCertificate is the subscription domain's own certificate; absent in development.
 	SubCertificate *acme.Status   `json:"sub_certificate,omitempty" doc:"Сертификат домена подписки: kind off — домен не задан"`
 	PanelPort      int            `json:"panel_port"`
@@ -120,6 +124,7 @@ type patchSettingsBody = struct {
 	PublicHost     *string              `json:"public_host,omitempty" maxLength:"253"`
 	Domain         *string              `json:"domain,omitempty" maxLength:"253"`
 	SubDomain      *string              `json:"sub_domain,omitempty" maxLength:"253" doc:"Домен для ссылок подписки, отдельный от домена панели; пусто — убрать. Старые ссылки продолжают работать"`
+	SubsFromNodes  *subsrc.FromNodes    `json:"subs_from_nodes,omitempty" doc:"Отдавать подписку с нод: {enabled, nodes: [id]}; домен ссылки — sub_domain"`
 	QuietHourUTC   *int                 `json:"quiet_hour_utc,omitempty" minimum:"0" maximum:"23"`
 	SubGroupMain   *string              `json:"sub_group_main,omitempty" maxLength:"200"`
 	SubGroupAuto   *string              `json:"sub_group_auto,omitempty" maxLength:"200"`
@@ -191,6 +196,12 @@ func (h *handlers) readSettings(ctx context.Context) (SettingsView, error) {
 	get(settings.KeyPublicHost, &v.PublicHost)
 	get(settings.KeyDomain, &v.Domain)
 	get(settings.KeySubDomain, &v.SubDomain)
+	if err == nil {
+		v.SubsFromNodes, _, err = settings.Get[subsrc.FromNodes](ctx, h.d.Settings, settings.KeySubsFromNodes)
+	}
+	if err == nil {
+		v.SubNodes, err = h.subNodes(ctx, v.SubsFromNodes)
+	}
 	get(settings.KeyGroupMain, &v.SubGroupMain)
 	get(settings.KeyGroupAuto, &v.SubGroupAuto)
 	get(settings.KeyRouting, &v.SubRouting)
@@ -359,6 +370,40 @@ func (h *handlers) updateSettings(ctx context.Context, in *patchSettingsInput) (
 		details = append(details, fieldDetail("body.domain", "domain_invalid", nil))
 	}
 	// The subscription domain is a name of its own: a CA certifies it apart from the panel's.
+	if b.SubsFromNodes != nil {
+		exists := func(id int64) bool {
+			_, err := h.d.Store.Q.GetNode(ctx, id)
+			return err == nil
+		}
+		if err := b.SubsFromNodes.Check(exists); err != nil {
+			details = append(details, fieldDetail("body.subs_from_nodes", err.Error(), nil))
+		} else if b.SubsFromNodes.Enabled {
+			// A node answers on its public 443, and the link has to point there: a
+			// subscription domain of its own and sub_port = 443 (the node's SNI router).
+			// Anything else builds links to the panel's own port, which the nodes do not
+			// serve.
+			subDom, err := h.d.Settings.String(ctx, settings.KeySubDomain)
+			if err != nil {
+				return nil, err
+			}
+			if b.SubDomain != nil {
+				subDom = strings.TrimSpace(*b.SubDomain)
+			}
+			subPort, _, err := settings.Get[int](ctx, h.d.Settings, settings.KeySubPort)
+			if err != nil {
+				return nil, err
+			}
+			if b.SubPort != nil {
+				subPort = *b.SubPort
+			}
+			if subDom == "" {
+				details = append(details, fieldDetail("body.subs_from_nodes", "subs_nodes_domain", nil))
+			}
+			if subPort != 443 {
+				details = append(details, fieldDetail("body.subs_from_nodes", "subs_nodes_port", nil))
+			}
+		}
+	}
 	if b.SubDomain != nil {
 		if d := strings.TrimSpace(*b.SubDomain); d != "" && (!hostname.Name(d) || hostname.Reserved(d)) {
 			details = append(details, fieldDetail("body.sub_domain", "sub_domain_invalid", nil))

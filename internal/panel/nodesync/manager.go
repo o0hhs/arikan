@@ -91,6 +91,15 @@ type Manager struct {
 	batchMu sync.Mutex
 	batches map[int64]uint64
 
+	// The subscription push (subs.go): its renderer, the nodes it reached, and the pace
+	// between two pushes.
+	subsDirty  chan struct{}
+	subsMu     sync.Mutex
+	subsRender SubsRenderer
+	subsPushed map[int64]SubsPush
+	subsLast   time.Time // when a push last started: two are never closer than subsMinGap
+	subsGen    int64     // the newest generation a push carried; only grows
+
 	// The torrent blocker's settings for the pullers (torrent.go), read again only after
 	// a change: the whole snapshot for one flag every few seconds kept PostgreSQL busy.
 	torMu      sync.Mutex
@@ -126,13 +135,15 @@ type running struct {
 
 func NewManager(st *store.Store, set *settings.Settings, pool *domain.Pool, connect Connect, log *slog.Logger, now func() time.Time) *Manager {
 	return &Manager{st: st, set: set, pool: pool, connect: connect, log: log, now: now,
-		nodesDirty: make(chan struct{}, 1), running: map[int64]*running{}, batches: map[int64]uint64{}, storeInterval: storeEvery}
+		nodesDirty: make(chan struct{}, 1), running: map[int64]*running{}, batches: map[int64]uint64{},
+		subsDirty: make(chan struct{}, 1), subsPushed: map[int64]SubsPush{}, storeInterval: storeEvery}
 }
 
 // SetEvents connects the hub that wakes the addons reading the feed; call it before Run.
 func (m *Manager) SetEvents(h *events.Hub) { m.hub = h }
 
 func (m *Manager) Run(ctx context.Context) {
+	go m.runSubs(ctx)
 	m.reconcile(ctx)
 	maintain := time.NewTicker(30 * time.Second)
 	defer maintain.Stop()

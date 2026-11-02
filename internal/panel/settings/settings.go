@@ -142,6 +142,10 @@ const (
 	// KeySubPage is the subscription page as the admin built it (subpage.Config): its look,
 	// blocks, apps and own CSS; unset: the page as it always was.
 	KeySubPage = "sub_page"
+	// KeySubsFromNodes is the nodes that answer subscription links themselves (subsrc.FromNodes:
+	// {enabled, nodes}), from the profiles the panel renders and pushes to them; unset: the
+	// panel alone answers. The link's host stays the subscription domain's (KeySubDomain).
+	KeySubsFromNodes = "subs_from_nodes"
 	// KeyDashboard is the panel's own front page as the admin set it up (dashboard.Layout):
 	// which cards it shows and how it dates them; unset: all of them, as they always were.
 	KeyDashboard = "dashboard"
