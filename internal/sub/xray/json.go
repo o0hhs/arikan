@@ -44,6 +44,9 @@ func Render(p profile.Profile, g model.GroupNames, m routing.Mode, t model.Templ
 	if err != nil {
 		return nil, err
 	}
+	if c := p.Exit; c != nil {
+		pl.exit = &exitOut{tag: "exit", addr: c.Address, port: c.Port, remark: c.Name}
+	}
 	return json.MarshalIndent(pl.configs(), "", "  ")
 }
 
@@ -129,6 +132,16 @@ type plan struct {
 	picks []string
 	// dropped are the conditions xray has no form of, for the preview (Dropped).
 	dropped []model.Note
+	// exit is the outbound of the admin's own entry (the "YouTube without ads" offer), when
+	// the profile is served with one: a config of it sends what no rule takes through it.
+	exit *exitOut
+}
+
+// exitOut is the admin's own exit as an outbound: a SOCKS5 on the entry node, where the
+// entry's users reach it; their YouTube then leaves with the entry's Russian address.
+type exitOut struct {
+	tag, addr, remark string
+	port              int
 }
 
 // drop tells the preview of the conditions xray left out, once: of the first one it has no
@@ -314,6 +327,9 @@ func (pl plan) names() map[string]bool {
 func (pl plan) configs() []map[string]any {
 	b := pl.balancing()
 	var out []map[string]any
+	if pl.exit != nil {
+		out = append(out, pl.exitConfig(b))
+	}
 	for _, name := range pl.picks {
 		if r, ok := b.Refs[name]; ok && r.Balancer && r.Tag == name {
 			out = append(out, pl.config(name, r, b))
@@ -322,6 +338,78 @@ func (pl plan) configs() []map[string]any {
 	for _, o := range pl.outbounds {
 		out = append(out, pl.config(o.name, Ref{Tag: o.tag}, b))
 	}
+	return out
+}
+
+// outbound is the exit as an xray outbound.
+func (e *exitOut) outbound() map[string]any {
+	return map[string]any{"tag": e.tag, "protocol": "socks", "settings": map[string]any{
+		"servers": []any{map[string]any{"address": e.addr, "port": e.port}},
+	}}
+}
+
+// exitConfig is the item of the list for the admin's own exit: the servers of the profile
+// reachable directly, everything else through the entry — where YouTube then leaves with
+// the entry node's Russian address. The servers are not in it as the user's proxies: this
+// is the entry's own network, and the entry is what the app picks for YouTube.
+func (pl plan) exitConfig(b Balancing) map[string]any {
+	e := pl.exit
+	via := func(group string) (Ref, bool) {
+		r, ok := b.Refs[group]
+		return r, ok
+	}
+	to := func(t routing.Target) (Ref, bool) {
+		switch t.Kind {
+		case routing.ToDirect:
+			return Ref{Tag: directTag}, true
+		case routing.ToReject, routing.ToDrop:
+			return Ref{Tag: blockTag}, true
+		case routing.ToExit:
+			return Ref{Tag: e.tag}, true
+		}
+		return Ref{Tag: e.tag}, true
+	}
+	// The main group's choice is the exit in this item: a rule to it ends there.
+	choice := Ref{Tag: e.tag}
+	dns, rules := dnsOf(pl.dns, routing.Common, via, choice)
+	rules = append(rules, map[string]any{"port": "53", "outboundTag": dnsOutTag})
+	for _, r := range pl.rules {
+		ref, ok := to(r.to)
+		if !ok {
+			continue
+		}
+		for _, f := range r.fields {
+			rules = append(rules, withRef(f, ref))
+		}
+	}
+	final := Ref{Tag: e.tag}
+	rules = once(append(rules, withRef(map[string]any{"network": "tcp,udp"}, final)))
+	_, balancers := uses(rules, b)
+	outbounds := []map[string]any{e.outbound(),
+		map[string]any{"tag": directTag, "protocol": "freedom"},
+		map[string]any{"tag": blockTag, "protocol": "blackhole"},
+		map[string]any{"tag": dnsOutTag, "protocol": "dns"}}
+	strategy := "AsIs"
+	if pl.resolve {
+		strategy = "IPIfNonMatch"
+	}
+	rt := map[string]any{"domainStrategy": strategy, "rules": rules}
+	if len(balancers) > 0 {
+		rt["balancers"] = balancers
+	}
+	sniff := map[string]any{"enabled": true, "destOverride": []string{"http", "tls", "quic"}}
+	out := map[string]any{
+		"remarks": e.remark,
+		"log":     map[string]any{"loglevel": "warning"},
+		"dns":     dns,
+		"inbounds": []map[string]any{
+			{"tag": "socks", "protocol": "socks", "listen": "127.0.0.1", "port": socksPort, "settings": map[string]any{"auth": "noauth", "udp": true}, "sniffing": sniff},
+			{"tag": "http", "protocol": "http", "listen": "127.0.0.1", "port": httpPort, "sniffing": sniff},
+		},
+		"outbounds": outbounds,
+		"routing":   rt,
+	}
+	observe(out, balancers, b)
 	return out
 }
 
@@ -379,6 +467,10 @@ func (pl plan) config(name string, choice Ref, b Balancing) map[string]any {
 			return Ref{Tag: blockTag}, true
 		case routing.ToGroup:
 			return via(t.Group)
+		case routing.ToExit:
+			if pl.exit != nil {
+				return Ref{Tag: pl.exit.tag}, true
+			}
 		}
 		return choice, true
 	}
@@ -414,6 +506,9 @@ func (pl plan) config(name string, choice Ref, b Balancing) map[string]any {
 		if used[o.tag] && o.tag != choice.Tag {
 			outbounds = append(outbounds, dialing(o.out, b.Dialers[o.tag]))
 		}
+	}
+	if pl.exit != nil && (final.Tag == pl.exit.tag || used[pl.exit.tag]) {
+		outbounds = append(outbounds, pl.exit.outbound())
 	}
 	outbounds = append(outbounds,
 		map[string]any{"tag": directTag, "protocol": "freedom"},

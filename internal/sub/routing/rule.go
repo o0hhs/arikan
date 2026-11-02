@@ -24,7 +24,11 @@ const (
 	// ToAlias is the main group by the name Clash apps assume for it (model.AliasGroup): a
 	// rule the admin wrote to PROXY stays to PROXY in a Clash profile.
 	ToAlias
-	ToAuto   // the automatic choice of a server
+	ToAuto // the automatic choice of a server
+	// ToExit is where what no rule takes goes when the profile is a copy of the admin's own
+	// entry node: through that entry (xray's config of the "YouTube without ads" offer), so
+	// YouTube leaves with the entry's Russian address and no ads.
+	ToExit
 	ToDirect // past the tunnel
 	ToReject // refused
 	ToDrop   // dropped without an answer (REJECT-DROP)

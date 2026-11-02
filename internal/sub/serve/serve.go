@@ -112,13 +112,17 @@ type Config struct {
 	// XrayJSON: the apps that run whole xray configs (apps.XrayJSON) get the xray JSON
 	// profile in place of share links; a request that names a format gets it either way.
 	XrayJSON bool
+	// Exit is the admin's own entry of the "YouTube without ads" offer, when there is one:
+	// every profile of a subscriber ends on it, so YouTube leaves with the entry's Russian
+	// address (routing.Routes.YouTubeExit). nil: the profiles are as they were.
+	Exit *profile.Exit
 }
 
 // Profile is the profile of the proxies ps as cfg sets it for every core: the admin's rules
 // as they are saved, the routes, the nodes and the hosts kept out of the tunnel. The App
 // and the rules its core parses (mihomo.RulesFor) are the Clash profile's to set.
 func (cfg Config) Profile(ps []model.Proxy) profile.Profile {
-	return profile.Profile{Proxies: ps, Nodes: cfg.Nodes, Direct: cfg.Direct, Rules: cfg.Rules, Routes: cfg.Routes, Lang: cfg.Lang}
+	return profile.Profile{Proxies: ps, Nodes: cfg.Nodes, Direct: cfg.Direct, Rules: cfg.Rules, Routes: cfg.Routes, Lang: cfg.Lang, Exit: cfg.Exit}
 }
 
 // User is what a subscription's headers and texts say of its user.

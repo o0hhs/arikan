@@ -109,6 +109,11 @@ func planOf(p profile.Profile, g model.GroupNames, m routing.Mode, t model.Templ
 // and the built-in groups over it.
 func builtin(p profile.Profile, g model.GroupNames, m routing.Mode) plan {
 	in := routing.NewIntent(m, p.Rules, p.Routes)
+	// The admin's own entry of the "YouTube without ads" offer: what no rule takes goes
+	// through it, so the apps leave with the entry's Russian address (the offer's point).
+	if p.Exit != nil {
+		in = in.WithExit()
+	}
 	// A list of a younger mihomo type or format (routing.Provider.Since) has no sing-box
 	// counterpart, and neither have the conditions that read it.
 	routes := routing.Narrow(in.Routes, func(pr routing.Provider) bool { return !pr.Since.Known() })

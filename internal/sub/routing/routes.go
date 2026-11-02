@@ -23,7 +23,13 @@ type Routes struct {
 	Direct []string `json:"direct,omitempty"`
 	// Lists are rule lists of the admin's own, by link, each sent one way like a service.
 	Lists   []RouteList `json:"lists,omitempty"`
-	DNS     DNS         `json:"dns,omitzero"`
+	// YouTubeExit is where the entry node of the "YouTube without ads" offer leaves: "direct"
+	// (its own address, which is what the offer is for: the Russian YouTube has no ads), or
+	// "node:<id>". Empty: direct, the offer's point. Not the service's target: YouTube is sent
+	// to the entry node so its address sees the request; the entry node carrying it out of a
+	// foreign address is what brought the ads back.
+	YouTubeExit string `json:"youtube_exit,omitempty"`
+	DNS         DNS    `json:"dns,omitzero"`
 	Servers Servers     `json:"servers,omitzero"`
 	Tune    Tune        `json:"tune,omitzero"`
 }
@@ -278,6 +284,32 @@ func DirectSetByID(id string) (DirectSet, bool) {
 // Check refuses what would break the profiles: an unknown service, list or target, a node
 // that does not exist, a DNS server or a key of the DNS policy mihomo would not read. The
 // error is a code for the admin panel.
+// YouTubeEntry is the node the "YouTube without ads" offer goes through.
+func (r Routes) YouTubeEntry() (int64, bool) { return NodeOf(r.Services["youtube"]) }
+
+// YouTubeAdFree is the "YouTube without ads" offer the panel turns on with one switch: the
+// service goes through one node (the entry that carries it past the ISP) and the ad and
+// tracker list is blocked. Its card on the subscription page follows from this.
+func (r Routes) YouTubeAdFree() bool {
+	_, viaNode := r.YouTubeEntry()
+	return viaNode && r.Services["ads"] == TargetBlock
+}
+
+// YouTubeExitDirect says whether the entry leaves with its own address: "direct", or
+// nothing set (the offer's point). An exit through another node is why the Russian
+// YouTube was lost: the site saw the foreign address and its ads came back.
+func (r Routes) YouTubeExitDirect() bool {
+	return r.YouTubeExit == "" || r.YouTubeExit == TargetDirect
+}
+
+// YouTubeExitNode is the node the entry leaves through when the admin sent it elsewhere.
+func (r Routes) YouTubeExitNode() (int64, bool) {
+	if r.YouTubeExitDirect() {
+		return 0, false
+	}
+	return NodeOf(r.YouTubeExit)
+}
+
 func (r Routes) Check(nodeExists func(int64) bool) error {
 	target := func(t string) bool {
 		switch t {
@@ -294,6 +326,9 @@ func (r Routes) Check(nodeExists func(int64) bool) error {
 		if !target(t) {
 			return errors.New("routes_target")
 		}
+	}
+	if r.YouTubeExit != "" && !target(r.YouTubeExit) {
+		return errors.New("routes_youtube_exit")
 	}
 	if err := checkLists(r.Lists, target); err != nil {
 		return err
