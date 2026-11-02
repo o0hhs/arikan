@@ -82,6 +82,8 @@ type Config struct {
 	ExtraDevicesKeep bool `json:"extra_devices_keep,omitempty"`
 	// Balance is the accounts' internal balance (balance.go).
 	Balance BalanceConfig `json:"balance"`
+	// CustomTariffID is the tariff the constructor (custom.go) builds on; 0: no constructor.
+	CustomTariffID int64 `json:"custom_tariff_id,omitempty"`
 }
 
 // TrialPaid: the trial has a price and is bought, not taken.

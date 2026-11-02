@@ -31,6 +31,8 @@ type PaymentSettingsView struct {
 	FreePlans          int64           `json:"free_plans" doc:"Сколько бесплатных подписок выдано"`
 	ExtraDevicesKeep   bool            `json:"extra_devices_keep" doc:"Докупленные устройства остаются при продлении, и продление стоит дороже на их цену; иначе они действуют до конца срока"`
 	Balance            BalanceSettings `json:"balance" doc:"Внутренний баланс клиентов с пополнением по скриншоту"`
+	CustomTariffID     *int64           `json:"custom_tariff_id" doc:"Тариф-основа конструктора: покупатель сам собирает трафик, устройства, скорость и срок, цена считается от цены первого срока тарифа и коэффициентов; null — конструктора нет. Тариф может быть скрыт из витрины: в конструкторе он продаётся по частям, а сам тариф — по коду доступа"`
+	Coefficients       CoefficientsView `json:"coefficients" doc:"Коэффициенты конструктора: во сколько раз дороже единица роста по сравнению с ценой самого тарифа (1 — как у тарифа)"`
 	Available          struct {
 		Stars   bool     `json:"stars"`
 		Addons  []string `json:"addons" doc:"Адаптеры маркетплейса, которые принимают оплату прямо сейчас"`
@@ -154,6 +156,13 @@ func (h *handlers) paymentSettings(ctx context.Context) (PaymentSettingsView, er
 	}
 	v.FreeCondition = freeConditionView(c.FreeCondition)
 	v.ExtraDevicesKeep = c.ExtraDevicesKeep
+	if id := c.CustomTariffID; id != 0 {
+		if t, err := h.d.Store.Q.GetTariff(ctx, id); err == nil && t.Archived == 0 {
+			v.CustomTariffID = &t.ID
+		}
+	}
+	k := h.d.Billing.Coefficients(ctx)
+	v.Coefficients.Traffic, v.Coefficients.Devices, v.Coefficients.Speed, v.Coefficients.Duration = k.Traffic, k.Devices, k.Speed, k.Duration
 	if v.FreePlans, err = h.d.Store.Q.CountFreePlans(ctx); err != nil {
 		return v, err
 	}
