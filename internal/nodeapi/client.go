@@ -99,6 +99,7 @@ func (c *Client) CleanDisk(ctx context.Context) (DiskStatus, error) {
 	err := c.do(ctx, http.MethodPost, "/v1/disk/clean", nil, &s, 60*time.Second)
 	return s, err
 }
+
 var ErrUnavailable = errors.New("node unavailable")
 
 // StatusError is a node's failure answer without an Error body, such as the 404 of a node

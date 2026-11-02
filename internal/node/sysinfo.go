@@ -1,8 +1,8 @@
 package node
 
 import (
-	"context"
 	"bufio"
+	"context"
 	"errors"
 	"os"
 	"strconv"
