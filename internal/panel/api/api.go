@@ -7,6 +7,8 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
+	"reflect"
+	"strings"
 	"sync"
 	"time"
 
@@ -27,7 +29,6 @@ import (
 	"mikan/internal/panel/autotune"
 	"mikan/internal/panel/billing"
 	"mikan/internal/panel/botpanel"
-	"mikan/internal/panel/campaigns"
 	"mikan/internal/panel/certcheck"
 	"mikan/internal/panel/checkhost"
 	"mikan/internal/panel/discounts"
@@ -69,6 +70,8 @@ type Deps struct {
 	Now        func() time.Time
 
 	Users    *domain.Users
+	// Campaigns are the ad campaign tags of the bot's links (domain.Campaigns).
+	Campaigns *domain.Campaigns
 	Inbounds *domain.Inbounds
 	Devices  *domain.Devices
 	Packages *domain.Packages
@@ -182,7 +185,6 @@ type Deps struct {
 	S3Backups  *s3backup.Service
 	Automation *automation.Service
 	Referral   *referral.Service
-	Campaigns  *campaigns.Service
 	Discounts  *discounts.Service
 	Agents     *agents.Service
 	CheckHost  *checkhost.Client
@@ -297,6 +299,10 @@ func Config(version string) huma.Config {
 		"supportKey": {Type: "http", Scheme: "bearer", Description: "Токен доступа для поддержки: Authorization: Bearer ms_…"},
 	}
 	cfg.Security = []map[string][]string{{"apiKey": {}}, {"session": {}}, {"supportKey": {}}}
+	// The fork has more than one type of a short name (apps.Rule and referral.Rule): the
+	// schema name carries the package for those two packages alone, so the spec has no
+	// collision and every other type keeps the name the client already knows.
+	cfg.Components.Schemas = huma.NewMapRegistry("#/components/schemas/", schemaNamer)
 	return cfg
 }
 
@@ -356,7 +362,6 @@ func New(d Deps) (http.Handler, huma.API, error) {
 	h.registerDevicePacks()
 	h.registerDashboard()
 	h.registerMonitor()
-	h.registerReferrals()
 	h.registerBalance()
 	h.registerWallet()
 	h.registerSites()
@@ -493,4 +498,21 @@ func (h *handlers) audit(ctx context.Context, adminID int64, action, targetType,
 	if err != nil {
 		h.d.Log.Warn("audit write failed", "action", action, "err", err)
 	}
+}
+
+// schemaNamer is huma.DefaultSchemaNamer with the fork's colliding short name told apart:
+// apps.Rule (a subscription rule) keeps its name, referral.Rule becomes ReferralRule.
+func schemaNamer(t reflect.Type, hint string) string {
+	name := huma.DefaultSchemaNamer(t, hint)
+	if strings.HasSuffix(derefType(t).PkgPath(), "/referral") {
+		name = "Referral" + name
+	}
+	return name
+}
+
+func derefType(t reflect.Type) reflect.Type {
+	for t.Kind() == reflect.Ptr || t.Kind() == reflect.Slice || t.Kind() == reflect.Array {
+		t = t.Elem()
+	}
+	return t
 }

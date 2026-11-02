@@ -2109,6 +2109,38 @@
         ],
         "type": "object"
       },
+      "CoefficientsView": {
+        "additionalProperties": false,
+        "properties": {
+          "devices": {
+            "description": "Множитель устройств",
+            "format": "double",
+            "type": "number"
+          },
+          "duration": {
+            "description": "Множитель срока",
+            "format": "double",
+            "type": "number"
+          },
+          "speed": {
+            "description": "Множитель скорости",
+            "format": "double",
+            "type": "number"
+          },
+          "traffic": {
+            "description": "Множитель трафика: 1 — гигабайт сверх тарифа стоит как у самого тарифа",
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": [
+          "traffic",
+          "devices",
+          "speed",
+          "duration"
+        ],
+        "type": "object"
+      },
       "Cond": {
         "additionalProperties": false,
         "properties": {
@@ -2806,6 +2838,102 @@
         ],
         "type": "object"
       },
+      "DevicePackBody": {
+        "additionalProperties": false,
+        "properties": {
+          "on_sale": {
+            "type": "boolean"
+          },
+          "price_rub": {
+            "description": "Цена за месяц, в копейках",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "price_stars": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "slots": {
+            "description": "Сколько мест пакет добавляет (панель держит до 50 устройств)",
+            "format": "int64",
+            "maximum": 47,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "sort": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "title": {
+            "maxLength": 120,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "slots",
+          "price_rub",
+          "sort",
+          "on_sale"
+        ],
+        "type": "object"
+      },
+      "DevicePackView": {
+        "additionalProperties": false,
+        "properties": {
+          "archived": {
+            "type": "boolean"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "on_sale": {
+            "type": "boolean"
+          },
+          "price_rub": {
+            "description": "Цена за месяц, в копейках",
+            "format": "int64",
+            "type": "integer"
+          },
+          "price_stars": {
+            "description": "Цена за месяц в Stars; без значения — только рубли",
+            "format": "int64",
+            "type": "integer"
+          },
+          "slots": {
+            "description": "Сколько мест пакет добавляет к лимиту устройств тарифа",
+            "format": "int64",
+            "type": "integer"
+          },
+          "sort": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "slots",
+          "price_rub",
+          "sort",
+          "on_sale",
+          "archived",
+          "created_at"
+        ],
+        "type": "object"
+      },
       "DeviceView": {
         "additionalProperties": false,
         "properties": {
@@ -3242,6 +3370,25 @@
           "color",
           "emoji",
           "users"
+        ],
+        "type": "object"
+      },
+      "FromNodes": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "nodes": {
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "enabled"
         ],
         "type": "object"
       },
@@ -4370,6 +4517,37 @@
         ],
         "type": "object"
       },
+      "Layout": {
+        "additionalProperties": false,
+        "properties": {
+          "cards": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "description": "Какие карточки показывает главная",
+            "type": "object"
+          },
+          "date": {
+            "description": "compact — день недели и дата, full — дата и время, large — то же крупно",
+            "enum": [
+              "compact",
+              "full",
+              "large"
+            ],
+            "type": "string"
+          },
+          "seconds": {
+            "description": "Писать время до секунды (для full и large)",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "cards",
+          "date",
+          "seconds"
+        ],
+        "type": "object"
+      },
       "LegacyLinks": {
         "additionalProperties": false,
         "properties": {
@@ -5080,6 +5258,48 @@
             "type": "string"
           }
         },
+        "type": "object"
+      },
+      "MonitorView": {
+        "additionalProperties": false,
+        "properties": {
+          "available": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "blocks": {
+            "description": "Что показывает страница",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "enabled": {
+            "description": "Показывать страницу по публичной ссылке",
+            "type": "boolean"
+          },
+          "has_password": {
+            "type": "boolean"
+          },
+          "min_password": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "path": {
+            "description": "Адрес страницы в ссылке",
+            "type": "string"
+          }
+        },
+        "required": [
+          "enabled",
+          "path",
+          "has_password",
+          "blocks",
+          "available",
+          "min_password"
+        ],
         "type": "object"
       },
       "NextTariffInputBody": {
@@ -6750,6 +6970,158 @@
         ],
         "type": "object"
       },
+      "PartnerBody": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "type": "string"
+          },
+          "note": {
+            "maxLength": 500,
+            "type": "string"
+          },
+          "owner_tg_id": {
+            "description": "Свой Telegram-аккаунт партнёра: по его же коду комиссия не начисляется; 0 — не задан",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "note"
+        ],
+        "type": "object"
+      },
+      "PartnerBotBody": {
+        "additionalProperties": false,
+        "properties": {
+          "bot_token": {
+            "description": "Токен бота партнёра; пусто — оставить прежний",
+            "maxLength": 200,
+            "type": "string"
+          },
+          "bot_username": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "code": {
+            "description": "Свой код из латиницы, цифр, _ и -; пусто — выданный панелью",
+            "maxLength": 64,
+            "type": "string"
+          },
+          "commission_percent": {
+            "format": "int64",
+            "maximum": 100,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "enabled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "bot_username",
+          "bot_token",
+          "commission_percent",
+          "enabled"
+        ],
+        "type": "object"
+      },
+      "PartnerBotView": {
+        "additionalProperties": false,
+        "properties": {
+          "balance_kop": {
+            "description": "Баланс партнёра, копейки",
+            "format": "int64",
+            "type": "integer"
+          },
+          "bot_token": {
+            "description": "Токен бота партнёра; пусто у оператора поддержки",
+            "type": "string"
+          },
+          "bot_username": {
+            "type": "string"
+          },
+          "code": {
+            "description": "Код в /start partner_\u003ccode\u003e, с которым приходят подписчики",
+            "type": "string"
+          },
+          "commission_percent": {
+            "description": "Процент с оплат подписчиков",
+            "format": "int64",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "turnover_kop": {
+            "description": "Начислено всего, копейки",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "bot_username",
+          "commission_percent",
+          "balance_kop",
+          "turnover_kop",
+          "enabled",
+          "created_at"
+        ],
+        "type": "object"
+      },
+      "PartnerView": {
+        "additionalProperties": false,
+        "properties": {
+          "balance_kop": {
+            "description": "Сумма балансов ботов, копейки",
+            "format": "int64",
+            "type": "integer"
+          },
+          "bots": {
+            "items": {
+              "$ref": "#/components/schemas/PartnerBotView"
+            },
+            "type": "array"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "owner_tg_id": {
+            "description": "Свой Telegram-аккаунт партнёра; 0 — не задан",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "note",
+          "bots",
+          "balance_kop"
+        ],
+        "type": "object"
+      },
       "PasskeyAddInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -7437,6 +7809,10 @@
           "sub_xray_json": {
             "type": "boolean"
           },
+          "subs_from_nodes": {
+            "$ref": "#/components/schemas/FromNodes",
+            "description": "Отдавать подписку с нод: {enabled, nodes: [id]}; домен ссылки — sub_domain"
+          },
           "support_access": {
             "type": "boolean"
           },
@@ -7691,6 +8067,18 @@
             "$ref": "#/components/schemas/BalanceSettings",
             "description": "Внутренний баланс клиентов с пополнением по скриншоту"
           },
+          "coefficients": {
+            "$ref": "#/components/schemas/CoefficientsView",
+            "description": "Коэффициенты конструктора: во сколько раз дороже единица роста по сравнению с ценой самого тарифа (1 — как у тарифа)"
+          },
+          "custom_tariff_id": {
+            "description": "Тариф-основа конструктора: покупатель сам собирает трафик, устройства, скорость и срок, цена считается от цены первого срока тарифа и коэффициентов; null — конструктора нет. Тариф может быть скрыт из витрины: в конструкторе он продаётся по частям, а сам тариф — по коду доступа",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
           "enabled": {
             "description": "Продажа подписок: выключено — бот и Mini App ничего не продают, новые счета не создаются, уже открытые засчитываются",
             "type": "boolean"
@@ -7771,6 +8159,8 @@
           "free_plans",
           "extra_devices_keep",
           "balance",
+          "custom_tariff_id",
+          "coefficients",
           "available",
           "on_sale"
         ],
@@ -8555,6 +8945,26 @@
         ],
         "type": "object"
       },
+      "PutMonitorInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "blocks": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 16,
+            "type": "array"
+          },
+          "enabled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled",
+          "blocks"
+        ],
+        "type": "object"
+      },
       "PutSubAppsInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -9273,6 +9683,22 @@
         ],
         "type": "object"
       },
+      "RotateMonitorInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "description": "Новый адрес страницы; старый перестаёт работать",
+            "maxLength": 64,
+            "minLength": 8,
+            "pattern": "^[A-Za-z0-9_-]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "type": "object"
+      },
       "RouteDirectSet": {
         "additionalProperties": false,
         "properties": {
@@ -9403,6 +9829,9 @@
           },
           "tune": {
             "$ref": "#/components/schemas/Tune"
+          },
+          "youtube_exit": {
+            "type": "string"
           }
         },
         "type": "object"
@@ -9823,6 +10252,21 @@
         ],
         "type": "object"
       },
+      "SetMonitorPasswordInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "password": {
+            "description": "Пароль страницы; старый и все его сессии перестают работать",
+            "maxLength": 1024,
+            "minLength": 12,
+            "type": "string"
+          }
+        },
+        "required": [
+          "password"
+        ],
+        "type": "object"
+      },
       "SetNodeBalanceInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -10030,6 +10474,13 @@
             "format": "int64",
             "type": "integer"
           },
+          "sub_nodes": {
+            "description": "Выбранные ноды: когда каждая последний раз получала подписки и отвечает ли по ссылкам",
+            "items": {
+              "$ref": "#/components/schemas/SubNodeView"
+            },
+            "type": "array"
+          },
           "sub_port": {
             "description": "Отдельный порт подписок; 0 — порт панели. Порт панели отдаёт подписки в любом случае",
             "format": "int64",
@@ -10064,6 +10515,10 @@
             "description": "Happ и INCY получают полные конфиги Xray (JSON) вместо ссылок: маршрутизация, DNS и «Авто» панели доходят до них; запрос с ?format= получает свой формат в любом случае",
             "type": "boolean"
           },
+          "subs_from_nodes": {
+            "$ref": "#/components/schemas/FromNodes",
+            "description": "Отдавать подписку с нод: выбранные ноды сами отвечают по ссылкам подписки профилями, которые панель им присылает, — ссылки работают, когда панель недоступна. Домен ссылки остаётся доменом подписки (sub_domain): направьте его на эти ноды"
+          },
           "support_access": {
             "description": "Разрешить доступ для поддержки (Настройки → Безопасность). Выключено: новый доступ не выдать, действующий закрывается. MIKAN_SUPPORT_ACCESS=off в .env сервера выключает его независимо от этой настройки",
             "type": "boolean"
@@ -10095,6 +10550,7 @@
           "public_host",
           "domain",
           "sub_domain",
+          "subs_from_nodes",
           "panel_port",
           "sub_port",
           "quiet_hour_utc",
@@ -10628,6 +11084,55 @@
           "rule",
           "format",
           "outcome"
+        ],
+        "type": "object"
+      },
+      "SubNodeView": {
+        "additionalProperties": false,
+        "properties": {
+          "bytes": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "error": {
+            "description": "Почему последняя отправка не удалась",
+            "type": "string"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "last_push": {
+            "description": "Когда панель последний раз отправила ноде подписки",
+            "format": "date-time",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "records": {
+            "description": "Сколько подписок нода хранит по последней отправке",
+            "format": "int64",
+            "type": "integer"
+          },
+          "serving": {
+            "description": "Нода отвечает по ссылкам подписки",
+            "type": "boolean"
+          },
+          "serving_error": {
+            "description": "Почему не отвечает: subs_no_port, subs_no_cert или subs_off",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "enabled",
+          "records",
+          "serving"
         ],
         "type": "object"
       },
@@ -15296,6 +15801,276 @@
         ]
       }
     },
+    "/api/v1/dashboard": {
+      "get": {
+        "operationId": "get-dashboard",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Layout"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Какие карточки показывает главная и как пишет дату",
+        "tags": [
+          "settings"
+        ]
+      },
+      "put": {
+        "operationId": "put-dashboard",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Layout"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Layout"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Настроить главную: карточки и дату с временем",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/v1/device-packs": {
+      "get": {
+        "operationId": "list-device-packs",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DevicePackView"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Пакеты устройств",
+        "tags": [
+          "device-packs"
+        ]
+      },
+      "post": {
+        "operationId": "create-device-pack",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DevicePackBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePackView"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Создать пакет устройств",
+        "tags": [
+          "device-packs"
+        ]
+      }
+    },
+    "/api/v1/device-packs/{id}": {
+      "delete": {
+        "operationId": "delete-device-pack",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Убрать пакет устройств из продажи (в архив)",
+        "tags": [
+          "device-packs"
+        ]
+      },
+      "put": {
+        "operationId": "update-device-pack",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DevicePackBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePackView"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Изменить пакет устройств",
+        "tags": [
+          "device-packs"
+        ]
+      }
+    },
+    "/api/v1/device-packs/{id}/restore": {
+      "post": {
+        "operationId": "restore-device-pack",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePackView"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Вернуть пакет устройств из архива",
+        "tags": [
+          "device-packs"
+        ]
+      }
+    },
     "/api/v1/exit-dns": {
       "get": {
         "operationId": "get-exit-dns",
@@ -16831,6 +17606,192 @@
         "summary": "Метрики в формате Prometheus",
         "tags": [
           "stats"
+        ]
+      }
+    },
+    "/api/v1/monitor": {
+      "get": {
+        "operationId": "get-monitor",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MonitorView"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Публичная страница мониторинга: включена, её ссылка и блоки",
+        "tags": [
+          "settings"
+        ]
+      },
+      "put": {
+        "description": "Пока пароль не задан, страница не открывается, даже если она включена.",
+        "operationId": "put-monitor",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PutMonitorInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MonitorView"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Включить или выключить страницу мониторинга и выбрать её блоки",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/v1/monitor/password": {
+      "delete": {
+        "operationId": "clear-monitor-password",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MonitorView"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Убрать пароль: страница закрывается",
+        "tags": [
+          "settings"
+        ],
+        "x-session-only": true
+      },
+      "post": {
+        "description": "Пароль не возвращается: панель хранит только его хеш. Старый пароль и все открытые сессии страницы перестают работать.",
+        "operationId": "set-monitor-password",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetMonitorPasswordInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MonitorView"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Задать пароль страницы мониторинга",
+        "tags": [
+          "settings"
+        ],
+        "x-session-only": true
+      }
+    },
+    "/api/v1/monitor/path": {
+      "post": {
+        "description": "Старая ссылка перестаёт работать; пароль остаётся.",
+        "operationId": "rotate-monitor-path",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RotateMonitorInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MonitorView"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Сменить адрес страницы мониторинга",
+        "tags": [
+          "settings"
         ]
       }
     },
@@ -18395,6 +19356,309 @@
         "tags": [
           "tariffs"
         ]
+      }
+    },
+    "/api/v1/partners": {
+      "get": {
+        "operationId": "list-partners",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PartnerView"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Партнёры",
+        "tags": [
+          "partners"
+        ],
+        "x-session-only": true
+      },
+      "post": {
+        "operationId": "create-partner",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PartnerBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartnerView"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Добавить партнёра",
+        "tags": [
+          "partners"
+        ],
+        "x-session-only": true
+      }
+    },
+    "/api/v1/partners/bots/{bot}": {
+      "delete": {
+        "operationId": "delete-partner-bot",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "bot",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Удалить бота партнёра",
+        "tags": [
+          "partners"
+        ],
+        "x-session-only": true
+      },
+      "put": {
+        "operationId": "update-partner-bot",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "bot",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PartnerBotBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartnerView"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Изменить бота партнёра",
+        "tags": [
+          "partners"
+        ],
+        "x-session-only": true
+      }
+    },
+    "/api/v1/partners/{id}": {
+      "delete": {
+        "operationId": "delete-partner",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Удалить партнёра",
+        "tags": [
+          "partners"
+        ],
+        "x-session-only": true
+      },
+      "put": {
+        "operationId": "update-partner",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PartnerBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartnerView"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Изменить партнёра",
+        "tags": [
+          "partners"
+        ],
+        "x-session-only": true
+      }
+    },
+    "/api/v1/partners/{id}/bots": {
+      "post": {
+        "operationId": "create-partner-bot",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PartnerBotBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartnerView"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Добавить бота партнёра",
+        "tags": [
+          "partners"
+        ],
+        "x-session-only": true
       }
     },
     "/api/v1/payments": {

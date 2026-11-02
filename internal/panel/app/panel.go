@@ -331,7 +331,7 @@ func NewPanel(st *store.Store, o Options) (*Panel, error) {
 		Referral: refs, Campaigns: camps, Discounts: sales, Partners: parts,
 		TopupWaiting: func(ctx context.Context, t db.Topup) { p.tellAdminOfTopup(ctx, t) }})
 	deps.Billing, deps.SubBase = p.Billing, subBase
-	deps.Referral, deps.Campaigns, deps.Agents = refs, camps, agts
+	deps.Referral, deps.Agents = refs, agts
 	deps.Discounts = sales
 	// The server's name in a backup's file name: its domain, else its address.
 	serverName := func(ctx context.Context) string {

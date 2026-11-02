@@ -571,6 +571,77 @@ export interface paths {
         patch: operations["update-campaign"];
         trace?: never;
     };
+    "/api/v1/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Какие карточки показывает главная и как пишет дату */
+        get: operations["get-dashboard"];
+        /** Настроить главную: карточки и дату с временем */
+        put: operations["put-dashboard"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/device-packs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Пакеты устройств */
+        get: operations["list-device-packs"];
+        put?: never;
+        /** Создать пакет устройств */
+        post: operations["create-device-pack"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/device-packs/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Изменить пакет устройств */
+        put: operations["update-device-pack"];
+        post?: never;
+        /** Убрать пакет устройств из продажи (в архив) */
+        delete: operations["delete-device-pack"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/device-packs/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Вернуть пакет устройств из архива */
+        post: operations["restore-device-pack"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/exit-dns": {
         parameters: {
             query?: never;
@@ -1048,6 +1119,68 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/monitor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Публичная страница мониторинга: включена, её ссылка и блоки */
+        get: operations["get-monitor"];
+        /**
+         * Включить или выключить страницу мониторинга и выбрать её блоки
+         * @description Пока пароль не задан, страница не открывается, даже если она включена.
+         */
+        put: operations["put-monitor"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/monitor/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Задать пароль страницы мониторинга
+         * @description Пароль не возвращается: панель хранит только его хеш. Старый пароль и все открытые сессии страницы перестают работать.
+         */
+        post: operations["set-monitor-password"];
+        /** Убрать пароль: страница закрывается */
+        delete: operations["clear-monitor-password"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/monitor/path": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Сменить адрес страницы мониторинга
+         * @description Старая ссылка перестаёт работать; пароль остаётся.
+         */
+        post: operations["rotate-monitor-path"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/node": {
         parameters: {
             query?: never;
@@ -1514,6 +1647,77 @@ export interface paths {
         post?: never;
         /** Убрать пакет в архив */
         delete: operations["archive-package"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/partners": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Партнёры */
+        get: operations["list-partners"];
+        put?: never;
+        /** Добавить партнёра */
+        post: operations["create-partner"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/partners/bots/{bot}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Изменить бота партнёра */
+        put: operations["update-partner-bot"];
+        post?: never;
+        /** Удалить бота партнёра */
+        delete: operations["delete-partner-bot"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/partners/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Изменить партнёра */
+        put: operations["update-partner"];
+        post?: never;
+        /** Удалить партнёра */
+        delete: operations["delete-partner"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/partners/{id}/bots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Добавить бота партнёра */
+        post: operations["create-partner-bot"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -4155,6 +4359,28 @@ export interface components {
             /** @description SNI для клиентов; пусто — как обычно */
             sni: string;
         };
+        CoefficientsView: {
+            /**
+             * Format: double
+             * @description Множитель устройств
+             */
+            devices: number;
+            /**
+             * Format: double
+             * @description Множитель срока
+             */
+            duration: number;
+            /**
+             * Format: double
+             * @description Множитель скорости
+             */
+            speed: number;
+            /**
+             * Format: double
+             * @description Множитель трафика: 1 — гигабайт сверх тарифа стоит как у самого тарифа
+             */
+            traffic: number;
+        };
         Cond: {
             header: string;
             not?: boolean;
@@ -4386,6 +4612,50 @@ export interface components {
              */
             until?: string;
         };
+        DevicePackBody: {
+            on_sale: boolean;
+            /**
+             * Format: int64
+             * @description Цена за месяц, в копейках
+             */
+            price_rub: number;
+            /** Format: int64 */
+            price_stars?: number;
+            /**
+             * Format: int64
+             * @description Сколько мест пакет добавляет (панель держит до 50 устройств)
+             */
+            slots: number;
+            /** Format: int64 */
+            sort: number;
+            title: string;
+        };
+        DevicePackView: {
+            archived: boolean;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: int64 */
+            id: number;
+            on_sale: boolean;
+            /**
+             * Format: int64
+             * @description Цена за месяц, в копейках
+             */
+            price_rub: number;
+            /**
+             * Format: int64
+             * @description Цена за месяц в Stars; без значения — только рубли
+             */
+            price_stars?: number;
+            /**
+             * Format: int64
+             * @description Сколько мест пакет добавляет к лимиту устройств тарифа
+             */
+            slots: number;
+            /** Format: int64 */
+            sort: number;
+            title: string;
+        };
         DeviceView: {
             /** Format: date-time */
             first_seen: string;
@@ -4545,6 +4815,10 @@ export interface components {
              * @description Сколько пользователей в папке, скрытые тоже
              */
             users: number;
+        };
+        FromNodes: {
+            enabled: boolean;
+            nodes?: number[];
         };
         GeoAnswer: {
             /** @description ISO 3166-1 alpha-2 */
@@ -4932,6 +5206,19 @@ export interface components {
             /** Format: int64 */
             total: number;
         };
+        Layout: {
+            /** @description Какие карточки показывает главная */
+            cards: {
+                [key: string]: boolean;
+            };
+            /**
+             * @description compact — день недели и дата, full — дата и время, large — то же крупно
+             * @enum {string}
+             */
+            date: "compact" | "full" | "large";
+            /** @description Писать время до секунды (для full и large) */
+            seconds: boolean;
+        };
         LegacyLinks: {
             /** @description Старые ссылки сейчас открываются: задан их путь, а для подписанных ещё и секрет старой панели */
             active: boolean;
@@ -5206,6 +5493,18 @@ export interface components {
              * @enum {string}
              */
             type?: "url-test" | "fallback" | "load-balance";
+        };
+        MonitorView: {
+            available: string[];
+            /** @description Что показывает страница */
+            blocks: string[];
+            /** @description Показывать страницу по публичной ссылке */
+            enabled: boolean;
+            has_password: boolean;
+            /** Format: int64 */
+            min_password: number;
+            /** @description Адрес страницы в ссылке */
+            path: string;
         };
         NextTariffInputBody: {
             /** Format: int64 */
@@ -5837,6 +6136,69 @@ export interface components {
             /** @description Заголовок превью; пусто — бренд */
             title: string;
         };
+        PartnerBody: {
+            name: string;
+            note: string;
+            /**
+             * Format: int64
+             * @description Свой Telegram-аккаунт партнёра: по его же коду комиссия не начисляется; 0 — не задан
+             */
+            owner_tg_id?: number;
+        };
+        PartnerBotBody: {
+            /** @description Токен бота партнёра; пусто — оставить прежний */
+            bot_token: string;
+            bot_username: string;
+            /** @description Свой код из латиницы, цифр, _ и -; пусто — выданный панелью */
+            code?: string;
+            /** Format: int64 */
+            commission_percent: number;
+            enabled: boolean;
+        };
+        PartnerBotView: {
+            /**
+             * Format: int64
+             * @description Баланс партнёра, копейки
+             */
+            balance_kop: number;
+            /** @description Токен бота партнёра; пусто у оператора поддержки */
+            bot_token?: string;
+            bot_username: string;
+            /** @description Код в /start partner_<code>, с которым приходят подписчики */
+            code: string;
+            /**
+             * Format: int64
+             * @description Процент с оплат подписчиков
+             */
+            commission_percent: number;
+            /** Format: date-time */
+            created_at: string;
+            enabled: boolean;
+            /** Format: int64 */
+            id: number;
+            /**
+             * Format: int64
+             * @description Начислено всего, копейки
+             */
+            turnover_kop: number;
+        };
+        PartnerView: {
+            /**
+             * Format: int64
+             * @description Сумма балансов ботов, копейки
+             */
+            balance_kop: number;
+            bots: components["schemas"]["PartnerBotView"][];
+            /** Format: int64 */
+            id: number;
+            name: string;
+            note: string;
+            /**
+             * Format: int64
+             * @description Свой Telegram-аккаунт партнёра; 0 — не задан
+             */
+            owner_tg_id?: number;
+        };
         PasskeyAddInputBody: {
             /** @description Ответ navigator.credentials.create() в JSON (PublicKeyCredential.toJSON()) */
             credential: unknown;
@@ -6100,6 +6462,8 @@ export interface components {
             /** @description Переменные — см. SettingsView.sub_title */
             sub_title?: string;
             sub_xray_json?: boolean;
+            /** @description Отдавать подписку с нод: {enabled, nodes: [id]}; домен ссылки — sub_domain */
+            subs_from_nodes?: components["schemas"]["FromNodes"];
             support_access?: boolean;
             /** @description https://… или tg://… */
             support_url?: string;
@@ -6197,6 +6561,13 @@ export interface components {
             available: components["schemas"]["PaymentSettingsViewAvailableStruct"];
             /** @description Внутренний баланс клиентов с пополнением по скриншоту */
             balance: components["schemas"]["BalanceSettings"];
+            /** @description Коэффициенты конструктора: во сколько раз дороже единица роста по сравнению с ценой самого тарифа (1 — как у тарифа) */
+            coefficients: components["schemas"]["CoefficientsView"];
+            /**
+             * Format: int64
+             * @description Тариф-основа конструктора: покупатель сам собирает трафик, устройства, скорость и срок, цена считается от цены первого срока тарифа и коэффициентов; null — конструктора нет. Тариф может быть скрыт из витрины: в конструкторе он продаётся по частям, а сам тариф — по коду доступа
+             */
+            custom_tariff_id: number | null;
             /** @description Продажа подписок: выключено — бот и Mini App ничего не продают, новые счета не создаются, уже открытые засчитываются */
             enabled: boolean;
             /** @description Докупленные устройства остаются при продлении, и продление стоит дороже на их цену; иначе они действуют до конца срока */
@@ -6530,6 +6901,10 @@ export interface components {
             /** Format: int64 */
             successful_activations: number;
         };
+        PutMonitorInputBody: {
+            blocks: string[];
+            enabled: boolean;
+        };
         PutSubAppsInputBody: {
             /** @description Идентификаторы заблокированных приложений из списка */
             blocked: string[];
@@ -6771,6 +7146,10 @@ export interface components {
             tls13: boolean;
             x25519: boolean;
         };
+        RotateMonitorInputBody: {
+            /** @description Новый адрес страницы; старый перестаёт работать */
+            path: string;
+        };
         RouteDirectSet: {
             id: string;
             name: string;
@@ -6810,6 +7189,7 @@ export interface components {
                 [key: string]: string;
             };
             tune?: components["schemas"]["Tune"];
+            youtube_exit?: string;
         };
         RoutesCatalogOutputBody: {
             direct: components["schemas"]["RouteDirectSet"][];
@@ -6930,6 +7310,10 @@ export interface components {
              */
             outbound: "direct" | "warp" | "node";
         };
+        SetMonitorPasswordInputBody: {
+            /** @description Пароль страницы; старый и все его сессии перестают работать */
+            password: string;
+        };
         SetNodeBalanceInputBody: {
             /**
              * Format: int64
@@ -7034,6 +7418,8 @@ export interface components {
              * @description Сколько дней хранится журнал запросов подписок: время, адрес, приложение, сработавшее правило, ответ; 0 — журнал выключен
              */
             sub_log_days: number;
+            /** @description Выбранные ноды: когда каждая последний раз получала подписки и отвечает ли по ссылкам */
+            sub_nodes?: components["schemas"]["SubNodeView"][];
             /**
              * Format: int64
              * @description Отдельный порт подписок; 0 — порт панели. Порт панели отдаёт подписки в любом случае
@@ -7054,6 +7440,8 @@ export interface components {
             sub_title: string;
             /** @description Happ и INCY получают полные конфиги Xray (JSON) вместо ссылок: маршрутизация, DNS и «Авто» панели доходят до них; запрос с ?format= получает свой формат в любом случае */
             sub_xray_json: boolean;
+            /** @description Отдавать подписку с нод: выбранные ноды сами отвечают по ссылкам подписки профилями, которые панель им присылает, — ссылки работают, когда панель недоступна. Домен ссылки остаётся доменом подписки (sub_domain): направьте его на эти ноды */
+            subs_from_nodes: components["schemas"]["FromNodes"];
             /** @description Разрешить доступ для поддержки (Настройки → Безопасность). Выключено: новый доступ не выдать, действующий закрывается. MIKAN_SUPPORT_ACCESS=off в .env сервера выключает его независимо от этой настройки */
             support_access: boolean;
             support_url: string;
@@ -7249,6 +7637,30 @@ export interface components {
             outcome: "served" | "stub" | "blocked" | "dropped";
             /** @description Что решило: имя правила, builtin:ssr, builtin:old, apps; пусто — ничего */
             rule: string;
+        };
+        SubNodeView: {
+            /** Format: int64 */
+            bytes?: number;
+            enabled: boolean;
+            /** @description Почему последняя отправка не удалась */
+            error?: string;
+            /** Format: int64 */
+            id: number;
+            /**
+             * Format: date-time
+             * @description Когда панель последний раз отправила ноде подписки
+             */
+            last_push?: string;
+            name: string;
+            /**
+             * Format: int64
+             * @description Сколько подписок нода хранит по последней отправке
+             */
+            records: number;
+            /** @description Нода отвечает по ссылкам подписки */
+            serving: boolean;
+            /** @description Почему не отвечает: subs_no_port, subs_no_cert или subs_off */
+            serving_error?: string;
         };
         SubPageView: {
             background?: components["schemas"]["PageAsset"];
@@ -9714,6 +10126,225 @@ export interface operations {
             };
         };
     };
+    "get-dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Layout"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "put-dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Layout"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Layout"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-device-packs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DevicePackView"][];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "create-device-pack": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DevicePackBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DevicePackView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "update-device-pack": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DevicePackBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DevicePackView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "delete-device-pack": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "restore-device-pack": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DevicePackView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "get-exit-dns": {
         parameters: {
             query?: never;
@@ -10892,6 +11523,163 @@ export interface operations {
             };
         };
     };
+    "get-monitor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MonitorView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "put-monitor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PutMonitorInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MonitorView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "set-monitor-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetMonitorPasswordInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MonitorView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "clear-monitor-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MonitorView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "rotate-monitor-path": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RotateMonitorInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MonitorView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "node-health": {
         parameters: {
             query?: {
@@ -11972,6 +12760,231 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-partners": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PartnerView"][];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "create-partner": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PartnerBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PartnerView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "update-partner-bot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bot: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PartnerBotBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PartnerView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "delete-partner-bot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bot: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "update-partner": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PartnerBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PartnerView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "delete-partner": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "create-partner-bot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PartnerBotBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PartnerView"];
+                };
             };
             /** @description Error */
             default: {
