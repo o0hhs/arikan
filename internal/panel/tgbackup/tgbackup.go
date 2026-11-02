@@ -344,71 +344,11 @@ var workFactor int
 const packOverhead = 1 << 20
 
 // Make dumps the database into dir (a private directory of the caller's), packs the dump
-// as data/panel/backup.dump (where `mikan restore` looks for it) and encrypts the archive
+// as data/panel/backup.dump (where `arikan restore` looks for it) and encrypts the archive
 // into dir/backup.tar.gz.age, streaming from file to file. A dump too big for a bot is
 // refused before it is packed.
 func Make(ctx context.Context, dump Dumper, dir, password string, now time.Time) (path string, size int64, err error) {
-	dumpPath := filepath.Join(dir, "backup.dump")
-	dctx, cancel := context.WithTimeout(ctx, DumpTimeout)
-	err = dump(dctx, dumpPath)
-	cancel()
-	if err != nil {
-		return "", 0, fmt.Errorf("%w: %v", ErrDump, err)
-	}
-	defer os.Remove(dumpPath)
-	in, err := os.Open(dumpPath)
-	if err != nil {
-		return "", 0, err
-	}
-	defer in.Close()
-	fi, err := in.Stat()
-	if err != nil {
-		return "", 0, err
-	}
-	if fi.Size() > tgapi.MaxDocument-packOverhead {
-		return "", 0, ErrTooBig
-	}
-	r, err := age.NewScryptRecipient(password)
-	if err != nil {
-		return "", 0, err
-	}
-	if workFactor > 0 {
-		r.SetWorkFactor(workFactor)
-	}
-	path = filepath.Join(dir, "backup.tar.gz.age")
-	out, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
-	if err != nil {
-		return "", 0, err
-	}
-	err = func() error {
-		enc, err := age.Encrypt(out, r)
-		if err != nil {
-			return err
-		}
-		if err := pack(enc, in, fi.Size(), now); err != nil {
-			return err
-		}
-		if err := enc.Close(); err != nil {
-			return err
-		}
-		return out.Sync()
-	}()
-	if cerr := out.Close(); err == nil {
-		err = cerr
-	}
-	if err != nil {
-		os.Remove(path)
-		return "", 0, err
-	}
-	st, err := os.Stat(path)
-	if err != nil {
-		return "", 0, err
-	}
-	if st.Size() > tgapi.MaxDocument {
-		os.Remove(path)
-		return "", 0, ErrTooBig
-	}
-	return path, st.Size(), nil
+	return makeArchive(ctx, dump, dir, password, now, tgapi.MaxDocument)
 }
 
 // pack writes a tar.gz with the directories data and data/panel and the dump in it.
@@ -447,4 +387,124 @@ func safeName(s string) string {
 		return "panel"
 	}
 	return s
+}
+
+func makeArchive(ctx context.Context, dump Dumper, dir, password string, now time.Time, maxSize int64) (path string, size int64, err error) {
+	dumpPath := filepath.Join(dir, "backup.dump")
+	dctx, cancel := context.WithTimeout(ctx, DumpTimeout)
+	err = dump(dctx, dumpPath)
+	cancel()
+	if err != nil {
+		return "", 0, fmt.Errorf("%w: %v", ErrDump, err)
+	}
+	defer os.Remove(dumpPath)
+	in, err := os.Open(dumpPath)
+	if err != nil {
+		return "", 0, err
+	}
+	defer in.Close()
+	fi, err := in.Stat()
+	if err != nil {
+		return "", 0, err
+	}
+	if maxSize > 0 && fi.Size() > maxSize-packOverhead {
+		return "", 0, ErrTooBig
+	}
+	r, err := age.NewScryptRecipient(password)
+	if err != nil {
+		return "", 0, err
+	}
+	if workFactor > 0 {
+		r.SetWorkFactor(workFactor)
+	}
+	path = filepath.Join(dir, "backup.tar.gz.age")
+	out, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return "", 0, err
+	}
+	err = func() error {
+		enc, err := age.Encrypt(out, r)
+		if err != nil {
+			return err
+		}
+		if err := pack(enc, in, fi.Size(), now); err != nil {
+			return err
+		}
+		if err := enc.Close(); err != nil {
+			return err
+		}
+		return out.Sync()
+	}()
+	if cerr := out.Close(); err == nil {
+		err = cerr
+	}
+	if err != nil {
+		os.Remove(path)
+		return "", 0, err
+	}
+	st, err := os.Stat(path)
+	if err != nil {
+		return "", 0, err
+	}
+	if maxSize > 0 && st.Size() > maxSize {
+		os.Remove(path)
+		return "", 0, ErrTooBig
+	}
+	return path, st.Size(), nil
+}
+
+// MakeArchive makes the same archive without the bot's 50 MB limit: an S3 bucket takes
+// what the database is, and the Telegram file size is not its concern.
+func MakeArchive(ctx context.Context, dump Dumper, dir, password string, now time.Time) (path string, size int64, err error) {
+	return makeArchive(ctx, dump, dir, password, now, 0)
+}
+
+// Unpack decrypts an archive made by Make and writes data/panel/backup.dump into dir,
+// returning its path. Only that one entry is accepted: a backup from a bucket or a chat
+// must not be able to write anywhere else.
+func Unpack(archivePath, dir, password string) (string, error) {
+	in, err := os.Open(archivePath)
+	if err != nil {
+		return "", err
+	}
+	defer in.Close()
+	id, err := age.NewScryptIdentity(password)
+	if err != nil {
+		return "", err
+	}
+	plain, err := age.Decrypt(in, id)
+	if err != nil {
+		return "", err
+	}
+	gz, err := gzip.NewReader(plain)
+	if err != nil {
+		return "", err
+	}
+	defer gz.Close()
+	tr := tar.NewReader(gz)
+	for {
+		h, err := tr.Next()
+		if err == io.EOF {
+			return "", errors.New("backup has no data/panel/backup.dump")
+		}
+		if err != nil {
+			return "", err
+		}
+		if h.Name != "data/panel/backup.dump" || h.Typeflag != tar.TypeReg {
+			continue
+		}
+		outPath := filepath.Join(dir, "backup.dump")
+		out, err := os.OpenFile(outPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+		if err != nil {
+			return "", err
+		}
+		_, copyErr := io.Copy(out, tr)
+		syncErr := out.Sync()
+		closeErr := out.Close()
+		if err := errors.Join(copyErr, syncErr, closeErr); err != nil {
+			os.Remove(outPath)
+			return "", err
+		}
+		return outPath, nil
+	}
 }

@@ -23,7 +23,7 @@ func (q *Queries) CountAdmins(ctx context.Context) (int64, error) {
 
 const createAdmin = `-- name: CreateAdmin :one
 INSERT INTO admins (username, password_hash, created_at) VALUES ($1, $2, $3)
-RETURNING id, username, password_hash, totp_secret, recovery_codes, created_at, last_login_at
+RETURNING id, username, password_hash, totp_secret, recovery_codes, created_at, last_login_at, totp_step, role, permissions
 `
 
 type CreateAdminParams struct {
@@ -43,6 +43,9 @@ func (q *Queries) CreateAdmin(ctx context.Context, arg CreateAdminParams) (Admin
 		&i.RecoveryCodes,
 		&i.CreatedAt,
 		&i.LastLoginAt,
+		&i.TotpStep,
+		&i.Role,
+		&i.Permissions,
 	)
 	return i, err
 }
@@ -127,7 +130,7 @@ func (q *Queries) DeleteStaleSessions(ctx context.Context, arg DeleteStaleSessio
 }
 
 const getAdmin = `-- name: GetAdmin :one
-SELECT id, username, password_hash, totp_secret, recovery_codes, created_at, last_login_at FROM admins WHERE id = $1
+SELECT id, username, password_hash, totp_secret, recovery_codes, created_at, last_login_at, totp_step, role, permissions FROM admins WHERE id = $1
 `
 
 func (q *Queries) GetAdmin(ctx context.Context, id int64) (Admin, error) {
@@ -141,12 +144,15 @@ func (q *Queries) GetAdmin(ctx context.Context, id int64) (Admin, error) {
 		&i.RecoveryCodes,
 		&i.CreatedAt,
 		&i.LastLoginAt,
+		&i.TotpStep,
+		&i.Role,
+		&i.Permissions,
 	)
 	return i, err
 }
 
 const getAdminByUsername = `-- name: GetAdminByUsername :one
-SELECT id, username, password_hash, totp_secret, recovery_codes, created_at, last_login_at FROM admins WHERE username = $1
+SELECT id, username, password_hash, totp_secret, recovery_codes, created_at, last_login_at, totp_step, role, permissions FROM admins WHERE username = $1
 `
 
 func (q *Queries) GetAdminByUsername(ctx context.Context, username string) (Admin, error) {
@@ -160,6 +166,9 @@ func (q *Queries) GetAdminByUsername(ctx context.Context, username string) (Admi
 		&i.RecoveryCodes,
 		&i.CreatedAt,
 		&i.LastLoginAt,
+		&i.TotpStep,
+		&i.Role,
+		&i.Permissions,
 	)
 	return i, err
 }
@@ -263,7 +272,7 @@ func (q *Queries) ListAdminSessions(ctx context.Context, adminID int64) ([]Sessi
 }
 
 const listAdmins = `-- name: ListAdmins :many
-SELECT id, username, password_hash, totp_secret, recovery_codes, created_at, last_login_at FROM admins ORDER BY id
+SELECT id, username, password_hash, totp_secret, recovery_codes, created_at, last_login_at, totp_step, role, permissions FROM admins ORDER BY id
 `
 
 func (q *Queries) ListAdmins(ctx context.Context) ([]Admin, error) {
@@ -283,6 +292,9 @@ func (q *Queries) ListAdmins(ctx context.Context) ([]Admin, error) {
 			&i.RecoveryCodes,
 			&i.CreatedAt,
 			&i.LastLoginAt,
+			&i.TotpStep,
+			&i.Role,
+			&i.Permissions,
 		); err != nil {
 			return nil, err
 		}

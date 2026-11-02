@@ -90,6 +90,9 @@ type Admin struct {
 	RecoveryCodes sql.NullString
 	CreatedAt     int64
 	LastLoginAt   sql.NullInt64
+	TotpStep      int64
+	Role          string
+	Permissions   string
 }
 
 type AdminPasskey struct {
@@ -100,6 +103,54 @@ type AdminPasskey struct {
 	Credential   string
 	CreatedAt    int64
 	LastUsedAt   sql.NullInt64
+}
+
+type AdminUser struct {
+	TgID      int64
+	Username  string
+	Role      string
+	CreatedAt int64
+	CreatedBy sql.NullInt64
+}
+
+type AgentCommission struct {
+	ID         int64
+	AgentID    int64
+	CampaignID int64
+	PaymentID  sql.NullInt64
+	Kind       string
+	Percent    int64
+	SaleAmount int64
+	Amount     int64
+	Currency   string
+	CreatedAt  int64
+	RevertedAt sql.NullInt64
+}
+
+type AgentPayout struct {
+	ID        int64
+	AgentID   int64
+	Amount    int64
+	Note      string
+	CreatedAt int64
+}
+
+type AgentSession struct {
+	IDHash     string
+	AgentID    int64
+	CsrfToken  string
+	CreatedAt  int64
+	LastSeenAt int64
+	ExpiresAt  int64
+	Ip         string
+	UserAgent  string
+}
+
+type AgentUsage struct {
+	AgentID   int64
+	Visits    int64
+	FirstSeen int64
+	LastSeen  int64
 }
 
 type ApiKey struct {
@@ -115,6 +166,23 @@ type ApiKey struct {
 	LastIp     string
 }
 
+type ApprovalRequest struct {
+	ID          int64
+	Action      string
+	TargetType  string
+	TargetID    string
+	Summary     string
+	Payload     string
+	Status      string
+	RequestedBy int64
+	RequestedAt int64
+	DecidedBy   sql.NullInt64
+	DecidedAt   sql.NullInt64
+	ExpiresAt   int64
+	UsedAt      sql.NullInt64
+	ExecutingAt sql.NullInt64
+}
+
 type AuditLog struct {
 	ID         int64
 	Ts         int64
@@ -124,6 +192,34 @@ type AuditLog struct {
 	TargetID   sql.NullString
 	Ip         sql.NullString
 	Details    sql.NullString
+}
+
+type AutomationRule struct {
+	ID              int64
+	Name            string
+	Enabled         int32
+	Trigger         string
+	Conditions      string
+	Actions         string
+	CooldownSeconds int64
+	DryRun          int32
+	CreatedAt       int64
+	UpdatedAt       int64
+	LastRunAt       sql.NullInt64
+	RunsCount       int64
+}
+
+type AutomationRun struct {
+	ID        int64
+	RuleID    int64
+	EventID   int64
+	EventType string
+	UserID    sql.NullInt64
+	TgID      sql.NullInt64
+	Status    string
+	DryRun    int32
+	Detail    string
+	CreatedAt int64
 }
 
 type Balance struct {
@@ -167,6 +263,50 @@ type Campaign struct {
 	CreatedAt int64
 }
 
+type CampaignAgent struct {
+	ID           int64
+	Login        string
+	PasswordHash string
+	Note         string
+	Disabled     int32
+	CreatedAt    int64
+	UpdatedAt    int64
+	TgID         sql.NullInt64
+}
+
+type CampaignEvent struct {
+	ID         int64
+	CampaignID int64
+	ChatID     int64
+	PaymentID  sql.NullInt64
+	Kind       string
+	Amount     int64
+	Currency   string
+	CreatedAt  int64
+	RevertedAt sql.NullInt64
+}
+
+type CampaignTag struct {
+	ID           int64
+	Tag          string
+	Name         string
+	Note         string
+	Enabled      int32
+	Deleted      int32
+	CreatedAt    int64
+	UpdatedAt    int64
+	AgentID      sql.NullInt64
+	AgentPercent sql.NullInt64
+}
+
+type CampaignVisit struct {
+	ID         int64
+	CampaignID int64
+	ChatID     int64
+	Tag        string
+	FirstSeen  int64
+}
+
 type Device struct {
 	UserID    int64
 	Ip        string
@@ -184,10 +324,71 @@ type DeviceBan struct {
 	Until    sql.NullInt64
 }
 
+type DevicePack struct {
+	ID         int64
+	Title      string
+	Slots      int32
+	PriceRub   int64
+	PriceStars sql.NullInt64
+	Sort       int64
+	OnSale     bool
+	Archived   bool
+	CreatedAt  int64
+}
+
 type DeviceUnbind struct {
 	ID     int64
 	UserID int64
 	At     int64
+}
+
+type Discount struct {
+	ID             int64
+	Name           string
+	Description    string
+	Type           string
+	Value          int64
+	Currency       string
+	StartsAt       int64
+	EndsAt         int64
+	MaxUses        sql.NullInt64
+	UsedCount      int64
+	MinOrder       int64
+	MaxDiscount    int64
+	NotifyEnabled  int64
+	NotifyDays     string
+	NotifyAudience string
+	NotifyText     string
+	Enabled        int64
+	Deleted        int64
+	CreatedAt      int64
+	CreatedBy      sql.NullInt64
+}
+
+type DiscountNotice struct {
+	DiscountID int64
+	TgID       int64
+	Kind       string
+	SentAt     int64
+}
+
+type DiscountRedemption struct {
+	ID             int64
+	DiscountID     int64
+	UserID         sql.NullInt64
+	TgID           int64
+	PaymentID      sql.NullInt64
+	Status         string
+	RedeemedAt     int64
+	DiscountAmount int64
+	OriginalAmount int64
+	FinalAmount    int64
+	Currency       string
+}
+
+type DiscountTariff struct {
+	DiscountID int64
+	TariffID   int64
 }
 
 type FreePlan struct {
@@ -217,6 +418,9 @@ type Inbound struct {
 	Listen      string
 	NoAuto      int64
 	Tags        string
+	OutboundID  sql.NullInt64
+	AutoInclude int64
+	ExitWarp    int64
 }
 
 type InboundEvent struct {
@@ -304,6 +508,10 @@ type Node struct {
 	ResetDay        int64
 	TrafficAlert    int64
 	Tags            string
+	Emergency       bool
+	EmergencySpeed  sql.NullInt32
+	AutoInclude     int64
+	InboundApi      int64
 }
 
 type NodeAssignment struct {
@@ -311,6 +519,15 @@ type NodeAssignment struct {
 	BalanceGroup string
 	NodeID       int64
 	AssignedAt   int64
+}
+
+type NodeClient struct {
+	UserID    int64
+	NodeID    int64
+	Up        int64
+	Down      int64
+	FirstSeen int64
+	LastSeen  int64
 }
 
 type NodeRelay struct {
@@ -357,6 +574,22 @@ type NodeTrafficHourly struct {
 	RelayDown int64
 }
 
+type NodeTurn struct {
+	NodeID     int64
+	Enabled    int64
+	InboundID  int64
+	ListenPort string
+	ClientHost string
+	ClientPort string
+	Streams    int64
+	Udp        int64
+	Title      string
+	VkLinks    string
+	BinaryPath string
+	CreatedAt  int64
+	UpdatedAt  int64
+}
+
 type NodeWarp struct {
 	NodeID        int64
 	Enabled       int64
@@ -376,33 +609,86 @@ type NodeWarp struct {
 	UpdatedAt     int64
 }
 
+type Outbound struct {
+	ID        int64
+	Name      string
+	Link      string
+	Enabled   int64
+	CreatedAt int64
+	UpdatedAt int64
+}
+
 type PackageTariff struct {
 	PackageID int64
 	TariffID  int64
 }
 
+type Partner struct {
+	ID        int64
+	Name      string
+	Note      string
+	OwnerTgID int64
+	CreatedAt int64
+}
+
+type PartnerBot struct {
+	ID                int64
+	PartnerID         int64
+	Code              string
+	BotUsername       string
+	BotToken          string
+	CommissionPercent int32
+	BalanceKop        int64
+	Enabled           bool
+	CreatedAt         int64
+}
+
+type PartnerTransaction struct {
+	ID           int64
+	PartnerBotID int64
+	PaymentID    int64
+	Kind         string
+	AmountKop    int64
+	CreatedAt    int64
+}
+
 type Payment struct {
-	ID         int64
-	Provider   string
-	Payload    string
-	ExternalID sql.NullString
-	TgID       int64
-	Kind       string
-	UserID     sql.NullInt64
-	TariffID   sql.NullInt64
-	PackageID  sql.NullInt64
-	TariffName string
-	Amount     int64
-	Currency   string
-	Status     string
-	Error      string
-	PayUrl     string
-	CreatedAt  int64
-	PaidAt     sql.NullInt64
-	AppliedAt  sql.NullInt64
-	RefundedAt sql.NullInt64
-	TermDays   sql.NullInt64
-	Revert     string
+	ID           int64
+	Provider     string
+	Payload      string
+	ExternalID   sql.NullString
+	TgID         int64
+	Kind         string
+	UserID       sql.NullInt64
+	TariffID     sql.NullInt64
+	PackageID    sql.NullInt64
+	TariffName   string
+	Amount       int64
+	Currency     string
+	Status       string
+	Error        string
+	PayUrl       string
+	CreatedAt    int64
+	PaidAt       sql.NullInt64
+	AppliedAt    sql.NullInt64
+	RefundedAt   sql.NullInt64
+	TermDays     sql.NullInt64
+	Revert       string
+	Custom       string
+	CustomBaseID sql.NullInt64
+	DevicePackID sql.NullInt64
+	PartnerBotID sql.NullInt64
+}
+
+type PromoAccess struct {
+	ID        int64
+	PromoID   int64
+	TariffID  int64
+	UserID    sql.NullInt64
+	TgID      int64
+	GrantedAt int64
+	ExpiresAt sql.NullInt64
+	Note      string
 }
 
 type PromoCode struct {
@@ -429,6 +715,8 @@ type PromoCode struct {
 	Deleted           int64
 	CreatedAt         int64
 	CreatedBy         sql.NullInt64
+	AccessMode        string
+	AccessTtl         int64
 }
 
 type PromoRedemption struct {
@@ -450,10 +738,98 @@ type PromoRedemption struct {
 	Note            string
 }
 
+type Referral struct {
+	ID           int64
+	ReferrerTgID int64
+	RefereeTgID  int64
+	Code         string
+	CreatedAt    int64
+	FirstPaidAt  sql.NullInt64
+}
+
+type ReferralAccount struct {
+	TgID      int64
+	Code      string
+	Balance   int64
+	CreatedAt int64
+	UpdatedAt int64
+}
+
+type ReferralCounter struct {
+	TgID   int64
+	RuleID string
+	Paid   int64
+}
+
+type ReferralReward struct {
+	ID           int64
+	ReferrerTgID int64
+	ReferralID   int64
+	PaymentID    sql.NullInt64
+	RuleID       string
+	Kind         string
+	Amount       int64
+	Days         int64
+	EveryN       int64
+	Currency     string
+	CreatedAt    int64
+	RevertedAt   sql.NullInt64
+}
+
+type ReferralRewardGrant struct {
+	ID                  int64
+	ReferrerTgID        int64
+	ReferralID          int64
+	PaymentID           sql.NullInt64
+	RuleID              string
+	TariffID            sql.NullInt64
+	Days                int64
+	Price               int64
+	Status              string
+	RunAt               int64
+	EndsAt              sql.NullInt64
+	RewardID            sql.NullInt64
+	RevertedAt          sql.NullInt64
+	CreatedAt           int64
+	UpdatedAt           int64
+	BeforeUserID        sql.NullInt64
+	BeforeStatus        string
+	BeforeTariffID      sql.NullInt64
+	BeforeTrafficLimit  sql.NullInt64
+	BeforeDeviceLimit   sql.NullInt64
+	BeforeSpeedLimit    sql.NullInt64
+	BeforeResetStrategy string
+	BeforeDeviceMode    string
+	BeforePeriodDays    int64
+	BeforePeriodStart   int64
+	BeforeExpiresAt     sql.NullInt64
+	BeforeBillingDay    sql.NullInt64
+}
+
+type ReferralSpend struct {
+	ID         int64
+	PaymentID  sql.NullInt64
+	TgID       int64
+	Amount     int64
+	CreatedAt  int64
+	RevertedAt sql.NullInt64
+}
+
 type RelayUser struct {
 	ExitNodeID int64
 	SrcNodeID  int64
 	Uuid       string
+}
+
+type S3Backup struct {
+	ID        int64
+	ObjectKey string
+	Size      int64
+	Etag      string
+	Kind      string
+	Status    string
+	Error     string
+	CreatedAt int64
 }
 
 type Session struct {
@@ -595,6 +971,7 @@ type Tariff struct {
 	DevicePriceRub   sql.NullInt64
 	DeviceExtraMax   int64
 	ChosenServers    int64
+	Closed           string
 }
 
 type TariffGift struct {
@@ -635,16 +1012,17 @@ type TariffTerm struct {
 }
 
 type TgChat struct {
-	TgID       int64
-	Username   string
-	FirstName  string
-	MenuMsgID  int64
-	Current    int64
-	Blocked    int64
-	CreatedAt  int64
-	UpdatedAt  int64
-	CampaignID sql.NullInt64
-	CampaignAt sql.NullInt64
+	TgID         int64
+	Username     string
+	FirstName    string
+	MenuMsgID    int64
+	Current      int64
+	Blocked      int64
+	CreatedAt    int64
+	UpdatedAt    int64
+	CampaignID   sql.NullInt64
+	CampaignAt   sql.NullInt64
+	PartnerBotID sql.NullInt64
 }
 
 type TgClient struct {
@@ -782,6 +1160,8 @@ type User struct {
 	DeviceMode        string
 	ExtraDevices      int64
 	ExtraDevicesUntil sql.NullInt64
+	DevicePackID      sql.NullInt64
+	PartnerBotID      sql.NullInt64
 }
 
 type UserFolder struct {

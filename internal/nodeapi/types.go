@@ -487,17 +487,6 @@ type WarpStatus struct {
 // names are [a-z0-9-].
 const RelayListener = "mikan~relay"
 
-// Relay is a node's door for other nodes of the panel: a VLESS REALITY listener with a
-// key per source node. Its connections carry no subscriber, so they pass the per-user
-// accounting and limits (the source node already applied them); the REJECT rules still
-// hold. Where the relay's traffic leaves is decided like any inbound's: IN-NAME rules of
-// Warp.Inbounds or an Exit's Inbounds may name RelayListener.
-type Relay struct {
-	Port   string          `json:"port"`
-	Config json.RawMessage `json:"config"` // proto.Template as JSON
-	Users  []Slot          `json:"users"`  // one per source node
-}
-
 // Exit is another node as an outbound: Proxy is the mihomo proxy reaching its relay,
 // Inbounds the local listeners (RelayListener included) whose traffic goes there.
 type Exit struct {
@@ -627,3 +616,43 @@ const (
 	CheckFail = "fail"
 	CheckSkip = "skip"
 )
+
+// Turn is the "traffic inside a VK call" server on a node: what users reach through the
+// TURN servers of VK calls, where a whitelist lets nothing else out. The node runs the
+// server, which unwraps the DTLS the client sends and hands it to Target - a port of an
+// inbound of this node, so the users' keys, limits and accounting stay the inbound's own.
+type Turn struct {
+	Listen string `json:"listen"` // "0.0.0.0:56000"
+	Target string `json:"target"` // "127.0.0.1:443"
+	// VLESS forwards TCP connections (VLESS, XHTTP, REALITY) instead of UDP packets
+	// (WireGuard, Hysteria2): the client app speaks to the target through the tunnel as
+	// if it were the target's own address.
+	VLESS  bool   `json:"vless,omitempty"`
+	Binary string `json:"binary,omitempty"` // the server binary; "" = the one in the image
+}
+
+// TurnStatus is the node's TURN server as it is now.
+type TurnStatus struct {
+	Configured bool      `json:"configured"`
+	Running    bool      `json:"running"`
+	PID        int       `json:"pid,omitempty"`
+	Since      time.Time `json:"since,omitempty"`    // when the current run started
+	Restarts   int       `json:"restarts,omitempty"` // since the node started
+	// Error is a stable code: no_binary | bad_config | exited | failed. Detail says the
+	// same in words for the admin (no secrets).
+	Error     string    `json:"error,omitempty"`
+	Detail    string    `json:"detail,omitempty"`
+	Log       []string  `json:"log,omitempty"` // the last lines of the server's output
+	CheckedAt time.Time `json:"checked_at"`
+}
+
+// Relay is a node's door for other nodes of the panel: a VLESS REALITY listener with a
+// key per source node. Its connections carry no subscriber, so they pass the per-user
+// accounting and limits (the source node already applied them); the REJECT rules still
+// hold. Where the relay's traffic leaves is decided like any inbound's: IN-NAME rules of
+// Warp.Inbounds or an Exit's Inbounds may name RelayListener.
+type Relay struct {
+	Port   string          `json:"port"`
+	Config json.RawMessage `json:"config"` // proto.Template as JSON
+	Users  []Slot          `json:"users"`  // one per source node
+}

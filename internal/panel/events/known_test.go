@@ -30,3 +30,17 @@ func TestKnownTypes(t *testing.T) {
 		}
 	}
 }
+
+// The fork's types go into Docs with the upstream's: the bot's triggers are the documented
+// list, and a type only in the consts is one no rule can listen to.
+func TestForkTypesAreDocumented(t *testing.T) {
+	seen := map[string]bool{}
+	for _, d := range events.Docs {
+		seen[d.Type] = true
+	}
+	for _, typ := range []string{events.UserInactive, events.DiscountEnding, events.PaymentFailed} {
+		if !seen[typ] {
+			t.Errorf("%s is in the consts but not in Docs", typ)
+		}
+	}
+}

@@ -45,6 +45,46 @@ func (q *Queries) PruneUserSites(ctx context.Context, day int64) (int64, error) 
 	return result.RowsAffected()
 }
 
+const topUserSites = `-- name: TopUserSites :many
+SELECT site, sum(up)::bigint AS up, sum(down)::bigint AS down FROM user_sites
+WHERE day >= $1
+GROUP BY site ORDER BY sum(up) + sum(down) DESC LIMIT $2
+`
+
+type TopUserSitesParams struct {
+	Since int64
+	Lim   int32
+}
+
+type TopUserSitesRow struct {
+	Site string
+	Up   int64
+	Down int64
+}
+
+func (q *Queries) TopUserSites(ctx context.Context, arg TopUserSitesParams) ([]TopUserSitesRow, error) {
+	rows, err := q.db.QueryContext(ctx, topUserSites, arg.Since, arg.Lim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []TopUserSitesRow{}
+	for rows.Next() {
+		var i TopUserSitesRow
+		if err := rows.Scan(&i.Site, &i.Up, &i.Down); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const userSites = `-- name: UserSites :many
 SELECT site, sum(up)::bigint AS up, sum(down)::bigint AS down FROM user_sites
 WHERE user_id = $1 AND day >= $2

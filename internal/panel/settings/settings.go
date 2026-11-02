@@ -142,6 +142,12 @@ const (
 	// KeySubPage is the subscription page as the admin built it (subpage.Config): its look,
 	// blocks, apps and own CSS; unset: the page as it always was.
 	KeySubPage = "sub_page"
+	// KeyDashboard is the panel's own front page as the admin set it up (dashboard.Layout):
+	// which cards it shows and how it dates them; unset: all of them, as they always were.
+	KeyDashboard = "dashboard"
+	// KeyMonitor is the public monitoring page (monitor.Config): its own address, its
+	// password and what it shows. Off until the admin sets a password.
+	KeyMonitor = "monitor"
 )
 
 // Switch is an on/off setting with its default: read it with On, so the default lives
