@@ -18,19 +18,19 @@ import (
 )
 
 type PaymentSettingsView struct {
-	Enabled            bool            `json:"enabled" doc:"Продажа подписок: выключено — бот и Mini App ничего не продают, новые счета не создаются, уже открытые засчитываются"`
-	Stars              bool            `json:"stars" doc:"Telegram Stars: нужен только запущенный бот"`
-	AllowNew           bool            `json:"allow_new" doc:"Новые люди могут купить подписку в боте; иначе — только продление"`
-	RenewResetsTraffic bool            `json:"renew_resets_traffic" doc:"Оплаченное продление обнуляет трафик и начинает новый период; иначе только добавляет срок"`
-	TrialTariffID      *int64          `json:"trial_tariff_id" doc:"Тариф пробного периода: один раз на Telegram-аккаунт без подписки и оплат, кнопка в приветствии бота; null — пробного периода нет. Работает и при выключенной продаже"`
-	TrialStars         int64           `json:"trial_stars" doc:"Цена пробного периода в Stars; 0 вместе с trial_rub — бесплатно"`
-	TrialRub           int64           `json:"trial_rub" doc:"Цена пробного периода в копейках; с ценой пробный период покупают один раз в боте и Mini App, нужна включённая продажа"`
-	Trials             int64           `json:"trials" doc:"Сколько пробных подписок выдано"`
-	FreeTariffID       *int64          `json:"free_tariff_id" doc:"Тариф бесплатного тарифа: кнопка в боте и Mini App, снова взять можно, когда прошлая бесплатная подписка аккаунта закончилась, и не пока идёт его пробный период; null: бесплатного тарифа нет. Работает и при выключенной продаже"`
-	FreeCondition      string          `json:"free_condition" enum:"none,channel" doc:"Условие бесплатного тарифа: none: без условий, channel: подписка на канал бота (Telegram → Меню и тексты)"`
-	FreePlans          int64           `json:"free_plans" doc:"Сколько бесплатных подписок выдано"`
-	ExtraDevicesKeep   bool            `json:"extra_devices_keep" doc:"Докупленные устройства остаются при продлении, и продление стоит дороже на их цену; иначе они действуют до конца срока"`
-	Balance            BalanceSettings `json:"balance" doc:"Внутренний баланс клиентов с пополнением по скриншоту"`
+	Enabled            bool             `json:"enabled" doc:"Продажа подписок: выключено — бот и Mini App ничего не продают, новые счета не создаются, уже открытые засчитываются"`
+	Stars              bool             `json:"stars" doc:"Telegram Stars: нужен только запущенный бот"`
+	AllowNew           bool             `json:"allow_new" doc:"Новые люди могут купить подписку в боте; иначе — только продление"`
+	RenewResetsTraffic bool             `json:"renew_resets_traffic" doc:"Оплаченное продление обнуляет трафик и начинает новый период; иначе только добавляет срок"`
+	TrialTariffID      *int64           `json:"trial_tariff_id" doc:"Тариф пробного периода: один раз на Telegram-аккаунт без подписки и оплат, кнопка в приветствии бота; null — пробного периода нет. Работает и при выключенной продаже"`
+	TrialStars         int64            `json:"trial_stars" doc:"Цена пробного периода в Stars; 0 вместе с trial_rub — бесплатно"`
+	TrialRub           int64            `json:"trial_rub" doc:"Цена пробного периода в копейках; с ценой пробный период покупают один раз в боте и Mini App, нужна включённая продажа"`
+	Trials             int64            `json:"trials" doc:"Сколько пробных подписок выдано"`
+	FreeTariffID       *int64           `json:"free_tariff_id" doc:"Тариф бесплатного тарифа: кнопка в боте и Mini App, снова взять можно, когда прошлая бесплатная подписка аккаунта закончилась, и не пока идёт его пробный период; null: бесплатного тарифа нет. Работает и при выключенной продаже"`
+	FreeCondition      string           `json:"free_condition" enum:"none,channel" doc:"Условие бесплатного тарифа: none: без условий, channel: подписка на канал бота (Telegram → Меню и тексты)"`
+	FreePlans          int64            `json:"free_plans" doc:"Сколько бесплатных подписок выдано"`
+	ExtraDevicesKeep   bool             `json:"extra_devices_keep" doc:"Докупленные устройства остаются при продлении, и продление стоит дороже на их цену; иначе они действуют до конца срока"`
+	Balance            BalanceSettings  `json:"balance" doc:"Внутренний баланс клиентов с пополнением по скриншоту"`
 	CustomTariffID     *int64           `json:"custom_tariff_id" doc:"Тариф-основа конструктора: покупатель сам собирает трафик, устройства, скорость и срок, цена считается от цены первого срока тарифа и коэффициентов; null — конструктора нет. Тариф может быть скрыт из витрины: в конструкторе он продаётся по частям, а сам тариф — по коду доступа"`
 	Coefficients       CoefficientsView `json:"coefficients" doc:"Коэффициенты конструктора: во сколько раз дороже единица роста по сравнению с ценой самого тарифа (1 — как у тарифа)"`
 	Available          struct {
