@@ -18,7 +18,7 @@ func TestUserNodeTrafficMigration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const migration = 62
+	const migration = 64
 	before := int64(0)
 	for _, src := range p.ListSources() {
 		if src.Version < migration {

@@ -25,7 +25,7 @@ func TestInboundHostsMigration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const table, move = 63, 64
+	const table, move = 65, 93
 	before := int64(0)
 	for _, src := range p.ListSources() {
 		if src.Version < table {

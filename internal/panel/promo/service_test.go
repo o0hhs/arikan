@@ -470,7 +470,7 @@ func TestIsRefusalCoversEveryError(t *testing.T) {
 		"ErrFirstPurchase": ErrFirstPurchase, "ErrCurrency": ErrCurrency, "ErrAlreadyApplied": ErrAlreadyApplied,
 		"ErrSubscription": ErrSubscription, "ErrNoExpiry": ErrNoExpiry, "ErrNotDiscount": ErrNotDiscount,
 		"ErrUnavailable": ErrUnavailable, "ErrInvalidValue": ErrInvalidValue, "ErrReservationExpired": ErrReservationExpired,
-		"ErrRefundUnsupported": ErrRefundUnsupported, "ErrNotBonus": ErrNotBonus,
+		"ErrRefundUnsupported": ErrRefundUnsupported, "ErrNotBonus": ErrNotBonus, "ErrNotAccess": ErrNotAccess,
 	}
 	fset := token.NewFileSet()
 	entries, err := os.ReadDir(".")

@@ -18,7 +18,7 @@ func TestNodeInboundTagsMigration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const migration = 61
+	const migration = 63
 	before := int64(0)
 	for _, src := range p.ListSources() {
 		if src.Version < migration {

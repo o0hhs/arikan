@@ -31,14 +31,14 @@ func TestSubTemplatesMigration(t *testing.T) {
 		{"an own profile", `"mode: rule\nrules:\n  - MATCH,DIRECT\n"`, "mode: rule\nrules:\n  - MATCH,DIRECT\n"},
 		{"a blank one", `"  \n"`, ""},
 	} {
-		if _, err := p.DownTo(ctx, 55); err != nil {
+		if _, err := p.DownTo(ctx, 57); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := s.DB.ExecContext(ctx, `INSERT INTO settings (key, value) VALUES ('sub_template', $1)
 		 ON CONFLICT (key) DO UPDATE SET value = excluded.value`, c.value); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := p.UpTo(ctx, 56); err != nil {
+		if _, err := p.UpTo(ctx, 58); err != nil {
 			t.Fatal(err)
 		}
 		var core, name, body string
@@ -62,7 +62,7 @@ func TestSubTemplatesMigration(t *testing.T) {
 	 VALUES ('mihomo', 'c', 'rules: []', true, 1, 1)`); err == nil {
 		t.Fatal("a second default of a core")
 	}
-	if _, err := p.DownTo(ctx, 55); err != nil {
+	if _, err := p.DownTo(ctx, 57); err != nil {
 		t.Fatal(err)
 	}
 	if v, err := setting(); err != nil || v != `"rules: []"` {
