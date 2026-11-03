@@ -21,7 +21,7 @@ import (
 // its SQL is written out and it reads the template with frozenClient. Leave it as it is; a
 // later change of hosts is a migration of its own.
 func hostsMigration() *goose.Migration {
-	return goose.NewGoMigration(64,
+	return goose.NewGoMigration(93,
 		&goose.GoFunc{RunTx: func(ctx context.Context, tx *sql.Tx) error {
 			rows, err := tx.QueryContext(ctx, "SELECT id, config FROM inbounds")
 			if err != nil {

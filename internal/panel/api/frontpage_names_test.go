@@ -2,6 +2,7 @@ package api
 
 import (
 	"os"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"testing"
@@ -45,7 +46,8 @@ func TestFrontPageNamesAreOneList(t *testing.T) {
 		t.Errorf("%d fields found, want the node's front_page twice and site_template twice: the scan lost its way", found)
 	}
 
-	raw, err := os.ReadFile("../store/postgres/0046_node_front_page.sql")
+	// The migration that adds the page's names moves with the numbering: find it.
+	raw, err := os.ReadFile(frontPageMigration(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,4 +63,15 @@ func TestFrontPageNamesAreOneList(t *testing.T) {
 	if !slices.Equal(inSQL, want) {
 		t.Errorf("the CHECK of 0046 takes %q, the pages are %q", inSQL, want)
 	}
+}
+
+// frontPageMigration is the SQL file that adds nodes.front_page, by its name rather than
+// its number: the migrations' numbering follows upstream's.
+func frontPageMigration(t *testing.T) string {
+	t.Helper()
+	matches, err := filepath.Glob("../store/postgres/*_node_front_page.sql")
+	if err != nil || len(matches) != 1 {
+		t.Fatalf("front page migration: %v %v", matches, err)
+	}
+	return matches[0]
 }
