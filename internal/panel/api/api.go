@@ -189,6 +189,15 @@ type Deps struct {
 	Agents     *agents.Service
 	CheckHost  *checkhost.Client
 	IPGeo      *ipgeo.Client
+	// Cascade is the panel's cascade hub: which exits keep a stream to the panel and which
+	// entry nodes have their bridge; nil in tests.
+	Cascade CascadeRuntime
+}
+
+// CascadeRuntime is the panel's cascade hub as the API reads it.
+type CascadeRuntime interface {
+	ExitOnline(id int64) (time.Time, bool)
+	BridgeOnline(id int64) (time.Time, bool)
 }
 
 // NodeRuntime is what the API needs from the running nodes.

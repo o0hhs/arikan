@@ -31,6 +31,7 @@ import (
 	"mikan/internal/panel/billing"
 	"mikan/internal/panel/botpanel"
 	"mikan/internal/panel/campaigns"
+	"mikan/internal/panel/cascade"
 	"mikan/internal/panel/discounts"
 	"mikan/internal/panel/dnscheck"
 	"mikan/internal/panel/domain"
@@ -69,6 +70,8 @@ type Panel struct {
 	S3Backups *s3backup.Service
 	// Automation runs the admin's event-driven rules; nil: none.
 	Automation *automation.Service
+	// Cascade is the panel's tunnel between an entry node and its exits (internal/panel/cascade).
+	Cascade *cascade.Hub
 	// agentAuth is the advertising agents' service: their panel's sessions and logins.
 	agentAuth *agents.Service
 	Handler   http.Handler
@@ -216,6 +219,29 @@ func NewPanel(st *store.Store, o Options) (*Panel, error) {
 	if o.Connect != nil {
 		p.Nodes = nodesync.NewManager(st, set, pool, o.Connect, o.Log, o.Now)
 		p.Nodes.SetEvents(hub)
+		// The cascade's hub: the panel's meeting point of the exits' streams and an entry's
+		// bridge, with the per-node state the panel builds as its routes.
+		p.Cascade = cascade.New(cascade.Deps{
+			Log: o.Log, Now: o.Now,
+			NodeByPin: func(ctx context.Context, pin string) (int64, bool) {
+				list, err := st.Q.ListNodes(ctx)
+				if err != nil {
+					return 0, false
+				}
+				for _, n := range list {
+					if n.CertSha256 != "" && nodetls.SamePin(n.CertSha256, pin) {
+						return n.ID, true
+					}
+				}
+				return 0, false
+			},
+			IsExit: func(ctx context.Context, id int64) (bool, error) {
+				return domain.IsExitNode(ctx, st.Q, id)
+			},
+			Dial: p.Nodes.Bridge,
+		})
+		p.Nodes.SetCascadePlane(p.Cascade)
+		deps.Cascade = p.Cascade
 		changes = p.Nodes
 		deps.Online = p.Nodes.Online
 		deps.NodeOnline = p.Nodes.OnlineByNode
@@ -481,6 +507,9 @@ func NewPanel(st *store.Store, o Options) (*Panel, error) {
 	}))
 	adminMux.Handle("/", p.spa)
 	p.server = server.New(adminMux, subHandler)
+	if p.Cascade != nil {
+		p.server.SetCascade(p.Cascade.Endpoint)
+	}
 	p.server.SetTunnel(o.Tunnel)
 	p.server.SetLegacy(subHandler.Legacy())
 	if o.DataDir != "" {

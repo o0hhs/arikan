@@ -73,6 +73,9 @@ type DesiredState struct {
 	// same rule; both lift by themselves after APILockStale without the panel. Nodes older
 	// than it ignore it.
 	APIAllow []string `json:"api_allow,omitzero"`
+	// Cascade is this node's part in the cascade over the panel's tunnel: the entry's
+	// loopback bridge its exits point at, or the exit's stream to the panel. nil: neither.
+	Cascade *Cascade `json:"cascade,omitempty"`
 }
 
 // InboundAPINeeded says whether the state has the node listen on its API port: true unless the
@@ -539,6 +542,28 @@ type Exit struct {
 
 // ExitName is the proxy name of node id as an exit.
 func ExitName(id int64) string { return "NODE-" + strconv.FormatInt(id, 10) }
+
+// ExitWarpName is the proxy name of node id as an exit through its own WARP: the same
+// node, another way out. A protocol picks it instead of ExitName when its traffic must
+// leave through the exit's WARP while others through the same node leave directly.
+func ExitWarpName(id int64) string { return ExitName(id) + "~warp" }
+
+// RouteName is the proxy name of a route through node id: its plain exit, or the WARP one.
+func RouteName(id int64, warp bool) string {
+	if warp {
+		return ExitWarpName(id)
+	}
+	return ExitName(id)
+}
+
+// OutboundName is the proxy name of an outbound the admin added by link.
+func OutboundName(id int64) string { return "OUT-" + strconv.FormatInt(id, 10) }
+
+// IsExitName says whether name is a proxy the panel placed: the prefixes above. Anything
+// else in a state is not a proxy of ours and is not dialled.
+func IsExitName(name string) bool {
+	return strings.HasPrefix(name, "NODE-") || strings.HasPrefix(name, "OUT-")
+}
 
 // ProbeResult is the internet as seen through one outbound of the node.
 type ProbeResult = WarpStatus

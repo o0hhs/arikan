@@ -26,6 +26,8 @@ type snapshot struct {
 	users    []db.User
 	owners   []db.ListSlotUsersRow
 	inbounds []db.Inbound
+	nodes    []db.Node
+	relays   []db.NodeRelay
 	slots    []db.Slot
 	grants   domain.GrantsLeft
 	pools    []db.UserPool
@@ -79,6 +81,12 @@ func (m *Manager) readSnapshot(ctx context.Context) (s *snapshot, err error) {
 		return nil, err
 	}
 	if s.inbounds, err = q.ListInbounds(ctx); err != nil {
+		return nil, err
+	}
+	if s.nodes, err = q.ListNodes(ctx); err != nil {
+		return nil, err
+	}
+	if s.relays, err = q.ListNodeRelays(ctx); err != nil {
 		return nil, err
 	}
 	if s.slots, err = q.ListSlots(ctx); err != nil {

@@ -146,6 +146,9 @@ const (
 	// KeySubPage is the subscription page as the admin built it (subpage.Config): its look,
 	// blocks, apps and own CSS; unset: the page as it always was.
 	KeySubPage = "sub_page"
+	// KeyCascadeSecret is what the cascade's loopback SOCKS5 passwords are derived from
+	// (nodesync's cascadePassword): made by the panel on first use, never shown back.
+	KeyCascadeSecret = "cascade_secret"
 	// KeySubsFromNodes is the nodes that answer subscription links themselves (subsrc.FromNodes:
 	// {enabled, nodes}), from the profiles the panel renders and pushes to them; unset: the
 	// panel alone answers. The link's host stays the subscription domain's (KeySubDomain).

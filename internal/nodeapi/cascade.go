@@ -1,6 +1,7 @@
 package nodeapi
 
 import (
+	"slices"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/binary"
@@ -315,3 +316,6 @@ func ReadCascadeTarget(r io.Reader) (CascadeTarget, error) {
 	}
 	return t, nil
 }
+
+// HasCap says whether a node's health lists a capability of the cascade.
+func HasCap(h Health, cap string) bool { return slices.Contains(h.Caps, cap) }

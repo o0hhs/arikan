@@ -3,10 +3,14 @@ package nodesync
 import (
 	"cmp"
 	"context"
+	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
 	"errors"
+	"fmt"
 	"log/slog"
 	"maps"
+	"net"
 	"net/netip"
 	"slices"
 	"sort"
@@ -64,6 +68,71 @@ var ErrNoNode = errors.New("no node")
 // Manager runs a Syncer per node and the panel-wide upkeep: period resets, the slot
 // pool, devices. Every node gets the same slots and policies, so one subscription works
 // on all of them; traffic and devices add up across nodes.
+// CascadePlane is the panel's cascade hub as the syncers tell it what to carry: the exits
+// an entry node's bridge may ask for (its routes' exits and their reserves). An entry
+// without routes has no bridge.
+type CascadePlane interface {
+	SetRoutes(entry int64, allowed []int64)
+}
+
+// SetCascadePlane takes the hub; nil leaves the cascade's bridges to nobody.
+func (m *Manager) SetCascadePlane(p CascadePlane) {
+	m.cascadeMu.Lock()
+	m.cascade = p
+	m.cascadeMu.Unlock()
+}
+
+// cascadeRoutes tells the hub what an entry node's bridge may ask for.
+func (m *Manager) cascadeRoutes(entry int64, allowed []int64) {
+	m.cascadeMu.Lock()
+	p := m.cascade
+	m.cascadeMu.Unlock()
+	if p != nil {
+		p.SetRoutes(entry, allowed)
+	}
+}
+
+// cascadeSecret is the key the nodes' bridge passwords are derived from: one random secret
+// per panel, made on first use and kept in the settings.
+func (m *Manager) cascadeSecret(ctx context.Context) ([]byte, error) {
+	cascadeSecretOnce.Lock()
+	defer cascadeSecretOnce.Unlock()
+	raw, ok, err := settings.Get[string](ctx, m.set, settings.KeyCascadeSecret)
+	if err != nil {
+		return nil, err
+	}
+	if !ok || raw == "" {
+		var b [32]byte
+		if _, err := rand.Read(b[:]); err != nil {
+			return nil, err
+		}
+		raw = hex.EncodeToString(b[:])
+		if err := settings.Set(ctx, m.set, settings.KeyCascadeSecret, raw); err != nil {
+			return nil, err
+		}
+	}
+	return hex.DecodeString(raw)
+}
+
+// cascadeSecretOnce serializes the making of the secret.
+var cascadeSecretOnce sync.Mutex
+
+// Bridge opens the panel's bridge on an entry node: one connection of its own, upgraded,
+// which the cascade hub keeps and pairs streams on.
+func (m *Manager) Bridge(ctx context.Context, id int64) (net.Conn, error) {
+	s, ok := m.Syncer(id)
+	if !ok {
+		return nil, ErrNoNode
+	}
+	b, ok := s.node.(interface {
+		Bridge(ctx context.Context) (net.Conn, error)
+	})
+	if !ok {
+		return nil, fmt.Errorf("node %d's client has no bridge", id)
+	}
+	return b.Bridge(ctx)
+}
+
 type Manager struct {
 	st      *store.Store
 	set     *settings.Settings
@@ -90,6 +159,9 @@ type Manager struct {
 	snap    *snapshot
 	batchMu sync.Mutex
 	batches map[int64]uint64
+
+	cascadeMu sync.Mutex
+	cascade   CascadePlane
 
 	// The subscription push (subs.go): its renderer, the nodes it reached, and the pace
 	// between two pushes.
