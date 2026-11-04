@@ -3,7 +3,7 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
-## 0.5.2.2
+## 0.5.2.3
 ### en
 **The fork is rebuilt on upstream's code, and the nodes reach the panel where the ISP blocks.**
 - **The base is upstream's `dev`**: the fork's own code is ported on top of it, and where upstream already had a solution of ours (the Xray autoselect for Happ and INCY, the subscription model, templates, subscriptions from nodes) theirs is taken and ours is dropped.
