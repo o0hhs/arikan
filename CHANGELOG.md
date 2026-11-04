@@ -3,6 +3,21 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
+## 0.5.5.8
+### en
+**A server on 0.5.5.6 updates again.**
+- **The update stopped at "could not migrate the database".** 0.5.5.7 renumbered the migrations onto upstream's, and a database that ran 0.5.5.6 kept the old numbers: the migrator refused the new files as out-of-order and nothing started. The old numbers are now mapped to their files and rewritten once, before any migration runs; a fresh install and a server already moved are left alone.
+- **Upstream's own migrations the fork never had run first** (lifecycle, sub rules and templates, the no-auto pair, node billing, passkeys, node tags, per-node traffic, inbound hosts), since their numbers end up below the moved version.
+- **Webhooks**: their tables took another shape upstream; the fork's old delivery log is kept aside as `webhook_deliveries_before_0_5_5_7` and the new endpoints start empty (set them again in Settings → Security → Webhooks).
+- Two migrations whose files had swapped contents (outbound links and campaign tags) are fixed.
+
+### ru
+**Сервер на 0.5.5.6 снова обновляется.**
+- **Обновление останавливалось на «could not migrate the database».** В 0.5.5.7 миграции перенумерованы под upstream, а база, обновлявшаяся с 0.5.5.6, осталась со старыми номерами: мигратор отказывался применять новые файлы как «вне очереди», и ничего не запускалось. Теперь старые номера сопоставляются файлам по имени и переписываются один раз, до запуска миграций; свежая установка и уже переехавшая база не трогаются.
+- **Миграции upstream, которых у форка не было, выполняются первыми** (жизненный цикл, правила и шаблоны подписки, пара no-auto, биллинг нод, passkeys, метки нод, трафик по нодам, адреса подключений): их номера оказываются ниже версии, до которой переезжает база.
+- **Вебхуки**: у upstream их таблицы другой формы; старый журнал доставок форка откладывается как `webhook_deliveries_before_0_5_5_7`, а новые адреса начинаются с пустого списка (задайте их снова в «Настройки → Безопасность → Webhooks»).
+- Исправлены две миграции, у которых перепуталось содержимое файлов (исходящие по ссылке и метки кампаний).
+
 ## 0.5.5.7
 ### en
 **The fork is rebuilt on upstream's code, and the nodes reach the panel where the ISP blocks.**
