@@ -40,6 +40,9 @@ func Migrate(ctx context.Context, dsn, dataDir string) (MigrateResult, error) {
 	if res.Before, err = schemaVersion(ctx, conn); err != nil {
 		return res, err
 	}
+	if err := renumberLegacy(ctx, conn); err != nil {
+		return res, err
+	}
 	if err := migrateUp(ctx, conn, postgresFS); err != nil {
 		return res, err
 	}

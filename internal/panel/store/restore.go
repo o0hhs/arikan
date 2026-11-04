@@ -27,6 +27,9 @@ func RestorePostgres(ctx context.Context, dsn, dir string, pgRestore func(contex
 			return err
 		}
 		defer pg.Close()
+		if err := renumberLegacy(ctx, pg); err != nil {
+			return err
+		}
 		if err := migrateUp(ctx, pg, postgresFS); err != nil {
 			return err
 		}

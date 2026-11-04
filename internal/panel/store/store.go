@@ -99,7 +99,9 @@ func OpenMigrated(ctx context.Context, dsn string, cleanup func() error) (*Store
 	if err != nil {
 		return nil, err
 	}
-	err = migrateUp(ctx, conn, postgresFS)
+	if err = renumberLegacy(ctx, conn); err == nil {
+		err = migrateUp(ctx, conn, postgresFS)
+	}
 	if err == nil {
 		err = ensureLocalNode(ctx, conn)
 	}
@@ -121,7 +123,10 @@ func prepareSchema(ctx context.Context, dataDir, dsn string) error {
 	if err := checkLegacy(ctx, conn, dataDir); err != nil {
 		return err
 	}
-	if err := migrateUp(ctx, conn, postgresFS); err != nil {
+	if err := renumberLegacy(ctx, conn); err == nil {
+		err = migrateUp(ctx, conn, postgresFS)
+	}
+	if err != nil {
 		return err
 	}
 	return ensureLocalNode(ctx, conn)
@@ -275,7 +280,10 @@ func postgresProvider(ctx context.Context, conn *sql.DB, fsys fs.FS) (*goose.Pro
 	if err != nil {
 		return nil, err
 	}
-	p, err := goose.NewProvider(goose.DialectPostgres, conn, fsys, goose.WithSessionLocker(locker), goose.WithGoMigrations(goMigrations()...))
+	p, err := goose.NewProvider(goose.DialectPostgres, conn, fsys, goose.WithSessionLocker(locker), goose.WithGoMigrations(goMigrations()...),
+		// The fork renumbered its migrations onto upstream's (store/renumber.go): a database
+		// a step of the move left with an older file pending is applied rather than refused.
+		goose.WithAllowOutofOrder(true))
 	if err != nil {
 		return nil, fmt.Errorf("PostgreSQL migrations: %w", err)
 	}
