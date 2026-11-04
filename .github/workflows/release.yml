@@ -1,7 +1,7 @@
 name: release
 
 # A tag vX.Y.Z.R on main publishes a release (legacy vX.Y.Z is accepted):
-#   - the image to GitHub Packages (ghcr.io/<owner>/mikan), amd64 and arm64;
+#   - the image to GitHub Packages (ghcr.io/<owner>/arikan), amd64 and arm64;
 #   - the installer for x86_64 and aarch64;
 #   - manifest.json signed with the release key (RELEASE_SIGNING_KEY), which the panel's
 #     update check and the installer trust, and install.sh for the one-line install;
@@ -148,7 +148,7 @@ jobs:
           persist-credentials: false
       - id: name
         run: |
-          echo "image=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/mikan" >> "$GITHUB_OUTPUT"
+          echo "image=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/arikan" >> "$GITHUB_OUTPUT"
           echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
       # binfmt, buildkit and the base images come through Google's Docker Hub mirror;
       # whatever still falls back to Docker Hub is pulled as the account.
@@ -263,7 +263,7 @@ jobs:
         run: |
           version="${GITHUB_REF_NAME#v}"
           go run ./cmd/mikan-release manifest -version "$version" \
-            -image "ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/mikan" -digest "${{ needs.image.outputs.digest }}" \
+            -image "ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/arikan" -digest "${{ needs.image.outputs.digest }}" \
             -asset x86_64=dist/mikan-x86_64 -asset aarch64=dist/mikan-aarch64 \
             -min-installer-file .github/min-installer -out dist
           go run ./cmd/mikan-release verify dist/manifest.json
@@ -346,7 +346,7 @@ jobs:
         env:
           DIGEST: ${{ needs.image.outputs.digest }}
         run: |
-          IMAGE="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/mikan"
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/arikan"
           docker buildx imagetools create --tag "$IMAGE:latest" "$IMAGE@$DIGEST"
 
   # The SDKs of a release, from the spec of the tagged commit (web/src/api/openapi.json,
