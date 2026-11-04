@@ -3,6 +3,27 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
+## 0.5.2.2
+### en
+**The fork is rebuilt on upstream's code, and the nodes reach the panel where the ISP blocks.**
+- **The base is upstream's `dev`**: the fork's own code is ported on top of it, and where upstream already had a solution of ours (the Xray autoselect for Happ and INCY, the subscription model, templates, subscriptions from nodes) theirs is taken and ours is dropped.
+- **Nodes that the ISP cuts off still work**: a node opens its own tunnel to the panel and serves its API over it — what leaves the node passes while what arrives is blocked — and it answers the subscribers' links from the profiles the panel pushed to it, on its own 443, while the panel is unreachable.
+- **DPI bypass** (nfqws on the node's host) and **the node's own page** are back on the new node code.
+- **The VK-call way in (TURN) is gone**: the owner does not use that door.
+- **The fork's own features on upstream's billing, subscriptions and panel**: the tariff constructor, the referral programme, ad campaigns and the agents, sales, S3 backups, the dashboard, the public monitor, device packs, partners, and the subscription-from-nodes setting.
+- **"YouTube without ads" is a routing setting now**: the entry's exit (`direct` or a node) is part of the routing, and INCY's full Xray config carries it as an item of its own.
+- **No duplicate migrations**: the fork's migrations follow upstream's numbering.
+
+### ru
+**Форк пересобран на коде upstream, а ноды доходят до панели там, где их режет провайдер.**
+- **База — upstream `dev`**: код форка перенесён поверх, а там, где у upstream уже есть наше решение (автовыбор Xray для Happ и INCY, модель подписок, шаблоны, подписки с нод), берётся их, а наше снято.
+- **Ноды, которые режет провайдер, продолжают работать**: нода сама открывает туннель к панели и отдаёт по нему свой API — исходящие проходят, входящие блокируются, — и отвечает по ссылкам подписчиков профилями, которые панель ей прислала, на своём 443, пока панель недоступна.
+- **Обход DPI** (nfqws на сервере ноды) и **своя страница ноды** возвращены на новый код ноды.
+- **Вход через VK-звонки (TURN) убран**: владелец им не пользуется.
+- **Наши доработки на биллинге, подписках и панели upstream**: конструктор тарифов, реферальная программа, рекламные кампании и агенты, скидки, S3-бэкапы, дашборд, публичный монитор, пакеты устройств, партнёры и настройка подписки с нод.
+- **«YouTube без рекламы» — теперь настройка маршрутизации**: выход входной ноды (`direct` или нода) — часть маршрутизации, и полный конфиг Xray для INCY несёт его отдельной записью.
+- **Без дублей миграций**: миграции форка идут за нумерацией upstream.
+
 ## 0.5.2.1
 ### en
 - **API changes** (subscription templates, settings and events; for scripts and addons that call them): `sub_template` is gone from `GET` and `PATCH /api/v1/settings`, because an own profile is a template now: `GET`, `POST`, `PATCH` and `DELETE /api/v1/sub-templates` work with them (the profile you had became the default Clash template, nothing to redo). `sub_xray_json` and `sub_log_days` are new settings. Addons and webhooks get three new events: `user.started`, `user.switched` and `user.removed`. The `notes` of `POST /api/v1/settings/routes/preview` and `POST /api/v1/sub-templates/preview` have five new values of `code`: `proxy_unsupported`, `rule_unsupported`, `list_unsupported`, `dns_policy_unsupported` and `category_missing`; their `group` then holds what the note is of (a server, a condition `TYPE,VALUE`, a list, a DNS policy key or `geosite:NAME`), not a group. A client that knows only the old codes should skip the others. `GET /api/v1/sub-templates/ready` lists the ready templates, and `GET /api/v1/sub-templates/ready/{id}` gives one with its text. A protocol's addresses for clients are new: `GET` and `POST /api/v1/inbounds/{id}/hosts`, `PUT` and `DELETE /api/v1/inbounds/{id}/hosts/{host_id}`; the changes take the admin's session, not an API key.
