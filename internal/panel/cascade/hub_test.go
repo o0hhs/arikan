@@ -113,6 +113,22 @@ func (s *stand) exit() *yamux.Session {
 		s.t.Fatal(err)
 	}
 	s.t.Cleanup(func() { _ = sess.Close() })
+	// The panel registers the exit just after it answers the 101: a caller that asks
+	// before the registration gets "the exit is not in the tunnel", and that is the race
+	// the CI saw. Wait for the registration, or for the stream to fail.
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		if _, ok := s.hub.ExitOnline(testExit); ok {
+			break
+		}
+		if sess.IsClosed() {
+			s.t.Fatal("the panel dropped the exit's stream")
+		}
+		if time.Now().After(deadline) {
+			s.t.Fatal("the panel did not register the exit")
+		}
+		time.Sleep(time.Millisecond)
+	}
 	return sess
 }
 
