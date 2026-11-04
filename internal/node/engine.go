@@ -59,6 +59,9 @@ type Options struct {
 	ACMEListen string
 	// Logs holds the last lines of the node's log for GET /v1/logs; nil: none to show.
 	Logs *logbuf.Buffer
+	// SiteListen is where the node's own page (data/node/www) is served, "off" to serve
+	// none; "" is the default: port 443, and a loopback port when an inbound holds it.
+	SiteListen string
 }
 
 type Engine struct {
@@ -79,6 +82,16 @@ type Engine struct {
 
 	Reg *Registry
 	tun *Tunnel
+	// egress is the node's own way to the internet, as last checked (egress.go).
+	egress atomic.Pointer[nodeapi.EgressStatus]
+	// subs is the subscription server: the profiles the panel rendered, answered on the
+	// node's public 443 (subsrv.go). Site is the node's own page on the same port.
+	subs *subServer
+	Site *Site
+
+	// apiServer is the node's own API listener (inboundapi.go); nil when this binary has none
+	// (tests, a node run without a join key).
+	apiServer atomic.Pointer[InboundAPI]
 	// Challenge answers the ACME challenges the panel orders for the node's address, on
 	// port 80 while one is pending.
 	Challenge *acmechallenge.Server
@@ -90,6 +103,12 @@ type Engine struct {
 	routerStatus atomic.Pointer[nodeapi.PortStatus]
 	// front is the page the router gives strangers on the node's own names (front.go).
 	front *frontPage
+
+	// root ends the background jobs (the sampler, the egress check, the registry) when
+	// Close runs. stop cancels it; stopOnce makes Close safe to call twice.
+	root     context.Context
+	stop     context.CancelFunc
+	stopOnce sync.Once
 
 	mu         sync.Mutex // serializes Apply
 	savedShape string     // policyShape of the policies in the state file
@@ -179,6 +198,20 @@ func (e *Engine) WarpStatus(ctx context.Context, force bool) nodeapi.WarpStatus 
 	return st
 }
 
+// SavedInboundAPI says whether the state saved before the restart had the node's API port on:
+// a panel that told it to keep the port closed is answered before it says anything new.
+func SavedInboundAPI(dataDir string) bool {
+	st, ok, err := loadState(filepath.Join(dataDir, stateFile), slog.Default())
+	if err != nil || !ok {
+		return true
+	}
+	return st.InboundAPINeeded()
+}
+
+// UseInboundAPI gives the engine the node's own API listener: Apply turns it on and off as
+// the panel's state says, and Health reports it.
+func (e *Engine) UseInboundAPI(a *InboundAPI) { e.apiServer.Store(a) }
+
 // logWarp writes a failed WARP check to the log once per change (ok to failed, failed
 // to ok, another reason), not once per probe: the panel polls every cycle.
 func (e *Engine) logWarp(s nodeapi.WarpStatus, endpoint string) {
@@ -218,8 +251,6 @@ func Start(o Options) (*Engine, error) {
 		sys:       newSysSampler(),
 		Challenge: acmechallenge.New(cmp.Or(o.ACMEListen, acmechallenge.DefaultListen)),
 	}
-	go e.pumpLogs()
-
 	cs, err := loadCounters(filepath.Join(dataDir, countersFile), log)
 	if err != nil {
 		return nil, err
@@ -245,9 +276,43 @@ func Start(o Options) (*Engine, error) {
 		return nil, err
 	}
 	e.saved = &savedState{state: st, ok: ok, counters: cs}
-	go e.sys.run()
-	go e.Reg.Run(context.Background())
+	root, stop := context.WithCancel(context.Background())
+	e.root, e.stop = root, stop
+	// A panic in the core's log feed used to end the process: the feed is a goroutine of
+	// its own, and an unrecovered panic in any goroutine stops the node.
+	listen := o.SiteListen
+	if listen == "" {
+		listen = SiteDefaultListen
+	}
+	e.Site = newSite(dataDir, listen, log)
+	e.subs = newSubServer(openSubs(filepath.Join(dataDir, SubsDir), time.Now, log), log)
+	e.Site.SetSubs(e.subs)
+	go e.safely("core logs", e.pumpLogs)
+	go e.safely("system sampler", func() { e.sys.run(e.root) })
+	go e.safely("egress", func() { e.runEgress(e.root) })
+	go e.safely("registry", func() { e.Reg.Run(e.root) })
 	return e, nil
+}
+
+// Close stops what Start left running: the background checks and the TURN child. The
+// listeners go with the process; the child does not, and a port it still holds is why the
+// next start cannot bring the VK-call server back. Safe to call more than once.
+func (e *Engine) Close() {
+	if e == nil {
+		return
+	}
+	if e.stop != nil {
+		e.stopOnce.Do(e.stop)
+	}
+}
+
+func (e *Engine) safely(job string, fn func()) {
+	defer func() {
+		if r := recover(); r != nil {
+			e.log.Error("node: a background job panicked", "job", job, "panic", r)
+		}
+	}()
+	fn()
 }
 
 var (
@@ -394,6 +459,11 @@ func (e *Engine) apply(st nodeapi.DesiredState) (nodeapi.ApplyResult, error) {
 	e.Reg.SetIngress(st.Filters)
 	e.setRedirect(st.HTTPRedirect)
 	e.apiLock().set(st.APIAllow)
+	// The panel may keep the node's API port closed and reach it over the reverse tunnel alone;
+	// the node keeps the answer for the next start (see SavedInboundAPI).
+	if a := e.apiServer.Load(); a != nil {
+		a.Set(st.InboundAPINeeded())
+	}
 	e.Reg.SetDetail(st.Detail)
 	pools := map[string]string{}
 	for _, in := range st.Inbounds {
@@ -434,6 +504,13 @@ func (e *Engine) apply(st nodeapi.DesiredState) (nodeapi.ApplyResult, error) {
 		e.front = newFrontPage()
 	}
 	e.front.set(st.FrontPage, st.TLS)
+	// The subscription answers follow the state: their names and certificate first, then
+	// the router, which hands their connections over before any inbound or the front page.
+	e.subs.apply(st.Subs, st.TLS)
+	if cert.CertPath != "" && e.Site != nil {
+		e.Site.SetCert(cert.CertPath, cert.KeyPath)
+		e.Site.Start(pageMayTake443(st))
+	}
 	e.setRouter(st.Router, ports)
 	recreated := make([]string, 0, len(started))
 	for name := range started {
@@ -462,7 +539,11 @@ func (e *Engine) Validate(req nodeapi.ValidateRequest) error {
 	in := req.Inbound
 	in.Name = "mikan-validate"
 	probe := []nodeapi.Slot{{Name: "validate", UUID: "00000000-0000-4000-8000-000000000000", Secret: "validate"}}
-	l, err := listenerFor(in, probe, cert, proto.Options{SelfStealPort: req.SelfStealPort})
+	steal := req.SelfStealPort
+	if steal == 0 {
+		steal = e.sitePort()
+	}
+	l, err := listenerFor(in, probe, cert, proto.Options{SelfStealPort: steal})
 	if err != nil {
 		return err
 	}
@@ -538,8 +619,13 @@ func (e *Engine) Health() nodeapi.Health {
 	}
 	return nodeapi.Health{
 		Version: e.version, Core: coreVersion(), Revision: rev, StartedAt: e.started,
+		Caps:      []string{nodeapi.CapCascadeWarp},
 		Listeners: ls, Conns: e.Reg.ConnCount(), System: e.sys.last(), Update: e.UpdateStatus(), Host: e.host.get(), Time: time.Now(),
 		Redirect: e.redirect.Load(), Router: e.routerStatus.Load(), APILock: e.apiLock().status(),
+		Egress:     e.egress.Load(),
+		Subs:       e.subsStatus(),
+		Site:       e.SiteStatus(),
+		InboundAPI: e.apiServer.Load().Status(),
 	}
 }
 
@@ -780,4 +866,61 @@ func (e *Engine) Probe(ctx context.Context, proxy string) (nodeapi.ProbeResult, 
 		e.probes[proxy] = r
 	}
 	return r, true
+}
+
+// pageMayTake443 says whether the node's own page may hold the public 443: no router is
+// there, and no TCP listener covers the port (a UDP one, Hysteria2, does not count).
+func pageMayTake443(st nodeapi.DesiredState) bool {
+	if st.Router != nil {
+		return false
+	}
+	for _, in := range st.Inbounds {
+		if !portCovers(in.Port, 443) {
+			continue
+		}
+		t, err := proto.FromJSON(in.Config)
+		if err != nil || t.Network() != "udp" {
+			return false
+		}
+	}
+	return true
+}
+
+// portCovers says whether a port spec ("443", "20000-30000") holds p.
+func portCovers(spec string, p int) bool {
+	a, b, isRange := strings.Cut(strings.TrimSpace(spec), "-")
+	lo, err := strconv.Atoi(strings.TrimSpace(a))
+	if err != nil {
+		return false
+	}
+	if !isRange {
+		return lo == p
+	}
+	hi, err := strconv.Atoi(strings.TrimSpace(b))
+	return err == nil && lo <= p && p <= hi
+}
+
+// sitePort is where the node's own page answers on loopback, 0 while it does not: the other
+// loopback address a REALITY dest of this node may name.
+func (e *Engine) sitePort() int {
+	if e.Site == nil {
+		return 0
+	}
+	if st := e.Site.Status(); st != nil && st.OK {
+		return st.Port
+	}
+	return 0
+}
+
+// subsStatus is the subscription server as Health reports it; nil without one.
+func (e *Engine) subsStatus() *nodeapi.SubsStatus {
+	return e.subs.status()
+}
+
+// SiteStatus is the node's own page as Health reports it; nil without one.
+func (e *Engine) SiteStatus() *nodeapi.SiteStatus {
+	if e.Site == nil {
+		return nil
+	}
+	return e.Site.Status()
 }

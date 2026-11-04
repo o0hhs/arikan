@@ -38,7 +38,7 @@ func TestProfileTitle(t *testing.T) {
 		{"{nope}", "Вася", "{nope}"},
 	} {
 		cfg.Title = tc.title
-		if got := profileTitle(cfg, Values(User{Name: tc.name}, -1, cfg, now)); got != tc.want {
+		if got := ProfileTitle(cfg, Values(User{Name: tc.name}, -1, cfg, now)); got != tc.want {
 			t.Errorf("title %q, name %q: %q, want %q", tc.title, tc.name, got, tc.want)
 		}
 	}
@@ -77,8 +77,8 @@ func TestFileName(t *testing.T) {
 		" \t\n":          "mikan",
 		"":               "mikan",
 	} {
-		if got := fileName(in); got != want {
-			t.Errorf("fileName(%q) = %q, want %q", in, got, want)
+		if got := FileName(in); got != want {
+			t.Errorf("FileName(%q) = %q, want %q", in, got, want)
 		}
 	}
 }

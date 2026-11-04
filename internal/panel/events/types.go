@@ -14,6 +14,7 @@ package events
 // Types of events.
 const (
 	PaymentPaid     = "payment.paid"
+	PaymentFailed   = "payment.failed"
 	PaymentRefunded = "payment.refunded"
 
 	UserCreated  = "user.created"
@@ -23,8 +24,12 @@ const (
 	UserStarted  = "user.started"
 	UserSwitched = "user.switched"
 	UserRemoved  = "user.removed"
-	Traffic90    = "traffic.90"
-	Traffic100   = "traffic.100"
+	UserInactive = "user.inactive"
+	// DiscountEnding: a sale of the panel's own ends in 3 or 1 days, and the bot tells its
+	// buyers (or its subscribers) about it.
+	DiscountEnding = "discount.ending"
+	Traffic90      = "traffic.90"
+	Traffic100     = "traffic.100"
 
 	TrialStarted  = "trial.started"
 	TrialNotGiven = "trial.not_given"
@@ -38,7 +43,7 @@ const (
 	BalanceTopup = "balance.topup"
 )
 
-// Payment is the data of PaymentPaid and PaymentRefunded: enough to thank, notify or count,
+// Payment is the data of PaymentPaid, PaymentFailed and PaymentRefunded: enough to thank, notify or count,
 // nothing of the provider's secrets. The envelope's user_id is the subscription the payment
 // gave to (0 on a refund when it is gone), tg_id the buyer.
 type Payment struct {
@@ -53,6 +58,7 @@ type Payment struct {
 	TermDays   int64  `json:"term_days,omitempty"`
 	Created    bool   `json:"created,omitempty"`  // PaymentPaid: the payment made the subscription
 	Disabled   bool   `json:"disabled,omitempty"` // PaymentRefunded: the subscription was turned off
+	Reason     string `json:"reason,omitempty"`   // PaymentFailed: why the payment did not go through
 }
 
 // Notice is the data of UserExpiring, UserExpired, Traffic90 and Traffic100: which
@@ -66,6 +72,21 @@ type Notice struct {
 // User is the data of UserCreated, for every way a subscription is made except an import
 // (a bulk move from another panel has no one to welcome). The envelope's user_id is the new
 // subscription; tg_id is the Telegram account that bought or took it, when there is one.
+type Inactive struct {
+	Days     int   `json:"days"`
+	LastSeen int64 `json:"last_seen"`
+}
+type Discount struct {
+	DiscountID int64  `json:"discount_id"`
+	Name       string `json:"name"`
+	Days       int    `json:"days"`     // 3 or 1
+	EndsAt     int64  `json:"ends_at"`  // unix seconds
+	Value      int64  `json:"value"`    // percent, or the sum in the currency's smallest units
+	Type       string `json:"type"`     // percent | fixed
+	Currency   string `json:"currency"` // RUB | XTR, for a fixed sum
+	Text       string `json:"text,omitempty"`
+	Tariffs    string `json:"tariffs,omitempty"`
+}
 type User struct {
 	Source   string `json:"source"` // admin | bot | trial | free
 	TariffID int64  `json:"tariff_id,omitempty"`
@@ -203,6 +224,8 @@ type Doc struct {
 var Docs = []Doc{
 	{PaymentPaid, "A payment was applied: the subscription is made or extended, or the package credited.",
 		Payment{PaymentID: 7, Kind: "new", Provider: "stars", Amount: 100, Currency: "XTR", TariffID: 2, TariffName: "Month", TermDays: 30, Created: true}},
+	{PaymentFailed, "A payment did not go through: the provider could not open the invoice, the balance was short, the provider canceled it, or it expired.",
+		Payment{PaymentID: 9, Kind: "new", Provider: "stars", Amount: 100, Currency: "XTR", TariffID: 2, TariffName: "Month", TermDays: 30, Reason: "expired"}},
 	{PaymentRefunded, "A payment was refunded and what it gave is taken back (also a trial that could not be given and went back, or a payment refunded by hand: then user_id is 0).",
 		Payment{PaymentID: 7, Kind: "renew", Provider: "stars", Amount: 100, Currency: "XTR", TariffID: 2, TariffName: "Month", TermDays: 30, Disabled: true}},
 	{UserCreated, "A subscription was made: by the admin, bought, taken as a trial or as the free plan; not by an import.",
@@ -211,12 +234,10 @@ var Docs = []Doc{
 	{UserExpiring, "A subscription ends in 3 or 1 days (the admin's switches decide which are told).",
 		Notice{Days: 3, ExpiresAt: 1_800_000_000}},
 	{UserExpired, "A subscription ended.", Notice{ExpiresAt: 1_800_000_000}},
-	{UserStarted, "A subscription whose term waited for its first connection started it: by that connection, or by the admin.",
-		Started{ExpiresAt: 1_802_592_000, By: StartedByConnection}},
-	{UserSwitched, "The next tariff set for a subscription took over as its term ended: a new term from that end and a new traffic period.",
-		Switched{TariffID: 3, FromTariffID: 2, ExpiresAt: 1_802_592_000, Carried: 10_737_418_240}},
-	{UserRemoved, "The panel removed a subscription by the admin's rules: its term ended so many days ago and it has not connected since.",
-		Removed{By: RemovedInactive, ExpiredAt: 1_790_000_000, OnlineAt: 1_789_000_000, Days: 30}},
+	{UserInactive, "A subscription has not connected for a week: a win-back candidate.",
+		Inactive{Days: 7, LastSeen: 1_790_000_000}},
+	{DiscountEnding, "A sale of the panel ends in 3 or 1 days, and the bot says so to its buyers.",
+		Discount{DiscountID: 4, Name: "Spring", Days: 3, EndsAt: 1_800_000_000, Value: 20, Type: "percent"}},
 	{Traffic90, "A subscription used 90% of its traffic.", Notice{PeriodFrom: 1_790_000_000}},
 	{Traffic100, "A subscription used all of its traffic.", Notice{PeriodFrom: 1_790_000_000}},
 	{TrialStarted, "An account took its trial.", Trial{TariffID: 3}},

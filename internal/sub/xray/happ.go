@@ -119,6 +119,11 @@ func happRules(p profile.Profile, m routing.Mode, src string) ([]routing.Rule, r
 		}
 	}
 	in := routing.NewIntent(m, p.Rules, p.Routes)
+	// The admin's own entry of the "YouTube without ads" offer: what no rule takes goes
+	// through it, so the apps leave with the entry's Russian address (the offer's point).
+	if p.Exit != nil {
+		in = in.WithExit()
+	}
 	pre, routed, tail, final := in.Sequence(p.Direct, in.Routes, func(t routing.Target, _ int) routing.Target { return t })
 	return append(append(pre, routed...), tail...), final
 }

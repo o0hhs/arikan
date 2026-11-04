@@ -169,7 +169,7 @@ func (q *Queries) CountTariffs(ctx context.Context) (int64, error) {
 const createInbound = `-- name: CreateInbound :one
 INSERT INTO inbounds (node_id, name, preset, port, enabled, config, created_at, updated_at)
 VALUES ($1, $2, $3, $4, 1, $5, $6, $7)
-RETURNING id, node_id, name, preset, port, enabled, created_at, updated_at, display_name, config, auto_port, auto_sni, outbound, exit_node_id, pool_id, listen, no_auto, tags
+RETURNING id, node_id, name, preset, port, enabled, created_at, updated_at, display_name, config, auto_port, auto_sni, outbound, exit_node_id, pool_id, listen, no_auto, tags, outbound_id, auto_include, exit_warp
 `
 
 type CreateInboundParams struct {
@@ -212,6 +212,9 @@ func (q *Queries) CreateInbound(ctx context.Context, arg CreateInboundParams) (I
 		&i.Listen,
 		&i.NoAuto,
 		&i.Tags,
+		&i.OutboundID,
+		&i.AutoInclude,
+		&i.ExitWarp,
 	)
 	return i, err
 }
@@ -219,7 +222,7 @@ func (q *Queries) CreateInbound(ctx context.Context, arg CreateInboundParams) (I
 const createTariff = `-- name: CreateTariff :one
 INSERT INTO tariffs (name, traffic_limit, duration_days, device_limit, reset_strategy, price_label, sort, created_at, billing_day, price_stars, price_rub, on_sale, speed_limit, description)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-RETURNING id, name, traffic_limit, duration_days, device_limit, reset_strategy, price_label, sort, archived, created_at, billing_day, price_stars, price_rub, on_sale, speed_limit, description, device_mode, device_price_stars, device_price_rub, device_extra_max, chosen_servers
+RETURNING id, name, traffic_limit, duration_days, device_limit, reset_strategy, price_label, sort, archived, created_at, billing_day, price_stars, price_rub, on_sale, speed_limit, description, device_mode, device_price_stars, device_price_rub, device_extra_max, chosen_servers, closed
 `
 
 type CreateTariffParams struct {
@@ -279,6 +282,7 @@ func (q *Queries) CreateTariff(ctx context.Context, arg CreateTariffParams) (Tar
 		&i.DevicePriceRub,
 		&i.DeviceExtraMax,
 		&i.ChosenServers,
+		&i.Closed,
 	)
 	return i, err
 }
@@ -287,7 +291,7 @@ const createUser = `-- name: CreateUser :one
 INSERT INTO users (name, contact, note, tags, status, tariff_id, traffic_limit, device_limit, reset_strategy,
                    period_days, period_start, expires_at, inbounds, sub_token, slot_id, created_at, updated_at, billing_day, source, speed_limit)
 VALUES ($1, $2, $3, $4, 'active', $5, $6, $7, $8, $9, $10, $11, NULL, $12, $13, $14, $15, $16, $17, $18)
-RETURNING id, name, contact, note, tags, status, tariff_id, traffic_limit, device_limit, reset_strategy, period_days, period_start, used_up, used_down, total_up, total_down, expires_at, inbounds, sub_token, slot_id, online_at, created_at, updated_at, billing_day, source, hidden, folder_id, speed_limit, device_mode, extra_devices, extra_devices_until
+RETURNING id, name, contact, note, tags, status, tariff_id, traffic_limit, device_limit, reset_strategy, period_days, period_start, used_up, used_down, total_up, total_down, expires_at, inbounds, sub_token, slot_id, online_at, created_at, updated_at, billing_day, source, hidden, folder_id, speed_limit, device_mode, extra_devices, extra_devices_until, device_pack_id, partner_bot_id
 `
 
 type CreateUserParams struct {
@@ -365,6 +369,8 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.DeviceMode,
 		&i.ExtraDevices,
 		&i.ExtraDevicesUntil,
+		&i.DevicePackID,
+		&i.PartnerBotID,
 	)
 	return i, err
 }
@@ -407,7 +413,7 @@ func (q *Queries) DeleteTariffTerms(ctx context.Context, tariffID int64) error {
 }
 
 const getInbound = `-- name: GetInbound :one
-SELECT id, node_id, name, preset, port, enabled, created_at, updated_at, display_name, config, auto_port, auto_sni, outbound, exit_node_id, pool_id, listen, no_auto, tags FROM inbounds WHERE id = $1
+SELECT id, node_id, name, preset, port, enabled, created_at, updated_at, display_name, config, auto_port, auto_sni, outbound, exit_node_id, pool_id, listen, no_auto, tags, outbound_id, auto_include, exit_warp FROM inbounds WHERE id = $1
 `
 
 func (q *Queries) GetInbound(ctx context.Context, id int64) (Inbound, error) {
@@ -432,6 +438,9 @@ func (q *Queries) GetInbound(ctx context.Context, id int64) (Inbound, error) {
 		&i.Listen,
 		&i.NoAuto,
 		&i.Tags,
+		&i.OutboundID,
+		&i.AutoInclude,
+		&i.ExitWarp,
 	)
 	return i, err
 }
@@ -467,7 +476,7 @@ func (q *Queries) GetSlot(ctx context.Context, id int64) (Slot, error) {
 }
 
 const getTariff = `-- name: GetTariff :one
-SELECT id, name, traffic_limit, duration_days, device_limit, reset_strategy, price_label, sort, archived, created_at, billing_day, price_stars, price_rub, on_sale, speed_limit, description, device_mode, device_price_stars, device_price_rub, device_extra_max, chosen_servers FROM tariffs WHERE id = $1
+SELECT id, name, traffic_limit, duration_days, device_limit, reset_strategy, price_label, sort, archived, created_at, billing_day, price_stars, price_rub, on_sale, speed_limit, description, device_mode, device_price_stars, device_price_rub, device_extra_max, chosen_servers, closed FROM tariffs WHERE id = $1
 `
 
 func (q *Queries) GetTariff(ctx context.Context, id int64) (Tariff, error) {
@@ -495,12 +504,13 @@ func (q *Queries) GetTariff(ctx context.Context, id int64) (Tariff, error) {
 		&i.DevicePriceRub,
 		&i.DeviceExtraMax,
 		&i.ChosenServers,
+		&i.Closed,
 	)
 	return i, err
 }
 
 const getUser = `-- name: GetUser :one
-SELECT id, name, contact, note, tags, status, tariff_id, traffic_limit, device_limit, reset_strategy, period_days, period_start, used_up, used_down, total_up, total_down, expires_at, inbounds, sub_token, slot_id, online_at, created_at, updated_at, billing_day, source, hidden, folder_id, speed_limit, device_mode, extra_devices, extra_devices_until FROM users WHERE id = $1
+SELECT id, name, contact, note, tags, status, tariff_id, traffic_limit, device_limit, reset_strategy, period_days, period_start, used_up, used_down, total_up, total_down, expires_at, inbounds, sub_token, slot_id, online_at, created_at, updated_at, billing_day, source, hidden, folder_id, speed_limit, device_mode, extra_devices, extra_devices_until, device_pack_id, partner_bot_id FROM users WHERE id = $1
 `
 
 func (q *Queries) GetUser(ctx context.Context, id int64) (User, error) {
@@ -538,12 +548,14 @@ func (q *Queries) GetUser(ctx context.Context, id int64) (User, error) {
 		&i.DeviceMode,
 		&i.ExtraDevices,
 		&i.ExtraDevicesUntil,
+		&i.DevicePackID,
+		&i.PartnerBotID,
 	)
 	return i, err
 }
 
 const getUserBySubToken = `-- name: GetUserBySubToken :one
-SELECT id, name, contact, note, tags, status, tariff_id, traffic_limit, device_limit, reset_strategy, period_days, period_start, used_up, used_down, total_up, total_down, expires_at, inbounds, sub_token, slot_id, online_at, created_at, updated_at, billing_day, source, hidden, folder_id, speed_limit, device_mode, extra_devices, extra_devices_until FROM users WHERE sub_token = $1
+SELECT id, name, contact, note, tags, status, tariff_id, traffic_limit, device_limit, reset_strategy, period_days, period_start, used_up, used_down, total_up, total_down, expires_at, inbounds, sub_token, slot_id, online_at, created_at, updated_at, billing_day, source, hidden, folder_id, speed_limit, device_mode, extra_devices, extra_devices_until, device_pack_id, partner_bot_id FROM users WHERE sub_token = $1
 `
 
 func (q *Queries) GetUserBySubToken(ctx context.Context, subToken string) (User, error) {
@@ -581,6 +593,8 @@ func (q *Queries) GetUserBySubToken(ctx context.Context, subToken string) (User,
 		&i.DeviceMode,
 		&i.ExtraDevices,
 		&i.ExtraDevicesUntil,
+		&i.DevicePackID,
+		&i.PartnerBotID,
 	)
 	return i, err
 }
@@ -674,7 +688,7 @@ func (q *Queries) ListBoundDeviceSlots(ctx context.Context, userID int64) ([]Lis
 }
 
 const listInbounds = `-- name: ListInbounds :many
-SELECT id, node_id, name, preset, port, enabled, created_at, updated_at, display_name, config, auto_port, auto_sni, outbound, exit_node_id, pool_id, listen, no_auto, tags FROM inbounds ORDER BY id
+SELECT id, node_id, name, preset, port, enabled, created_at, updated_at, display_name, config, auto_port, auto_sni, outbound, exit_node_id, pool_id, listen, no_auto, tags, outbound_id, auto_include, exit_warp FROM inbounds ORDER BY id
 `
 
 func (q *Queries) ListInbounds(ctx context.Context) ([]Inbound, error) {
@@ -705,6 +719,9 @@ func (q *Queries) ListInbounds(ctx context.Context) ([]Inbound, error) {
 			&i.Listen,
 			&i.NoAuto,
 			&i.Tags,
+			&i.OutboundID,
+			&i.AutoInclude,
+			&i.ExitWarp,
 		); err != nil {
 			return nil, err
 		}
@@ -720,7 +737,7 @@ func (q *Queries) ListInbounds(ctx context.Context) ([]Inbound, error) {
 }
 
 const listNodeInbounds = `-- name: ListNodeInbounds :many
-SELECT id, node_id, name, preset, port, enabled, created_at, updated_at, display_name, config, auto_port, auto_sni, outbound, exit_node_id, pool_id, listen, no_auto, tags FROM inbounds WHERE node_id = $1 ORDER BY id
+SELECT id, node_id, name, preset, port, enabled, created_at, updated_at, display_name, config, auto_port, auto_sni, outbound, exit_node_id, pool_id, listen, no_auto, tags, outbound_id, auto_include, exit_warp FROM inbounds WHERE node_id = $1 ORDER BY id
 `
 
 func (q *Queries) ListNodeInbounds(ctx context.Context, nodeID int64) ([]Inbound, error) {
@@ -751,6 +768,9 @@ func (q *Queries) ListNodeInbounds(ctx context.Context, nodeID int64) ([]Inbound
 			&i.Listen,
 			&i.NoAuto,
 			&i.Tags,
+			&i.OutboundID,
+			&i.AutoInclude,
+			&i.ExitWarp,
 		); err != nil {
 			return nil, err
 		}
@@ -870,7 +890,7 @@ func (q *Queries) ListTariffTerms(ctx context.Context, tariffID int64) ([]Tariff
 }
 
 const listTariffs = `-- name: ListTariffs :many
-SELECT id, name, traffic_limit, duration_days, device_limit, reset_strategy, price_label, sort, archived, created_at, billing_day, price_stars, price_rub, on_sale, speed_limit, description, device_mode, device_price_stars, device_price_rub, device_extra_max, chosen_servers FROM tariffs WHERE archived = 0 ORDER BY sort, id
+SELECT id, name, traffic_limit, duration_days, device_limit, reset_strategy, price_label, sort, archived, created_at, billing_day, price_stars, price_rub, on_sale, speed_limit, description, device_mode, device_price_stars, device_price_rub, device_extra_max, chosen_servers, closed FROM tariffs WHERE archived = 0 ORDER BY sort, id
 `
 
 func (q *Queries) ListTariffs(ctx context.Context) ([]Tariff, error) {
@@ -904,6 +924,7 @@ func (q *Queries) ListTariffs(ctx context.Context) ([]Tariff, error) {
 			&i.DevicePriceRub,
 			&i.DeviceExtraMax,
 			&i.ChosenServers,
+			&i.Closed,
 		); err != nil {
 			return nil, err
 		}
@@ -1060,7 +1081,7 @@ func (q *Queries) ListUserSlots(ctx context.Context, userID int64) ([]string, er
 }
 
 const listUsers = `-- name: ListUsers :many
-SELECT id, name, contact, note, tags, status, tariff_id, traffic_limit, device_limit, reset_strategy, period_days, period_start, used_up, used_down, total_up, total_down, expires_at, inbounds, sub_token, slot_id, online_at, created_at, updated_at, billing_day, source, hidden, folder_id, speed_limit, device_mode, extra_devices, extra_devices_until FROM users ORDER BY id DESC
+SELECT id, name, contact, note, tags, status, tariff_id, traffic_limit, device_limit, reset_strategy, period_days, period_start, used_up, used_down, total_up, total_down, expires_at, inbounds, sub_token, slot_id, online_at, created_at, updated_at, billing_day, source, hidden, folder_id, speed_limit, device_mode, extra_devices, extra_devices_until, device_pack_id, partner_bot_id FROM users ORDER BY id DESC
 `
 
 func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
@@ -1104,6 +1125,8 @@ func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
 			&i.DeviceMode,
 			&i.ExtraDevices,
 			&i.ExtraDevicesUntil,
+			&i.DevicePackID,
+			&i.PartnerBotID,
 		); err != nil {
 			return nil, err
 		}
@@ -1119,7 +1142,7 @@ func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
 }
 
 const listUsersByIDs = `-- name: ListUsersByIDs :many
-SELECT id, name, contact, note, tags, status, tariff_id, traffic_limit, device_limit, reset_strategy, period_days, period_start, used_up, used_down, total_up, total_down, expires_at, inbounds, sub_token, slot_id, online_at, created_at, updated_at, billing_day, source, hidden, folder_id, speed_limit, device_mode, extra_devices, extra_devices_until FROM users WHERE id = ANY($1::bigint[]) ORDER BY id
+SELECT id, name, contact, note, tags, status, tariff_id, traffic_limit, device_limit, reset_strategy, period_days, period_start, used_up, used_down, total_up, total_down, expires_at, inbounds, sub_token, slot_id, online_at, created_at, updated_at, billing_day, source, hidden, folder_id, speed_limit, device_mode, extra_devices, extra_devices_until, device_pack_id, partner_bot_id FROM users WHERE id = ANY($1::bigint[]) ORDER BY id
 `
 
 func (q *Queries) ListUsersByIDs(ctx context.Context, ids []int64) ([]User, error) {
@@ -1163,6 +1186,8 @@ func (q *Queries) ListUsersByIDs(ctx context.Context, ids []int64) ([]User, erro
 			&i.DeviceMode,
 			&i.ExtraDevices,
 			&i.ExtraDevicesUntil,
+			&i.DevicePackID,
+			&i.PartnerBotID,
 		); err != nil {
 			return nil, err
 		}
@@ -1473,7 +1498,7 @@ func (q *Queries) TotalTrafficHourly(ctx context.Context, hour int64) ([]TotalTr
 }
 
 const updateInbound = `-- name: UpdateInbound :one
-UPDATE inbounds SET port = $1, enabled = $2, config = $3, display_name = $4, updated_at = $5 WHERE id = $6 RETURNING id, node_id, name, preset, port, enabled, created_at, updated_at, display_name, config, auto_port, auto_sni, outbound, exit_node_id, pool_id, listen, no_auto, tags
+UPDATE inbounds SET port = $1, enabled = $2, config = $3, display_name = $4, updated_at = $5 WHERE id = $6 RETURNING id, node_id, name, preset, port, enabled, created_at, updated_at, display_name, config, auto_port, auto_sni, outbound, exit_node_id, pool_id, listen, no_auto, tags, outbound_id, auto_include, exit_warp
 `
 
 type UpdateInboundParams struct {
@@ -1514,6 +1539,9 @@ func (q *Queries) UpdateInbound(ctx context.Context, arg UpdateInboundParams) (I
 		&i.Listen,
 		&i.NoAuto,
 		&i.Tags,
+		&i.OutboundID,
+		&i.AutoInclude,
+		&i.ExitWarp,
 	)
 	return i, err
 }
@@ -1523,7 +1551,7 @@ UPDATE tariffs
 SET name = $1, traffic_limit = $2, duration_days = $3, device_limit = $4, reset_strategy = $5, price_label = $6, sort = $7, billing_day = $8,
     price_stars = $9, price_rub = $10, on_sale = $11, speed_limit = $13, description = $14
 WHERE id = $12
-RETURNING id, name, traffic_limit, duration_days, device_limit, reset_strategy, price_label, sort, archived, created_at, billing_day, price_stars, price_rub, on_sale, speed_limit, description, device_mode, device_price_stars, device_price_rub, device_extra_max, chosen_servers
+RETURNING id, name, traffic_limit, duration_days, device_limit, reset_strategy, price_label, sort, archived, created_at, billing_day, price_stars, price_rub, on_sale, speed_limit, description, device_mode, device_price_stars, device_price_rub, device_extra_max, chosen_servers, closed
 `
 
 type UpdateTariffParams struct {
@@ -1583,6 +1611,7 @@ func (q *Queries) UpdateTariff(ctx context.Context, arg UpdateTariffParams) (Tar
 		&i.DevicePriceRub,
 		&i.DeviceExtraMax,
 		&i.ChosenServers,
+		&i.Closed,
 	)
 	return i, err
 }
@@ -1593,7 +1622,7 @@ SET name = $1, contact = $2, note = $3, tags = $4, status = $5, tariff_id = $6, 
     reset_strategy = $9, period_days = $10, period_start = $11, expires_at = $12, inbounds = $13, updated_at = $14, billing_day = $15,
     speed_limit = $17
 WHERE id = $16
-RETURNING id, name, contact, note, tags, status, tariff_id, traffic_limit, device_limit, reset_strategy, period_days, period_start, used_up, used_down, total_up, total_down, expires_at, inbounds, sub_token, slot_id, online_at, created_at, updated_at, billing_day, source, hidden, folder_id, speed_limit, device_mode, extra_devices, extra_devices_until
+RETURNING id, name, contact, note, tags, status, tariff_id, traffic_limit, device_limit, reset_strategy, period_days, period_start, used_up, used_down, total_up, total_down, expires_at, inbounds, sub_token, slot_id, online_at, created_at, updated_at, billing_day, source, hidden, folder_id, speed_limit, device_mode, extra_devices, extra_devices_until, device_pack_id, partner_bot_id
 `
 
 type UpdateUserParams struct {
@@ -1669,6 +1698,8 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, e
 		&i.DeviceMode,
 		&i.ExtraDevices,
 		&i.ExtraDevicesUntil,
+		&i.DevicePackID,
+		&i.PartnerBotID,
 	)
 	return i, err
 }

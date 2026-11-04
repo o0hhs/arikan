@@ -36,6 +36,15 @@ type DesiredState struct {
 	// Filters keep users' traffic from places and strangers from the node; nil: none.
 	// Nodes older than the filters ignore it.
 	Filters *Filters `json:"filters,omitempty"`
+	// Subs is the node answering subscription links on its 443 from the records the panel
+	// hands it (PUT /v1/subs); nil: it does not. Nodes older than it ignore the field.
+	Subs *SubsServer `json:"subs,omitempty"`
+	// InboundAPI: false tells the node not to listen on its API port at all — the panel
+	// reaches it over the node's reverse tunnel (TunnelPath) alone. nil is on, as every node
+	// was before the field, so a panel older than it can never close a node's port. Nodes
+	// older than it ignore it. The node keeps the answer: one that was told to close the
+	// port does not open it again on a restart, before the panel says otherwise.
+	InboundAPI *bool `json:"inbound_api,omitempty"`
 	// Shaping splits the node's channel evenly between the users moving traffic; nil: off.
 	// Nodes older than it ignore it.
 	Shaping *Shaping `json:"shaping,omitempty"`
@@ -64,6 +73,17 @@ type DesiredState struct {
 	// same rule; both lift by themselves after APILockStale without the panel. Nodes older
 	// than it ignore it.
 	APIAllow []string `json:"api_allow,omitzero"`
+}
+
+// InboundAPINeeded says whether the state has the node listen on its API port: true unless the
+// panel said otherwise, and so true for a state from before the field.
+func (s DesiredState) InboundAPINeeded() bool { return s.InboundAPI == nil || *s.InboundAPI }
+
+// InboundAPIStatus is the node's own API port as Health reports it: On while it listens, Error
+// why a wanted one does not.
+type InboundAPIStatus struct {
+	On    bool   `json:"on"`
+	Error string `json:"error,omitempty"`
 }
 
 // APILockStale is how long the panel may stay away before a node with APIAllow opens its
@@ -258,6 +278,28 @@ type Health struct {
 	Listeners []ListenerStatus `json:"listeners"`
 	Conns     int              `json:"conns"`
 	System    System           `json:"system"`
+	// Caps are the features of the cascade and the rest this node's code knows: what the
+	// panel builds only for nodes that can carry it (a route through an exit's WARP needs
+	// both ends to know the mark). A node older than the field sends none.
+	Caps []string `json:"caps,omitempty"`
+	// Cascade is the node's part in the cascade as it is now: the entry's bridge and the
+	// panel's connection to it, or the exit's stream. nil: no part, or an older node.
+	Cascade *CascadeStatus `json:"cascade,omitempty"`
+	// Subs is the subscription store: what it keeps and whether the node answers links on
+	// its 443. nil on nodes older than it.
+	Subs *SubsStatus `json:"subs,omitempty"`
+	// Site is the node's own HTTPS page (data/node/www); nil on nodes before it. Its Port is
+	// the loopback port a REALITY dest of this node may name (0 when the page is not on
+	// loopback): the handshake of a client then mirrors a real page on the node's domain.
+	Site *SiteStatus `json:"site,omitempty"`
+	// Egress is the node's own way to the internet, as last checked: a node that answers the
+	// panel while its uplink or DNS is down serves nobody, and that must not look like a
+	// healthy node. nil: not checked (older nodes, or the first seconds after the start).
+	Egress *EgressStatus `json:"egress,omitempty"`
+	// InboundAPI is the node's own API port: On while it listens, and nil on a node older than
+	// the field. A node the panel keeps on its reverse tunnel alone says Off, so the Nodes page
+	// shows why its own address does not answer.
+	InboundAPI *InboundAPIStatus `json:"inbound_api,omitempty"`
 	// Update is how the last update the panel asked for went, as the host's updater wrote
 	// it; nil while there is none. Nodes before 0.5.0.2 send nothing.
 	Update *UpdateStatus `json:"update,omitempty"`
@@ -487,17 +529,6 @@ type WarpStatus struct {
 // names are [a-z0-9-].
 const RelayListener = "mikan~relay"
 
-// Relay is a node's door for other nodes of the panel: a VLESS REALITY listener with a
-// key per source node. Its connections carry no subscriber, so they pass the per-user
-// accounting and limits (the source node already applied them); the REJECT rules still
-// hold. Where the relay's traffic leaves is decided like any inbound's: IN-NAME rules of
-// Warp.Inbounds or an Exit's Inbounds may name RelayListener.
-type Relay struct {
-	Port   string          `json:"port"`
-	Config json.RawMessage `json:"config"` // proto.Template as JSON
-	Users  []Slot          `json:"users"`  // one per source node
-}
-
 // Exit is another node as an outbound: Proxy is the mihomo proxy reaching its relay,
 // Inbounds the local listeners (RelayListener included) whose traffic goes there.
 type Exit struct {
@@ -627,3 +658,71 @@ const (
 	CheckFail = "fail"
 	CheckSkip = "skip"
 )
+
+// Relay is a node's door for other nodes of the panel: a VLESS REALITY listener with a
+// key per source node. Its connections carry no subscriber, so they pass the per-user
+// accounting and limits (the source node already applied them); the REJECT rules still
+// hold. Where the relay's traffic leaves is decided like any inbound's: IN-NAME rules of
+// Warp.Inbounds or an Exit's Inbounds may name RelayListener.
+type Relay struct {
+	Port   string          `json:"port"`
+	Config json.RawMessage `json:"config"` // proto.Template as JSON
+	Users  []Slot          `json:"users"`  // one per source node
+}
+
+// DPIStatus is the node's DPI bypass as the host last reported it: whether nfqws runs, and
+// why not when it does not. At is when the host wrote the answer (unix seconds); 0 when the
+// host never did (the unit is not installed yet).
+type DPIStatus struct {
+	On    bool   `json:"on"`
+	Error string `json:"error,omitempty"`
+	At    int64  `json:"at,omitempty"`
+}
+
+// DirUsage is one directory's share of a node's data.
+type DirUsage struct {
+	// Path is relative to the node's data directory: "mihomo", "update".
+	Path  string `json:"path"`
+	Bytes int64  `json:"bytes"`
+}
+
+// DiskStatus is how a node's disk looks: the filesystem of its data directory, what its
+// directories take, and what a cleanup (POST /v1/disk/clean) will remove. The panel shows
+// it on the node page and runs the cleanup with one button.
+type DiskStatus struct {
+	// Total, Free and Used are the data directory's filesystem, in bytes.
+	Total int64 `json:"total"`
+	Free  int64 `json:"free"`
+	Used  int64 `json:"used"`
+	// Dirs are the sizes of the data directory's own subdirectories.
+	Dirs []DirUsage `json:"dirs"`
+	// Junk is what Clean removes: update leftovers and temporary files. Files names them.
+	Junk  int64    `json:"junk"`
+	Files []string `json:"files"`
+	// Freed is what the last clean removed, in bytes; 0 when none ran or none was removed.
+	Freed int64 `json:"freed"`
+}
+
+// EgressStatus is one check of the node's own way out: a direct TCP connect to a public
+// address and the host's resolver for a public name. Neither goes through the core: a failure
+// here is the server's uplink or DNS, while a healthy egress with users failing points at the
+// core, the rules or the network between the client and the node.
+type EgressStatus struct {
+	OK        bool      `json:"ok"`
+	CheckedAt time.Time `json:"checked_at"`
+	LatencyMS int64     `json:"latency_ms,omitempty"`
+	Error     string    `json:"error,omitempty"`
+}
+
+// PortStatus is how a port the node holds for a feature of its own went (the 301 on port
+// 80, the SNI router on 443, the firewall rule on the API port): Error says why it is not
+// held (another program has it, the host could not put the rule in).
+// SiteStatus is the node's own page as it runs: where it answers, and what went wrong
+// when it does not. Listen is "" while the page is off (MIKAN_SITE_LISTEN=off, or no www
+// directory).
+type SiteStatus struct {
+	Listen string `json:"listen,omitempty"`
+	Port   int    `json:"port,omitempty"`
+	OK     bool   `json:"ok"`
+	Error  string `json:"error,omitempty"`
+}

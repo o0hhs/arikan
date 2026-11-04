@@ -6,6 +6,7 @@ import (
 
 	"mikan/internal/panel/domain"
 	"mikan/internal/panel/settings"
+	"mikan/internal/panel/subsrc"
 	"mikan/internal/sub/routing"
 )
 
@@ -56,6 +57,7 @@ var settingFields = []settingField{
 		return settings.Set(ctx, set, settings.KeyRules, strings.TrimRight(v, " \n\r\t"))
 	}),
 	value("sub_routes", settings.KeyRoutes, true, func(b *patchSettingsBody) *routing.Routes { return b.SubRoutes }),
+	value("subs_from_nodes", settings.KeySubsFromNodes, true, func(b *patchSettingsBody) *subsrc.FromNodes { return b.SubsFromNodes }),
 	text("sub_routing", settings.KeyRouting, true, func(b *patchSettingsBody) *string { return b.SubRouting }),
 	text("support_url", settings.KeySupportURL, true, func(b *patchSettingsBody) *string { return b.SupportURL }),
 	// What every subscriber's app shows: text, links and the logo it downloads.

@@ -20,6 +20,7 @@ import (
 	"mikan/internal/proto"
 	"mikan/internal/sub/apps"
 	"mikan/internal/sub/model"
+	"mikan/internal/sub/profile"
 	"mikan/internal/sub/routing"
 	"mikan/internal/sub/subtest"
 	"mikan/internal/sub/xray"
@@ -946,7 +947,8 @@ func TestHappRoutingOfTheClashTemplate(t *testing.T) {
 // Clash profile's to set.
 func TestConfigProfile(t *testing.T) {
 	cfg := Config{Nodes: []model.Node{{ID: 1}}, Direct: []string{"203.0.113.7"}, Rules: []routing.Rule{{}},
-		Routes: routing.Routes{Services: map[string]string{"youtube": routing.TargetVPN}}, Lang: "ru"}
+		Routes: routing.Routes{Services: map[string]string{"youtube": routing.TargetVPN}}, Lang: "ru",
+		Exit: &profile.Exit{Address: "203.0.113.9", Port: 1080, Name: "RU"}}
 	p := reflect.ValueOf(cfg.Profile([]model.Proxy{{Name: "NL"}}))
 	for i := range p.NumField() {
 		if name := p.Type().Field(i).Name; name != "App" && p.Field(i).IsZero() {

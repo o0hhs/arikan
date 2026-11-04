@@ -24,10 +24,14 @@ import (
 
 	"mikan/internal/pace"
 	"mikan/internal/panel/addons"
+	"mikan/internal/panel/campaigns"
+	"mikan/internal/panel/discounts"
 	"mikan/internal/panel/domain"
 	"mikan/internal/panel/events"
 	"mikan/internal/panel/model"
+	"mikan/internal/panel/partners"
 	"mikan/internal/panel/promo"
+	"mikan/internal/panel/referral"
 	"mikan/internal/panel/secure"
 	"mikan/internal/panel/settings"
 	"mikan/internal/panel/store"
@@ -82,6 +86,8 @@ type Config struct {
 	ExtraDevicesKeep bool `json:"extra_devices_keep,omitempty"`
 	// Balance is the accounts' internal balance (balance.go).
 	Balance BalanceConfig `json:"balance"`
+	// CustomTariffID is the tariff the constructor (custom.go) builds on; 0: no constructor.
+	CustomTariffID int64 `json:"custom_tariff_id,omitempty"`
 }
 
 // TrialPaid: the trial has a price and is bought, not taken.
@@ -125,6 +131,18 @@ type Deps struct {
 	// SubBase is https://host:port/<sub path>, where the webhooks are; "" without an address.
 	SubBase func(ctx context.Context) string
 	Promo   *promo.Service
+	// Discounts are the panel's own sales: while a discount stands, the price of some
+	// tariffs is lower and the panel takes the money off by itself. nil: none.
+	Discounts *discounts.Service
+	// Referral is the bot's referral programme: what an invitee's payment gives the
+	// account that invited them, and what a balance pays of an invoice. nil: none.
+	Referral *referral.Service
+	// Campaigns are the ad campaign tags: which tagged link a buyer arrived through, so a
+	// campaign's first purchases and renewals are counted. nil: none.
+	Campaigns *campaigns.Service
+	// Partners are the franchise's books: the partner's code binds an account and a paid
+	// order credits their share.
+	Partners *partners.Service
 	// Events wakes the addons reading the feed after a payment, a trial or a refund; nil: no
 	// one waits (the events are written all the same).
 	Events *events.Hub

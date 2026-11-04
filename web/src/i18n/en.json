@@ -410,6 +410,15 @@
       "routes_servers_xray": "Xray apps: the check address starts with http:// or https://, the interval is 30 seconds to a day, and the leastLoad fields go with leastLoad only",
       "routes_dns": "A DNS server does not fit: an IP (1.1.1.1 or 1.1.1.1:53) or an address like https://…, tls://…, quic://…",
       "routes_dns_policy": "A DNS policy key that the Clash apps fail on or that matches no site: names separated by commas, none empty, with no dot at the end and no spaces: domains like +.cn, *.a.com or a.com, and inside a list geosite:… or rule-set:… in lower case. After geosite: or rule-set: at the start every name is a category or a list, with no +., *. or :",
+      "bad_coefficient": "A coefficient is 0.1 to 10",
+      "dashboard_card_unknown": "Unknown dashboard card",
+      "dashboard_date_unknown": "Unknown date format",
+      "monitor_password_short": "The password is too short",
+      "monitor_path_taken": "That path is taken by the admin panel, the subscriptions or the agent panel",
+      "subs_nodes_many": "Too many nodes: no more than 8 answer a subscription",
+      "subs_node_unknown": "There is no such node",
+      "subs_nodes_domain": "A subscription served from nodes needs a subscription domain: point that name at the nodes, it is the link's host",
+      "subs_nodes_port": "A subscription served from nodes opens on 443 without a port: move the subscription port to 443 first",
       "no_proxies": "No protocol is enabled, so the profile has nothing to show",
       "template_yaml": "The YAML does not read: an error on line {value}",
       "template_empty": "The profile is empty",
@@ -3653,16 +3662,15 @@
     "events": {
       "payment": {
         "paid": "Payment received",
-        "refunded": "Payment refunded"
+        "refunded": "Payment refunded",
+        "failed": "A payment failed"
       },
       "user": {
         "created": "Subscription created",
         "granted": "Days or traffic granted by an addon",
         "expiring": "Subscription ends soon",
         "expired": "Subscription ended",
-        "started": "Term that waited for a connection started",
-        "switched": "Next plan took over",
-        "removed": "Inactive subscription deleted"
+        "inactive": "A subscription has not connected for a while"
       },
       "traffic": {
         "90": "90% of traffic used",
@@ -3682,6 +3690,9 @@
       },
       "balance": {
         "topup": "Balance top-up decided"
+      },
+      "discount": {
+        "ending": "A sale is ending"
       }
     }
   },

@@ -37,6 +37,21 @@ type Target struct {
 	Local bool
 	// Address is the node's API host:port, for the words of a failure; "" for the local node.
 	Address string
+	// Tunnel is the node's reverse tunnel, when the panel has one for it (the node opened the
+	// connection out to the panel): the panel's calls take it while it is up. nil: none.
+	Tunnel func() (TunnelView, bool)
+}
+
+// TunnelView is a node's reverse tunnel as the panel sees it: the node connected out to the
+// panel, and the panel's calls go over that connection while it is up.
+type TunnelView struct {
+	Connected bool
+	Since     time.Time // when the connection was opened
+	Last      time.Time // when the last call went through it
+	Ended     time.Time // when the last one closed; zero: never had one
+	Streams   int       // calls in flight over it now
+	Remote    string    // the address the node connected from
+	Error     string    // why the last connection ended ("" while it runs)
 }
 
 // Connect builds the client for a node row; the app knows the socket and certificates.
@@ -76,6 +91,15 @@ type Manager struct {
 	batchMu sync.Mutex
 	batches map[int64]uint64
 
+	// The subscription push (subs.go): its renderer, the nodes it reached, and the pace
+	// between two pushes.
+	subsDirty  chan struct{}
+	subsMu     sync.Mutex
+	subsRender SubsRenderer
+	subsPushed map[int64]SubsPush
+	subsLast   time.Time // when a push last started: two are never closer than subsMinGap
+	subsGen    int64     // the newest generation a push carried; only grows
+
 	// The torrent blocker's settings for the pullers (torrent.go), read again only after
 	// a change: the whole snapshot for one flag every few seconds kept PostgreSQL busy.
 	torMu      sync.Mutex
@@ -111,13 +135,15 @@ type running struct {
 
 func NewManager(st *store.Store, set *settings.Settings, pool *domain.Pool, connect Connect, log *slog.Logger, now func() time.Time) *Manager {
 	return &Manager{st: st, set: set, pool: pool, connect: connect, log: log, now: now,
-		nodesDirty: make(chan struct{}, 1), running: map[int64]*running{}, batches: map[int64]uint64{}, storeInterval: storeEvery}
+		nodesDirty: make(chan struct{}, 1), running: map[int64]*running{}, batches: map[int64]uint64{},
+		subsDirty: make(chan struct{}, 1), subsPushed: map[int64]SubsPush{}, storeInterval: storeEvery}
 }
 
 // SetEvents connects the hub that wakes the addons reading the feed; call it before Run.
 func (m *Manager) SetEvents(h *events.Hub) { m.hub = h }
 
 func (m *Manager) Run(ctx context.Context) {
+	go m.runSubs(ctx)
 	m.reconcile(ctx)
 	maintain := time.NewTicker(30 * time.Second)
 	defer maintain.Stop()

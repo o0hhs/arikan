@@ -18,13 +18,13 @@ func TestAdminPasskeysMigration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := p.DownTo(ctx, 59); err != nil {
+	if _, err := p.DownTo(ctx, 61); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.DB.ExecContext(ctx, "SELECT 1 FROM admin_passkeys"); err == nil {
 		t.Fatal("the table before its migration")
 	}
-	if _, err := p.UpTo(ctx, 60); err != nil {
+	if _, err := p.UpTo(ctx, 62); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.DB.ExecContext(ctx, `INSERT INTO admins (id, username, password_hash, created_at) VALUES (1, 'a', 'x', 1), (2, 'b', 'x', 1)`); err != nil {
@@ -53,7 +53,7 @@ func TestAdminPasskeysMigration(t *testing.T) {
 	if err := s.DB.QueryRowContext(ctx, "SELECT count(*) FROM admin_passkeys").Scan(&n); err != nil || n != 1 {
 		t.Fatalf("after the admin left: %d keys (%v)", n, err)
 	}
-	if _, err := p.DownTo(ctx, 59); err != nil {
+	if _, err := p.DownTo(ctx, 61); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.DB.ExecContext(ctx, "SELECT 1 FROM admin_passkeys"); err == nil {

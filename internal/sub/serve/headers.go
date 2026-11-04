@@ -32,7 +32,7 @@ func userInfoHeaders(hd http.Header, u User, cfg Config, vars map[string]string)
 		"; total="+strconv.FormatInt(total(u), 10)+"; expire="+strconv.FormatInt(expire, 10))
 	// Hourly: a port or target the panel changed on its own reaches clients soon.
 	hd.Set("Profile-Update-Interval", "1")
-	hd.Set("Profile-Title", "base64:"+base64.StdEncoding.EncodeToString([]byte(profileTitle(cfg, vars))))
+	hd.Set("Profile-Title", "base64:"+base64.StdEncoding.EncodeToString([]byte(ProfileTitle(cfg, vars))))
 	if cfg.SupportURL != "" {
 		hd.Set("Support-Url", cfg.SupportURL)
 	}
@@ -77,9 +77,9 @@ func profileHeaders(hd http.Header, format, title string) {
 	contentType(hd, format)
 	switch format {
 	case FormatClash:
-		hd.Set("Content-Disposition", "attachment; filename*=UTF-8''"+url.PathEscape(fileName(title))+".yaml")
+		hd.Set("Content-Disposition", "attachment; filename*=UTF-8''"+url.PathEscape(FileName(title))+".yaml")
 	case FormatSingBox:
-		hd.Set("Content-Disposition", "attachment; filename*=UTF-8''"+url.PathEscape(fileName(title))+".json")
+		hd.Set("Content-Disposition", "attachment; filename*=UTF-8''"+url.PathEscape(FileName(title))+".json")
 	}
 }
 

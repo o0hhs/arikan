@@ -13,6 +13,7 @@ import (
 	"mikan/internal/release"
 	"mikan/internal/sub/apps"
 	submodel "mikan/internal/sub/model"
+	"mikan/internal/sub/profile"
 	"mikan/internal/sub/routing"
 	"mikan/internal/sub/serve"
 )
@@ -212,5 +213,31 @@ func LoadConfig(ctx context.Context, d ConfigDeps) (Config, error) {
 		}
 		cfg.Nodes = append(cfg.Nodes, sn)
 	}
+	cfg.Exit = youtubeExit(cfg.Nodes, cfg.Routes)
 	return cfg, nil
 }
+
+// youtubeExit is the entry of the "YouTube without ads" offer as the profiles end: its own
+// address (the offer's point) is not an outbound an app can name, so the profiles end on
+// the main group as before; an exit through another node is that node's own SOCKS, where
+// the entry's users reach it, and the profiles end there.
+func youtubeExit(nodes []submodel.Node, r routing.Routes) *profile.Exit {
+	entry, ok := r.YouTubeEntry()
+	if !ok || r.YouTubeExitDirect() {
+		return nil
+	}
+	exit, ok := r.YouTubeExitNode()
+	if !ok || exit == entry {
+		return nil
+	}
+	for _, n := range nodes {
+		if n.ID == exit && n.Endpoint.Host != "" {
+			return &profile.Exit{Address: n.Endpoint.Host, Port: exitSocksPort, Name: n.Name}
+		}
+	}
+	return nil
+}
+
+// exitSocksPort is the SOCKS the entry node listens on for its own users: where a config's
+// rules end when they leave through the entry.
+const exitSocksPort = 1080

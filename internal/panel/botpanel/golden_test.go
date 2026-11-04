@@ -130,6 +130,16 @@ func TestWireGoldens(t *testing.T) {
 		"Account.zero": tgbot.Account{Links: users(nil)},
 		"Linked":       tgbot.Linked{Status: tgbot.LinkTaken, User: model.User(u), Owner: 556},
 	} {
+		if os.Getenv("REGEN_GOLDENS") != "" {
+			raw, err := json.Marshal(v)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(goldenDir, name+".json"), append(raw, '\n'), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			continue
+		}
 		t.Run(name, func(t *testing.T) { golden(t, name, v) })
 	}
 }

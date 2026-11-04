@@ -48,6 +48,10 @@ func State(u db.User, grants int64, now time.Time) string {
 
 func CanConnect(state string) bool { return state == StateActive || state == StateExpiring }
 
+// ResetStrategies are the values users.reset_strategy and tariffs.reset_strategy take: the
+// counter never resets, resets on the billing day (month_start) or every period (period).
+var ResetStrategies = []string{"none", "month_start", "period"}
+
 // CountStates counts the users in each State in the database, without loading them.
 func CountStates(ctx context.Context, q *db.Queries, now time.Time) (db.CountUserStatesRow, error) {
 	return q.CountUserStates(ctx, db.CountUserStatesParams{Now: now.Unix(), ExpiringWithin: int64(model.ExpiringWindow / time.Second)})
@@ -89,10 +93,11 @@ const (
 	UserFromTrial  = "trial"  // the bot's free trial
 	UserFromImport = "import" // brought over from another panel
 	UserFromFree   = "free"   // the free plan, taken in the bot or the Mini App
+	UserFromCode   = "code"   // given by an access code (a promo code that opens a tariff)
 )
 
 // UserOrigins lists them in the order the list shows them.
-var UserOrigins = []string{UserFromAdmin, UserFromBot, UserFromTrial, UserFromFree, UserFromImport}
+var UserOrigins = []string{UserFromAdmin, UserFromBot, UserFromTrial, UserFromFree, UserFromCode, UserFromImport}
 
 // ValidOrigin tells a source the database accepts.
 func ValidOrigin(s string) bool { return slices.Contains(UserOrigins, s) }
@@ -115,6 +120,44 @@ type CreateInput struct {
 	// tariff says (TariffLifecycle.StartOnConnect). A term without an end waits for nothing,
 	// and an import's users bring theirs running.
 	StartsOnConnect *bool
+	// Options replaces the tariff's own limits and strategy on the new user (a tariff the
+	// buyer put together, a tariff an access code opened); nil: the tariff's.
+	Options *Options
+	// DevicePackID is the pack of extra device places the purchase carries; 0: the tariff's
+	// own places only. The pack's slots widen the device limit on top of the tariff's.
+	DevicePackID int64
+}
+
+// Options are the limits a subscription runs with in place of its tariff's: a traffic limit
+// (invalid = endless), a device limit (invalid = endless), a speed limit in Mbit/s (invalid =
+// endless) and a reset strategy. Empty fields keep the tariff's own. Days are not here: a
+// term is what the buyer paid for (TermDays), and only the price depends on it.
+type Options struct {
+	TrafficLimit  sql.NullInt64
+	DeviceLimit   sql.NullInt64
+	SpeedLimit    sql.NullInt64
+	ResetStrategy string
+}
+
+// LimitsOf is the tariff's limits, with o's overriding what it sets.
+func (o *Options) LimitsOf(t db.Tariff) (traffic, devices, speed sql.NullInt64, strategy string) {
+	traffic, devices, speed, strategy = t.TrafficLimit, t.DeviceLimit, t.SpeedLimit, t.ResetStrategy
+	if o == nil {
+		return traffic, devices, speed, strategy
+	}
+	if o.TrafficLimit.Valid {
+		traffic = o.TrafficLimit
+	}
+	if o.DeviceLimit.Valid {
+		devices = o.DeviceLimit
+	}
+	if o.SpeedLimit.Valid {
+		speed = o.SpeedLimit
+	}
+	if o.ResetStrategy != "" {
+		strategy = o.ResetStrategy
+	}
+	return traffic, devices, speed, strategy
 }
 
 // Create makes a user the admin names (the panel, an API key): the name is checked as

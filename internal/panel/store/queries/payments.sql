@@ -127,3 +127,8 @@ SET device_limit = CASE WHEN device_limit IS NULL THEN NULL ELSE GREATEST(device
     extra_devices = 0, extra_devices_until = NULL, updated_at = sqlc.arg(now)
 WHERE extra_devices > 0 AND extra_devices_until IS NOT NULL AND extra_devices_until <= sqlc.arg(now)
 RETURNING id, device_limit;
+
+-- name: GetPaymentForUpdate :one
+-- The payment's row is held until the transaction ends: what the caller decides on it must
+-- not change under it (a hold going back for an invoice that was paid as it did).
+SELECT * FROM payments WHERE id = $1 FOR UPDATE;

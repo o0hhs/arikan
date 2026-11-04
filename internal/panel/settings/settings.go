@@ -17,8 +17,12 @@ import (
 )
 
 const (
-	KeyAdminPath  = "admin_path"
-	KeySubPath    = "sub_path"
+	KeyAdminPath = "admin_path"
+	KeySubPath   = "sub_path"
+	// KeyAgentPath is the secret path the advertising agents' panel lives under; "" (the
+	// default): the panel is not served at all. Like KeyAdminPath, it is edited in the
+	// panel (Payments → Agents) and routes by the first path segment.
+	KeyAgentPath  = "agent_path"
 	KeyPublicHost = "public_host"
 	KeyPanelPort  = "panel_port"
 	// KeySubPort is a port of its own for subscriptions; 0 or unset: the panel's port.
@@ -142,6 +146,16 @@ const (
 	// KeySubPage is the subscription page as the admin built it (subpage.Config): its look,
 	// blocks, apps and own CSS; unset: the page as it always was.
 	KeySubPage = "sub_page"
+	// KeySubsFromNodes is the nodes that answer subscription links themselves (subsrc.FromNodes:
+	// {enabled, nodes}), from the profiles the panel renders and pushes to them; unset: the
+	// panel alone answers. The link's host stays the subscription domain's (KeySubDomain).
+	KeySubsFromNodes = "subs_from_nodes"
+	// KeyDashboard is the panel's own front page as the admin set it up (dashboard.Layout):
+	// which cards it shows and how it dates them; unset: all of them, as they always were.
+	KeyDashboard = "dashboard"
+	// KeyMonitor is the public monitoring page (monitor.Config): its own address, its
+	// password and what it shows. Off until the admin sets a password.
+	KeyMonitor = "monitor"
 )
 
 // Switch is an on/off setting with its default: read it with On, so the default lives
@@ -339,6 +353,8 @@ func (s *Settings) UpdateChannel(ctx context.Context) (string, error) {
 type Paths struct {
 	Admin string
 	Sub   string
+	// Agent is the first path segment of the advertising agents' panel; "": not served.
+	Agent string
 	// Legacy is the old panel's subscription path, one to three segments; "" when unset.
 	Legacy string
 }
@@ -352,11 +368,15 @@ func (s *Settings) Paths(ctx context.Context) (Paths, error) {
 	if err != nil {
 		return Paths{}, err
 	}
+	agent, err := s.String(ctx, KeyAgentPath)
+	if err != nil {
+		return Paths{}, err
+	}
 	legacy, err := s.String(ctx, KeyLegacySubPath)
 	if err != nil {
 		return Paths{}, err
 	}
-	return Paths{Admin: a, Sub: sub, Legacy: legacy}, nil
+	return Paths{Admin: a, Sub: sub, Agent: agent, Legacy: legacy}, nil
 }
 
 // Endpoint is how clients reach the panel: host is an IP or a domain.

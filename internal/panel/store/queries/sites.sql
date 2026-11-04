@@ -9,3 +9,8 @@ GROUP BY site ORDER BY sum(up) + sum(down) DESC LIMIT sqlc.arg(lim);
 
 -- name: PruneUserSites :execrows
 DELETE FROM user_sites WHERE day < $1;
+
+-- name: TopUserSites :many
+SELECT site, sum(up)::bigint AS up, sum(down)::bigint AS down FROM user_sites
+WHERE day >= sqlc.arg(since)
+GROUP BY site ORDER BY sum(up) + sum(down) DESC LIMIT sqlc.arg(lim);

@@ -31,6 +31,12 @@ type Node struct {
 	// NoAuto keeps the node's servers out of the automatic choice: the admin's word (a
 	// server for whitelist-only networks), or the node does not answer the panel.
 	NoAuto bool
+	// PublicName is the node's name as the admin titled it; "" is Name. The fork's node
+	// client list shows it.
+	PublicName string
+	// Tags are the admin's labels of the node, comma-separated; "" is none. The fork's
+	// filters by label read them.
+	Tags string
 }
 
 // Inbound is one inbound of a node as the subscription sees it.

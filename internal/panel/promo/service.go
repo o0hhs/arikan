@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"mikan/internal/panel/domain"
+	"mikan/internal/panel/secure"
 	"mikan/internal/panel/store"
 	"mikan/internal/panel/store/db"
 )
@@ -49,6 +50,27 @@ func PaidLate(r db.PromoRedemption, paidAt int64) bool {
 	return r.Status == RedemptionReleased || r.Status == RedemptionReserved && r.ExpiresAt.Valid
 }
 
+// The kinds of a code (promo_codes.type). The first four are the bonus and discount codes; the
+// access codes open a tariff the shop keeps hidden (tariffs.on_sale = 0), either to buy at its
+// price (AccessPaid) or to take for nothing (AccessFree). The values are the database's.
+const (
+	TypeDays       = "days"
+	TypeTraffic    = "traffic"
+	TypePercent    = "percent"
+	TypeFixed      = "fixed"
+	TypeAccessPaid = "access_paid"
+	TypeAccessFree = "access_free"
+)
+
+// IsAccess: the code opens a tariff instead of giving days, traffic or a discount.
+func IsAccess(t string) bool { return t == TypeAccessPaid || t == TypeAccessFree }
+
+// IsDiscount: the code takes an amount off an invoice.
+func IsDiscount(t string) bool { return t == TypePercent || t == TypeFixed }
+
+// IsBonus: the code gives days or traffic on the spot.
+func IsBonus(t string) bool { return t == TypeDays || t == TypeTraffic }
+
 var (
 	ErrNotFound           = refuse("promo_not_found")
 	ErrInactive           = refuse("promo_inactive")
@@ -69,6 +91,8 @@ var (
 	ErrReservationExpired = refuse("promo_reservation_expired")
 	ErrRefundUnsupported  = refuse("promo_refund_unsupported")
 	ErrNotBonus           = refuse("promo_not_bonus")
+	// ErrNotAccess: a code that does not open a tariff was used as one.
+	ErrNotAccess = refuse("promo_not_access")
 )
 
 const (
@@ -511,4 +535,34 @@ func (s *Service) ApplyPayment(ctx context.Context, q *db.Queries, paymentID, us
 		return ErrAlreadyApplied
 	}
 	return nil
+}
+
+// CreatePersonalDiscount makes a one-use percentage code for an automation rule. The code
+// is not tied to an account in the database: it is sent privately, can be redeemed once,
+// and expires with the rule's window. A collision is retried, so a generated code never
+// hides a real error from the caller.
+func (s *Service) CreatePersonalDiscount(ctx context.Context, percent, days int64, name string) (db.PromoCode, error) {
+	if percent < 1 || percent > 100 || days < 1 || days > 3650 {
+		return db.PromoCode{}, ErrInvalidValue
+	}
+	now := s.Now()
+	ends := now.Add(time.Duration(days) * 24 * time.Hour)
+	name = strings.TrimSpace(name)
+	if name == "" {
+		name = "Personal discount"
+	}
+	for range 8 {
+		code := "AUTO-" + strings.ToUpper(secure.Token(10))
+		p, err := s.Store.Q.CreatePromoCode(ctx, db.CreatePromoCodeParams{
+			Code: code, Name: "Automation: " + name, Description: "Created by automation",
+			Type: TypePercent, Value: percent, StartsAt: sql.NullInt64{Int64: now.Unix(), Valid: true},
+			EndsAt: sql.NullInt64{Int64: ends.Unix(), Valid: true}, MaxUses: sql.NullInt64{Int64: 1, Valid: true},
+			PerUserLimit: 1, TariffIds: "[]", Enabled: 1, CreatedAt: now.Unix(),
+		})
+		if store.IsUnique(err) {
+			continue
+		}
+		return p, err
+	}
+	return db.PromoCode{}, errors.New("promo_code_collision")
 }

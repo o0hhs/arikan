@@ -7,6 +7,8 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
+	"reflect"
+	"strings"
 	"sync"
 	"time"
 
@@ -20,12 +22,16 @@ import (
 	"mikan/internal/panel/acme"
 	"mikan/internal/panel/addons"
 	"mikan/internal/panel/addons/pages"
+	"mikan/internal/panel/agents"
 	"mikan/internal/panel/audit"
 	"mikan/internal/panel/auth"
+	"mikan/internal/panel/automation"
 	"mikan/internal/panel/autotune"
 	"mikan/internal/panel/billing"
 	"mikan/internal/panel/botpanel"
 	"mikan/internal/panel/certcheck"
+	"mikan/internal/panel/checkhost"
+	"mikan/internal/panel/discounts"
 	"mikan/internal/panel/dnscheck"
 	"mikan/internal/panel/domain"
 	"mikan/internal/panel/ipgeo"
@@ -33,6 +39,8 @@ import (
 	"mikan/internal/panel/nodeupdate"
 	"mikan/internal/panel/panelimport"
 	"mikan/internal/panel/reach"
+	"mikan/internal/panel/referral"
+	"mikan/internal/panel/s3backup"
 	"mikan/internal/panel/secure"
 	"mikan/internal/panel/server"
 	"mikan/internal/panel/settings"
@@ -61,11 +69,12 @@ type Deps struct {
 	Log        *slog.Logger
 	Now        func() time.Time
 
-	Users     *domain.Users
+	Users *domain.Users
+	// Campaigns are the ad campaign tags of the bot's links (domain.Campaigns).
+	Campaigns *domain.Campaigns
 	Inbounds  *domain.Inbounds
 	Devices   *domain.Devices
 	Packages  *domain.Packages
-	Campaigns *domain.Campaigns
 	Balancer  *domain.Balancer
 	Pool      *domain.Pool
 	Changes   domain.Changes
@@ -172,7 +181,14 @@ type Deps struct {
 	Logs *logbuf.Buffer
 	// Host asks the panel's own server for `mikan doctor` and a restart of the containers
 	// (the files its units watch); nil: not offered.
-	Host *hostchan.Channel
+	Host       *hostchan.Channel
+	S3Backups  *s3backup.Service
+	Automation *automation.Service
+	Referral   *referral.Service
+	Discounts  *discounts.Service
+	Agents     *agents.Service
+	CheckHost  *checkhost.Client
+	IPGeo      *ipgeo.Client
 }
 
 // NodeRuntime is what the API needs from the running nodes.
@@ -283,6 +299,10 @@ func Config(version string) huma.Config {
 		"supportKey": {Type: "http", Scheme: "bearer", Description: "Токен доступа для поддержки: Authorization: Bearer ms_…"},
 	}
 	cfg.Security = []map[string][]string{{"apiKey": {}}, {"session": {}}, {"supportKey": {}}}
+	// The fork has more than one type of a short name (apps.Rule and referral.Rule): the
+	// schema name carries the package for those two packages alone, so the spec has no
+	// collision and every other type keeps the name the client already knows.
+	cfg.Components.Schemas = huma.NewMapRegistry("#/components/schemas/", schemaNamer)
 	return cfg
 }
 
@@ -338,6 +358,10 @@ func New(d Deps) (http.Handler, huma.API, error) {
 	h.registerCerts()
 	h.registerSubDomain()
 	h.registerCampaigns()
+	h.registerPartners()
+	h.registerDevicePacks()
+	h.registerDashboard()
+	h.registerMonitor()
 	h.registerBalance()
 	h.registerWallet()
 	h.registerSites()
@@ -474,4 +498,21 @@ func (h *handlers) audit(ctx context.Context, adminID int64, action, targetType,
 	if err != nil {
 		h.d.Log.Warn("audit write failed", "action", action, "err", err)
 	}
+}
+
+// schemaNamer is huma.DefaultSchemaNamer with the fork's colliding short name told apart:
+// apps.Rule (a subscription rule) keeps its name, referral.Rule becomes ReferralRule.
+func schemaNamer(t reflect.Type, hint string) string {
+	name := huma.DefaultSchemaNamer(t, hint)
+	if strings.HasSuffix(derefType(t).PkgPath(), "/referral") {
+		name = "Referral" + name
+	}
+	return name
+}
+
+func derefType(t reflect.Type) reflect.Type {
+	for t.Kind() == reflect.Ptr || t.Kind() == reflect.Slice || t.Kind() == reflect.Array {
+		t = t.Elem()
+	}
+	return t
 }

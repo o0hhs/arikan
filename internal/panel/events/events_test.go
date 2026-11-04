@@ -37,7 +37,7 @@ func TestEveryTypeIsDocumented(t *testing.T) {
 	}
 	// Every constant of the feed is in the list.
 	for _, typ := range []string{events.PaymentPaid, events.PaymentRefunded, events.UserCreated, events.UserExpiring, events.UserExpired,
-		events.UserStarted, events.UserSwitched, events.UserRemoved,
+		events.UserInactive, events.PaymentFailed, events.DiscountEnding,
 		events.UserGranted, events.Traffic90, events.Traffic100, events.TrialStarted, events.TrialNotGiven, events.DeviceBound, events.DeviceUnbound,
 		events.NodeDown, events.NodeUp, events.BalanceTopup} {
 		if !seen[typ] {

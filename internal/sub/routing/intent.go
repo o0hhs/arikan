@@ -25,6 +25,8 @@ type Intent struct {
 	DNS     DNS // the admin's resolvers, over the panel's own (Resolvers)
 	Servers Servers
 	Tune    Tune
+	// exit: the profile ends on the admin's own entry (WithExit), not on the main group.
+	exit bool
 }
 
 // Route is a service, an own list, a set of direct apps or the blocked lists as the
@@ -107,10 +109,21 @@ func (in Intent) Tail() []Rule {
 // Final is where what no rule takes goes: past the tunnel in the blocked mode, the main
 // group in the others.
 func (in Intent) Final() Target {
+	if in.exit {
+		return Target{Kind: ToExit}
+	}
 	if in.Mode == Blocked {
 		return Target{Kind: ToDirect}
 	}
 	return Target{Kind: ToMain}
+}
+
+// WithExit sends what no rule takes through the admin's own entry (ToExit): the profile
+// then leaves with the entry's address, which is what the "YouTube without ads" offer is
+// for. Nothing of it is in a blocked mode, whose end is direct.
+func (in Intent) WithExit() Intent {
+	in.exit = in.Mode != Blocked
+	return in
 }
 
 // Sequence are the rules of a profile in their order: pre (HostRules of direct, Head, Own),

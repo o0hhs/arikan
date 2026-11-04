@@ -95,6 +95,16 @@ func TestWireGoldens(t *testing.T) {
 		"ReissueState":        ReissueState{Rules: ReissueRules{Off: true, Limit: 3, Days: 7}, Used: 2, Next: at},
 		"ReissueState.zero":   ReissueState{},
 	} {
+		if os.Getenv("REGEN_GOLDENS") != "" {
+			raw, err := json.Marshal(v)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join("testdata", name+".json"), append(raw, '\n'), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			continue
+		}
 		t.Run(name, func(t *testing.T) { golden(t, name, v) })
 	}
 }

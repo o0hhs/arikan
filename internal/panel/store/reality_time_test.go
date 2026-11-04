@@ -19,7 +19,7 @@ func TestRealityTimeDifferenceInMilliseconds(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := p.DownTo(ctx, 42); err != nil {
+	if _, err := p.DownTo(ctx, 43); err != nil {
 		t.Fatal(err)
 	}
 	const own = "type: vless\nreality-config:\n    dest: www.microsoft.com:443\n    max-time-difference: 60000000\n    private-key: k\n"
@@ -40,7 +40,7 @@ func TestRealityTimeDifferenceInMilliseconds(t *testing.T) {
 			}
 		}
 	}
-	if _, err := p.UpTo(ctx, 43); err != nil {
+	if _, err := p.UpTo(ctx, 45); err != nil {
 		t.Fatal(err)
 	}
 	check(map[int]string{
@@ -49,7 +49,7 @@ func TestRealityTimeDifferenceInMilliseconds(t *testing.T) {
 		83: none,
 		84: off,
 	})
-	if _, err := p.UpTo(ctx, 47); err != nil {
+	if _, err := p.UpTo(ctx, 51); err != nil {
 		t.Fatal(err)
 	}
 	check(map[int]string{

@@ -21,4 +21,16 @@ type Profile struct {
 	Routes routing.Routes
 	App    apps.App
 	Lang   string
+	// Exit is the admin's own entry of the "YouTube without ads" offer, when the app is got
+	// one: a config whose rules end on the entry, so YouTube leaves with the entry's Russian
+	// address (routing.Routes.YouTubeExit). nil: none, and the profile is as it was.
+	Exit *Exit
+}
+
+// Exit is where a profile's rules end when the admin routed the "YouTube without ads" offer
+// through their own entry node: the node's SOCKS5 the entry listens on, and its name.
+type Exit struct {
+	Address string
+	Port    int
+	Name    string
 }

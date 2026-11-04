@@ -20,7 +20,7 @@ func TestServerGroupsMigration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := p.DownTo(ctx, 43); err != nil {
+	if _, err := p.DownTo(ctx, 45); err != nil {
 		t.Fatal(err)
 	}
 	exec := func(q string, args ...any) {
@@ -34,7 +34,7 @@ func TestServerGroupsMigration(t *testing.T) {
 	exec(`INSERT INTO tariff_pools(tariff_id,pool_id,traffic_limit,excluded) VALUES (91,81,100,false), (91,82,0,true)`)
 	exec(`INSERT INTO users(id,name,period_days,period_start,sub_token,created_at,updated_at) VALUES (71,'u',30,1,'tok71',1,1)`)
 	exec(`INSERT INTO user_pools(user_id,pool_id,traffic_limit,used_up,excluded) VALUES (71,81,NULL,5,false), (71,82,NULL,0,true)`)
-	if _, err := p.UpTo(ctx, 44); err != nil {
+	if _, err := p.UpTo(ctx, 46); err != nil {
 		t.Fatal(err)
 	}
 	modes := func(q string) map[[2]int64]string {
@@ -75,14 +75,14 @@ func TestServerGroupsMigration(t *testing.T) {
 		t.Fatalf("what was used stays: %d %v", used, err)
 	}
 
-	if _, err := p.DownTo(ctx, 43); err != nil {
+	if _, err := p.DownTo(ctx, 45); err != nil {
 		t.Fatal(err)
 	}
 	var excluded bool
 	if err := s.DB.QueryRowContext(ctx, `SELECT excluded FROM tariff_pools WHERE tariff_id = 91 AND pool_id = 82`).Scan(&excluded); err != nil || !excluded {
 		t.Fatalf("down: the closed pool is excluded again: %v %v", excluded, err)
 	}
-	if _, err := p.UpTo(ctx, 44); err != nil {
+	if _, err := p.UpTo(ctx, 46); err != nil {
 		t.Fatal(err)
 	}
 }

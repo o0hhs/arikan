@@ -82,6 +82,11 @@ func Handler(e *Engine, log *slog.Logger) http.Handler {
 	mux.HandleFunc("GET /v1/health", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, e.Health())
 	})
+	// The subscription records the panel renders and this node answers while the panel is
+	// away (subsrv.go has the paths themselves). A handler of no engine (a test's) has none.
+	if e != nil {
+		subsMux(mux, e.subs)
+	}
 	mux.HandleFunc("POST /v1/update", func(w http.ResponseWriter, r *http.Request) {
 		var req nodeapi.UpdateRequest
 		// A request is one short version: nothing here is as large as the other calls' bodies.
@@ -147,6 +152,16 @@ func Handler(e *Engine, log *slog.Logger) http.Handler {
 	})
 	mux.HandleFunc("POST /v1/diagnose", diagnoseHandler(e))
 	mux.HandleFunc("GET /v1/logs", logsHandler(e))
+	// The disk of the data directory: what it has free and what a clean removes. The panel
+	// runs the clean with one button; nothing but the junk above is touched.
+	mux.HandleFunc("GET /v1/disk", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, e.DiskStatus())
+	})
+	mux.HandleFunc("POST /v1/disk/clean", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, e.CleanDisk())
+	})
+	mux.HandleFunc("GET /v1/dpi", dpiStatusHandler(e))
+	mux.HandleFunc("POST /v1/dpi", dpiHandler(e))
 	mux.HandleFunc("POST /v1/doctor", doctorHandler(e))
 	mux.HandleFunc("POST /v1/restart", restartHandler(e))
 	mux.HandleFunc("POST /v1/terminal", terminalHandler(e))

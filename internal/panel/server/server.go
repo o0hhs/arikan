@@ -24,7 +24,13 @@ type Server struct {
 	// hello answers a node's hello and says so; whatever it does not answer is served
 	// like any unknown path (see nodehello). nil: none.
 	hello func(w http.ResponseWriter, r *http.Request) bool
+	// tunnel answers a node's request to open a reverse tunnel and says so (see the panel's
+	// reverse.go); it is tried before the rests. nil: none.
+	tunnel func(w http.ResponseWriter, r *http.Request) bool
 }
+
+// SetTunnel takes the handler of the nodes' reverse tunnels.
+func (s *Server) SetTunnel(h func(w http.ResponseWriter, r *http.Request) bool) { s.tunnel = h }
 
 // SetHello takes the handler of the nodes' hellos.
 func (s *Server) SetHello(h func(w http.ResponseWriter, r *http.Request) bool) { s.hello = h }
@@ -88,6 +94,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request, admin bool) {
 		r2.URL.Path = p[len(paths.Legacy)+1:]
 		r2.URL.RawPath = ""
 		s.legacy.ServeHTTP(w, r2)
+	case s.tunnel != nil && s.tunnel(w, r):
 	case s.hello != nil && s.hello(w, r):
 	default:
 		s.other(w, r)
