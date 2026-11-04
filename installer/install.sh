@@ -1,7 +1,7 @@
 #!/bin/sh
 # mikan: one-line install.
 #
-#   curl -fsSL https://github.com/Miroshka000/mikan/releases/latest/download/install.sh | sudo bash
+#   curl -fsSL https://github.com/o0hhs/arikan/releases/latest/download/install.sh | sudo bash
 #
 # Finds the newest stable release in the signed release index (an asset of the "updates"
 # pre-release, which does not depend on what GitHub calls the latest release), or takes
@@ -19,14 +19,14 @@
 # after that is checked by the installer against the key it carries.
 set -eu
 
-REPO="Miroshka000/mikan"
+REPO="o0hhs/arikan"
 BASE="https://github.com/$REPO/releases/latest/download"
 INDEX="https://github.com/$REPO/releases/download/updates/index.json"
 
 # The public halves of the release keys, which sign every release's manifest.json and the
 # release index: the same keys as internal/release.ReleaseKeys (installer/src/release.rs
 # checks that these lines match them). A signature of any of them is the release's.
-PUBKEYS='MCowBQYDK2VwAyEAZ3wSIPBSaJxh5CsGO8eINI0aM0kyrQ46EcJSNeH85W8=
+PUBKEYS='MCowBQYDK2VwAyEAayuo0yLe0M0N5QQPaxkjAA0ltZcXSG7LRANrgyFAhUg=
 MCowBQYDK2VwAyEAJ4DbLqhnFdx8ncEiF4BQOW1aucukNCCgMhcZ18pCWFw='
 
 fail() {

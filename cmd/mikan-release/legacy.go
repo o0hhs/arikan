@@ -52,7 +52,8 @@ const (
 	// serde_json's recursion limit, which unknown fields are parsed under too.
 	legacyMaxDepth = 100
 	// installer/src/release.rs IMAGE_PREFIX (0.5.0.0), the literal in valid_image (0.4.5).
-	legacyImagePrefix = "ghcr.io/miroshka000/"
+	// The fork's releases go to a name of the same shape, under its own account.
+	legacyImageOwner = "ghcr.io/"
 )
 
 // legacyCheck says whether every client still in the field takes data with sig as the
@@ -129,7 +130,9 @@ func legacyCheck(data []byte, sig string, pub ed25519.PublicKey) error {
 	if err != nil {
 		return err
 	}
-	name, ok := strings.CutPrefix(image, legacyImagePrefix)
+	rest, ok := strings.CutPrefix(image, legacyImageOwner)
+	owner, name, found := strings.Cut(rest, "/")
+	ok = ok && found && (owner == "miroshka000" || owner == "o0hhs")
 	if !ok || name == "" || strings.Contains(name, "..") || strings.Trim(name, "abcdefghijklmnopqrstuvwxyz0123456789._/-") != "" ||
 		!legacyDigestRe.MatchString(digest) {
 		return fmt.Errorf("image %s@%s", image, digest)

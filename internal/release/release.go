@@ -25,6 +25,7 @@ import (
 // The private halves live only in the RELEASE_SIGNING_KEY secret of the release workflow and
 // with the maintainer.
 var ReleaseKeys = []string{
+	"ayuo0yLe0M0N5QQPaxkjAA0ltZcXSG7LRANrgyFAhUg=",
 	"Z3wSIPBSaJxh5CsGO8eINI0aM0kyrQ46EcJSNeH85W8=",
 	"J4DbLqhnFdx8ncEiF4BQOW1aucukNCCgMhcZ18pCWFw=",
 }
@@ -69,7 +70,7 @@ func KeyFingerprint() string {
 }
 
 // Repo is where releases are published.
-const Repo = "Miroshka000/mikan"
+const Repo = "o0hhs/arikan"
 
 // InstallCommand installs mikan from the latest release; run on the server.
 const InstallCommand = "curl -fsSL https://github.com/" + Repo + "/releases/latest/download/install.sh | sudo bash"
@@ -84,7 +85,7 @@ type Manifest struct {
 	Version      string            `json:"version"`
 	MinInstaller string            `json:"min_installer,omitempty"`
 	Published    time.Time         `json:"published"`
-	Image        string            `json:"image" doc:"Образ в GitHub Packages, например ghcr.io/miroshka000/mikan"`
+	Image        string            `json:"image" doc:"Образ в GitHub Packages, например ghcr.io/o0hhs/arikan"`
 	Digest       string            `json:"digest" doc:"sha256 multi-arch образа"`
 	Installer    map[string]Asset  `json:"installer" doc:"Установщик по архитектуре: x86_64, aarch64"`
 	Notes        map[string]string `json:"notes" doc:"Что изменилось, markdown по языкам: en, ru"`
@@ -151,16 +152,27 @@ func Parse(data []byte, sig string, keys ...ed25519.PublicKey) (Manifest, error)
 	return m, nil
 }
 
-// imagePrefix is the project's own namespace on GitHub Packages, the only place a release
-// image comes from: ghcr.io/<owner of Repo in lowercase>/.
-var imagePrefix = "ghcr.io/" + strings.ToLower(strings.SplitN(Repo, "/", 2)[0]) + "/"
+// imagePrefixes are the namespaces a release image may come from: the fork's own
+// (ghcr.io/<owner of Repo in lowercase>/) and upstream's, which the installers of the old
+// releases and their panels already accept, so a fork that publishes under either name keeps
+// reaching them.
+var imagePrefixes = []string{
+	"ghcr.io/" + strings.ToLower(strings.SplitN(Repo, "/", 2)[0]) + "/",
+	"ghcr.io/miroshka000/",
+}
 
 // validImage checks the image as the installer does (installer/src/release.rs): the value
 // goes into the host's .env and compose file, so it holds an image name's characters only.
 func validImage(image string) bool {
-	name, ok := strings.CutPrefix(image, imagePrefix)
-	return ok && name != "" && !strings.Contains(name, "..") &&
-		strings.Trim(name, "abcdefghijklmnopqrstuvwxyz0123456789._/-") == ""
+	for _, prefix := range imagePrefixes {
+		name, ok := strings.CutPrefix(image, prefix)
+		if !ok {
+			continue
+		}
+		return name != "" && !strings.Contains(name, "..") &&
+			strings.Trim(name, "abcdefghijklmnopqrstuvwxyz0123456789._/-") == ""
+	}
+	return false
 }
 
 // MaxVersionLen is the longest version a request names: real ones are a dozen characters,

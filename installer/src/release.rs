@@ -16,7 +16,11 @@ use sha2::{Digest, Sha256};
 /// manifest or the release index signed by any of them is the project's. The first signs the
 /// releases now; the second is trusted ahead, so the releases can move to it and leave no
 /// installer behind.
-pub const RELEASE_KEYS: [&str; 2] = ["Z3wSIPBSaJxh5CsGO8eINI0aM0kyrQ46EcJSNeH85W8=", "J4DbLqhnFdx8ncEiF4BQOW1aucukNCCgMhcZ18pCWFw="];
+pub const RELEASE_KEYS: [&str; 3] = [
+    "ayuo0yLe0M0N5QQPaxkjAA0ltZcXSG7LRANrgyFAhUg=",
+    "Z3wSIPBSaJxh5CsGO8eINI0aM0kyrQ46EcJSNeH85W8=",
+    "J4DbLqhnFdx8ncEiF4BQOW1aucukNCCgMhcZ18pCWFw=",
+];
 
 /// The public half of the official catalog's key (internal/release.CatalogKey). The catalog is
 /// signed in its context (CATALOG_CONTEXT), and its signature is published as SIG_SUFFIX.
@@ -30,11 +34,14 @@ pub const CATALOG_CONTEXT: &str = "mikan catalog v1\n";
 /// own (".sig") is over the bytes alone.
 pub const SIG_SUFFIX: &str = ".sig2";
 
-pub const REPO: &str = "Miroshka000/mikan";
+pub const REPO: &str = "o0hhs/arikan";
 
 /// The project's own namespace on GitHub Packages: ghcr.io/<owner of REPO in lowercase>/,
 /// as internal/release checks it.
-const IMAGE_PREFIX: &str = "ghcr.io/miroshka000/";
+/// The namespaces a release image may come from: the fork's own, and upstream's, which the
+/// installers of the old releases already accept, so a fork publishing under either name
+/// keeps reaching them.
+const IMAGE_PREFIXES: [&str; 2] = ["ghcr.io/o0hhs/", "ghcr.io/miroshka000/"];
 
 /// Installs a node of an existing panel on a fresh server (internal/release.JoinCommand).
 pub fn join_command(key: &str) -> String {
@@ -449,8 +456,10 @@ pub fn sha256_hex(data: &[u8]) -> String {
 /// The release image lives in the project's own namespace on GitHub Packages; the value
 /// goes into .env and the compose file, so its characters are the image name's only.
 fn valid_image(image: &str) -> bool {
-    image.strip_prefix(IMAGE_PREFIX).is_some_and(|r| {
-        !r.is_empty() && !r.contains("..") && r.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b"._/-".contains(&b))
+    IMAGE_PREFIXES.iter().any(|prefix| {
+        image.strip_prefix(prefix).is_some_and(|r| {
+            !r.is_empty() && !r.contains("..") && r.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b"._/-".contains(&b))
+        })
     })
 }
 
@@ -657,7 +666,7 @@ mod tests {
             "internal/release.IndexURL differs"
         );
         let owner = REPO.split('/').next().unwrap().to_lowercase();
-        assert_eq!(IMAGE_PREFIX, format!("ghcr.io/{owner}/"), "the image namespace is not the repository owner's");
+        assert_eq!(IMAGE_PREFIXES[0], format!("ghcr.io/{owner}/"), "the image namespace is not the repository owner's");
         assert!(
             go.contains("/releases/latest/download/install.sh | sudo bash\"") && go.contains("\" -s -- --join \""),
             "internal/release.JoinCommand differs"
