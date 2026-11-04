@@ -179,4 +179,3 @@ func TestHealthCarriesTheRelayPortAndHostPorts(t *testing.T) {
 		t.Fatalf("host ports of a node that did not answer: %+v", got)
 	}
 }
-

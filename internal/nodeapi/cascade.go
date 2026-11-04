@@ -1,7 +1,6 @@
 package nodeapi
 
 import (
-	"slices"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/binary"
@@ -11,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"slices"
 	"time"
 
 	"mikan/internal/nodetls"
