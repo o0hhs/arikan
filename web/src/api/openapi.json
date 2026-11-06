@@ -7734,6 +7734,9 @@
             "minimum": 0,
             "type": "integer"
           },
+          "simple_panel": {
+            "type": "boolean"
+          },
           "site_template": {
             "enum": [
               "",
@@ -10421,6 +10424,10 @@
             },
             "type": "array"
           },
+          "simple_panel": {
+            "description": "Простой режим: в интерфейсе остаются страницы обычного mikan — клиенты, тарифы, ноды, подключения, маршрутизация, настройки. Страницы форка (рефералка, агенты и кампании, аналитика, согласования, партнёры, S3-бэкапы, дашборд, монитор) скрываются; данные и API остаются, выключите — вернутся",
+            "type": "boolean"
+          },
           "site_own": {
             "description": "В data/panel/www есть своя страница: шаблон не действует",
             "type": "boolean"
@@ -10540,6 +10547,7 @@
           "sub_announce_url",
           "app_branding",
           "sub_inactive_server",
+          "simple_panel",
           "sub_inactive_text",
           "sub_xray_json",
           "sub_log_days",

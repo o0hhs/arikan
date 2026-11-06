@@ -6435,6 +6435,7 @@ export interface components {
             public_host?: string;
             /** Format: int64 */
             quiet_hour_utc?: number;
+            simple_panel?: boolean;
             /** @enum {string} */
             site_template?: "" | "maintenance" | "cats";
             /** @description До 10 строк: страница подписки и Mini App показывают их с переносами, приложения получают одну строку до 200 символов */
@@ -7389,6 +7390,8 @@ export interface components {
             quiet_hour_utc: number;
             /** @description Куда правило может направить трафик: DIRECT, REJECT, REJECT-DROP, PROXY и группы */
             rule_targets: string[];
+            /** @description Простой режим: в интерфейсе остаются страницы обычного mikan — клиенты, тарифы, ноды, подключения, маршрутизация, настройки. Страницы форка (рефералка, агенты и кампании, аналитика, согласования, партнёры, S3-бэкапы, дашборд, монитор) скрываются; данные и API остаются, выключите — вернутся */
+            simple_panel: boolean;
             /** @description В data/panel/www есть своя страница: шаблон не действует */
             site_own: boolean;
             /**

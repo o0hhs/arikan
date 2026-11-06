@@ -86,6 +86,11 @@ const (
 	// KeyShowGoals shows the goals the project collects money for (release.Goals) on the
 	// updates card; on unless switched off.
 	KeyShowGoals = "show_goals"
+	// KeySimplePanel hides the fork's own pages (the referral programme, the ad agents and
+	// campaigns, analytics, approvals, partners, S3 backups, the dashboard and the monitor)
+	// in the panel's interface: what a plain mikan shows stays. The data and the API are
+	// kept; switching it off brings the pages back.
+	KeySimplePanel = "simple_panel"
 	// Branding and support: the bot's and the subscription page's name and the support link.
 	KeyBrand      = "brand"
 	KeySupportURL = "support_url"
@@ -179,6 +184,7 @@ var (
 	AutoUpdate     = Switch{KeyAutoUpdate, false}
 	NodesFollow    = Switch{KeyNodesFollow, true}
 	ShowGoals      = Switch{KeyShowGoals, true}
+	SimplePanel    = Switch{KeySimplePanel, false}
 	AppBranding    = Switch{KeyAppBranding, false}
 	HappHide       = Switch{KeyHappHide, false}
 	InactiveServer = Switch{KeyInactiveServer, false}

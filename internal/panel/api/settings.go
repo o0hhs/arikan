@@ -37,16 +37,19 @@ type SettingsView struct {
 	AnnounceURL    string `json:"sub_announce_url" doc:"Куда ведёт нажатие на объявление"`
 	AppBranding    bool   `json:"app_branding" doc:"Брендинг в приложениях, читающих операторские заголовки (ClashFest, SlothClash): название, логотип, цвет, ссылки"`
 	InactiveServer bool   `json:"sub_inactive_server" doc:"Подписка, которая не может подключиться (кончился срок или трафик, отключена), получает вместо серверов одну запись с объяснением"`
-	InactiveText   string `json:"sub_inactive_text" doc:"Свой текст этой записи; пусто — свой по причине. Переменные как в названии подписки"`
-	XrayJSON       bool   `json:"sub_xray_json" doc:"Happ и INCY получают полные конфиги Xray (JSON) вместо ссылок: маршрутизация, DNS и «Авто» панели доходят до них; запрос с ?format= получает свой формат в любом случае"`
-	SubLogDays     int    `json:"sub_log_days" doc:"Сколько дней хранится журнал запросов подписок: время, адрес, приложение, сработавшее правило, ответ; 0 — журнал выключен"`
-	SiteTemplate   string `json:"site_template" enum:",maintenance,cats" doc:"Первая страница по адресу панели для посторонних: пусто — ответ 404, maintenance — технические работы, cats — котики-кликер"`
-	SiteOwn        bool   `json:"site_own" doc:"В data/panel/www есть своя страница: шаблон не действует"`
-	BrandAccent    string `json:"brand_accent" doc:"Цвет бренда #RRGGBB; пусто — цвет приложения"`
-	BrandLogoURL   string `json:"brand_logo_url" doc:"Логотип: https, PNG, WebP или JPEG до 512 КБ; пусто — значок приложения"`
-	PublicHost     string `json:"public_host"`
-	Domain         string `json:"domain"`
-	SubDomain      string `json:"sub_domain" doc:"Свой домен для ссылок подписки; пусто — адрес панели"`
+	// SimplePanel hides the fork's own pages in the interface: a plain mikan is all that
+	// stays. The data and the API are kept.
+	SimplePanel  bool   `json:"simple_panel" doc:"Простой режим: в интерфейсе остаются страницы обычного mikan — клиенты, тарифы, ноды, подключения, маршрутизация, настройки. Страницы форка (рефералка, агенты и кампании, аналитика, согласования, партнёры, S3-бэкапы, дашборд, монитор) скрываются; данные и API остаются, выключите — вернутся"`
+	InactiveText string `json:"sub_inactive_text" doc:"Свой текст этой записи; пусто — свой по причине. Переменные как в названии подписки"`
+	XrayJSON     bool   `json:"sub_xray_json" doc:"Happ и INCY получают полные конфиги Xray (JSON) вместо ссылок: маршрутизация, DNS и «Авто» панели доходят до них; запрос с ?format= получает свой формат в любом случае"`
+	SubLogDays   int    `json:"sub_log_days" doc:"Сколько дней хранится журнал запросов подписок: время, адрес, приложение, сработавшее правило, ответ; 0 — журнал выключен"`
+	SiteTemplate string `json:"site_template" enum:",maintenance,cats" doc:"Первая страница по адресу панели для посторонних: пусто — ответ 404, maintenance — технические работы, cats — котики-кликер"`
+	SiteOwn      bool   `json:"site_own" doc:"В data/panel/www есть своя страница: шаблон не действует"`
+	BrandAccent  string `json:"brand_accent" doc:"Цвет бренда #RRGGBB; пусто — цвет приложения"`
+	BrandLogoURL string `json:"brand_logo_url" doc:"Логотип: https, PNG, WebP или JPEG до 512 КБ; пусто — значок приложения"`
+	PublicHost   string `json:"public_host"`
+	Domain       string `json:"domain"`
+	SubDomain    string `json:"sub_domain" doc:"Свой домен для ссылок подписки; пусто — адрес панели"`
 	// SubsFromNodes: the nodes that answer the links themselves; SubNodes is how each one
 	// is doing it.
 	SubsFromNodes subsrc.FromNodes `json:"subs_from_nodes" doc:"Отдавать подписку с нод: выбранные ноды сами отвечают по ссылкам подписки профилями, которые панель им присылает, — ссылки работают, когда панель недоступна. Домен ссылки остаётся доменом подписки (sub_domain): направьте его на эти ноды"`
@@ -111,6 +114,7 @@ type patchSettingsBody = struct {
 	AnnounceURL    *string              `json:"sub_announce_url,omitempty" maxLength:"200" doc:"https://… или tg://…"`
 	AppBranding    *bool                `json:"app_branding,omitempty"`
 	InactiveServer *bool                `json:"sub_inactive_server,omitempty"`
+	SimplePanel    *bool                `json:"simple_panel,omitempty"`
 	InactiveText   *string              `json:"sub_inactive_text,omitempty" maxLength:"120"`
 	XrayJSON       *bool                `json:"sub_xray_json,omitempty"`
 	SubLogDays     *int                 `json:"sub_log_days,omitempty" minimum:"0" maximum:"90"`
@@ -266,6 +270,9 @@ func (h *handlers) readSettings(ctx context.Context) (SettingsView, error) {
 		return v, err
 	}
 	if v.InactiveServer, err = h.d.Settings.On(ctx, settings.InactiveServer); err != nil {
+		return v, err
+	}
+	if v.SimplePanel, err = h.d.Settings.On(ctx, settings.SimplePanel); err != nil {
 		return v, err
 	}
 	if v.XrayJSON, err = h.d.Settings.On(ctx, settings.XrayJSON); err != nil {

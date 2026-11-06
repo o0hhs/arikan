@@ -63,6 +63,7 @@ var settingFields = []settingField{
 	// What every subscriber's app shows: text, links and the logo it downloads.
 	text("sub_title", settings.KeySubTitle, true, func(b *patchSettingsBody) *string { return b.SubTitle }),
 	value("sub_inactive_server", settings.KeyInactiveServer, true, func(b *patchSettingsBody) *bool { return b.InactiveServer }),
+	value("simple_panel", settings.KeySimplePanel, true, func(b *patchSettingsBody) *bool { return b.SimplePanel }),
 	text("sub_inactive_text", settings.KeyInactiveText, true, func(b *patchSettingsBody) *string { return b.InactiveText }),
 	value("sub_xray_json", settings.KeyXrayJSON, true, func(b *patchSettingsBody) *bool { return b.XrayJSON }),
 	// The log keeps addresses and apps of the subscribers: how long, or none at all, is the admin's call.

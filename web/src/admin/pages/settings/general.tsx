@@ -99,6 +99,28 @@ export function LanguageCard({ s }: { s: Schemas["SettingsView"] }) {
   );
 }
 
+/**
+ * The simple mode: the fork's own pages (the referral programme, agents and campaigns,
+ * analytics, approvals, partners, S3 backups, the dashboard and the monitor) stay out of
+ * the interface, and what a plain mikan shows is all there is. The data and the API are
+ * kept.
+ */
+export function SimplePanelCard({ s }: { s: Schemas["SettingsView"] }) {
+  const save = useSaveSettings();
+  return (
+    <section className="card glass reveal" style={{ "--i": 2 } as React.CSSProperties}>
+      <CardHead title={t("settings.simpleTitle")} sub={t("settings.simpleSub")} />
+      <SwitchRow
+        label={t("settings.simpleOn")}
+        sub={t("settings.simpleOnSub")}
+        checked={s.simple_panel}
+        disabled={save.isPending}
+        onChange={(v) => save.mutate({ simple_panel: v })}
+      />
+    </section>
+  );
+}
+
 /** Global switches of the automatic fixes; each connection can opt out in its settings. */
 export function AutoCard({ s }: { s: Schemas["SettingsView"] }) {
   const save = useSaveSettings();

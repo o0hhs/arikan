@@ -11,7 +11,7 @@ import { SETTINGS_PARTS, SETTINGS_TABS, type SettingsSearch } from "../../search
 import { ClosedForSupport } from "../../support-closed";
 import { AppCard } from "./app";
 import { AuditCard } from "./audit";
-import { AutoCard, LanguageCard, ServiceCard, UpdatesCard } from "./general";
+import { AutoCard, LanguageCard, ServiceCard, SimplePanelCard, UpdatesCard } from "./general";
 import { ServerCheckCard } from "../node-check";
 import { GoalsCard } from "./goals";
 import { ImportCard, LegacyLinksCard } from "./import";
@@ -96,6 +96,7 @@ export function SettingsPage() {
                 <>
                   <ServiceCard s={s} />
                   <LanguageCard s={s} />
+                  <SimplePanelCard s={s} />
                   <ThemeCard />
                   <AppCard s={s} />
                 </>
