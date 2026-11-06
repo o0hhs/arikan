@@ -3,6 +3,17 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
+## 0.5.5.9
+### en
+**The cascade works behind blocks again, and a simple mode hides the fork's pages.**
+- **The cascade goes through the panel's tunnel again.** After the sync the cascade dialled an exit's own address from the panel, which a panel in Russia cannot reach: every connection that left through a blocked node failed while the node itself stayed connected. The node's half is back, the panel sends the entry its bridge and the exit its stream to the panel, and the entry's core points at its own loopback SOCKS5 instead of the exit's address. **Update the nodes too**: the node must carry the same code.
+- **Simple mode** (Settings → General): with it on, the interface keeps what a plain mikan shows — clients, plans, nodes, connections, routing, settings — and the fork's pages leave the menu. The data and the API stay; it is off by default.
+
+### ru
+**Каскад снова работает за блокировками, а простой режим скрывает страницы форка.**
+- **Каскад снова идёт через туннель панели.** После синхронизации каскад диалил собственный адрес выхода из панели, а панель в России до него не достаёт: любое подключение через забаненную ноду падало, хотя сама нода оставалась на связи. Нодовская половина вернулась, панель отдаёт входу бридж, а выходу — поток в панель, и ядро входной ноды ходит в свой loopback SOCKS5, а не по адресу выхода. **Обновите и ноды**: на них должен быть тот же код.
+- **Простой режим** (Настройки → Общие): когда он включён, в интерфейсе остаётся то, что есть у обычного mikan, — клиенты, тарифы, ноды, подключения, маршрутизация, настройки, — а страницы форка уходят из меню. Данные и API остаются; по умолчанию выключен.
+
 ## 0.5.5.8
 ### en
 **A server on 0.5.5.6 updates again.**
