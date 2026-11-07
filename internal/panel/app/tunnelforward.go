@@ -35,8 +35,11 @@ type tunnelForward struct {
 // forwardPort is one port the panel listens on for a node's clients.
 type forwardPort struct {
 	node int64
-	port uint16
-	ln   net.Listener
+	// port is the node's protocol port named on the data stream; bindPort is where the panel
+	// listens. They are the same in life; a test listens on a free port of its own.
+	port     uint16
+	bindPort uint16
+	ln       net.Listener
 }
 
 func newTunnelForward(st *store.Store, tun *tunnels, host string, log *slog.Logger) *tunnelForward {
@@ -90,7 +93,7 @@ func (f *tunnelForward) open(port uint16, node int64) *forwardPort {
 		f.log.Warn("tunnel forward: the port does not open", "port", port, "node", node, "err", err)
 		return nil
 	}
-	fp := &forwardPort{node: node, port: port, ln: ln}
+	fp := &forwardPort{node: node, port: port, bindPort: port, ln: ln}
 	go f.serve(fp)
 	f.log.Info("tunnel forward: the port is open", "port", port, "node", node)
 	return fp

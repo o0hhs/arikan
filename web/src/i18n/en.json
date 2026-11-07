@@ -255,6 +255,7 @@
       "local_node_lockdown": "The panel's own node works over a socket: there is no API port to close",
       "api_allow_invalid": "Not an address or a network: {value}",
       "api_allow_many": "16 addresses at most",
+      "tunnel_port_invalid": "A port forwarded through the panel is a number from 1 to 65535",
       "sni443_type": "Only VLESS, Trojan or AnyTLS over TCP with TLS or REALITY can go behind the SNI router",
       "panel_not_release": "This panel is a development build: there is no release to update nodes to",
       "node_offline": "The node does not answer, so it cannot be updated now",

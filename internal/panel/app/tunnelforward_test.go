@@ -133,23 +133,19 @@ func TestTunnelForwardCarriesAClient(t *testing.T) {
 	defer sess.Close()
 	waitConnected(t, tn, row.ID)
 
-	// The forwarder listens on a loopback port of this test's own (a real panel would bind the
-	// node's port on its address), and each client connection names the node's protocol port
-	// (the echo's) on the stream. A free port is taken for the listener, closed, and reopened
-	// by the forwarder, so the test never holds 443 or a real protocol's port.
-	free, err := net.Listen("tcp", "127.0.0.1:0")
+	// The panel binds a free loopback port of this test's own (a real panel binds the node's
+	// port on its address), and each client connection names the node's protocol port (the
+	// echo's) on the stream. The listener is opened here so the test never holds 443 or a real
+	// protocol's port; the forwarder's serve loop is the same as in life.
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
-	fport := free.Addr().(*net.TCPAddr).Port
-	_ = free.Close()
+	fport := ln.Addr().(*net.TCPAddr).Port
 	fwd := newTunnelForward(h.st, tn, "127.0.0.1", log)
 	defer fwd.Close()
-	fp := fwd.open(uint16(fport), row.ID)
-	if fp == nil {
-		t.Fatal("the forwarder's listener did not start")
-	}
-	fp.port = uint16(port) // the stream names the node's protocol port, not the panel's
+	fp := &forwardPort{node: row.ID, port: uint16(port), bindPort: uint16(fport), ln: ln}
+	go fwd.serve(fp)
 
 	// A client connects to the panel's forwarder; the bytes echo back from the node's protocol.
 	conn, err := net.Dial("tcp", net.JoinHostPort("127.0.0.1", itoaPort(fport)))
