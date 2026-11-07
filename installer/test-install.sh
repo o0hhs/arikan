@@ -40,8 +40,9 @@ chmod +x "$tmp/bin/curl"
 # The release key of this test, in the script instead of the real ones.
 openssl genpkey -algorithm ed25519 -out "$tmp/key.pem" 2>/dev/null
 pub=$(openssl pkey -in "$tmp/key.pem" -pubout | sed -n 2p)
-sed -e "s|^PUBKEYS='MCowBQYDK2VwAyEAZ3wSIPBSaJxh5CsGO8eINI0aM0kyrQ46EcJSNeH85W8=\$|PUBKEYS='$pub|" \
-  -e "s|^MCowBQYDK2VwAyEAJ4DbLqhnFdx8ncEiF4BQOW1aucukNCCgMhcZ18pCWFw='\$|$pub'|" "$here/install.sh" >"$tmp/install.sh"
+sed -e "s|^PUBKEYS='MCowBQYDK2VwAyEAayuo0yLe0M0N5QQPaxkjAA0ltZcXSG7LRANrgyFAhUg=\$|PUBKEYS='$pub|" \
+  -e "/^MCowBQYDK2VwAyEAZ3wSIPBSaJxh5CsGO8eINI0aM0kyrQ46EcJSNeH85W8=\$/d" \
+  -e "s|^MCowBQYDK2VwAyEAJ4DbLqhnFdx8ncEiF4BQOW1aucukNCCgMhcZ18pCWFw='\$|'|" "$here/install.sh" >"$tmp/install.sh"
 grep -q "^PUBKEYS='$pub\$" "$tmp/install.sh"
 
 releases="$tmp/www/github.com/Miroshka000/mikan/releases"
