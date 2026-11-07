@@ -309,6 +309,25 @@ func (c *Client) Tunnel(ctx context.Context, addr string) (net.Conn, error) {
 	return c.upgrade(ctx, req, http.StatusOK, 15*time.Second)
 }
 
+// Data opens one client's connection to a port of the node's protocols over the reverse tunnel
+// (the panel asked for it with TunnelPath, so the connection is already the node's own, not a
+// direct one): a data stream that opens with the port and carries the client's bytes both ways.
+// A node that does not listen on that port for the tunnel, or that predates it, answers with a
+// status and no stream.
+func (c *Client) Data(ctx context.Context, port uint16) (net.Conn, error) {
+	raw, err := c.upgrade(ctx, &http.Request{Method: http.MethodPost, URL: &url.URL{Path: TunnelTrafficPath}, Host: "node", Header: http.Header{
+		"Connection": {"Upgrade"}, "Upgrade": {TunnelUpgrade},
+	}}, http.StatusSwitchingProtocols, 15*time.Second)
+	if err != nil {
+		return nil, err
+	}
+	if err := WriteStreamPort(raw, port); err != nil {
+		raw.Close()
+		return nil, fmt.Errorf("%w: %w", ErrUnavailable, err)
+	}
+	return raw, nil
+}
+
 // upgrade sends req on a bare connection to the Node API and, when the node answers with the
 // status want, hands the connection over to the caller: from then on it is a stream (a CONNECT
 // tunnel, an Upgrade). wait bounds the answer when ctx has no deadline. Any other answer is the

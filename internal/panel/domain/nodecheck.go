@@ -3,6 +3,7 @@ package domain
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"net"
 	"net/netip"
@@ -22,7 +23,52 @@ import (
 var (
 	// ErrChannelRequired: the fair share of a node's channel needs the channel's width.
 	ErrChannelRequired = errors.New("channel_required")
+	// ErrBadTunnelPort: a tunnel-forward port is not 1..65535.
+	ErrBadTunnelPort = errors.New("bad_tunnel_port")
 )
+
+// NormalizeTunnelForward keeps the distinct ports of the node's tunnel-forward list in order,
+// refusing an empty or out-of-range one. nil or an empty slice: no ports.
+func NormalizeTunnelForward(ports []int) ([]int, error) {
+	out := make([]int, 0, len(ports))
+	seen := map[int]bool{}
+	for _, p := range ports {
+		if p < 1 || p > 65535 {
+			return nil, ErrBadTunnelPort
+		}
+		if seen[p] {
+			continue
+		}
+		seen[p] = true
+		out = append(out, p)
+	}
+	return out, nil
+}
+
+// ParseTunnelForward reads the JSON array a node's row keeps; an empty or broken one is none.
+func ParseTunnelForward(raw string) []int {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	var out []int
+	if err := json.Unmarshal([]byte(raw), &out); err != nil {
+		return nil
+	}
+	clean, err := NormalizeTunnelForward(out)
+	if err != nil {
+		return nil
+	}
+	return clean
+}
+
+// TunnelForwardJSON is the row's form of a port list ("" for none).
+func TunnelForwardJSON(ports []int) string {
+	if len(ports) == 0 {
+		return ""
+	}
+	raw, _ := json.Marshal(ports)
+	return string(raw)
+}
 
 // NameError is a node's name the rules refuse. Code is what the UI and the shell turn into
 // words: name_in_use, or the code of NodeRules.Name (name_blank, name_is_group…).
@@ -159,8 +205,11 @@ type NodePatch struct {
 	APILockdown *bool
 	APIAllow    *[]string
 	// Tags are the admin's labels of the node, as a user's (encodeTags).
-	Tags  *[]string
-	Rules NodeRules
+	Tags *[]string
+	// TunnelForward: the ports of the node's protocols that clients reach through the panel,
+	// carried over the reverse tunnel. Empty or nil keeps the node's protocols reached directly.
+	TunnelForward *[]int
+	Rules         NodeRules
 }
 
 // UpdateNode changes the fields p names and returns the node. Errors: ErrUnknownNode,
@@ -304,6 +353,15 @@ func UpdateNode(ctx context.Context, st *store.Store, id int64, p NodePatch, now
 				return err
 			}
 			if err := q.SetNodeTags(ctx, db.SetNodeTagsParams{Tags: tags, ID: cur.ID}); err != nil {
+				return err
+			}
+		}
+		if p.TunnelForward != nil {
+			ports, err := NormalizeTunnelForward(*p.TunnelForward)
+			if err != nil {
+				return err
+			}
+			if err := q.SetNodeTunnelForward(ctx, db.SetNodeTunnelForwardParams{TunnelForward: TunnelForwardJSON(ports), UpdatedAt: now.Unix(), ID: cur.ID}); err != nil {
 				return err
 			}
 		}

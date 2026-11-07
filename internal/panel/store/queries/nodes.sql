@@ -46,3 +46,8 @@ UPDATE nodes SET cert_sha256 = $1, updated_at = $2 WHERE id = $3;
 
 -- name: DeleteNode :exec
 DELETE FROM nodes WHERE id = $1 AND id != 1;
+
+-- name: SetNodeTunnelForward :exec
+-- The ports of the node's protocols that clients reach through the panel: a JSON array of
+-- ports, carried over the node's reverse tunnel.
+UPDATE nodes SET tunnel_forward = sqlc.arg(tunnel_forward), updated_at = sqlc.arg(updated_at) WHERE id = sqlc.arg(id);

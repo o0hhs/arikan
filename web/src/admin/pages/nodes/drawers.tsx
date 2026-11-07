@@ -127,7 +127,7 @@ export function KeyDrawer({ joined, onClose, actions }: { joined: Joined | null;
 export function EditNodeDrawer({ node, onClose }: { node: Node | null; onClose: () => void }) {
   const qc = useQueryClient();
   const toast = useToast();
-  const [form, setForm] = useState({ name: "", public_name: "", host: "", domain: "", enabled: true, fair_share: false, channel: "", group: "", capacity: "", http_redirect: false, sni_router: false, front_page: "", in_auto: true, api_lockdown: false, api_allow: "", tags: "" });
+  const [form, setForm] = useState({ name: "", public_name: "", host: "", domain: "", enabled: true, fair_share: false, channel: "", group: "", capacity: "", http_redirect: false, sni_router: false, front_page: "", in_auto: true, api_lockdown: false, api_allow: "", tags: "", tunnel_forward: "" });
   const balance = useBalance();
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [billing, setBilling] = useState<BillingForm | null>(null);
@@ -137,7 +137,7 @@ export function EditNodeDrawer({ node, onClose }: { node: Node | null; onClose: 
       // The server as it was given, not the address for clients (its domain when it has one):
       // the field saves the server.
       setForm({ name: node.name, public_name: node.public_name, host: node.server_host, domain: node.domain, enabled: node.enabled, fair_share: node.fair_share, channel: node.channel_mbps != null ? String(node.channel_mbps) : "",
-        group: node.balance_group, capacity: node.capacity != null ? String(node.capacity) : "", http_redirect: node.http_redirect, sni_router: node.sni_router, front_page: node.front_page, in_auto: node.in_auto, api_lockdown: node.api_lockdown, api_allow: node.api_allow.join(", "), tags: node.tags.join(", ") });
+        group: node.balance_group, capacity: node.capacity != null ? String(node.capacity) : "", http_redirect: node.http_redirect, sni_router: node.sni_router, front_page: node.front_page, in_auto: node.in_auto, api_lockdown: node.api_lockdown, api_allow: node.api_allow.join(", "), tags: node.tags.join(", "), tunnel_forward: (node.tunnel_forward ?? []).join(", ") });
       setErrors({});
     }
   }, [node]);
@@ -195,6 +195,21 @@ export function EditNodeDrawer({ node, onClose }: { node: Node | null; onClose: 
       }
       body.api_lockdown = form.api_lockdown;
       body.api_allow = allow;
+      const ports = form.tunnel_forward.split(/[\s,;]+/).filter(Boolean);
+      if (ports.length > 32) {
+        setErrors({ tunnel_forward: t("nodes.tunnelForwardMany") });
+        return;
+      }
+      const tunnel: number[] = [];
+      for (const raw of ports) {
+        const p = Number(raw);
+        if (!Number.isInteger(p) || p < 1 || p > 65535) {
+          setErrors({ tunnel_forward: t("nodes.tunnelForwardErr") });
+          return;
+        }
+        tunnel.push(p);
+      }
+      body.tunnel_forward = tunnel;
     }
     body.sni_router = form.sni_router;
     if (billing) {
@@ -343,6 +358,22 @@ export function EditNodeDrawer({ node, onClose }: { node: Node | null; onClose: 
                 {t("nodes.apiLockFailed", { error: node.api_lock_error })}
               </p>
             ) : null}
+            <Field label={t("nodes.tunnelForward")} htmlFor="e-tunnel-forward" hint={t("nodes.tunnelForwardHint")} error={errors.tunnel_forward}>
+              <input
+                id="e-tunnel-forward"
+                className="input mono"
+                value={form.tunnel_forward}
+                onChange={(e) => {
+                  setForm((f) => ({ ...f, tunnel_forward: e.target.value }));
+                  setErrors(({ tunnel_forward: _, ...rest }) => rest);
+                }}
+                placeholder="443, 8443"
+                inputMode="numeric"
+                autoComplete="off"
+                spellCheck={false}
+                aria-invalid={!!errors.tunnel_forward}
+              />
+            </Field>
           </div>
         ) : null}
         <BalanceFields

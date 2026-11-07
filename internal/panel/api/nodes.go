@@ -106,6 +106,10 @@ type NodeInfo struct {
 
 	// Tags are the admin's labels of the node, as a user's.
 	Tags []string `json:"tags" doc:"Метки ноды: свои слова админа, по ним фильтруют список"`
+	// TunnelForward: the ports of the node's protocols carried to it over the reverse tunnel
+	// when clients cannot reach the node: a client connects to the panel on the port, and the
+	// panel forwards it to the node.
+	TunnelForward []int `json:"tunnel_forward" doc:"Порты протоколов ноды, которые клиенты достигают через панель, по обратному туннелю; пусто — доступны напрямую"`
 }
 
 type nodesOutput struct{ Body []NodeInfo }
@@ -149,6 +153,9 @@ type patchNodeInput struct {
 		APILockdown *bool     `json:"api_lockdown,omitempty" doc:"API ноды только с адресов панели; не для ноды панели"`
 		APIAllow    *[]string `json:"api_allow,omitempty" maxItems:"16" doc:"Ещё сети или адреса (203.0.113.5, 198.51.100.0/24), с которых панель ходит к ноде"`
 		Tags        *[]string `json:"tags,omitempty" maxItems:"20" doc:"Метки ноды целиком; пустой список снимает все"`
+		// TunnelForward: the ports of the node's protocols that clients reach through the panel
+		// over the reverse tunnel.
+		TunnelForward *[]int `json:"tunnel_forward,omitempty" maxItems:"32" doc:"Порты протоколов ноды, которые клиенты достигают через панель по обратному туннелю: клиент подключается к панели на этот порт, панель пересылает соединение ноде. Пусто — напрямую к ноде"`
 	}
 }
 
@@ -203,7 +210,7 @@ func (h *handlers) orderNodes(ctx context.Context, in *orderNodesInput) (*struct
 
 func (h *handlers) viewNode(ctx context.Context, n db.Node, inbounds []db.Inbound) NodeInfo {
 	v := NodeInfo{ID: n.ID, Name: n.Name, PublicName: n.PublicName, Local: n.Address == "", Address: n.Address, Host: domain.NodeHost(n), ServerHost: n.PublicHost, Domain: n.Domain,
-		Tags: domain.DecodeTags(n.Tags), Enabled: n.Enabled != 0, Inbounds: len(domain.NodeInbounds(inbounds, n.ID)), Status: "unknown",
+		Tags: domain.DecodeTags(n.Tags), TunnelForward: domain.ParseTunnelForward(n.TunnelForward), Enabled: n.Enabled != 0, Inbounds: len(domain.NodeInbounds(inbounds, n.ID)), Status: "unknown",
 		FairShare: n.FairShare != 0, ChannelMbps: store.Int64Ptr(n.ChannelMbps), BalanceGroup: n.BalanceGroup, Capacity: store.Int64Ptr(n.Capacity),
 		HTTPRedirect: n.HttpRedirect != 0, SNIRouter: n.SniRouter != 0, FrontPage: n.FrontPage, InAuto: n.NoAuto == 0, APILockdown: n.ApiLockdown != 0, APIAllow: n.ApiAllow}
 	if v.APIAllow == nil {
@@ -403,7 +410,7 @@ func (h *handlers) updateNode(ctx context.Context, in *patchNodeInput) (*nodeInf
 		return nil, err
 	}
 	n, err := domain.UpdateNode(ctx, h.d.Store, in.ID, domain.NodePatch{Name: b.Name, PublicName: b.PublicName, Host: b.Host, Domain: b.Domain,
-		Enabled: b.Enabled, FairShare: b.FairShare, ChannelMbps: b.ChannelMbps, HTTPRedirect: b.HTTPRedirect, SNIRouter: b.SNIRouter, FrontPage: b.FrontPage, InAuto: b.InAuto, Billing: billing, APILockdown: b.APILockdown, APIAllow: b.APIAllow, Tags: b.Tags, Rules: rules}, h.d.Now())
+		Enabled: b.Enabled, FairShare: b.FairShare, ChannelMbps: b.ChannelMbps, HTTPRedirect: b.HTTPRedirect, SNIRouter: b.SNIRouter, FrontPage: b.FrontPage, InAuto: b.InAuto, Billing: billing, APILockdown: b.APILockdown, APIAllow: b.APIAllow, Tags: b.Tags, TunnelForward: b.TunnelForward, Rules: rules}, h.d.Now())
 	if err != nil {
 		return nil, h.nodeErr(err)
 	}
@@ -411,7 +418,7 @@ func (h *handlers) updateNode(ctx context.Context, in *patchNodeInput) (*nodeInf
 	h.d.Changes.SlotsChanged()
 	h.audit(ctx, sessionOf(ctx).AdminID, "node.update", "node", strconv.FormatInt(n.ID, 10), map[string]any{"name": n.Name, "public_name": n.PublicName, "enabled": n.Enabled != 0,
 		"fair_share": n.FairShare != 0, "channel_mbps": n.ChannelMbps.Int64, "http_redirect": n.HttpRedirect != 0, "sni_router": n.SniRouter != 0, "front_page": n.FrontPage, "in_auto": n.NoAuto == 0, "api_lockdown": n.ApiLockdown != 0, "api_allow": n.ApiAllow, "tags": domain.DecodeTags(n.Tags),
-		"billing": billingView(domain.BillingOf(n))})
+		"billing": billingView(domain.BillingOf(n)), "tunnel_forward": n.TunnelForward})
 	return h.nodeInfo(ctx, n.ID)
 }
 
@@ -445,6 +452,8 @@ func (h *handlers) nodeErr(err error) error {
 		return refusal("local_node_lockdown")
 	case errors.Is(err, domain.ErrManyAPIAllow):
 		return fieldErr("body.api_allow", "api_allow_many")
+	case errors.Is(err, domain.ErrBadTunnelPort):
+		return fieldErr("body.tunnel_forward", "tunnel_port_invalid")
 	}
 	if fe, ok := fieldFromDomain(err); ok {
 		return fe

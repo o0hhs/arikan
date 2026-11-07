@@ -275,6 +275,10 @@ func (s *Syncer) desiredPin(ctx context.Context) (st nodeapi.DesiredState, pin s
 	st.Detail = snap.detail
 	st.HTTPRedirect = n.HttpRedirect != 0 && n.Address != ""
 	st.APIAllow = s.apiAllow(ctx, n)
+	// The ports of the node's protocols that clients reach through the panel: the panel
+	// forwards each client's connection over the node's reverse tunnel, and the node serves
+	// it on its own loopback. Empty: the protocols are reached directly.
+	st.TunnelForward = domain.ParseTunnelForward(n.TunnelForward)
 	// The front page: what the inbounds on an HTTP transport give a stranger's request, and
 	// with the shared 443 what the node's own domain gives.
 	st.FrontPage = n.FrontPage
