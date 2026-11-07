@@ -108,6 +108,9 @@ type Panel struct {
 	userLimit *auth.Limiter
 	now       func() time.Time
 	log       *slog.Logger
+	// forward is the panel as the way in for a node's clients: listeners on the ports the
+	// nodes name (tunnelforward.go); nil without a tunnel or nodes.
+	forward *tunnelForward
 }
 
 type Options struct {
@@ -125,6 +128,12 @@ type Options struct {
 	// Tunnel answers a node's request to open its reverse tunnel, on the panel's own HTTPS
 	// (reverse.go); nil without one.
 	Tunnel func(w http.ResponseWriter, r *http.Request) bool
+	// Tunnels is the panel's registry of the nodes' reverse tunnels, shared with the server
+	// that takes them (reverse.go); nil: no tunnel, and no traffic forwarded over one.
+	Tunnels *tunnels
+	// ForwardHost is the address the panel listens on for the protocols clients reach through
+	// a node's tunnel (tunnelforward.go); "" is every address.
+	ForwardHost string
 	// TLS picks the certificate of a node's protocols on TLS and the pin links carry for
 	// it; nil leaves links unpinned (tests).
 	TLS *NodeTLS
@@ -242,6 +251,9 @@ func NewPanel(st *store.Store, o Options) (*Panel, error) {
 		})
 		p.Nodes.SetCascadePlane(p.Cascade)
 		deps.Cascade = p.Cascade
+		if o.Tunnels != nil {
+			p.forward = newTunnelForward(st, o.Tunnels, o.ForwardHost, o.Log)
+		}
 		changes = p.Nodes
 		deps.Online = p.Nodes.Online
 		deps.NodeOnline = p.Nodes.OnlineByNode
@@ -572,6 +584,17 @@ func (p *Panel) Run(ctx context.Context) {
 	var workers []func(context.Context)
 	if p.Nodes != nil {
 		workers = append(workers, p.Nodes.Run)
+	}
+	if p.forward != nil {
+		// The panel's listeners for the protocols clients reach through a node's tunnel: rolled
+		// when the node's ports change, which the sync sees within a few seconds.
+		workers = append(workers, func(ctx context.Context) {
+			defer p.forward.Close()
+			p.forward.Roll(ctx)
+			pace.Tick(ctx, 5*time.Second, func(ctx context.Context) {
+				p.forward.Roll(ctx)
+			})
+		})
 	}
 	if p.Tuner != nil {
 		workers = append(workers, p.Tuner.Run)

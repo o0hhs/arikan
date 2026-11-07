@@ -3,6 +3,17 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
+## 0.5.5.10
+### en
+**A node whose protocols a filter cuts is reached through the panel, its traffic carried over the node's reverse tunnel.**
+- **Protocols through the panel** (Nodes → Edit node → "Ports via the panel"): list the ports of the node's protocols that clients cannot reach directly (say 443, 8443). The panel listens on each port on its own address, and every client's connection is carried to the node over the reverse tunnel the node opened to the panel — to the node's own protocol on loopback. The tunnel now carries two kinds of stream: the node's API (as before) and a client's connection, the port named on the stream. Works for any TCP protocol (VLESS/REALITY, Trojan, Shadowsocks and the rest); Hysteria2 and TUIC are UDP and the tunnel carries TCP.
+- The node keeps its own API port as before; the ports this setting names are extra listeners on the panel, so a node behind a filter still takes clients. A port one node names is the panel's, and the first node that names it keeps it.
+
+### ru
+**Нода, чьи протоколы режет фильтр, доступна через панель: трафик идёт по обратному туннелю ноды.**
+- **Протоколы через панель** (Ноды → Изменить ноду → «Порты через панель»): перечислите порты протоколов ноды, к которым клиенты не могут подключиться напрямую (например 443, 8443). Панель слушает каждый порт на своём адресе, и каждое подключение клиента уносится к ноде по обратному туннелю, который нода открыла панели, — к её собственному протоколу на loopback. Туннель теперь несёт два вида потоков: API ноды (как раньше) и подключение клиента с названным в потоке портом. Работает для любого TCP-протокола (VLESS/REALITY, Trojan, Shadowsocks и прочие); Hysteria2 и TUIC — это UDP, а туннель несёт TCP.
+- Свой API-порт ноды остаётся как был; порты из этой настройки — дополнительные слушатели на панели, так что нода за фильтром всё равно принимает клиентов. Порт, который назвала нода, — порт панели, и его удерживает первая нода, которая его назвала.
+
 ## 0.5.5.9
 ### en
 **The cascade works behind blocks again, and a simple mode hides the fork's pages.**

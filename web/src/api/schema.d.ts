@@ -5770,6 +5770,8 @@ export interface components {
              * @description Сколько унесла нода за последние сутки (вверх и вниз вместе), байты; у только что добавленной ноды 0
              */
             traffic_24h: number;
+            /** @description Порты протоколов ноды, которые клиенты достигают через панель, по обратному туннелю; пусто — доступны напрямую */
+            tunnel_forward: number[];
             /** @description Как идёт или прошло обновление ноды */
             update?: components["schemas"]["UpdateStatus"];
             version?: string;
@@ -6361,6 +6363,8 @@ export interface components {
             sni_router?: boolean;
             /** @description Метки ноды целиком; пустой список снимает все */
             tags?: string[];
+            /** @description Порты протоколов ноды, которые клиенты достигают через панель по обратному туннелю: клиент подключается к панели на этот порт, панель пересылает соединение ноде. Пусто — напрямую к ноде */
+            tunnel_forward?: number[];
         };
         PatchPaymentSettingsInputBody: {
             allow_new?: boolean;

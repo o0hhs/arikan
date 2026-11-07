@@ -27,6 +27,7 @@ INDEX="https://github.com/$REPO/releases/download/updates/index.json"
 # release index: the same keys as internal/release.ReleaseKeys (installer/src/release.rs
 # checks that these lines match them). A signature of any of them is the release's.
 PUBKEYS='MCowBQYDK2VwAyEAayuo0yLe0M0N5QQPaxkjAA0ltZcXSG7LRANrgyFAhUg=
+MCowBQYDK2VwAyEAZ3wSIPBSaJxh5CsGO8eINI0aM0kyrQ46EcJSNeH85W8=
 MCowBQYDK2VwAyEAJ4DbLqhnFdx8ncEiF4BQOW1aucukNCCgMhcZ18pCWFw='
 
 fail() {

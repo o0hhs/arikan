@@ -157,6 +157,7 @@ func Serve(ctx context.Context, cfg config.Config, version string, web fs.FS) er
 	opts.TLS = NewNodeTLS(cfg.DataDir, nodeCerts, certs, nodesACME, set, logger, time.Now)
 	opts.PanelCert = func() (nodetls.Pair, error) { return nodetls.LoadOrCreate(nodesDir, time.Now()) }
 	opts.Tunnel = tunnels.serve
+	opts.Tunnels = tunnels
 	opts.Connect = func(n db.Node) (nodesync.Target, error) {
 		c, err := nodeClient(cfg, n, tunnels)
 		if err != nil {

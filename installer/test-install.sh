@@ -40,11 +40,12 @@ chmod +x "$tmp/bin/curl"
 # The release key of this test, in the script instead of the real ones.
 openssl genpkey -algorithm ed25519 -out "$tmp/key.pem" 2>/dev/null
 pub=$(openssl pkey -in "$tmp/key.pem" -pubout | sed -n 2p)
-sed -e "s|^PUBKEYS='MCowBQYDK2VwAyEAZ3wSIPBSaJxh5CsGO8eINI0aM0kyrQ46EcJSNeH85W8=\$|PUBKEYS='$pub|" \
-  -e "s|^MCowBQYDK2VwAyEAJ4DbLqhnFdx8ncEiF4BQOW1aucukNCCgMhcZ18pCWFw='\$|$pub'|" "$here/install.sh" >"$tmp/install.sh"
+sed -e "s|^PUBKEYS='MCowBQYDK2VwAyEAayuo0yLe0M0N5QQPaxkjAA0ltZcXSG7LRANrgyFAhUg=\$|PUBKEYS='$pub|" \
+  -e "/^MCowBQYDK2VwAyEAZ3wSIPBSaJxh5CsGO8eINI0aM0kyrQ46EcJSNeH85W8=\$/d" \
+  -e "s|^MCowBQYDK2VwAyEAJ4DbLqhnFdx8ncEiF4BQOW1aucukNCCgMhcZ18pCWFw='\$|'|" "$here/install.sh" >"$tmp/install.sh"
 grep -q "^PUBKEYS='$pub\$" "$tmp/install.sh"
 
-releases="$tmp/www/github.com/Miroshka000/mikan/releases"
+releases="$tmp/www/github.com/o0hhs/arikan/releases"
 sign() { openssl pkeyutl -sign -inkey "$tmp/key.pem" -rawin -in "$1" | base64 | tr -d '\n' >"$1.sig"; }
 # release VERSION [MANIFEST-VERSION]: the installer and its signed manifest under vVERSION.
 release() {
@@ -52,7 +53,7 @@ release() {
   mkdir -p "$d"
   printf '#!/bin/sh\necho "mikan %s $*" >"$TEST_STATE/ran"\n' "$1" >"$d/mikan-$arch"
   sum=$(sha256sum "$d/mikan-$arch" | cut -d' ' -f1)
-  printf '{\n  "version": "%s",\n  "installer": {\n    "%s": {\n      "url": "https://github.com/Miroshka000/mikan/releases/download/v%s/mikan-%s",\n      "sha256": "%s"\n    }\n  }\n}\n' \
+  printf '{\n  "version": "%s",\n  "installer": {\n    "%s": {\n      "url": "https://github.com/o0hhs/arikan/releases/download/v%s/mikan-%s",\n      "sha256": "%s"\n    }\n  }\n}\n' \
     "${2:-$1}" "$arch" "$1" "$arch" "$sum" >"$d/manifest.json"
   sign "$d/manifest.json"
 }

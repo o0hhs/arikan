@@ -5861,6 +5861,14 @@
             "format": "int64",
             "type": "integer"
           },
+          "tunnel_forward": {
+            "description": "Порты протоколов ноды, которые клиенты достигают через панель, по обратному туннелю; пусто — доступны напрямую",
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": "array"
+          },
           "update": {
             "$ref": "#/components/schemas/UpdateStatus",
             "description": "Как идёт или прошло обновление ноды"
@@ -5907,7 +5915,8 @@
           "api_allow",
           "capacity",
           "channel_mbps",
-          "tags"
+          "tags",
+          "tunnel_forward"
         ],
         "type": "object"
       },
@@ -7555,6 +7564,15 @@
               "type": "string"
             },
             "maxItems": 20,
+            "type": "array"
+          },
+          "tunnel_forward": {
+            "description": "Порты протоколов ноды, которые клиенты достигают через панель по обратному туннелю: клиент подключается к панели на этот порт, панель пересылает соединение ноде. Пусто — напрямую к ноде",
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "maxItems": 32,
             "type": "array"
           }
         },
