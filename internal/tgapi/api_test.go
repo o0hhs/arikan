@@ -54,3 +54,170 @@ func TestPlainText(t *testing.T) {
 		t.Fatalf("plain %q", got)
 	}
 }
+
+// A button's premium emoji Telegram will not take — a bot whose owner has no Premium — is
+// what comes off, not the message: the menu arrives without it, the colors stay, and the
+// refusal is told once.
+func TestSendFallsBackWithoutEmoji(t *testing.T) {
+	var calls []map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		calls = append(calls, body)
+		if hasEmoji(body) {
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(map[string]any{"ok": false, "error_code": 400,
+				"description": "Bad Request: can't use custom emoji in a button: the bot's owner needs Telegram Premium"})
+			return
+		}
+		if strings.HasSuffix(r.URL.Path, "/editMessageText") {
+			_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "result": true})
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "result": map[string]any{"message_id": 5, "chat": map[string]any{"id": 1, "type": "private"}}})
+	}))
+	defer srv.Close()
+	c := NewClient(srv.URL, "1:x", nil)
+	var told [][]string
+	var toldErr error
+	c.OnEmojiRefused = func(ids []string, err error) { told = append(told, ids); toldErr = err }
+
+	kb := &Keyboard{InlineKeyboard: [][]Button{
+		{{Text: "a", CallbackData: "s", IconCustomEmojiID: "5368", Style: StylePrimary}, {Text: "b", CallbackData: "d"}},
+		{{Text: "c", CallbackData: "r", IconCustomEmojiID: "9999"}},
+	}}
+	m, err := c.Send(context.Background(), 1, "меню", kb, false)
+	if err != nil || m.MessageID != 5 || len(calls) != 2 {
+		t.Fatalf("send: %+v %v %v", m, err, calls)
+	}
+	second := keyboard(t, calls[1])
+	if hasEmoji(calls[1]) {
+		t.Fatalf("the second call still carries the emoji: %v", second)
+	}
+	first := keyboard(t, calls[0])
+	styled, _ := first[0].([]any)[0].(map[string]any)
+	if styled["style"] != StylePrimary {
+		t.Fatalf("the style must stay: %v", styled)
+	}
+	if len(told) != 1 || len(told[0]) != 2 || told[0][0] != "5368" || told[0][1] != "9999" || toldErr == nil {
+		t.Fatalf("told: %v %v", told, toldErr)
+	}
+	// The keyboard the caller holds is untouched: the next send builds on the admin's menu.
+	for _, row := range kb.InlineKeyboard {
+		for _, b := range row {
+			if b.Text == "a" && b.IconCustomEmojiID != "5368" || b.Text == "c" && b.IconCustomEmojiID != "9999" {
+				t.Fatalf("the caller's keyboard was changed: %+v", kb)
+			}
+		}
+	}
+	calls = nil
+	if err := c.Edit(context.Background(), 1, 5, "меню", kb); err != nil || len(calls) != 2 || hasEmoji(calls[1]) {
+		t.Fatalf("edit: %v %v", err, calls)
+	}
+
+	// An edit that asks for what the message already says is no refusal: the emoji must not
+	// come off the live menu over it (Telegram's own wording, and no second call).
+	same := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		calls = append(calls, body)
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]any{"ok": false, "error_code": 400, "description": "Bad Request: message is not modified"})
+	}))
+	defer same.Close()
+	calls = nil
+	told = nil
+	sc := NewClient(same.URL, "1:x", nil)
+	sc.OnEmojiRefused = func(ids []string, err error) { told = append(told, ids) }
+	if err := sc.Edit(context.Background(), 1, 5, "меню", kb); err != nil || len(calls) != 1 {
+		t.Fatalf("not modified: %v, %d calls", err, len(calls))
+	}
+	if len(told) != 0 {
+		t.Fatalf("nothing was refused: %v", told)
+	}
+	// A refusal whose words name no emoji but which the send-again settles (a different
+	// wording of the same refusal) is still told: the menu went out without them.
+	wording := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if hasEmoji(mustBody(t, r)) {
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(map[string]any{"ok": false, "error_code": 400, "description": "Bad Request: BUTTON_PREMIUM_REQUIRED"})
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "result": map[string]any{"message_id": 5, "chat": map[string]any{"id": 1, "type": "private"}}})
+	}))
+	defer wording.Close()
+	told = nil
+	wc := NewClient(wording.URL, "1:x", nil)
+	wc.OnEmojiRefused = func(ids []string, err error) { told = append(told, ids) }
+	if _, err := wc.Send(context.Background(), 1, "меню", kb, false); err != nil {
+		t.Fatal(err)
+	}
+	if len(told) != 1 || len(told[0]) != 2 {
+		t.Fatalf("the send-again settled it: %v", told)
+	}
+
+	// A refusal that names no emoji is no reason to send the menu crippled: it goes again
+	// without the emoji all the same (Telegram's wording of the emoji's refusal is promised
+	// nowhere), stays an error, and is not told to the panel.
+	other := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]any{"ok": false, "error_code": 400,
+			"description": "Bad Request: BUTTON_DATA_INVALID"})
+	}))
+	defer other.Close()
+	oc := NewClient(other.URL, "1:x", nil)
+	told = nil
+	oc.OnEmojiRefused = func(ids []string, err error) { told = append(told, ids) }
+	if _, err := oc.Send(context.Background(), 1, "меню", kb, false); err == nil {
+		t.Fatal("a refusal of something else stays an error")
+	}
+	if len(told) != 0 {
+		t.Fatalf("a refusal of something else is not the emoji's: %v", told)
+	}
+	// One a send-again cannot help: nothing to take off, the refusal is the caller's.
+	if _, err := NewClient(other.URL, "1:x", nil).Send(context.Background(), 1, "меню", &Keyboard{InlineKeyboard: [][]Button{{{Text: "a", CallbackData: "s"}}}}, false); err == nil {
+		t.Fatal("a keyboard without emoji is sent as it is")
+	}
+}
+
+// mustBody reads a request's JSON body for a test handler.
+func mustBody(t *testing.T, r *http.Request) map[string]any {
+	t.Helper()
+	var body map[string]any
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	return body
+}
+
+// hasEmoji: the request's keyboard carries a button's premium emoji.
+func hasEmoji(body map[string]any) bool {
+	kb, _ := body["reply_markup"].(map[string]any)
+	rows, _ := kb["inline_keyboard"].([]any)
+	for _, r := range rows {
+		for _, b := range r.([]any) {
+			if m, ok := b.(map[string]any); ok && m["icon_custom_emoji_id"] != nil {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func keyboard(t *testing.T, body map[string]any) []any {
+	t.Helper()
+	kb, _ := body["reply_markup"].(map[string]any)
+	rows, _ := kb["inline_keyboard"].([]any)
+	if len(rows) == 0 {
+		t.Fatalf("no keyboard in %v", body)
+	}
+	return rows
+}
+
+// ValidEmojiID: an id is digits, twenty at most — what Telegram's are.
+func TestValidEmojiID(t *testing.T) {
+	for s, ok := range map[string]bool{"": true, "5368324170671202286": true, "0": true, "53683241706712022860": true,
+		"536832417067120228601": false, "12a": false, "-1": false, " 1": false, "1 ": false} {
+		if ValidEmojiID(s) != ok {
+			t.Errorf("%q: %v", s, !ok)
+		}
+	}
+}
