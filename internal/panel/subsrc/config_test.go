@@ -74,6 +74,10 @@ func TestLoadConfig(t *testing.T) {
 	}
 	old, fresh := node("old", "198.51.100.1", "old.example.com"), node("fresh", "198.51.100.2", "")
 	off := node("off", "198.51.100.3", "off.example.com")
+	hidden := node("hidden", "198.51.100.4", "hidden.example.com")
+	if err := st.Q.SetNodeTunnelForward(ctx, db.SetNodeTunnelForwardParams{TunnelForward: "[443,8443]", UpdatedAt: 1, ID: hidden.ID}); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := st.Q.UpdateNode(ctx, db.UpdateNodeParams{Name: off.Name, Address: off.Address, PublicHost: off.PublicHost, Domain: off.Domain, Enabled: 0, UpdatedAt: 1, ID: off.ID}); err != nil {
 		t.Fatal(err)
 	}
@@ -116,12 +120,18 @@ func TestLoadConfig(t *testing.T) {
 	if o.Endpoint.PinSHA256 != "picked-old" || f.Endpoint.PinSHA256 != "served" {
 		t.Errorf("pins: old %q, fresh %q", o.Endpoint.PinSHA256, f.Endpoint.PinSHA256)
 	}
+	// A node behind a filter: its carried ports are dialled at the panel, the rest at the node.
+	if h := byName["hidden"]; h.TunnelHost != "panel.example.com" || !h.TunnelPorts[443] || !h.TunnelPorts[8443] || h.TunnelPorts[2053] {
+		t.Errorf("the tunneled node: host %q ports %v", h.TunnelHost, h.TunnelPorts)
+	}
 	want := []string{"203.0.113.10", "panel.example.com", "sub.example.com"}
 	for _, n := range cfg.Nodes {
 		if n.Name == "old" {
 			want = append(want, "198.51.100.1", "old.example.com")
 		} else if n.Name == "fresh" {
 			want = append(want, "198.51.100.2", "")
+		} else if n.Name == "hidden" {
+			want = append(want, "198.51.100.4", "hidden.example.com")
 		}
 	}
 	if !reflect.DeepEqual(cfg.Direct, want) {

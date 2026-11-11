@@ -5,7 +5,6 @@ package main
 
 import (
 	"context"
-	"crypto/tls"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -144,7 +143,11 @@ func run() error {
 		// The tunnel the node opens out to its panel: the way round that works when the panel
 		// cannot reach the node at all. It needs the panel's address from the join key.
 		if join.PanelURL != "" {
-			if pair, err := tls.X509KeyPair([]byte(join.CertPEM), []byte(join.KeyPEM)); err != nil {
+			// The panel is accepted by the pin in the join key, not by the system's roots: a
+			// panel on a bare IP with a self-signed certificate is reached just the same, which a
+			// node behind a filter needs (the panel is often the only way round).
+			client, err := nodetls.TunnelClientConfig(join, nodeapi.TunnelALPN)
+			if err != nil {
 				log.Error("reverse tunnel: the node's certificate is unreadable", "err", err)
 			} else {
 				go func() {
@@ -154,11 +157,8 @@ func run() error {
 						}
 					}()
 					node.RunReverseTunnel(ctx, node.ReverseTunnel{
-						URL: join.PanelURL,
-						// The node's own certificate as a client certificate: the panel accepts it
-						// by the pin it holds, and only a client that asks for the tunnel's ALPN is
-						// asked for a certificate at all.
-						Client:  &tls.Config{MinVersion: tls.VersionTLS12, Certificates: []tls.Certificate{pair}, NextProtos: []string{nodeapi.TunnelALPN}},
+						URL:     join.PanelURL,
+						Client:  client,
 						Server:  cfg,
 						Handler: node.Handler(eng, log),
 						Log:     log,

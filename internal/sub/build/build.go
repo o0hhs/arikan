@@ -57,6 +57,12 @@ func Proxies(p Profile) []model.Proxy {
 			if n.Endpoint.SNIRouter && proto.SNI443(t) {
 				port, spec = 443, "443"
 			}
+			// A node behind a filter: this protocol's port is one the panel carries, so the
+			// client dials the panel, which forwards the connection over the node's tunnel.
+			host := n.Endpoint.Host
+			if n.TunnelHost != "" && n.TunnelPorts[port] {
+				host = n.TunnelHost
+			}
 			base := shownName(in.Name)
 			if base == "" {
 				base = shownName(in.Label) // nothing was left of it
@@ -70,7 +76,7 @@ func Proxies(p Profile) []model.Proxy {
 			for i := 2; used[name]; i++ {
 				name = base + " " + strconv.Itoa(i)
 			}
-			c, err := Proxy(t, Input{Name: name, Host: n.Endpoint.Host, Port: port, PortSpec: spec,
+			c, err := Proxy(t, Input{Name: name, Host: host, Port: port, PortSpec: spec,
 				SNI: n.Endpoint.SNI, PinSHA256: n.Endpoint.PinSHA256, Fingerprint: p.Fingerprint, Keys: p.Keys, SSOneKey: n.SSOneKey})
 			if err != nil {
 				p.skip(in, err)

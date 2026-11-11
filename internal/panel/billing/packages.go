@@ -190,7 +190,13 @@ func (s *Service) applyPackage(ctx context.Context, q *db.Queries, pay db.Paymen
 	if err != nil {
 		return u, err
 	}
-	if pools, err := q.ListUserPools(ctx, u.ID); err == nil && domain.PackagePoolClosed(pools, p) {
+	// A failed read must not be swallowed: the transaction is aborted from then on, and the
+	// next statement would fail with a misleading "current transaction is aborted".
+	pools, err := q.ListUserPools(ctx, u.ID)
+	if err != nil {
+		return u, err
+	}
+	if domain.PackagePoolClosed(pools, p) {
 		s.d.Log.Warn("billing: a paid package is for a pool closed for the subscription", "payment", pay.ID, "user", u.ID, "package", p.ID, "pool", p.PoolID.Int64)
 	}
 	_, err = domain.GrantTx(ctx, q, u, domain.GrantOf(p, pay.ID), s.d.Now())

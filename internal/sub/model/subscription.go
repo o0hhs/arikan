@@ -37,6 +37,12 @@ type Node struct {
 	// Tags are the admin's labels of the node, comma-separated; "" is none. The fork's
 	// filters by label read them.
 	Tags string
+	// TunnelHost, set for a node whose protocols clients reach through the panel (the node is
+	// behind a filter): the panel's own address, and TunnelPorts are the ports it carries for
+	// the node. A proxy of such a node on a port in TunnelPorts is dialled at TunnelHost, not
+	// at the node's own address.
+	TunnelHost  string
+	TunnelPorts map[int]bool
 }
 
 // Inbound is one inbound of a node as the subscription sees it.

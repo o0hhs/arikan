@@ -156,3 +156,42 @@ func TestSignVerify(t *testing.T) {
 		t.Fatal("SamePin")
 	}
 }
+
+// The node's side of its reverse tunnel accepts the panel by the pin in the join key — a panel
+// on a bare IP with a self-signed certificate included — and refuses another panel.
+func TestTunnelClientPinsThePanel(t *testing.T) {
+	now := time.Now()
+	panel, err := Generate("mikan-panel", x509.ExtKeyUsageServerAuth, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	node, err := Generate("node-7.mikan", x509.ExtKeyUsageClientAuth, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	panelPin, _ := Fingerprint(panel.CertPEM)
+
+	panelCert, err := tls.X509KeyPair([]byte(panel.CertPEM), []byte(panel.KeyPEM))
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := &tls.Config{MinVersion: tls.VersionTLS12, Certificates: []tls.Certificate{panelCert},
+		NextProtos: []string{"mikan-node-tunnel/1"}, ClientAuth: tls.RequireAnyClientCert}
+
+	key := Key{Port: 1, PanelPin: panelPin, CertPEM: node.CertPEM, KeyPEM: node.KeyPEM}
+	client, err := TunnelClientConfig(key, "mikan-node-tunnel/1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := handshake(t, server, client); err != nil {
+		t.Fatalf("the node must accept its panel by the pin: %v", err)
+	}
+
+	// A different panel: the pin does not match, so the node refuses it.
+	stranger, _ := Generate("mikan-panel", x509.ExtKeyUsageServerAuth, now)
+	strangerPin, _ := Fingerprint(stranger.CertPEM)
+	wrong, _ := TunnelClientConfig(Key{Port: 1, PanelPin: strangerPin, CertPEM: node.CertPEM, KeyPEM: node.KeyPEM}, "mikan-node-tunnel/1")
+	if handshake(t, server, wrong) == nil {
+		t.Fatal("a panel whose certificate the join key does not pin must be refused")
+	}
+}

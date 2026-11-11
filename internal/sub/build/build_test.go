@@ -198,3 +198,27 @@ func TestForApp(t *testing.T) {
 		}
 	}
 }
+
+// A node behind a filter: the protocols on the ports the panel carries are dialled at the
+// panel (which forwards them over the node's reverse tunnel); the rest keep the node's host.
+func TestTunneledNodeDialsThePanel(t *testing.T) {
+	nodes := []model.Node{{
+		ID: 1, Name: "🇳🇱 Нидерланды", Endpoint: model.Endpoint{Host: "nl.example.com"},
+		TunnelHost: "panel.example.com", TunnelPorts: map[int]bool{443: true},
+	}}
+	tuic := proto.Marshal(proto.Template{"type": "tuic", "alpn": []any{"h3"}})
+	ins := []model.Inbound{
+		{ID: 1, Node: 1, Name: "Carried", Named: true, Port: 443, PortSpec: "443", Config: tuic},
+		{ID: 2, Node: 1, Name: "Own", Named: true, Port: 8443, PortSpec: "8443", Config: tuic},
+	}
+	byName := map[string]model.Proxy{}
+	for _, p := range Proxies(Profile{Keys: testKeys, Inbounds: ins, Nodes: nodes}) {
+		byName[p.Name] = p
+	}
+	if p := byName["Carried"]; p.Server != "panel.example.com" {
+		t.Errorf("the carried port is dialled at %q, want the panel", p.Server)
+	}
+	if p := byName["Own"]; p.Server != "nl.example.com" {
+		t.Errorf("a port the panel does not carry is dialled at %q, want the node", p.Server)
+	}
+}
