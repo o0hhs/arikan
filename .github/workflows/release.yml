@@ -60,6 +60,10 @@ jobs:
 
   test:
     needs: guard
+    # A release cut with [fast-release] in its commit message skips the checks: they ran
+    # on main, and only the build is repeated here. The jobs stay in the graph, so the
+    # build jobs still fail with them when they do run.
+    if: ${{ !contains(github.event.head_commit.message, '[fast-release]') }}
     runs-on: ubuntu-24.04
     # The whole `go test ./...` took ~22 minutes on one runner. Split the packages into
     # shards that run in parallel; every shard gets its own PostgreSQL, so the tests never
