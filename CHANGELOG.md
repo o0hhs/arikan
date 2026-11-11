@@ -3,6 +3,19 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
+## 0.5.5.11
+### en
+**The reverse tunnel carries a blocked node's clients, and a paid payment no longer hangs unapplied.**
+- **A node behind a filter is reached through the panel.** Its links point at the panel's address for the ports it carries (Nodes → Edit node → "Ports via the panel"), so a client dials the panel and the panel forwards over the node's own tunnel. Before, the links still named the cut node, so nothing reached the forwarder.
+- **The tunnel's TLS matches its pin.** The node pinned the panel's certificate from its join key, but the tunnel presented the panel's public one, so the node refused the panel and the tunnel never came up on a bare-IP panel. The tunnel now presents the key's pair, and the node accepts it by that pin (self-signed included).
+- **A paid payment that hit "current transaction is aborted (25P02)" is applied.** A failed read inside the payment's transaction was swallowed, aborting the whole transaction; the reconcile then retried it every minute and the subscription was never granted. The read's error is returned now and the stray rollback statement is gone.
+
+### ru
+**Обратный туннель везёт клиентов заблокированной ноды, а оплаченный платёж больше не висит не применённым.**
+- **Нода за фильтром доступна через панель.** Её ссылки указывают на адрес панели для портов, которые она переносит (Ноды → Изменить ноду → «Порты через панель»), так что клиент идёт на панель, а панель пересылает по туннелю самой ноды. Раньше ссылки по-прежнему называли заблокированную ноду, и до форвардера ничего не доходило.
+- **TLS туннеля совпадает со своим пином.** Нода пиннила сертификат панели из ключа подключения, а туннель предъявлял публичный сертификат панели: нода отвергала панель, и на голом IP туннель не поднимался. Теперь туннель предъявляет пару из ключа, и нода принимает её по этому пину (самоподписанный в том числе).
+- **Оплаченный платёж, упавший с «current transaction is aborted (25P02)», применяется.** Ошибка чтения внутри транзакции платежа проглатывалась и абортила всю транзакцию; реконсайл повторял её каждую минуту, а подписка так и не начислялась. Теперь ошибка возвращается, а лишний откат убран.
+
 ## 0.5.5.10
 ### en
 **A node whose protocols a filter cuts is reached through the panel, its traffic carried over the node's reverse tunnel.**
