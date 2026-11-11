@@ -61,6 +61,14 @@ jobs:
   test:
     needs: guard
     runs-on: ubuntu-24.04
+    # The whole `go test ./...` took ~22 minutes on one runner. Split the packages into
+    # shards that run in parallel; every shard gets its own PostgreSQL, so the tests never
+    # contend for one database. A shard is chosen by the package list's index (stable, hashed
+    # by path so a shard's set does not shuffle between runs).
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     services:
       postgres:
         # Google's Docker Hub mirror: Docker Hub limits anonymous pulls and has outages.
@@ -127,7 +135,21 @@ jobs:
           tar -xzf "$RUNNER_TEMP/sing-box.tar.gz" -C "$RUNNER_TEMP" sing-box-1.12.23-linux-amd64/sing-box
           echo "SINGBOX=$RUNNER_TEMP/sing-box-1.12.23-linux-amd64/sing-box" >> "$GITHUB_ENV"
       - name: go
-        run: go test -timeout 30m ./...
+        env:
+          SHARD: ${{ matrix.shard }}
+          SHARDS: ${{ strategy.job-total }}
+        run: |
+          # Keep the packages of a shard together by a hash of the path, so the split is
+          # steady between runs (a cached build and the same tests land on the same shard).
+          pkgs=$(go list ./... | awk -v n="$SHARDS" -v k="$SHARD" '
+            { s = 0; for (i = 1; i <= length($0); i++) s += index("abcdefghijklmnopqrstuvwxyz0123456789/._-", substr($0, i, 1)); if (s % n == k - 1) print }
+          ')
+          if [ -z "$pkgs" ]; then
+            echo "this shard has no packages"
+            exit 0
+          fi
+          echo "shard $SHARD of $SHARDS: $(echo "$pkgs" | wc -l) packages"
+          go test -timeout 30m $pkgs
 
   image:
     needs: test
@@ -401,8 +423,12 @@ jobs:
   # up in the package's settings on npm with direct publishing allowed): no token is kept
   # anywhere. The trust and the provenance, which signs where the package came from, need
   # the id-token permission.
+  # Publishing to npm/PyPI needs the package and its trusted-publisher set up on the
+  # registries; until then it must not fail the release (the panel, the nodes and the
+  # installers are already published and are what the release is).
   sdk-npm:
     needs: sdk
+    continue-on-error: true
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -434,6 +460,7 @@ jobs:
   # repository, release.yml and the environment pypi): no token is kept anywhere.
   sdk-pypi:
     needs: sdk
+    continue-on-error: true
     runs-on: ubuntu-24.04
     environment:
       name: pypi
