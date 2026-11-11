@@ -185,6 +185,16 @@ func LoadConfig(ctx context.Context, d ConfigDeps) (Config, error) {
 		if n.Address != "" {
 			sn.Endpoint = submodel.Endpoint{Host: domain.NodeHost(n), SNI: n.Domain}
 			cfg.Direct = append(cfg.Direct, n.PublicHost, n.Domain)
+			// A node behind a filter: its protocols on the ports the panel carries are dialled
+			// at the panel's own address, the panel forwarding each connection over the node's
+			// reverse tunnel. The link's host and SNI are the panel's then.
+			if ports := domain.ParseTunnelForward(n.TunnelForward); len(ports) > 0 {
+				set := make(map[int]bool, len(ports))
+				for _, p := range ports {
+					set[p] = true
+				}
+				sn.TunnelHost, sn.TunnelPorts = ep.Host, set
+			}
 		}
 		sn.Endpoint.SNIRouter = n.SniRouter != 0
 		var hv NodeHealth
