@@ -81,6 +81,51 @@ func (t *tunnels) View(id int64) (nodesync.TunnelView, bool) {
 	return nodesync.TunnelView{Connected: c.live, Since: c.since, Last: c.last, Ended: c.ended, Streams: c.open, Remote: c.remote, Error: c.err}, true
 }
 
+// OpenData opens one stream of the node's tunnel for a client's connection to port: the first
+// bytes are the stream type (StreamData) and the port, and the bytes after them are the
+// client's, carried to the node's own loopback protocol. ok is false when there is no tunnel.
+func (t *tunnels) OpenData(ctx context.Context, id int64, port uint16) (net.Conn, bool) {
+	t.mu.Lock()
+	c := t.byID[id]
+	t.mu.Unlock()
+	if c == nil {
+		return nil, false
+	}
+	c.mu.Lock()
+	live, sess := c.live, c.sess
+	c.mu.Unlock()
+	if !live || sess == nil {
+		return nil, false
+	}
+	c.mu.Lock()
+	if c.open >= tunnelMaxStreams {
+		c.mu.Unlock()
+		return nil, false
+	}
+	c.open++
+	c.mu.Unlock()
+	octx, cancel := context.WithTimeout(ctx, tunnelOpen)
+	st, err := sess.OpenStream(octx)
+	cancel()
+	if err != nil {
+		c.mu.Lock()
+		c.open--
+		c.mu.Unlock()
+		return nil, false
+	}
+	if err := nodeapi.WriteStreamPort(st, port); err != nil {
+		c.mu.Lock()
+		c.open--
+		c.mu.Unlock()
+		_ = st.Close()
+		return nil, false
+	}
+	c.mu.Lock()
+	c.last = t.now()
+	c.mu.Unlock()
+	return &tunnelStream{Stream: st, c: c}, true
+}
+
 // Open opens one stream of the node's tunnel: the panel's way into a node it cannot reach
 // itself. ok is false when there is no tunnel now, or it cannot take another stream — the
 // caller then takes the direct path.

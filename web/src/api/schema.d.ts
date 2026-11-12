@@ -6674,6 +6674,8 @@ export interface components {
             traffic_24h: number;
             /** @description Обратный туннель: нода сама подключилась к панели, и панель ходит к ней по этому соединению; нет, если нода ещё не подключалась */
             tunnel?: components["schemas"]["NodeTunnelView"];
+            /** @description Порты протоколов ноды, которые клиенты достигают через панель, по обратному туннелю; пусто — доступны напрямую */
+            tunnel_forward: number[];
             /** @description Как идёт или прошло обновление ноды */
             update?: components["schemas"]["UpdateStatus"];
             /**
@@ -7310,6 +7312,8 @@ export interface components {
             public_name?: string;
             /** @description SNI-роутер на 443: подключения с отметкой «через общий 443» слушают на loopback за ним */
             sni_router?: boolean;
+            /** @description Порты протоколов ноды, которые клиенты достигают через панель по обратному туннелю: клиент подключается к панели на этот порт, панель пересылает соединение ноде. Пусто — напрямую к ноде */
+            tunnel_forward?: number[];
         };
         PatchOutboundInputBody: {
             enabled?: boolean;

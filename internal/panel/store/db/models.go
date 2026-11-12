@@ -472,6 +472,7 @@ type Node struct {
 	EmergencySpeed sql.NullInt32
 	AutoInclude    int64
 	InboundApi     int64
+	TunnelForward  string
 }
 
 type NodeAssignment struct {

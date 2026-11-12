@@ -81,6 +81,11 @@ type DesiredState struct {
 	// ignore it. The node keeps the answer: one that was told to close the port does not open it
 	// again on a restart, before the panel says otherwise.
 	InboundAPI *bool `json:"inbound_api,omitempty"`
+	// TunnelForward: the ports of this node's protocols that clients reach through the panel,
+	// carried over the node's reverse tunnel (streams a data type). The panel listens for them
+	// on its own address and forwards each client's connection to this node's loopback. Empty:
+	// no client traffic through the panel. Nodes older than it ignore the field.
+	TunnelForward []int `json:"tunnel_forward,omitempty"`
 }
 
 // InboundAPINeeded says whether the state has the node listen on its API port: true unless the

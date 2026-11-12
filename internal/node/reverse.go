@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"crypto/tls"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -13,12 +14,14 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/metacubex/yamux"
 
+	"mikan/internal/duplex"
 	"mikan/internal/nodeapi"
 	"mikan/internal/pace"
 )
@@ -173,15 +176,25 @@ func serveReverseTunnel(ctx context.Context, o ReverseTunnel) error {
 // serveTunnelStream serves the API over one stream of the tunnel, in TLS: the panel checks the
 // node's certificate in it and the node checks the panel's, as on a direct connection.
 func serveTunnelStream(ctx context.Context, st *yamux.Stream, o ReverseTunnel) {
-	defer st.Close()
 	_ = st.SetReadDeadline(time.Now().Add(tunnelStreamSays))
 	var kind [1]byte
 	if _, err := io.ReadFull(st, kind[:]); err != nil {
+		_ = st.Close()
 		return
 	}
 	_ = st.SetReadDeadline(time.Time{})
+	if kind[0] == nodeapi.StreamData {
+		var pb [2]byte
+		if _, err := io.ReadFull(st, pb[:]); err != nil {
+			_ = st.Close()
+			return
+		}
+		o.serveData(st, binary.BigEndian.Uint16(pb[:]))
+		return
+	}
+	defer st.Close()
 	if kind[0] != nodeapi.StreamControl {
-		// A stream of another kind (user traffic, a later round) is not served here.
+		// A stream of another kind is not served here.
 		return
 	}
 	hsctx, cancel := context.WithTimeout(ctx, tunnelDial)
@@ -194,6 +207,23 @@ func serveTunnelStream(ctx context.Context, st *yamux.Stream, o ReverseTunnel) {
 	srv := &http.Server{Handler: o.Handler, ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 120 * time.Second}
 	// One connection per stream: Serve returns when it is over.
 	_ = srv.Serve(oneConn(tc))
+}
+
+// serveData carries one client's connection from the panel to a protocol on this node:
+// 127.0.0.1:port, where the core's own inbound listens. A port the node does not listen on
+// fails the stream, not the tunnel.
+func (o ReverseTunnel) serveData(st *yamux.Stream, port uint16) {
+	defer st.Close()
+	if port < 1 {
+		return
+	}
+	remote, err := (&net.Dialer{Timeout: tunnelDial}).Dial("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(int(port))))
+	if err != nil {
+		o.Log.Debug("reverse tunnel: no protocol on the port", "port", port, "err", err)
+		return
+	}
+	defer remote.Close()
+	duplex.Copy(st, remote)
 }
 
 // tunnelMux is the node's yamux configuration: its streams are the panel's calls, and a

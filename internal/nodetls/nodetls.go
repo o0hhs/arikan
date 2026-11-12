@@ -261,3 +261,22 @@ func pinned(pin string) func([][]byte, [][]*x509.Certificate) error {
 		return nil
 	}
 }
+
+// TunnelClientConfig is the node's side of its reverse tunnel to the panel: the node presents
+// its own certificate (the panel accepts it by the pin it holds) and accepts the panel by the
+// pin in the join key, as the API's own TLS does — so a panel on a bare IP with a
+// self-signed certificate is reached just the same. The tunnel's ALPN names it.
+func TunnelClientConfig(k Key, alpn string) (*tls.Config, error) {
+	cert, err := tls.X509KeyPair([]byte(k.CertPEM), []byte(k.KeyPEM))
+	if err != nil {
+		return nil, err
+	}
+	return &tls.Config{
+		MinVersion:   tls.VersionTLS12,
+		Certificates: []tls.Certificate{cert},
+		// Self-signed on the panel: the pin replaces chain verification, as on the API.
+		InsecureSkipVerify:    true,
+		VerifyPeerCertificate: pinned(k.PanelPin),
+		NextProtos:            []string{alpn},
+	}, nil
+}

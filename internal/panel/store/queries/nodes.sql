@@ -49,3 +49,8 @@ UPDATE nodes SET auto_include = sqlc.arg(auto_include) WHERE id = sqlc.arg(id);
 -- Whether the node listens on its own API port: the panel reaches a node with it closed over
 -- the tunnel the node opens out to it.
 UPDATE nodes SET inbound_api = sqlc.arg(inbound_api), updated_at = sqlc.arg(updated_at) WHERE id = sqlc.arg(id);
+
+-- name: SetNodeTunnelForward :exec
+-- The ports of the node's protocols that clients reach through the panel: a JSON array of
+-- ports, carried over the node's reverse tunnel.
+UPDATE nodes SET tunnel_forward = sqlc.arg(tunnel_forward), updated_at = sqlc.arg(updated_at) WHERE id = sqlc.arg(id);

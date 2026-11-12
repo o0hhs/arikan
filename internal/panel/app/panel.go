@@ -116,6 +116,9 @@ type Panel struct {
 	// diverged makes the pairs that disagree (divergence.go) be named once, at the first
 	// Apply, not every five seconds.
 	diverged sync.Once
+	// forward is the panel as the way in for a node's clients (tunnelforward.go); nil without a
+	// tunnel or nodes.
+	forward *tunnelForward
 }
 
 type Options struct {
@@ -140,6 +143,12 @@ type Options struct {
 	// Tunnel answers a node's request to open its reverse tunnel, on the panel's own HTTPS
 	// listener; nil: no node can open one.
 	Tunnel func(w http.ResponseWriter, r *http.Request) bool
+	// Tunnels is the panel's registry of the nodes' reverse tunnels (reverse.go); nil: no
+	// traffic forwarded over one.
+	Tunnels *tunnels
+	// ForwardHost is the address the panel listens on for protocols clients reach through a
+	// node's tunnel (tunnelforward.go); "" is every address.
+	ForwardHost string
 	// NodeCerts keeps the nodes' own certificates; nil: nodes have none.
 	NodeCerts *tlscert.NodeStore
 	// Certs manages the panel's public certificate; nil in development.
@@ -255,6 +264,9 @@ func NewPanel(st *store.Store, o Options) (*Panel, error) {
 			Dial: p.Nodes.Bridge,
 		})
 		p.Nodes.SetCascadePlane(p.Cascade)
+		if o.Tunnels != nil {
+			p.forward = newTunnelForward(st, o.Tunnels, o.ForwardHost, o.Log)
+		}
 		deps.Cascade = p.Cascade
 		changes = p.Nodes
 		deps.Online = p.Nodes.Online
@@ -641,6 +653,15 @@ func NewPanel(st *store.Store, o Options) (*Panel, error) {
 			if n.Address != "" {
 				sn.Endpoint = subs.Endpoint{Host: domain.NodeHost(n), SNI: n.Domain}
 				cfg.Direct = append(cfg.Direct, n.PublicHost, n.Domain)
+				// A node behind a filter: its protocols on the ports the panel carries are dialled
+				// at the panel's own address, the panel forwarding over the node's tunnel.
+				if ports := domain.ParseTunnelForward(n.TunnelForward); len(ports) > 0 {
+					set := make(map[int]bool, len(ports))
+					for _, pp := range ports {
+						set[pp] = true
+					}
+					sn.TunnelHost, sn.TunnelPorts = ep.Host, set
+				}
 			}
 			sn.Endpoint.SNIRouter = n.SniRouter != 0
 			// A node older than the Shadowsocks-2022 key per user runs one key for everyone: its
@@ -832,6 +853,13 @@ func (p *Panel) Run(ctx context.Context) {
 	var workers []func(context.Context)
 	if p.Nodes != nil {
 		workers = append(workers, p.Nodes.Run)
+	}
+	if p.forward != nil {
+		workers = append(workers, func(ctx context.Context) {
+			defer p.forward.Close()
+			p.forward.Roll(ctx)
+			pace.Tick(ctx, 5*time.Second, func(ctx context.Context) { p.forward.Roll(ctx) })
+		})
 	}
 	if p.Tuner != nil {
 		workers = append(workers, p.Tuner.Run)

@@ -51,6 +51,10 @@ type Node struct {
 	// AutoInclude: the node's servers take part in the auto group and the fastest-pick;
 	// off, they stay in the plain list and in their country's group.
 	AutoInclude bool
+	// TunnelHost, set for a node behind a filter: the panel's own address, and TunnelPorts the
+	// ports it carries. A proxy on a port in TunnelPorts is dialled at TunnelHost.
+	TunnelHost  string
+	TunnelPorts map[int]bool
 }
 
 // Groups are the proxy-group names Clash-family apps show; the admin can rename them.
@@ -395,6 +399,16 @@ func build(p Profile) ([]proxy, error) {
 			spec := in.Port
 			if n.Endpoint.SNIRouter && proto.SNI443(t) {
 				port, spec = 443, "443"
+			}
+			// A node behind a filter: this protocol's port is one the panel carries, so the
+			// client dials the panel, which forwards the connection over the node's tunnel.
+			if n.TunnelHost != "" && n.TunnelPorts[port] {
+				h, ok := dialHost(n.TunnelHost)
+				if !ok {
+					p.skip(in, fmt.Errorf("bad tunnel host %q", n.TunnelHost))
+					continue
+				}
+				host = h
 			}
 			base := domain.ProxyName(in)
 			// A name the admin typed is used as is; preset names get the node's flag.

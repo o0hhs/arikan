@@ -155,6 +155,8 @@ type NodeInfo struct {
 	// InboundAPI: the node listens on its own API port; off, the panel reaches it over the
 	// tunnel the node opens out to the panel (Tunnel).
 	InboundAPI bool `json:"inbound_api" doc:"Нода слушает свой API-порт; выключено — панель ходит к ней только через обратный туннель"`
+	// TunnelForward: the ports of the node's protocols carried to it over the reverse tunnel.
+	TunnelForward []int `json:"tunnel_forward" doc:"Порты протоколов ноды, которые клиенты достигают через панель, по обратному туннелю; пусто — доступны напрямую"`
 	// Tunnel is the node's reverse tunnel as the panel sees it: the node connected out to the
 	// panel, and the calls go over that connection. nil while the node never had one.
 	Tunnel      *NodeTunnelView `json:"tunnel,omitempty" doc:"Обратный туннель: нода сама подключилась к панели, и панель ходит к ней по этому соединению; нет, если нода ещё не подключалась"`
@@ -206,6 +208,8 @@ type patchNodeInput struct {
 		APIAllow    *[]string `json:"api_allow,omitempty" maxItems:"16" doc:"Ещё сети или адреса (203.0.113.5, 198.51.100.0/24), с которых панель ходит к ноде"`
 		// The node's own API port: off, only the tunnel the node opens out to the panel remains.
 		InboundAPI *bool `json:"inbound_api,omitempty" doc:"Слушать API на своём порту; выключено — панель ходит только через обратный туннель (если он не поднялся, нода станет недоступна)"`
+		// TunnelForward: the ports of the node's protocols that clients reach through the panel.
+		TunnelForward *[]int `json:"tunnel_forward,omitempty" maxItems:"32" doc:"Порты протоколов ноды, которые клиенты достигают через панель по обратному туннелю: клиент подключается к панели на этот порт, панель пересылает соединение ноде. Пусто — напрямую к ноде"`
 		// The emergency node: ended subscriptions keep its servers alone, Telegram stays
 		// reachable while they renew.
 		Emergency      *bool  `json:"emergency,omitempty" doc:"Аварийная нода: закончившие подписку видят только её"`
@@ -263,8 +267,9 @@ func (h *handlers) viewNode(ctx context.Context, n db.Node, inbounds []db.Inboun
 		Enabled: n.Enabled != 0, Inbounds: len(domain.NodeInbounds(inbounds, n.ID)), Status: "unknown",
 		FairShare: n.FairShare != 0, ChannelMbps: store.Int64Ptr(n.ChannelMbps), BalanceGroup: n.BalanceGroup, Capacity: store.Int64Ptr(n.Capacity),
 		HTTPRedirect: n.HttpRedirect != 0, SNIRouter: n.SniRouter != 0, AutoInclude: n.AutoInclude != 0, FrontPage: n.FrontPage, APILockdown: n.ApiLockdown != 0, APIAllow: n.ApiAllow,
-		InboundAPI: n.InboundApi != 0,
-		Emergency:  n.Emergency,
+		InboundAPI:    n.InboundApi != 0,
+		TunnelForward: domain.ParseTunnelForward(n.TunnelForward),
+		Emergency:     n.Emergency,
 		EmergencySpeed: func() *int64 {
 			if n.EmergencySpeed.Valid {
 				v := int64(n.EmergencySpeed.Int32)
@@ -469,7 +474,7 @@ func (h *handlers) updateNode(ctx context.Context, in *patchNodeInput) (*nodeInf
 	}
 	n, err := domain.UpdateNode(ctx, h.d.Store, in.ID, domain.NodePatch{Name: b.Name, PublicName: b.PublicName, Host: b.Host, Domain: b.Domain,
 		Enabled: b.Enabled, FairShare: b.FairShare, ChannelMbps: b.ChannelMbps, HTTPRedirect: b.HTTPRedirect, SNIRouter: b.SNIRouter, AutoInclude: b.AutoInclude, FrontPage: b.FrontPage, APILockdown: b.APILockdown, APIAllow: b.APIAllow,
-		InboundAPI: b.InboundAPI, Emergency: b.Emergency, EmergencySpeed: b.EmergencySpeed, Rules: rules}, h.d.Now())
+		InboundAPI: b.InboundAPI, TunnelForward: b.TunnelForward, Emergency: b.Emergency, EmergencySpeed: b.EmergencySpeed, Rules: rules}, h.d.Now())
 	if err != nil {
 		return nil, h.nodeErr(err)
 	}
@@ -510,6 +515,8 @@ func (h *handlers) nodeErr(err error) error {
 		return refusal("local_node_lockdown")
 	case errors.Is(err, domain.ErrManyAPIAllow):
 		return fieldErr("body.api_allow", "api_allow_many")
+	case errors.Is(err, domain.ErrBadTunnelPort):
+		return fieldErr("body.tunnel_forward", "tunnel_port_invalid")
 	}
 	if fe, ok := fieldFromDomain(err); ok {
 		return fe

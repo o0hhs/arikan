@@ -169,6 +169,7 @@ func Serve(ctx context.Context, cfg config.Config, version string, web fs.FS) er
 	opts.TLS = NewNodeTLS(cfg.DataDir, nodeCerts, certs, nodesACME, set, logger, time.Now)
 	opts.PanelCert = func() (nodetls.Pair, error) { return nodetls.LoadOrCreate(nodesDir, time.Now()) }
 	opts.Tunnel = tunnels.serve
+	opts.Tunnels = tunnels
 	opts.Connect = func(n db.Node) (nodesync.Target, error) {
 		c, err := nodeClient(cfg, n, tunnels)
 		if err != nil {
@@ -183,7 +184,16 @@ func Serve(ctx context.Context, cfg config.Config, version string, web fs.FS) er
 		// A node's reverse tunnel asks for its own ALPN, and only then is a client certificate
 		// requested: a browser is never prompted for one. The certificate is checked against the
 		// nodes' pins in the route itself, where the database is.
-		tunnelTLS := &tls.Config{MinVersion: tls.VersionTLS12, GetCertificate: names.Get,
+		// The node pins the panel's certificate from its join key (opts.PanelCert, the pair the
+		// keys carry), not the panel's public one: the tunnel's TLS presents that pair, so the
+		// pin matches even when the panel's own certificate is a bare-IP self-signed one.
+		var tunnelCert []tls.Certificate
+		if panelPair, perr := opts.PanelCert(); perr == nil {
+			if c, cerr := tls.X509KeyPair([]byte(panelPair.CertPEM), []byte(panelPair.KeyPEM)); cerr == nil {
+				tunnelCert = []tls.Certificate{c}
+			}
+		}
+		tunnelTLS := &tls.Config{MinVersion: tls.VersionTLS12, Certificates: tunnelCert,
 			NextProtos: []string{nodeapi.TunnelALPN}, ClientAuth: tls.RequireAnyClientCert}
 		panelTLS.GetConfigForClient = func(hello *tls.ClientHelloInfo) (*tls.Config, error) {
 			for _, p := range hello.SupportedProtos {
