@@ -3,6 +3,17 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
+## 0.5.5.15
+### en
+**Happ joins INCY on the auto-select configs, and the panel can retire subscriptions nobody uses.**
+- **The full-config switch now covers Happ.** Settings → Subscription → **Xray configs for Happ and INCY** (off by default) answers Happ as it already answered INCY: a JSON array of whole Xray configs — the auto group first, then one per country when there are several nodes, then one per server, each named by its `remarks`. Happ's routing header is not sent in this mode — the config carries the routing. An explicit `?format=uri` still returns the link list; `?format=xray` returns the configs even with the switch off. A mixed subscription (Hysteria2, TUIC) and a node that serves the subscription itself keep the link list.
+- **Removal of inactive subscriptions.** Users → **Rules** (off by default) removes a subscription once the chosen number of days have passed since its term ended and since its last connection (default 30 days, 7 at the shortest). It never removes one that still holds something of its subscriber's: money on a linked account's balance, a payment not applied or a top-up waiting for review, or a running traffic package. Turning it on, or shortening the wait, is the admin's own session — an API key gets `403`. Each removal writes `user.remove_inactive` to the journal and emits a `user.removed` event, and housekeeping removes at most 200 a pass.
+
+### ru
+**Happ подключается к автовыбору INCY, а панель может снимать подписки, которыми не пользуются.**
+- **Переключатель полного конфига теперь покрывает и Happ.** Настройки → Подписка → **«Xray-конфиги для Happ и INCY»** (по умолчанию выключен) отвечает Happ так же, как уже отвечал INCY: JSON-массивом целых конфигов Xray — сначала группа автовыбора, затем по одному на страну, когда нод несколько, затем по одному на сервер, каждый назван своим `remarks`. Заголовок маршрутизации Happ в этом режиме не шлётся — маршруты несёт сам конфиг. Явный `?format=uri` по-прежнему возвращает список ссылок; `?format=xray` возвращает конфиги и при выключенном переключателе. Смешанная подписка (Hysteria2, TUIC) и нода, отдающая подписку сама, получают список ссылок.
+- **Удаление неактивных подписок.** Пользователи → **«Правила»** (по умолчанию выключено) удаляет подписку, когда прошло выбранное число дней с конца её срока и с последнего подключения (по умолчанию 30 дней, минимум 7). Никогда не удаляется та, у которой ещё что-то есть у подписчика: деньги на балансе привязанного аккаунта, платёж ещё не применён или пополнение ждёт проверки, либо действует пакет трафика. Включение правила или сокращение срока — только сессией админа, ключ API получает `403`. Каждое удаление пишет `user.remove_inactive` в журнал и шлёт событие `user.removed`, а housekeeping удаляет не более 200 за проход.
+
 ## 0.5.5.14
 ### en
 **An update from 0.5.5.11 no longer stops on a "missing out-of-order migration".**
