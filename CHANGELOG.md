@@ -3,6 +3,19 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
+## 0.5.5.16
+### en
+**A subscription with Hysteria2 keeps its autoselect entry, and the switch is on by default.**
+- **Hysteria2 is in the Xray configs.** It was left out before, so a subscription that mixed Hysteria2 with VLESS was served as a plain link list — no autoselect entry, no JSON tag in Happ or INCY. Hysteria2 is an Xray outbound (`hysteria`, version 2, salamander included), so it now stays in the configs next to VLESS, Trojan and Shadowsocks. TUIC, Hysteria2 Gecko, AnyTLS and the other kinds Xray cannot run are still not in them, but they no longer replace the whole subscription with links: the servers Xray can run still get the autoselect entry. They stay in the link list the other apps get.
+- **A node that serves the subscription itself too.** The node's own record now carries the same Xray JSON, so Happ and INCY still get the autoselect entry when a node answers the subscription directly. Other apps keep the link list there.
+- **The switch is on by default.** Settings → Subscription → **Xray configs for Happ and INCY** is now on for a panel that never saved it; a panel that turned it off stays off. Turn it off if an app does not take the config — the server list comes back at once. Hysteria2 certificates that are self-signed are pinned by SHA-256 from the link, and `insecure` is kept when the link has no pin.
+
+### ru
+**Подписка с Hysteria2 сохраняет автовыбор, а переключатель включён по умолчанию.**
+- **Hysteria2 теперь в Xray-конфигах.** Раньше он не входил, поэтому подписка, где Hysteria2 соседствует с VLESS, отдавалась обычным списком ссылок — без автовыбора и без метки JSON в Happ и INCY. Hysteria2 — это outbound Xray (`hysteria`, версия 2, salamander в том числе), так что он теперь остаётся в конфигах рядом с VLESS, Trojan и Shadowsocks. TUIC, Hysteria2 Gecko, AnyTLS и прочие типы, которых Xray не умеет, в них по-прежнему не входят, но больше не заменяют всю подписку списком: серверы, которые Xray умеет, всё равно получают автовыбор. В списке ссылок для остальных приложений они остаются.
+- **Нода, отдающая подписку сама, тоже.** Запись ноды теперь несёт тот же Xray-JSON, поэтому Happ и INCY получают автовыбор и когда подписку отдаёт нода напрямую. Остальные приложения там получают список ссылок.
+- **Переключатель включён по умолчанию.** Настройки → Подписка → **«Xray-конфиги для Happ и INCY»** теперь включён у панели, которая его не сохраняла; панель, где его выключили, остаётся с выключенным. Выключите, если приложение не принимает конфиг, — список серверов вернётся сразу. Самоподписанные сертификаты Hysteria2 пиннятся по SHA-256 из ссылки, а `insecure` сохраняется, когда в ссылке нет пина.
+
 ## 0.5.5.15
 ### en
 **Happ joins INCY on the auto-select configs, and the panel can retire subscriptions nobody uses.**
