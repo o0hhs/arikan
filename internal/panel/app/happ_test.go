@@ -50,9 +50,15 @@ func TestHappOverHTTP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	plain, raw := k.do(http.MethodGet, "/"+subPath+"/"+u.SubToken, nil, map[string]string{"User-Agent": "Happ/3.6.0/Android/1"})
+	if plain.StatusCode != http.StatusOK || !strings.Contains(plain.Header.Get("Content-Type"), "application/json") ||
+		!strings.Contains(string(raw), `"remarks"`) || plain.Header.Get("routing") != "" {
+		t.Fatalf("Happ's default answer is the Xray config: %d %s %.160s", plain.StatusCode, plain.Header.Get("Content-Type"), raw)
+	}
 	fetch := func(ua string) http.Header {
 		t.Helper()
-		resp, _ := k.do(http.MethodGet, "/"+subPath+"/"+u.SubToken, nil, map[string]string{"User-Agent": ua})
+		// The provider headers ride on the link list. Happ's default answer is the JSON config.
+		resp, _ := k.do(http.MethodGet, "/"+subPath+"/"+u.SubToken+"?format=uri", nil, map[string]string{"User-Agent": ua})
 		if resp.StatusCode != http.StatusOK {
 			t.Fatalf("subscription for %s: %d", ua, resp.StatusCode)
 		}
@@ -117,7 +123,8 @@ func TestHappAutoRouting(t *testing.T) {
 	profile := func() map[string]any {
 		t.Helper()
 		k.now = k.now.Add(time.Minute) // past the settings cache
-		resp, _ := k.do(http.MethodGet, "/"+subPath+"/"+u.SubToken, nil, map[string]string{"User-Agent": "Happ/3.6.0/Android/1"})
+		// The routing header rides on the link list. Happ's default answer is the JSON config.
+		resp, _ := k.do(http.MethodGet, "/"+subPath+"/"+u.SubToken+"?format=uri", nil, map[string]string{"User-Agent": "Happ/3.6.0/Android/1"})
 		link := resp.Header.Get("routing")
 		payload, ok := strings.CutPrefix(link, "happ://routing/onadd/")
 		raw, err := base64.StdEncoding.DecodeString(payload)
@@ -138,7 +145,7 @@ func TestHappAutoRouting(t *testing.T) {
 	}
 	// INCY reads the same profile in its own scheme, and none of Happ's other headers.
 	patch(map[string]any{"happ_provider_id": "prov-1"})
-	resp, _ := k.do(http.MethodGet, "/"+subPath+"/"+u.SubToken, nil, map[string]string{"User-Agent": "INCY/2.0.8"})
+	resp, _ := k.do(http.MethodGet, "/"+subPath+"/"+u.SubToken+"?format=uri", nil, map[string]string{"User-Agent": "INCY/2.0.8"})
 	if link := resp.Header.Get("routing"); !strings.HasPrefix(link, "incy://routing/onadd/") || resp.Header.Get("providerid") != "" {
 		t.Fatalf("INCY: %q %v", link, resp.Header)
 	}

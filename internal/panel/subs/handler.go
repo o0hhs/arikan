@@ -305,7 +305,7 @@ func (h *Handler) serveProfile(w http.ResponseWriter, r *http.Request, u db.User
 	h.operatorHeaders(w, r, u, cfg)
 	// Happ and INCY get the full config in place of the link list while the switch is on.
 	// An explicit ?format= is that format, including uri for the links and xray for the
-	// configs. A node that serves the subscription itself keeps the link list.
+	// configs. A node that serves the subscription itself does the same (nodeserve.go).
 	serveXray := xrayFullConfig(cfg.INCYAuto, format, r.URL.Query().Get("format"), r.UserAgent())
 	switch ua := r.UserAgent(); {
 	case IsINCY(ua):
@@ -995,7 +995,7 @@ var linkApps = []string{"streisand", "shadowrocket", "foxray"}
 // ask for while the switch is on. An explicit ?format= wins: uri stays the link list, xray
 // is the configs even with the switch off. Every other app, and every other format, keeps
 // the body it had before the switch existed. A node that serves the subscription itself
-// keeps the link list either way (nodeserve.go).
+// picks the same JSON for Happ and INCY when the record carries it (nodeserve.go).
 func xrayFullConfig(on bool, format, query, userAgent string) bool {
 	if format == "xray" {
 		return true
