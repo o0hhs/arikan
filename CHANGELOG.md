@@ -3,6 +3,15 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
+## 0.5.5.13
+### en
+**An update from 0.5.5.11 migrates cleanly.**
+- **The database no longer refuses the update as "newer".** 0.5.5.12 came back to the fork's own migration numbering (up to 0084), but a panel that ran 0.5.5.7–0.5.5.11 already had the upstream-numbered migrations applied (up to 0094), so 0.5.5.12 refused it: "schema 94 is newer than this binary supports (84)". The numbers the fork did not carry (0084–0094) are now present as no-ops, so the count is continuous and a database that ran a 0.5.5.7–0.5.5.11 panel is accepted; the tunnel-forward column is added by 0095 (IF NOT EXISTS), a no-op where 0.5.5.11 already added it.
+
+### ru
+**Обновление с 0.5.5.11 проходит чисто.**
+- **База больше не отказывает обновлению как «новее».** 0.5.5.12 вернулся к собственной нумерации миграций форка (до 0084), но панель, работавшая на 0.5.5.7–0.5.5.11, уже имела применённые апстрим-нумерации (до 0094), поэтому 0.5.5.12 её отклонял: «схема 94 новее, чем поддерживает этот бинарь (84)». Номера, которых у форка не было (0084–0094), теперь присутствуют пустыми миграциями, так что нумерация непрерывна и база, работавшая на панели 0.5.5.7–0.5.5.11, принимается; колонку tunnel-forward добавляет 0095 (IF NOT EXISTS) — там, где 0.5.5.11 её уже добавила, это ничего не делает.
+
 ## 0.5.5.12
 ### en
 **Back on the fork's own base; a node behind a filter reaches its clients, and a paid payment applies.**
