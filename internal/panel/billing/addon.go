@@ -314,8 +314,13 @@ func (s *Service) openAddonInvoice(ctx context.Context, p db.Payment, descriptio
 		return sql.NullString{}, "", err
 	}
 	// Where the buyer goes back after paying: the bot, or Telegram itself while it is off.
+	// A browser invoice never goes back to the bot — the shop, or the operator's address.
 	ret, sub := "https://t.me", ""
-	if tg := s.telegram(); tg != nil {
+	if p.Web {
+		if u := s.webReturnURL(ctx, p.Payload); u != "" {
+			ret = u
+		}
+	} else if tg := s.telegram(); tg != nil {
 		if u := tg.BotURL(ctx); u != "" {
 			ret = u
 		}

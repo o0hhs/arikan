@@ -13,6 +13,8 @@ export type Info = {
   mtproto?: { name?: string; link: string; tg: string }[];
   /** The admin turned the "YouTube without ads" offer on: the page shows its card. */
   youtube_adfree?: boolean;
+  /** The browser shop, when the admin turned it on. */
+  shop_url?: string;
   state: "active" | "expiring" | "limited" | "expired" | "disabled";
   used_up: number;
   used_down: number;

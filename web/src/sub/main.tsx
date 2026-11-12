@@ -15,6 +15,8 @@ import { AccessCode, Builder, FreePlan, loadShop, Shop, type ShopData } from "./
 import { PromoSection } from "./promo";
 import { ReissueSection } from "./reissue";
 import type { Info, TgSub } from "./types";
+import { shopMode, shopPost } from "../shop/api";
+import { ShopPage } from "../shop/page";
 import { DocScreen, PageBackdrop, PageBlocks, PageShell } from "./view";
 
 /** Pauses between the reloads after a payment: the panel applies a paid one within seconds. */
@@ -471,6 +473,16 @@ function SubPage() {
         tgMode={tgMode}
         docs={page.docs}
         selling={tgMode && !!shop?.offers.length}
+        onShop={
+          current.shop_url
+            ? () => {
+                const token = tokenOf(subURL);
+                void shopPost("/api/token", { token }).finally(() => {
+                  location.href = current.shop_url!;
+                });
+              }
+            : undefined
+        }
         buy={buy}
         promo={tgMode ? <PromoSection token={subURL} activeCode={promoCode} onApplied={(c) => setPromoCode(c)} onBonusApplied={refresh} title={titleOf(config, "promo")} /> : null}
         shop={
@@ -519,12 +531,12 @@ function Shell({ brand, children }: { brand?: string; children: React.ReactNode 
 // Dictionaries load before the first render: t() stays synchronous everywhere.
 void initI18n(subDicts).then(() => {
   // The tab's title until the subscription says its brand (sub.html's own is Russian).
-  document.title = t("sub.pageTitle");
+  document.title = shopMode ? t("sub.web.title") : t("sub.pageTitle");
   createRoot(document.getElementById("root")!).render(
     <StrictMode>
       <ErrorBoundary>
         <PageBackdrop look={config.look} image={asset(page.background)} />
-        <SubPage />
+        {shopMode ? <ShopPage /> : <SubPage />}
       </ErrorBoundary>
     </StrictMode>,
   );

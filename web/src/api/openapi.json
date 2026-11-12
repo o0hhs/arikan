@@ -9574,6 +9574,10 @@
             "maxLength": 200,
             "type": "string"
           },
+          "web_shop": {
+            "$ref": "#/components/schemas/ShopConfig",
+            "description": "Покупка в браузере. Пустой smtp_password оставляет сохранённый"
+          },
           "webhook_secret": {
             "description": "Секретный ключ подписи HMAC-SHA256, от 8 символов; пусто — убрать. Обратно не показывается",
             "maxLength": 200,
@@ -12527,6 +12531,10 @@
           "support_url": {
             "type": "string"
           },
+          "web_shop": {
+            "$ref": "#/components/schemas/ShopView",
+            "description": "Покупка подписки в браузере, без Telegram. Выключено, пока админ не включит. Пароль SMTP не отдаётся"
+          },
           "webhook_secret_set": {
             "description": "Секретный ключ подписи сохранён (сам ключ не показывается)",
             "type": "boolean"
@@ -12594,7 +12602,103 @@
           "happ_provider_id",
           "happ_hide_settings",
           "happ_crypt",
-          "incy_autoselect"
+          "incy_autoselect",
+          "web_shop"
+        ],
+        "type": "object"
+      },
+      "ShopConfig": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "origins": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "return_url": {
+            "type": "string"
+          },
+          "smtp_from": {
+            "type": "string"
+          },
+          "smtp_host": {
+            "type": "string"
+          },
+          "smtp_password": {
+            "type": "string"
+          },
+          "smtp_port": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "smtp_tls": {
+            "type": "string"
+          },
+          "smtp_user": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "enabled",
+          "return_url",
+          "origins",
+          "smtp_host",
+          "smtp_port",
+          "smtp_user",
+          "smtp_from",
+          "smtp_tls"
+        ],
+        "type": "object"
+      },
+      "ShopView": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "origins": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "return_url": {
+            "type": "string"
+          },
+          "smtp_from": {
+            "type": "string"
+          },
+          "smtp_host": {
+            "type": "string"
+          },
+          "smtp_password_set": {
+            "type": "boolean"
+          },
+          "smtp_port": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "smtp_tls": {
+            "type": "string"
+          },
+          "smtp_user": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "enabled",
+          "return_url",
+          "origins",
+          "smtp_host",
+          "smtp_port",
+          "smtp_user",
+          "smtp_from",
+          "smtp_tls",
+          "smtp_password_set"
         ],
         "type": "object"
       },
@@ -15372,13 +15476,14 @@
             ]
           },
           "source": {
-            "description": "Откуда пользователь: admin — создан в панели или по ключу API, bot — куплен в боте, trial — пробный период бота, free — бесплатный тариф из бота или Mini App, import — перенесён из другой панели. Заполняется при создании, не меняется",
+            "description": "Откуда пользователь: admin — создан в панели или по ключу API, bot — куплен в боте, trial — пробный период бота, free — бесплатный тариф из бота или Mini App, import — перенесён из другой панели, web — куплен в браузере. Заполняется при создании, не меняется",
             "enum": [
               "admin",
               "bot",
               "trial",
               "free",
-              "import"
+              "import",
+              "web"
             ],
             "type": "string"
           },
@@ -27294,7 +27399,8 @@
                 "bot",
                 "trial",
                 "free",
-                "import"
+                "import",
+                "web"
               ],
               "type": "string"
             }

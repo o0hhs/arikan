@@ -22,6 +22,7 @@ import (
 	"mikan/internal/panel/store/db"
 	"mikan/internal/panel/subs"
 	"mikan/internal/panel/webhooks"
+	"mikan/internal/panel/webshop"
 	"mikan/internal/proto"
 	"mikan/internal/textutil"
 )
@@ -97,6 +98,8 @@ type SettingsView struct {
 	HappCrypt        string `json:"happ_crypt" enum:"off,api,local" doc:"Шифрованная ссылка для кнопки Happ: off — обычная happ://add/, api — через сервис Happ (адрес подписки уходит на crypto.happ.su), local — панель шифрует сама"`
 	// INCYAuto: INCY gets a whole Xray config with the autoselect balancer.
 	INCYAuto bool `json:"incy_autoselect" doc:"INCY получает не список серверов, а полный конфиг Xray: список серверов остаётся, и к нему добавляется запись автовыбора (балансировщик по наименьшему пингу). Отвечает только панель: ноды, отдающие подписку сами, продолжают отдавать список ссылок. Если приложение не принимает конфиг, выключите — вернётся список серверов"`
+	// WebShop is the browser checkout. The SMTP password is never included.
+	WebShop webshop.ShopView `json:"web_shop" doc:"Покупка подписки в браузере, без Telegram. Выключено, пока админ не включит. Пароль SMTP не отдаётся"`
 }
 
 type settingsOutput struct{ Body SettingsView }
@@ -158,6 +161,7 @@ type patchSettingsBody = struct {
 	ACMEEABHMAC    *string              `json:"acme_eab_hmac,omitempty" maxLength:"512" doc:"Ключ HMAC (base64url); пусто — убрать. Обратно не показывается"`
 	WebhookURL     *string              `json:"webhook_url,omitempty" maxLength:"500" doc:"Адрес сайта для вебхуков: https; пусто — не отправлять"`
 	WebhookSecret  *string              `json:"webhook_secret,omitempty" maxLength:"200" doc:"Секретный ключ подписи HMAC-SHA256, от 8 символов; пусто — убрать. Обратно не показывается"`
+	WebShop        *webshop.ShopConfig  `json:"web_shop,omitempty" doc:"Покупка в браузере. Пустой smtp_password оставляет сохранённый"`
 }
 
 type resetPathOutput struct {
@@ -384,6 +388,11 @@ func (h *handlers) readSettings(ctx context.Context) (SettingsView, error) {
 		return v, err
 	}
 	v.ACMEEABHMAC = hmac != ""
+	shop, err := webshop.Load(ctx, h.d.Settings)
+	if err != nil {
+		return v, err
+	}
+	v.WebShop = webshop.Public(shop)
 	return v, nil
 }
 
@@ -649,6 +658,18 @@ func (h *handlers) updateSettings(ctx context.Context, in *patchSettingsInput) (
 		}
 		for _, d := range ds {
 			details = append(details, d)
+		}
+	}
+	if b.WebShop != nil {
+		if field, code := webshop.Problems(*b.WebShop); code != "" {
+			switch code {
+			case "web_shop_return_url":
+				details = append(details, fieldDetail("body.web_shop."+field, "web_shop_return_url", nil))
+			case "web_shop_origins":
+				details = append(details, fieldDetail("body.web_shop."+field, "web_shop_origins", nil))
+			default:
+				details = append(details, fieldDetail("body.web_shop."+field, "web_shop_smtp", nil))
+			}
 		}
 	}
 	if len(details) > 0 {

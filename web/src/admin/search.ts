@@ -4,7 +4,7 @@
 import type { User } from "../api/client";
 
 export const USER_STATES = ["all", "active", "expiring", "limited", "expired", "disabled"] as const;
-export const USER_SOURCES = ["all", "admin", "bot", "trial", "free", "import"] as const;
+export const USER_SOURCES = ["all", "admin", "bot", "trial", "free", "import", "web"] as const;
 /** Hidden users: left off the list, listed with the rest, or the only ones listed. */
 export const USER_HIDDEN = ["hide", "show", "only"] as const;
 /** Порядок списка клиентов: новые (как без сортировки), трафик (больше или меньше сверху), срок, имя. */

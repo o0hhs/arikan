@@ -67,12 +67,20 @@ SELECT COUNT(*) FROM payments WHERE tg_id=sqlc.arg(tg_id) AND status IN ('paid',
 SELECT COUNT(*) FROM payments WHERE tg_id=sqlc.arg(tg_id) AND status IN ('paid','applied','refunded') AND id <> sqlc.arg(id) AND kind <> 'trial';
 
 -- name: CountPromoUser :one
-SELECT COUNT(*) FROM promo_redemptions WHERE promo_id=sqlc.arg(promo_id) AND (tg_id=sqlc.arg(tg_id) OR user_id=sqlc.arg(user_id)) AND status IN ('reserved','applied');
+-- A Telegram id of 0 is not an account: browser buyers are counted by web_account_id, and a
+-- renewal that only proved a subscription token by user_id. Those must not share one bucket.
+SELECT COUNT(*) FROM promo_redemptions
+WHERE promo_id=sqlc.arg(promo_id) AND status IN ('reserved','applied')
+  AND (
+    (CAST(sqlc.arg(tg_id) AS BIGINT) <> 0 AND tg_id = CAST(sqlc.arg(tg_id) AS BIGINT))
+    OR (CAST(sqlc.arg(web_account_id) AS BIGINT) <> 0 AND web_account_id = CAST(sqlc.arg(web_account_id) AS BIGINT))
+    OR (CAST(sqlc.arg(user_id) AS BIGINT) <> 0 AND user_id = CAST(sqlc.arg(user_id) AS BIGINT))
+  );
 
 -- name: CreatePromoRedemption :one
 INSERT INTO promo_redemptions
-(promo_id,user_id,tg_id,payment_id,status,redeemed_at,expires_at,days,bytes,discount_amount,original_amount,final_amount,currency,note)
-VALUES (sqlc.arg(promo_id),sqlc.narg(user_id),sqlc.arg(tg_id),sqlc.narg(payment_id),sqlc.arg(status),sqlc.arg(redeemed_at),sqlc.narg(expires_at),sqlc.arg(days),sqlc.arg(bytes),sqlc.arg(discount_amount),sqlc.arg(original_amount),sqlc.arg(final_amount),sqlc.arg(currency),sqlc.arg(note)) RETURNING *;
+(promo_id,user_id,tg_id,payment_id,status,redeemed_at,expires_at,days,bytes,discount_amount,original_amount,final_amount,currency,note,web_account_id)
+VALUES (sqlc.arg(promo_id),sqlc.narg(user_id),sqlc.arg(tg_id),sqlc.narg(payment_id),sqlc.arg(status),sqlc.arg(redeemed_at),sqlc.narg(expires_at),sqlc.arg(days),sqlc.arg(bytes),sqlc.arg(discount_amount),sqlc.arg(original_amount),sqlc.arg(final_amount),sqlc.arg(currency),sqlc.arg(note),sqlc.arg(web_account_id)) RETURNING *;
 
 -- name: GetPromoRedemptionByPayment :one
 SELECT * FROM promo_redemptions WHERE payment_id=sqlc.arg(payment_id);

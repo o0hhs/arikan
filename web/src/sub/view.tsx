@@ -77,6 +77,8 @@ type BlocksProps = {
   reissue?: ReactNode;
   /** The shop sells here: "renew" goes to it instead of support. */
   selling?: boolean;
+  /** Opens the browser shop for this subscription. */
+  onShop?: () => void;
   /** Traffic packages on sale for the subscription on screen: for the main traffic, for these groups by name; go shows them. */
   buy?: { main: boolean; pools: Set<string>; go: () => void };
   reload: () => Promise<void>;
@@ -136,7 +138,7 @@ function block(b: PageBlock, p: BlocksProps): ReactNode {
     case "announce":
       return info.announce ? <Announce block={b} text={info.announce} url={info.announce_url} /> : null;
     case "status":
-      return <Status info={info} selling={!!p.selling} />;
+      return <Status info={info} selling={!!p.selling} onShop={p.onShop} />;
     case "promo":
       return p.promo ?? null;
     case "shop":
@@ -186,7 +188,7 @@ function Heading({ children, className = "mb-3" }: { children: ReactNode; classN
   return <h2 className={`${className} text-[15px] font-semibold`}>{children}</h2>;
 }
 
-function Status({ info, selling }: { info: Info; selling: boolean }) {
+function Status({ info, selling, onShop }: { info: Info; selling: boolean; onShop?: () => void }) {
   // What is left in the admin lists' words ("today", "5 days"); a term that has ended has no countdown.
   const left = info.expires_at ? expiryText(info.expires_at) : null;
   const firstName = info.name.split(/\s+/)[0] ?? "";
@@ -200,7 +202,11 @@ function Status({ info, selling }: { info: Info; selling: boolean }) {
         <span>{info.expires_at ? t("sub.until", { date: dateLong(info.expires_at) }) : t("sub.forever")}</span>
         {left && left.tone !== "bad" ? <Pill tone={tone}>{left.text}</Pill> : null}
       </div>
-      {(info.state === "expired" || info.state === "limited" || info.state === "disabled") && support && !selling ? (
+      {info.shop_url && onShop ? (
+        <button type="button" className="btn btn-primary btn-block mt-4" onClick={onShop}>
+          {t("sub.web.renew")}
+        </button>
+      ) : (info.state === "expired" || info.state === "limited" || info.state === "disabled") && support && !selling ? (
         <a className="btn btn-primary btn-block mt-4" href={support} target="_blank" rel="noreferrer noopener" {...outside(support)}>
           {t("sub.renew")}
         </a>

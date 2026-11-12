@@ -118,6 +118,7 @@ export default defineConfig({
 						{ slug: 'billing/pools' },
 						{ slug: 'billing/telegram' },
 						{ slug: 'billing/payments' },
+						{ slug: 'billing/web' },
 						{ slug: 'billing/balance' },
 						{ slug: 'billing/promo-codes' },
 					],

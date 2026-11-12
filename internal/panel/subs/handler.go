@@ -30,6 +30,7 @@ import (
 	"mikan/internal/panel/store/db"
 	"mikan/internal/panel/subpage"
 	"mikan/internal/panel/turn"
+	"mikan/internal/panel/webshop"
 	"mikan/internal/proto"
 	"mikan/internal/textutil"
 )
@@ -116,6 +117,7 @@ type Handler struct {
 	trustProxy bool
 	tg         Telegram         // nil: no bot
 	shop       *billing.Service // nil: nothing on sale
+	web        *webshop.Handler // nil: no browser shop
 	promos     *promo.Service
 	pages      *subpage.Service // nil: the page as built, nothing of the admin's
 	balance    *domain.Balancer // nil: every node shows
@@ -157,7 +159,10 @@ func (h *Handler) warn(key, msg string, args ...any) {
 
 // SetShop takes payments: the providers' webhooks under /pay/ and the Mini App's shop.
 func (h *Handler) SetShop(s *billing.Service) { h.shop = s }
-func (h *Handler) SetPromo(s *promo.Service)  { h.promos = s }
+
+// SetWeb serves the browser shop under /shop.
+func (h *Handler) SetWeb(w *webshop.Handler) { h.web = w }
+func (h *Handler) SetPromo(s *promo.Service) { h.promos = s }
 
 // SetBalancer keeps each client on one node of every balance group.
 func (h *Handler) SetBalancer(b *domain.Balancer) { h.balance = b }
@@ -208,6 +213,18 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		r2 := r.Clone(r.Context())
 		r2.URL.Path = "/" + rest
 		h.shop.Webhook().ServeHTTP(w, r2)
+		return
+	}
+	if token == "shop" {
+		if h.web == nil || !h.web.On(r.Context()) {
+			server.NotFound(w)
+			return
+		}
+		if rest == "" {
+			h.shopPage(w, r)
+			return
+		}
+		h.web.Serve(w, r, rest)
 		return
 	}
 	device := devicePath.FindStringSubmatch(rest)
@@ -267,6 +284,26 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.serveProfile(w, r, u, cfg)
+}
+
+// shopPage is the browser shop. The optional Telegram login widget is loaded from
+// Telegram; the rest of the panel stays closed to that.
+func (h *Handler) shopPage(w http.ResponseWriter, r *http.Request) {
+	if csp := w.Header().Get("Content-Security-Policy"); csp != "" {
+		csp = strings.Replace(csp, "script-src 'self'", "script-src 'self' https://telegram.org", 1)
+		csp = strings.Replace(csp, "default-src 'self'", "default-src 'self'; frame-src https://oauth.telegram.org", 1)
+		w.Header().Set("Content-Security-Policy", csp)
+	}
+	cfg, err := h.cfg(r.Context())
+	if err != nil {
+		internalError(w)
+		return
+	}
+	if h.page == nil {
+		server.NotFound(w)
+		return
+	}
+	h.servePage(w, r, cfg)
 }
 
 // internalError answers a request the panel failed on, without telling why: the cause is
@@ -730,6 +767,8 @@ type Info struct {
 	// YouTubeAdFree: the admin turned the "YouTube without ads" offer on (Routes.YouTubeAdFree);
 	// the page shows its card.
 	YouTubeAdFree bool `json:"youtube_adfree,omitempty"`
+	// ShopURL is the browser shop, when the admin turned it on and the panel has an address.
+	ShopURL string `json:"shop_url,omitempty"`
 }
 
 // DeviceItem is a bound device as the subscription page lists it.
@@ -837,6 +876,9 @@ func (h *Handler) info(ctx context.Context, w http.ResponseWriter, u db.User, pr
 	out.Pools = pools
 	if links := mtLinks(cfg.MTProto); len(links) > 0 {
 		out.MTProto = links
+	}
+	if h.web != nil {
+		out.ShopURL = h.web.ShopURL(ctx)
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")

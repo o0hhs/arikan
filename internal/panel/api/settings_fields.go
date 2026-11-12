@@ -7,6 +7,7 @@ import (
 	"mikan/internal/panel/domain"
 	"mikan/internal/panel/settings"
 	"mikan/internal/panel/subs"
+	"mikan/internal/panel/webshop"
 )
 
 // settingField is one field of PATCH /settings, declared once: whether only the session
@@ -125,4 +126,9 @@ var settingFields = []settingField{
 	value("support_access", settings.KeySupportAccess, true, func(b *patchSettingsBody) *bool { return b.SupportAccess }),
 	// Thousands of connections from the server, which a hoster may take for a scan.
 	value("wide_sni_scan", settings.KeyWideScan, true, func(b *patchSettingsBody) *bool { return b.WideScan }),
+	// The browser shop takes money. A key must not turn it on or read the mail password in.
+	{name: "web_shop", session: true, given: func(b *patchSettingsBody) bool { return b.WebShop != nil },
+		write: func(ctx context.Context, set *settings.Settings, b *patchSettingsBody) error {
+			return webshop.Save(ctx, set, *b.WebShop)
+		}},
 }

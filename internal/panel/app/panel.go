@@ -66,6 +66,7 @@ import (
 	"mikan/internal/panel/updates"
 	"mikan/internal/panel/warp"
 	"mikan/internal/panel/webhooks"
+	"mikan/internal/panel/webshop"
 	"mikan/internal/release"
 )
 
@@ -711,6 +712,27 @@ func NewPanel(st *store.Store, o Options) (*Panel, error) {
 	subHandler.SetReissuer(deps.Users)
 	subHandler.SetShop(p.Billing)
 	subHandler.SetPromo(promos)
+	browserShop := webshop.New(webshop.Deps{Store: st, Settings: set, Billing: p.Billing, Promo: promos, Now: o.Now, TrustProxy: o.TrustProxy, Log: o.Log, SubBase: subBase,
+		Brand: func(ctx context.Context) string {
+			b, _ := set.String(ctx, settings.KeyBrand)
+			return b
+		},
+		Bot: func(ctx context.Context) (string, string, bool) {
+			token, _, err := settings.Get[string](ctx, set, tgate.KeyToken)
+			if err != nil || token == "" {
+				return "", "", false
+			}
+			type bot struct {
+				Username string `json:"username"`
+			}
+			b, _, err := settings.Get[bot](ctx, set, tgate.KeyBot)
+			if err != nil || b.Username == "" {
+				return "", "", false
+			}
+			return b.Username, token, true
+		}})
+	p.Billing.SetWebReturn(browserShop.ReturnURL)
+	subHandler.SetWeb(browserShop)
 	subHandler.SetPages(pages)
 	// The nodes answer the links themselves when the admin has it so (subs.FromNodes): the
 	// panel renders each subscription once per sync and hands the node the bytes.

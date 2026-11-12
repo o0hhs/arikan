@@ -202,13 +202,25 @@ func (s *Service) CreatePersonalDiscount(ctx context.Context, percent, days int6
 	return db.PromoCode{}, errors.New("promo_code_collision")
 }
 
+// Account is who a promo code is checked against. TgID is a Telegram account. WebID is a
+// browser account. UserID is the subscription, when the buyer is renewing one.
+type Account struct {
+	TgID   int64
+	WebID  int64
+	UserID int64
+}
+
 func (s *Service) checkUser(ctx context.Context, q *db.Queries, p db.PromoCode, tgID, userID int64, now time.Time) error {
+	return s.checkAccount(ctx, q, p, Account{TgID: tgID, UserID: userID}, now)
+}
+
+func (s *Service) checkAccount(ctx context.Context, q *db.Queries, p db.PromoCode, acc Account, now time.Time) error {
 	if err := active(p, now); err != nil {
 		return err
 	}
 	if p.NewUsersOnly != 0 {
 		// Ever a client: unlinking one's subscriptions first does not make one new.
-		was, err := q.WasClient(ctx, tgID)
+		was, err := s.wasClient(ctx, q, acc)
 		if err != nil {
 			return err
 		}
@@ -217,7 +229,7 @@ func (s *Service) checkUser(ctx context.Context, q *db.Queries, p db.PromoCode, 
 		}
 	}
 	if p.FirstPurchaseOnly != 0 {
-		n, err := q.CountUserPaidPayments(ctx, tgID)
+		n, err := s.paidCount(ctx, q, acc)
 		if err != nil {
 			return err
 		}
@@ -225,7 +237,7 @@ func (s *Service) checkUser(ctx context.Context, q *db.Queries, p db.PromoCode, 
 			return ErrFirstPurchase
 		}
 	}
-	n, err := q.CountPromoUser(ctx, db.CountPromoUserParams{PromoID: p.ID, TgID: tgID, UserID: sql.NullInt64{Int64: userID, Valid: userID != 0}})
+	n, err := q.CountPromoUser(ctx, db.CountPromoUserParams{PromoID: p.ID, TgID: acc.TgID, WebAccountID: acc.WebID, UserID: acc.UserID})
 	if err != nil {
 		return err
 	}
@@ -233,6 +245,33 @@ func (s *Service) checkUser(ctx context.Context, q *db.Queries, p db.PromoCode, 
 		return ErrUserLimit
 	}
 	return nil
+}
+
+// wasClient: the account already held a subscription, by whichever identity it has.
+func (s *Service) wasClient(ctx context.Context, q *db.Queries, acc Account) (bool, error) {
+	switch {
+	case acc.TgID != 0:
+		return q.WasClient(ctx, acc.TgID)
+	case acc.WebID != 0:
+		return q.WasWebClient(ctx, acc.WebID)
+	default:
+		// A renewal that proved a subscription token is already a subscriber.
+		return acc.UserID != 0, nil
+	}
+}
+
+func (s *Service) paidCount(ctx context.Context, q *db.Queries, acc Account) (int64, error) {
+	switch {
+	case acc.TgID != 0:
+		return q.CountUserPaidPayments(ctx, acc.TgID)
+	case acc.WebID != 0:
+		return q.CountWebPaidPayments(ctx, sql.NullInt64{Int64: acc.WebID, Valid: true})
+	default:
+		if acc.UserID == 0 {
+			return 0, nil
+		}
+		return q.CountPaidByUser(ctx, sql.NullInt64{Int64: acc.UserID, Valid: true})
+	}
 }
 
 // Check returns a code the account may use, without an order: a bonus is redeemed right
@@ -248,11 +287,16 @@ func (s *Service) Check(ctx context.Context, tgID, userID int64, code string) (d
 // Validate returns the current code and a human-readable machine status without consuming it.
 // It is used by the Mini App before the actual action/payment.
 func (s *Service) Validate(ctx context.Context, tgID, userID, tariffID, amount int64, currency, code string) (db.PromoCode, error) {
+	return s.ValidateFor(ctx, Account{TgID: tgID, UserID: userID}, tariffID, amount, currency, code)
+}
+
+// ValidateFor is Validate for a buyer who may not be a Telegram account.
+func (s *Service) ValidateFor(ctx context.Context, acc Account, tariffID, amount int64, currency, code string) (db.PromoCode, error) {
 	p, err := s.load(ctx, code)
 	if err != nil {
 		return p, err
 	}
-	if err := s.checkUser(ctx, s.Store.Q, p, tgID, userID, s.Now()); err != nil {
+	if err := s.checkAccount(ctx, s.Store.Q, p, acc, s.Now()); err != nil {
 		return p, err
 	}
 	if IsDiscount(p.Type) {
@@ -320,6 +364,11 @@ func DiscountAmount(p db.PromoCode, original int64) int64 { return discountAmoun
 
 // ReserveDiscount atomically reserves one use and records the discount alongside the payment.
 func (s *Service) ReserveDiscount(ctx context.Context, q *db.Queries, tgID, userID, tariffID, amount int64, currency, code string, paymentID int64) (Discount, error) {
+	return s.ReserveFor(ctx, q, Account{TgID: tgID, UserID: userID}, tariffID, amount, currency, code, paymentID)
+}
+
+// ReserveFor is ReserveDiscount for a buyer who may not be a Telegram account.
+func (s *Service) ReserveFor(ctx context.Context, q *db.Queries, acc Account, tariffID, amount int64, currency, code string, paymentID int64) (Discount, error) {
 	if strings.TrimSpace(code) == "" {
 		return Discount{}, nil
 	}
@@ -330,7 +379,7 @@ func (s *Service) ReserveDiscount(ctx context.Context, q *db.Queries, tgID, user
 	if err != nil {
 		return Discount{}, err
 	}
-	if err := s.checkUser(ctx, q, p, tgID, userID, s.Now()); err != nil {
+	if err := s.checkAccount(ctx, q, p, acc, s.Now()); err != nil {
 		return Discount{}, err
 	}
 	if !IsDiscount(p.Type) {
@@ -354,7 +403,7 @@ func (s *Service) ReserveDiscount(ctx context.Context, q *db.Queries, tgID, user
 	}
 	expires = sql.NullInt64{Int64: s.Now().Add(ttl).Unix(), Valid: true}
 	_, err = q.CreatePromoRedemption(ctx, db.CreatePromoRedemptionParams{
-		PromoID: p.ID, UserID: sql.NullInt64{Int64: userID, Valid: userID != 0}, TgID: tgID, PaymentID: sql.NullInt64{Int64: paymentID, Valid: paymentID != 0},
+		PromoID: p.ID, UserID: sql.NullInt64{Int64: acc.UserID, Valid: acc.UserID != 0}, TgID: acc.TgID, WebAccountID: acc.WebID, PaymentID: sql.NullInt64{Int64: paymentID, Valid: paymentID != 0},
 		Status: RedemptionReserved, RedeemedAt: s.Now().Unix(), ExpiresAt: expires, DiscountAmount: d, OriginalAmount: amount, FinalAmount: amount - d, Currency: currency, Note: p.Description,
 	})
 	if err != nil {

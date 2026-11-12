@@ -58,7 +58,7 @@ type UserView struct {
 	BoundDevices   int64         `json:"bound_devices" doc:"Привязанные устройства: с привязкой это занятые места"`
 	OnlineAt       *time.Time    `json:"online_at"`
 	TorrentBan     *time.Time    `json:"torrent_ban" doc:"До какого времени действует бан блокировщика торрентов; null — бана нет"`
-	Source         string        `json:"source" enum:"admin,bot,trial,free,import" doc:"Откуда пользователь: admin — создан в панели или по ключу API, bot — куплен в боте, trial — пробный период бота, free — бесплатный тариф из бота или Mini App, import — перенесён из другой панели. Заполняется при создании, не меняется"`
+	Source         string        `json:"source" enum:"admin,bot,trial,free,import,web" doc:"Откуда пользователь: admin — создан в панели или по ключу API, bot — куплен в боте, trial — пробный период бота, free — бесплатный тариф из бота или Mini App, import — перенесён из другой панели, web — куплен в браузере. Заполняется при создании, не меняется"`
 	FolderID       *int64        `json:"folder_id" doc:"Папка пользователя; null — вне папок"`
 	Hidden         bool          `json:"hidden" doc:"Скрыт из списка пользователей. Только прячет строку: подписка, оплата и ноды работают как у всех, счётчики обзора не меняются"`
 	CreatedAt      time.Time     `json:"created_at"`
@@ -165,7 +165,7 @@ type listUsersInput struct {
 	State  string `query:"state" enum:"all,active,expiring,limited,expired,disabled,attention" default:"all" doc:"attention — исчерпан лимит, истекают и истекли, в этом порядке: одним запросом для обзора"`
 	Query  string `query:"q" maxLength:"100" doc:"Поиск по имени, контакту, заметке и меткам. Оператору поддержки без показа подписчиков закрыт: 403 support_denied"`
 	Folder string `query:"folder" maxLength:"20" default:"all" doc:"all — любая; none — вне папок; число — id папки"`
-	Source string `query:"source" enum:"all,admin,bot,trial,free,import" default:"all" doc:"Откуда пользователь, см. source у пользователя"`
+	Source string `query:"source" enum:"all,admin,bot,trial,free,import,web" default:"all" doc:"Откуда пользователь, см. source у пользователя"`
 	Hidden string `query:"hidden" enum:"hide,show,only" default:"show" doc:"show — вместе со скрытыми (по умолчанию: скрытие касается только списка в панели); hide — без скрытых; only — только скрытые"`
 	Sort   string `query:"sort" enum:"new,traffic,traffic_least,expires,name" default:"new" doc:"Порядок списка: new — новые сверху; traffic — по израсходованному трафику, большие сверху; traffic_least — наоборот; expires — по сроку, истекающие сверху, бессрочные внизу; name — по имени, безымянные внизу"`
 	Limit  int    `query:"limit" minimum:"1" maximum:"500" default:"100"`

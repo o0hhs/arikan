@@ -145,6 +145,10 @@ type Payment struct {
 	CustomBaseID sql.NullInt64
 	DevicePackID sql.NullInt64
 	PartnerBotID sql.NullInt64
+	// WebAccountID and Web are the browser checkout's. They stay off the bot's RPC:
+	// an installed bot reads the payment as it did before these fields existed.
+	WebAccountID sql.NullInt64 `json:"-"`
+	Web          bool          `json:"-"`
 }
 
 // Topup is a request to top up an account's balance by hand.

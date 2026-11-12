@@ -164,7 +164,11 @@ type Service struct {
 	lateRefunds  keyedLock // by payment: one late-payment refund of it at a time (promo or referral)
 	tg           Telegram
 	buyers       keyedLock // by Telegram account: one invoice opened at a time
+	webBuyers    keyedLock // by browser account
+	tokenBuyers  keyedLock // by subscription, when the buyer proved its token
 	trialRefunds keyedLock // by payment: one refund of a trial that may not be given at a time
+	// webReturn is where a browser buyer goes after paying. Nil: the shop on SubBase.
+	webReturn func(ctx context.Context, payload string) string
 }
 
 func New(d Deps) *Service {
@@ -182,6 +186,31 @@ func (s *Service) telegram() Telegram {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.tg
+}
+
+// SetWebReturn is where a browser buyer goes after paying. The provider is told this
+// address; the browser's own redirect is never what marks a payment paid.
+func (s *Service) SetWebReturn(fn func(ctx context.Context, payload string) string) {
+	s.mu.Lock()
+	s.webReturn = fn
+	s.mu.Unlock()
+}
+
+func (s *Service) webReturnURL(ctx context.Context, payload string) string {
+	s.mu.Lock()
+	fn := s.webReturn
+	s.mu.Unlock()
+	if fn != nil {
+		if u := fn(ctx, payload); u != "" {
+			return u
+		}
+	}
+	if s.d.SubBase != nil {
+		if b := strings.TrimRight(s.d.SubBase(ctx), "/"); b != "" {
+			return b + "/shop?order=" + payload
+		}
+	}
+	return ""
 }
 
 // Errors the bot and the Mini App show to buyers.
@@ -512,6 +541,12 @@ type InvoiceRequest struct {
 	PromoCode    string
 	Custom       *CustomPlan
 	DevicePackID int64
+	// WebAccountID is the browser account buying when TgID is 0. Web marks an invoice
+	// opened in the browser shop: Stars are refused and the provider sends the buyer back
+	// to the shop. TokenRenew says the caller proved the subscription token of UserID.
+	WebAccountID int64
+	Web          bool
+	TokenRenew   bool
 }
 
 // mayBuy: the buyer may take this tariff — it is on sale, or an access code of theirs opens
@@ -545,8 +580,37 @@ func (s *Service) mayRenewOwn(ctx context.Context, q *db.Queries, req InvoiceReq
 	if !u.TariffID.Valid || u.TariffID.Int64 != t.ID {
 		return false, nil
 	}
-	link, err := q.GetTgLink(ctx, req.UserID)
-	return err == nil && link.TgID == req.TgID, nil
+	return s.owns(ctx, q, req)
+}
+
+// owns: the buyer of req holds the subscription req.UserID. A Telegram account holds it
+// through its link, a browser account through its own, and a proved subscription token
+// holds that one subscription.
+func (s *Service) owns(ctx context.Context, q *db.Queries, req InvoiceRequest) (bool, error) {
+	if req.UserID == 0 {
+		return false, nil
+	}
+	if req.TgID != 0 {
+		link, err := q.GetTgLink(ctx, req.UserID)
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
+		if err != nil {
+			return false, err
+		}
+		return link.TgID == req.TgID, nil
+	}
+	if req.WebAccountID != 0 {
+		link, err := q.GetWebLink(ctx, req.UserID)
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
+		if err != nil {
+			return false, err
+		}
+		return link.AccountID == req.WebAccountID, nil
+	}
+	return req.TokenRenew, nil
 }
 
 // Invoice opens a payment and returns it with the URL to pay at. An open invoice for the
@@ -650,22 +714,16 @@ func (s *Service) Invoice(ctx context.Context, req InvoiceRequest) (db.Payment, 
 		}
 		amount += add
 	}
-	termDays := sql.NullInt64{Int64: term.Days, Valid: true}
-	kind := "renew"
-	if req.UserID == 0 {
-		kind = "new"
-		if !s.Config(ctx).AllowNew {
-			return db.Payment{}, ErrNewOff
-		}
-		if n, err := q.CountTgLinksOf(ctx, req.TgID); err != nil {
-			return db.Payment{}, err
-		} else if n >= s.d.MaxLinks {
-			return db.Payment{}, ErrTooManySubs
-		}
-	} else if link, err := q.GetTgLink(ctx, req.UserID); err != nil || link.TgID != req.TgID {
-		return db.Payment{}, ErrNotYours
+	if req.Web && (req.Provider == Stars || req.Provider == Balance && req.TgID == 0) {
+		// Stars open only inside Telegram. The balance is a Telegram account's.
+		return db.Payment{}, ErrProviderOff
 	}
-	unlock, err := s.lockBuyer(ctx, req.TgID)
+	termDays := sql.NullInt64{Int64: term.Days, Valid: true}
+	scope, kind, err := s.buyerScope(ctx, q, req)
+	if err != nil {
+		return db.Payment{}, err
+	}
+	unlock, err := scope.mem(ctx)
 	if err != nil {
 		return db.Payment{}, err
 	}
@@ -674,7 +732,7 @@ func (s *Service) Invoice(ctx context.Context, req InvoiceRequest) (db.Payment, 
 	// money, and a promo code is worked out against what is left to pay.
 	refCfg := s.referralConfig(ctx)
 	held := int64(0)
-	if s.d.Referral != nil && refCfg.Spend {
+	if req.TgID != 0 && s.d.Referral != nil && refCfg.Spend {
 		if held, err = s.d.Referral.Off(ctx, req.TgID, amount, currency, refCfg); err != nil {
 			return db.Payment{}, err
 		}
@@ -683,10 +741,21 @@ func (s *Service) Invoice(ctx context.Context, req InvoiceRequest) (db.Payment, 
 	now := s.d.Now()
 	userID := sql.NullInt64{Int64: req.UserID, Valid: req.UserID != 0}
 	tariffID := sql.NullInt64{Int64: t.ID, Valid: true}
-	p, open, err := s.newPayment(ctx, req.TgID, now,
+	p, open, err := s.scopedPayment(ctx, scope, now,
 		func(q *db.Queries) ([]db.Payment, error) {
-			return q.FindOpenPayments(ctx, db.FindOpenPaymentsParams{TgID: req.TgID, TariffID: tariffID, Provider: req.Provider, Kind: kind,
-				UserID: req.UserID, Since: now.Add(-invoiceReuse).Unix(), RepeatSince: now.Add(-balanceRepeat).Unix()})
+			since := now.Add(-invoiceReuse).Unix()
+			again := now.Add(-balanceRepeat).Unix()
+			switch {
+			case req.Web && req.TgID == 0 && req.WebAccountID != 0:
+				return q.FindOpenWebPayments(ctx, db.FindOpenWebPaymentsParams{WebAccountID: sql.NullInt64{Int64: req.WebAccountID, Valid: true}, TariffID: tariffID, Provider: req.Provider, Kind: kind,
+					UserID: req.UserID, Since: since, RepeatSince: again})
+			case req.Web && req.TgID == 0:
+				return q.FindOpenTokenPayments(ctx, db.FindOpenTokenPaymentsParams{UserID: sql.NullInt64{Int64: req.UserID, Valid: true}, TariffID: tariffID, Provider: req.Provider,
+					Since: since, RepeatSince: again})
+			default:
+				return q.FindOpenPayments(ctx, db.FindOpenPaymentsParams{TgID: req.TgID, TariffID: tariffID, Provider: req.Provider, Kind: kind, Web: req.Web,
+					UserID: req.UserID, Since: since, RepeatSince: again})
+			}
 		},
 		func(q *db.Queries, existing db.Payment) (bool, error) {
 			if existing.TermDays != termDays {
@@ -713,13 +782,14 @@ func (s *Service) Invoice(ctx context.Context, req InvoiceRequest) (db.Payment, 
 			}
 			p, err := q.CreatePayment(ctx, db.CreatePaymentParams{Provider: req.Provider, Payload: secure.Token(32), TgID: req.TgID, Kind: kind, UserID: userID,
 				TariffID: tariffID, TariffName: t.Name, Amount: amount, Currency: currency, CreatedAt: now.Unix(), TermDays: termDays,
-				Custom: plan, CustomBaseID: baseID, DevicePackID: sql.NullInt64{Int64: req.DevicePackID, Valid: req.DevicePackID != 0}})
+				Custom: plan, CustomBaseID: baseID, DevicePackID: sql.NullInt64{Int64: req.DevicePackID, Valid: req.DevicePackID != 0},
+				WebAccountID: sql.NullInt64{Int64: req.WebAccountID, Valid: req.WebAccountID != 0}, Web: req.Web})
 			if err != nil {
 				return db.Payment{}, err
 			}
 			// The referral balance pays what it can of the invoice first, then the promo
 			// code takes its share off what is left to pay.
-			if s.d.Referral != nil && refCfg.Spend {
+			if req.TgID != 0 && s.d.Referral != nil && refCfg.Spend {
 				// Recomputed on the account's own row: what the balance can pay may have
 				// changed since it was looked at outside.
 				off, err := s.d.Referral.Reserve(ctx, q, req.TgID, p.ID, amount, currency, refCfg)
@@ -743,7 +813,7 @@ func (s *Service) Invoice(ctx context.Context, req InvoiceRequest) (db.Payment, 
 			}
 			// The buyer's partner, when an account came with their code: the order is
 			// theirs to credit.
-			if s.d.Partners != nil {
+			if req.TgID != 0 && s.d.Partners != nil {
 				if err := s.d.Partners.TouchPayment(ctx, q, req.TgID, p.ID); err != nil {
 					return db.Payment{}, err
 				}
@@ -762,6 +832,11 @@ func (s *Service) Invoice(ctx context.Context, req InvoiceRequest) (db.Payment, 
 		what += " · " + pack.Title
 	}
 	return s.openPayment(ctx, p, t.Name, what)
+}
+
+// PackTermPrice is packTermPrice for the browser shop's price preview.
+func PackTermPrice(pack db.DevicePack, days int64, currency string) (int64, bool) {
+	return packTermPrice(pack, days, currency)
 }
 
 // packTermPrice is the pack's part of a term of so many days: its monthly price in the
@@ -801,7 +876,7 @@ func (s *Service) discount(ctx context.Context, q *db.Queries, p *db.Payment, us
 	if s.d.Promo == nil || strings.TrimSpace(code) == "" {
 		return nil
 	}
-	d, err := s.d.Promo.ReserveDiscount(ctx, q, p.TgID, userID, tariffID, p.Amount, p.Currency, code, p.ID)
+	d, err := s.d.Promo.ReserveFor(ctx, q, promo.Account{TgID: p.TgID, WebID: p.WebAccountID.Int64, UserID: userID}, tariffID, p.Amount, p.Currency, code, p.ID)
 	if err != nil {
 		return err
 	}
@@ -899,12 +974,102 @@ func (k *keyedLock) lock(ctx context.Context, key int64) (unlock func(), err err
 // once cannot pass the limit together. READ COMMITTED: after the lock each statement sees
 // what the previous holder committed (a serializable snapshot would be taken before the
 // lock is granted). The provider is asked after the commit, outside the transaction.
+// payScope is one buyer's turn: the in-memory lock, the database lock, and the hourly count.
+// A browser account and a proved subscription token do not share a Telegram account's turn.
+type payScope struct {
+	mem    func(context.Context) (func(), error)
+	lock   func(context.Context, *db.Queries) error
+	recent func(context.Context, *db.Queries, int64) (int64, error)
+}
+
+func (s *Service) tgScope(id int64) payScope {
+	return payScope{
+		mem:  func(ctx context.Context) (func(), error) { return s.lockBuyer(ctx, id) },
+		lock: func(ctx context.Context, q *db.Queries) error { return q.LockBuyerInvoices(ctx, id) },
+		recent: func(ctx context.Context, q *db.Queries, since int64) (int64, error) {
+			return q.CountRecentInvoices(ctx, db.CountRecentInvoicesParams{TgID: id, CreatedAt: since})
+		},
+	}
+}
+
+func (s *Service) webScope(id int64) payScope {
+	return payScope{
+		mem:  func(ctx context.Context) (func(), error) { return s.webBuyers.lock(ctx, id) },
+		lock: func(ctx context.Context, q *db.Queries) error { return q.LockWebInvoices(ctx, id) },
+		recent: func(ctx context.Context, q *db.Queries, since int64) (int64, error) {
+			return q.CountRecentWebInvoices(ctx, db.CountRecentWebInvoicesParams{WebAccountID: sql.NullInt64{Int64: id, Valid: true}, CreatedAt: since})
+		},
+	}
+}
+
+func (s *Service) tokenScope(userID int64) payScope {
+	return payScope{
+		mem:  func(ctx context.Context) (func(), error) { return s.tokenBuyers.lock(ctx, userID) },
+		lock: func(ctx context.Context, q *db.Queries) error { return q.LockTokenInvoices(ctx, userID) },
+		recent: func(ctx context.Context, q *db.Queries, since int64) (int64, error) {
+			return q.CountRecentTokenInvoices(ctx, db.CountRecentTokenInvoicesParams{UserID: sql.NullInt64{Int64: userID, Valid: true}, CreatedAt: since})
+		},
+	}
+}
+
+// buyerScope is who may open this invoice, and the turn that keeps two taps from opening two.
+func (s *Service) buyerScope(ctx context.Context, q *db.Queries, req InvoiceRequest) (payScope, string, error) {
+	if req.UserID == 0 {
+		if !s.Config(ctx).AllowNew {
+			return payScope{}, "", ErrNewOff
+		}
+		switch {
+		case req.TgID != 0:
+			n, err := q.CountTgLinksOf(ctx, req.TgID)
+			if err != nil {
+				return payScope{}, "", err
+			}
+			if n >= s.d.MaxLinks {
+				return payScope{}, "", ErrTooManySubs
+			}
+			return s.tgScope(req.TgID), "new", nil
+		case req.WebAccountID != 0:
+			n, err := q.CountWebLinksOf(ctx, req.WebAccountID)
+			if err != nil {
+				return payScope{}, "", err
+			}
+			if n >= s.d.MaxLinks {
+				return payScope{}, "", ErrTooManySubs
+			}
+			return s.webScope(req.WebAccountID), "new", nil
+		default:
+			return payScope{}, "", ErrNotYours
+		}
+	}
+	ok, err := s.owns(ctx, q, req)
+	if err != nil {
+		return payScope{}, "", err
+	}
+	if !ok {
+		return payScope{}, "", ErrNotYours
+	}
+	switch {
+	case req.TgID != 0:
+		return s.tgScope(req.TgID), "renew", nil
+	case req.WebAccountID != 0:
+		return s.webScope(req.WebAccountID), "renew", nil
+	default:
+		return s.tokenScope(req.UserID), "renew", nil
+	}
+}
+
 func (s *Service) newPayment(ctx context.Context, tgID int64, now time.Time,
+	find func(q *db.Queries) ([]db.Payment, error), matches func(q *db.Queries, p db.Payment) (bool, error),
+	create func(q *db.Queries) (db.Payment, error)) (p db.Payment, open bool, err error) {
+	return s.scopedPayment(ctx, s.tgScope(tgID), now, find, matches, create)
+}
+
+func (s *Service) scopedPayment(ctx context.Context, scope payScope, now time.Time,
 	find func(q *db.Queries) ([]db.Payment, error), matches func(q *db.Queries, p db.Payment) (bool, error),
 	create func(q *db.Queries) (db.Payment, error)) (p db.Payment, open bool, err error) {
 	err = s.d.Store.TxRC(ctx, func(q *db.Queries) error {
 		p, open = db.Payment{}, false
-		if err := q.LockBuyerInvoices(ctx, tgID); err != nil {
+		if err := scope.lock(ctx, q); err != nil {
 			return err
 		}
 		found, err := find(q)
@@ -921,7 +1086,7 @@ func (s *Service) newPayment(ctx context.Context, tgID int64, now time.Time,
 				return nil
 			}
 		}
-		n, err := q.CountRecentInvoices(ctx, db.CountRecentInvoicesParams{TgID: tgID, CreatedAt: now.Add(-time.Hour).Unix()})
+		n, err := scope.recent(ctx, q, now.Add(-time.Hour).Unix())
 		if err != nil {
 			return err
 		}
@@ -1377,8 +1542,13 @@ func (s *Service) Apply(ctx context.Context, id int64) error {
 		if c, custom := PlanOf(pay); custom {
 			plan = c.Options()
 		}
+		name, note, source, contact := buyerName(ctx, q, pay.TgID), "", "", ""
+		if pay.Web && pay.TgID == 0 {
+			name = webBuyerName(ctx, q, pay)
+			contact, note, source = name, "Web", domain.UserFromWeb
+		}
 		if u, created, err = s.d.Users.Purchase(ctx, q, domain.PurchaseInput{UserID: userID, TariffID: pay.TariffID.Int64,
-			Term: pay.TermDays, Name: buyerName(ctx, q, pay.TgID), TgID: pay.TgID, ResetTraffic: reset,
+			Term: pay.TermDays, Name: name, Contact: contact, Note: note, Source: source, TgID: pay.TgID, ResetTraffic: reset,
 			Options: plan, KeepExtraDevices: cfg.ExtraDevicesKeep, DevicePackID: pay.DevicePackID.Int64}); err != nil {
 			return err
 		}
@@ -1388,12 +1558,24 @@ func (s *Service) Apply(ctx context.Context, id int64) error {
 			return err
 		}
 		if created {
-			if err := q.LinkTg(ctx, db.LinkTgParams{UserID: u.ID, TgID: pay.TgID, CreatedAt: s.d.Now().Unix()}); err != nil {
-				return err
+			if pay.TgID == 0 && !pay.WebAccountID.Valid {
+				// A token proves a subscription that already exists. Making a new one here
+				// would leave it with nobody to come back to.
+				return ErrNotYours
 			}
-			// Not ignored: a failed statement aborts the whole PostgreSQL transaction anyway.
-			if err := q.SetTgCurrent(ctx, db.SetTgCurrentParams{Current: u.ID, TgID: pay.TgID}); err != nil {
-				return err
+			if pay.TgID != 0 {
+				if err := q.LinkTg(ctx, db.LinkTgParams{UserID: u.ID, TgID: pay.TgID, CreatedAt: s.d.Now().Unix()}); err != nil {
+					return err
+				}
+				// Not ignored: a failed statement aborts the whole PostgreSQL transaction anyway.
+				if err := q.SetTgCurrent(ctx, db.SetTgCurrentParams{Current: u.ID, TgID: pay.TgID}); err != nil {
+					return err
+				}
+			}
+			if pay.WebAccountID.Valid {
+				if err := q.LinkWeb(ctx, db.LinkWebParams{UserID: u.ID, AccountID: pay.WebAccountID.Int64, CreatedAt: s.d.Now().Unix()}); err != nil {
+					return err
+				}
 			}
 		}
 		if s.d.Promo != nil {
@@ -1406,17 +1588,17 @@ func (s *Service) Apply(ctx context.Context, id int64) error {
 				return err
 			}
 		}
-		if s.d.Referral != nil {
+		if pay.TgID != 0 && s.d.Referral != nil {
 			if rewards, err = s.d.Referral.RewardPayment(ctx, q, pay); err != nil {
 				return err
 			}
 		}
-		if s.d.Campaigns != nil {
+		if pay.TgID != 0 && s.d.Campaigns != nil {
 			if err := s.d.Campaigns.Attribute(ctx, q, pay); err != nil {
 				return err
 			}
 		}
-		if s.d.Partners != nil {
+		if pay.TgID != 0 && s.d.Partners != nil {
 			if err := s.d.Partners.TouchUser(ctx, q, u.ID, pay.TgID); err != nil {
 				return err
 			}
@@ -1554,6 +1736,16 @@ func buyerName(ctx context.Context, q *db.Queries, tgID int64) string {
 		}
 	}
 	return fmt.Sprintf("tg %d", tgID)
+}
+
+// webBuyerName names a subscription bought in the browser: the email, or "web".
+func webBuyerName(ctx context.Context, q *db.Queries, pay db.Payment) string {
+	if pay.WebAccountID.Valid {
+		if a, err := q.GetWebAccount(ctx, pay.WebAccountID.Int64); err == nil && a.Email != "" {
+			return a.Email
+		}
+	}
+	return "web"
 }
 
 // Refund returns a payment to the buyer and takes back what it gave (revert.go): Stars

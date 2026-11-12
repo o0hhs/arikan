@@ -25,6 +25,7 @@ import { ROUTING_PARTS, RoutingSection, type RoutingPart } from "./routing";
 import { AccessCard, ApiCard, CertificateCard, PasswordCard, SessionsCard, TwoFactorCard } from "./security";
 import { SupportCard } from "./support";
 import { AppsCard, DevicesCard, InactiveCard, ProtocolsCard, SubDomainCard, SubNodesCard, SubPortCard, SubscriptionCard } from "./subscription";
+import { WebShopCard } from "./web-shop";
 import { AdminsCard } from "./admins";
 import { SiteCard } from "./site";
 import { HappCard } from "./happ";
@@ -103,6 +104,7 @@ export function SettingsPage() {
               ) : tab === "subscription" ? (
                 <>
                   <SubDomainCard s={s} />
+                  <WebShopCard s={s} />
                   <DevicesCard s={s} />
                   <AppsCard s={s} />
                   <HappCard s={s} />

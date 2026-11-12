@@ -94,17 +94,31 @@ func (q *Queries) CountPromoRedemptions(ctx context.Context, q_ string) (int64, 
 }
 
 const countPromoUser = `-- name: CountPromoUser :one
-SELECT COUNT(*) FROM promo_redemptions WHERE promo_id=$1 AND (tg_id=$2 OR user_id=$3) AND status IN ('reserved','applied')
+SELECT COUNT(*) FROM promo_redemptions
+WHERE promo_id=$1 AND status IN ('reserved','applied')
+  AND (
+    (CAST($2 AS BIGINT) <> 0 AND tg_id = CAST($2 AS BIGINT))
+    OR (CAST($3 AS BIGINT) <> 0 AND web_account_id = CAST($3 AS BIGINT))
+    OR (CAST($4 AS BIGINT) <> 0 AND user_id = CAST($4 AS BIGINT))
+  )
 `
 
 type CountPromoUserParams struct {
-	PromoID int64
-	TgID    int64
-	UserID  sql.NullInt64
+	PromoID      int64
+	TgID         int64
+	WebAccountID int64
+	UserID       int64
 }
 
+// A Telegram id of 0 is not an account: browser buyers are counted by web_account_id, and a
+// renewal that only proved a subscription token by user_id. Those must not share one bucket.
 func (q *Queries) CountPromoUser(ctx context.Context, arg CountPromoUserParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countPromoUser, arg.PromoID, arg.TgID, arg.UserID)
+	row := q.db.QueryRowContext(ctx, countPromoUser,
+		arg.PromoID,
+		arg.TgID,
+		arg.WebAccountID,
+		arg.UserID,
+	)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -270,8 +284,8 @@ func (q *Queries) CreatePromoCode(ctx context.Context, arg CreatePromoCodeParams
 
 const createPromoRedemption = `-- name: CreatePromoRedemption :one
 INSERT INTO promo_redemptions
-(promo_id,user_id,tg_id,payment_id,status,redeemed_at,expires_at,days,bytes,discount_amount,original_amount,final_amount,currency,note)
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING id, promo_id, user_id, tg_id, payment_id, status, refund_started_at, redeemed_at, expires_at, days, bytes, discount_amount, original_amount, final_amount, currency, note
+(promo_id,user_id,tg_id,payment_id,status,redeemed_at,expires_at,days,bytes,discount_amount,original_amount,final_amount,currency,note,web_account_id)
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING id, promo_id, user_id, tg_id, payment_id, status, refund_started_at, redeemed_at, expires_at, days, bytes, discount_amount, original_amount, final_amount, currency, note, web_account_id
 `
 
 type CreatePromoRedemptionParams struct {
@@ -289,6 +303,7 @@ type CreatePromoRedemptionParams struct {
 	FinalAmount    int64
 	Currency       string
 	Note           string
+	WebAccountID   int64
 }
 
 func (q *Queries) CreatePromoRedemption(ctx context.Context, arg CreatePromoRedemptionParams) (PromoRedemption, error) {
@@ -307,6 +322,7 @@ func (q *Queries) CreatePromoRedemption(ctx context.Context, arg CreatePromoRede
 		arg.FinalAmount,
 		arg.Currency,
 		arg.Note,
+		arg.WebAccountID,
 	)
 	var i PromoRedemption
 	err := row.Scan(
@@ -326,6 +342,7 @@ func (q *Queries) CreatePromoRedemption(ctx context.Context, arg CreatePromoRede
 		&i.FinalAmount,
 		&i.Currency,
 		&i.Note,
+		&i.WebAccountID,
 	)
 	return i, err
 }
@@ -466,7 +483,7 @@ func (q *Queries) GetPromoCodeByCode(ctx context.Context, code string) (PromoCod
 }
 
 const getPromoRedemptionByPayment = `-- name: GetPromoRedemptionByPayment :one
-SELECT id, promo_id, user_id, tg_id, payment_id, status, refund_started_at, redeemed_at, expires_at, days, bytes, discount_amount, original_amount, final_amount, currency, note FROM promo_redemptions WHERE payment_id=$1
+SELECT id, promo_id, user_id, tg_id, payment_id, status, refund_started_at, redeemed_at, expires_at, days, bytes, discount_amount, original_amount, final_amount, currency, note, web_account_id FROM promo_redemptions WHERE payment_id=$1
 `
 
 func (q *Queries) GetPromoRedemptionByPayment(ctx context.Context, paymentID sql.NullInt64) (PromoRedemption, error) {
@@ -489,6 +506,7 @@ func (q *Queries) GetPromoRedemptionByPayment(ctx context.Context, paymentID sql
 		&i.FinalAmount,
 		&i.Currency,
 		&i.Note,
+		&i.WebAccountID,
 	)
 	return i, err
 }
@@ -739,7 +757,7 @@ func (q *Queries) ListPromoCodes(ctx context.Context, arg ListPromoCodesParams) 
 }
 
 const listPromoRedemptionsByTgWithCode = `-- name: ListPromoRedemptionsByTgWithCode :many
-SELECT r.id, r.promo_id, r.user_id, r.tg_id, r.payment_id, r.status, r.refund_started_at, r.redeemed_at, r.expires_at, r.days, r.bytes, r.discount_amount, r.original_amount, r.final_amount, r.currency, r.note, c.code FROM promo_redemptions r JOIN promo_codes c ON c.id=r.promo_id
+SELECT r.id, r.promo_id, r.user_id, r.tg_id, r.payment_id, r.status, r.refund_started_at, r.redeemed_at, r.expires_at, r.days, r.bytes, r.discount_amount, r.original_amount, r.final_amount, r.currency, r.note, r.web_account_id, c.code FROM promo_redemptions r JOIN promo_codes c ON c.id=r.promo_id
 WHERE r.tg_id=$1 AND r.status='applied' ORDER BY r.id DESC LIMIT CAST($2 AS BIGINT)
 `
 
@@ -765,6 +783,7 @@ type ListPromoRedemptionsByTgWithCodeRow struct {
 	FinalAmount     int64
 	Currency        string
 	Note            string
+	WebAccountID    int64
 	Code            string
 }
 
@@ -794,6 +813,7 @@ func (q *Queries) ListPromoRedemptionsByTgWithCode(ctx context.Context, arg List
 			&i.FinalAmount,
 			&i.Currency,
 			&i.Note,
+			&i.WebAccountID,
 			&i.Code,
 		); err != nil {
 			return nil, err
@@ -810,7 +830,7 @@ func (q *Queries) ListPromoRedemptionsByTgWithCode(ctx context.Context, arg List
 }
 
 const listPromoRedemptionsWithCode = `-- name: ListPromoRedemptionsWithCode :many
-SELECT r.id, r.promo_id, r.user_id, r.tg_id, r.payment_id, r.status, r.refund_started_at, r.redeemed_at, r.expires_at, r.days, r.bytes, r.discount_amount, r.original_amount, r.final_amount, r.currency, r.note, c.code FROM promo_redemptions r JOIN promo_codes c ON c.id=r.promo_id
+SELECT r.id, r.promo_id, r.user_id, r.tg_id, r.payment_id, r.status, r.refund_started_at, r.redeemed_at, r.expires_at, r.days, r.bytes, r.discount_amount, r.original_amount, r.final_amount, r.currency, r.note, r.web_account_id, c.code FROM promo_redemptions r JOIN promo_codes c ON c.id=r.promo_id
 WHERE $1::text = '' OR strpos(lower(c.code), lower($1::text)) > 0
   OR CAST(r.user_id AS TEXT) = $1::text OR CAST(r.tg_id AS TEXT) = $1::text
 ORDER BY r.id DESC LIMIT CAST($3 AS BIGINT) OFFSET CAST($2 AS BIGINT)
@@ -839,6 +859,7 @@ type ListPromoRedemptionsWithCodeRow struct {
 	FinalAmount     int64
 	Currency        string
 	Note            string
+	WebAccountID    int64
 	Code            string
 }
 
@@ -869,6 +890,7 @@ func (q *Queries) ListPromoRedemptionsWithCode(ctx context.Context, arg ListProm
 			&i.FinalAmount,
 			&i.Currency,
 			&i.Note,
+			&i.WebAccountID,
 			&i.Code,
 		); err != nil {
 			return nil, err

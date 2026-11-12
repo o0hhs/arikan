@@ -7536,6 +7536,8 @@ export interface components {
             support_access?: boolean;
             /** @description https://… или tg://… */
             support_url?: string;
+            /** @description Покупка в браузере. Пустой smtp_password оставляет сохранённый */
+            web_shop?: components["schemas"]["ShopConfig"];
             /** @description Секретный ключ подписи HMAC-SHA256, от 8 символов; пусто — убрать. Обратно не показывается */
             webhook_secret?: string;
             /** @description Адрес сайта для вебхуков: https; пусто — не отправлять */
@@ -8621,12 +8623,38 @@ export interface components {
             /** @description Разрешить доступ для поддержки (Настройки → Безопасность). Выключено: новый доступ не выдать, действующий закрывается. MIKAN_SUPPORT_ACCESS=off в .env сервера выключает его независимо от этой настройки */
             support_access: boolean;
             support_url: string;
+            /** @description Покупка подписки в браузере, без Telegram. Выключено, пока админ не включит. Пароль SMTP не отдаётся */
+            web_shop: components["schemas"]["ShopView"];
             /** @description Секретный ключ подписи сохранён (сам ключ не показывается) */
             webhook_secret_set: boolean;
             /** @description Адрес сайта для вебхуков: https, без логина в адресе; пусто — не отправлять */
             webhook_url: string;
             /** @description Искать сайты маскировки REALITY не только в /24 ноды, но и в соседних /24 её /16, до 20 найденных сайтов или 2 минут. Много подключений: хостер может принять это за сканирование сети */
             wide_sni_scan: boolean;
+        };
+        ShopConfig: {
+            enabled: boolean;
+            origins: string[];
+            return_url: string;
+            smtp_from: string;
+            smtp_host: string;
+            smtp_password?: string;
+            /** Format: int64 */
+            smtp_port: number;
+            smtp_tls: string;
+            smtp_user: string;
+        };
+        ShopView: {
+            enabled: boolean;
+            origins: string[];
+            return_url: string;
+            smtp_from: string;
+            smtp_host: string;
+            smtp_password_set: boolean;
+            /** Format: int64 */
+            smtp_port: number;
+            smtp_tls: string;
+            smtp_user: string;
         };
         SiteBytes: {
             /** Format: int64 */
@@ -9730,10 +9758,10 @@ export interface components {
             /** Format: date-time */
             resets_at: string | null;
             /**
-             * @description Откуда пользователь: admin — создан в панели или по ключу API, bot — куплен в боте, trial — пробный период бота, free — бесплатный тариф из бота или Mini App, import — перенесён из другой панели. Заполняется при создании, не меняется
+             * @description Откуда пользователь: admin — создан в панели или по ключу API, bot — куплен в боте, trial — пробный период бота, free — бесплатный тариф из бота или Mini App, import — перенесён из другой панели, web — куплен в браузере. Заполняется при создании, не меняется
              * @enum {string}
              */
-            source: "admin" | "bot" | "trial" | "free" | "import";
+            source: "admin" | "bot" | "trial" | "free" | "import" | "web";
             /**
              * Format: int64
              * @description Мбит/с в каждую сторону; null — без ограничения
@@ -18413,7 +18441,7 @@ export interface operations {
                 /** @description all — любая; none — вне папок; число — id папки */
                 folder?: string;
                 /** @description Откуда пользователь, см. source у пользователя */
-                source?: "all" | "admin" | "bot" | "trial" | "free" | "import";
+                source?: "all" | "admin" | "bot" | "trial" | "free" | "import" | "web";
                 /** @description show — вместе со скрытыми (по умолчанию: скрытие касается только списка в панели); hide — без скрытых; only — только скрытые */
                 hidden?: "hide" | "show" | "only";
                 /** @description Порядок списка: new — новые сверху; traffic — по израсходованному трафику, большие сверху; traffic_least — наоборот; expires — по сроку, истекающие сверху, бессрочные внизу; name — по имени, безымянные внизу */

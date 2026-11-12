@@ -94,10 +94,11 @@ const (
 	UserFromImport = "import" // brought over from another panel
 	UserFromFree   = "free"   // the free plan, taken in the bot or the Mini App
 	UserFromCode   = "code"   // given by an access code (a promo code that opens a tariff)
+	UserFromWeb    = "web"    // bought in the browser shop, with no Telegram account
 )
 
 // UserOrigins lists them in the order the list shows them.
-var UserOrigins = []string{UserFromAdmin, UserFromBot, UserFromTrial, UserFromFree, UserFromCode, UserFromImport}
+var UserOrigins = []string{UserFromAdmin, UserFromBot, UserFromTrial, UserFromFree, UserFromCode, UserFromImport, UserFromWeb}
 
 // ValidOrigin tells a source the database accepts.
 func ValidOrigin(s string) bool { return slices.Contains(UserOrigins, s) }
@@ -260,8 +261,9 @@ type PurchaseInput struct {
 	Name string
 	// Note and Source go on a new subscription; empty: bought in the bot. A payment of a
 	// kind of its own names itself (the trial, bought for a price).
-	Note   string
-	Source string
+	Note    string
+	Contact string
+	Source  string
 	// TgID is the Telegram account that pays (for events.UserCreated).
 	TgID int64
 	// ResetTraffic: a renewal also starts a new traffic period (the payment buys a full
@@ -292,7 +294,7 @@ func (s *Users) Purchase(ctx context.Context, q *db.Queries, in PurchaseInput) (
 		u, err = q.GetUser(ctx, in.UserID)
 	}
 	if in.UserID == 0 || errors.Is(err, sql.ErrNoRows) {
-		u, err = s.createTx(ctx, q, CreateInput{Name: in.Name, Note: cmp.Or(in.Note, "Telegram"), TariffID: in.TariffID,
+		u, err = s.createTx(ctx, q, CreateInput{Name: in.Name, Contact: in.Contact, Note: cmp.Or(in.Note, "Telegram"), TariffID: in.TariffID,
 			TermDays: in.Term, Source: cmp.Or(in.Source, UserFromBot), TgID: in.TgID, Options: in.Options, DevicePackID: in.DevicePackID}, true)
 		return u, err == nil, err
 	}

@@ -639,6 +639,8 @@ type Payment struct {
 	CustomBaseID sql.NullInt64
 	DevicePackID sql.NullInt64
 	PartnerBotID sql.NullInt64
+	WebAccountID sql.NullInt64
+	Web          bool
 }
 
 type PromoAccess struct {
@@ -697,6 +699,7 @@ type PromoRedemption struct {
 	FinalAmount     int64
 	Currency        string
 	Note            string
+	WebAccountID    int64
 }
 
 type Referral struct {
@@ -1107,6 +1110,36 @@ type UserSite struct {
 	Site   string
 	Up     int64
 	Down   int64
+}
+
+type WebAccount struct {
+	ID        int64
+	Email     string
+	CreatedAt int64
+}
+
+type WebCode struct {
+	ID        int64
+	Email     string
+	CodeHash  string
+	ExpiresAt int64
+	Attempts  int32
+	CreatedAt int64
+}
+
+type WebLink struct {
+	UserID    int64
+	AccountID int64
+	CreatedAt int64
+}
+
+type WebSession struct {
+	TokenHash string
+	AccountID sql.NullInt64
+	TgID      sql.NullInt64
+	UserID    sql.NullInt64
+	ExpiresAt int64
+	CreatedAt int64
 }
 
 type WebhookDelivery struct {

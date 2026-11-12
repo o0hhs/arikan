@@ -1,6 +1,6 @@
 -- name: CreatePayment :one
-INSERT INTO payments (provider, payload, tg_id, kind, user_id, tariff_id, tariff_name, amount, currency, status, created_at, term_days, custom, custom_base_id, device_pack_id)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending', $10, $11, $12, $13, $14)
+INSERT INTO payments (provider, payload, tg_id, kind, user_id, tariff_id, tariff_name, amount, currency, status, created_at, term_days, custom, custom_base_id, device_pack_id, web_account_id, web)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending', $10, $11, $12, $13, $14, $15, $16)
 RETURNING *;
 
 -- name: GetPayment :one
@@ -58,6 +58,7 @@ ORDER BY id DESC LIMIT 1;
 -- a retry of the screen gets the payment made, not a second charge.
 SELECT * FROM payments
 WHERE tg_id = sqlc.arg(tg_id) AND tariff_id = sqlc.arg(tariff_id) AND provider = sqlc.arg(provider) AND kind = sqlc.arg(kind)
+  AND web = sqlc.arg(web)
   AND user_id IS NOT DISTINCT FROM NULLIF(CAST(sqlc.arg(user_id) AS BIGINT), 0)
   AND (status = 'pending' AND pay_url <> '' AND created_at > sqlc.arg(since)
     OR provider = 'balance' AND status IN ('paid', 'applied') AND created_at > sqlc.arg(repeat_since))

@@ -1,0 +1,54 @@
+---
+title: Buying in the browser
+description: A subscription shop on the operator's site, with no Telegram. Email with a one-time code, renewal by the subscription link, and the address a buyer returns to after paying.
+---
+
+import { Steps } from '@astrojs/starlight/components';
+
+Where Telegram does not open, a VPN cannot be bought in the bot: buying a VPN would already require a VPN. The shop on the subscription address takes the payment in an ordinary browser. Telegram is not involved.
+
+A purchase follows the same path as the bot. The payment appears under **Payments**, a promo code is reserved with the invoice, the `subscription.paid` webhook goes out once the subscription is granted, and a repeated notice from the payment system does not grant it twice. The browser coming back to the site does not grant anything by itself — the panel asks the adapter about the invoice.
+
+## Turn it on
+
+<Steps>
+
+1. **Settings → Subscription → Buy in the browser.** The switch stays off until you turn it on. Selling, and a ruble provider (an adapter from the marketplace), are switched on separately: without them the shop has nothing to charge.
+
+2. Mail for the sign-in code: an SMTP server, a port, a From address and the encryption. The password is not shown back. Without mail a new buyer cannot sign in. A subscription that already exists can still be renewed with its link.
+
+3. The address after payment is where the payment system sends the browser. Empty: the shop page. It is not an address the buyer's browser supplies.
+
+4. If your own site calls the shop's API, list its origin (for example `https://example.com`), one per line. The shop's own address needs no entry.
+
+</Steps>
+
+The shop's address is the subscription address plus `shop`. The subscription page gains a **Renew in the browser** button: it binds that subscription to the session and opens the shop.
+
+## How people buy
+
+A new buyer enters an email and the code from the letter (or opens the link in the letter). The session is an `HttpOnly` cookie, which a script on the page cannot read. They then pick a plan, a term, a device pack and a promo code, and pay with an adapter that is on.
+
+A renewal does not need an email. The subscription link is enough. It is the same secret the subscription page already trusts.
+
+Telegram sign-in is an extra, when a bot is connected. The widget needs the shop's domain set in BotFather (`/setdomain`). The bot token never reaches the browser: the panel checks the signature itself. Stars are not in the shop — they are paid inside Telegram. The balance is offered only to someone signed in with Telegram, because it is that Telegram account's balance.
+
+The referral programme and partner credits count for a purchase that has a Telegram account. A purchase by email or by a subscription link does not: there is no Telegram account to attach them to.
+
+## An API for your own site
+
+The same methods the shop page uses, under `…/shop/api/`:
+
+| Method | Path | What it does |
+| --- | --- | --- |
+| GET | `/shop/api/config` | Whether email sign-in is set up, and the bot name for the widget |
+| POST | `/shop/api/code` | The letter with the code |
+| POST | `/shop/api/login` | Sign in with the code; sets the session |
+| POST | `/shop/api/telegram` | Sign in with the Telegram widget |
+| POST | `/shop/api/token` | Renew with a subscription link |
+| GET | `/shop/api/offers` | Plans, terms, device packs, payment methods |
+| POST | `/shop/api/promo` | Check a promo code, without spending it |
+| POST | `/shop/api/pay` | An invoice. The answer carries the payment address |
+| GET | `/shop/api/order?order=` | The invoice's status. It does not grant anything |
+
+Requests that change something send the header `X-Mikan-Shop: 1`. A form on another site cannot set it, and the origin has to be on the list: otherwise there is no CORS header and the request is refused. For such a site, signing in returns a session token (`Authorization: Bearer`), because the browser will not attach the cookie to a request from another site. No panel secret is in the answer.
