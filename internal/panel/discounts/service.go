@@ -258,7 +258,8 @@ func (s *Service) Reserve(ctx context.Context, q *db.Queries, tgID, userID, tari
 			RedeemedAt: now.Unix(), DiscountAmount: off, OriginalAmount: amount, FinalAmount: amount - off, Currency: currency,
 		})
 		if err != nil {
-			_, _ = q.DecrementDiscountUse(ctx, d.ID)
+			// The increment above rolls back with this transaction: no separate decrement, which
+			// on an already-aborted transaction would only fail with a misleading error.
 			return Applied{}, err
 		}
 		return Applied{DiscountID: d.ID, Name: d.Name, Amount: off, Final: amount - off, Currency: currency}, nil
