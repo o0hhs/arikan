@@ -578,8 +578,8 @@ func TestXrayConfigsRefuseAPartialProfile(t *testing.T) {
 	}
 }
 
-// Fifty servers: one config each and the automatic one, every tag unique, the balancer
-// over all of them.
+// Fifty servers on fifty nodes: the auto group, a country config each, then one config per
+// server. Every tag is unique and the auto balancer is over all of them.
 func TestXrayConfigsManyServers(t *testing.T) {
 	prof := profile(t, "")
 	prof.Inbounds, prof.Nodes = nil, nil
@@ -592,8 +592,8 @@ func TestXrayConfigsManyServers(t *testing.T) {
 		prof.Nodes = append(prof.Nodes, Node{ID: int64(i), Name: "🇳🇱 NL " + strconv.Itoa(i), Endpoint: Endpoint{Host: "203.0.113.7"}})
 	}
 	cfgs := xrayConfigs(t, prof, Groups{Auto: "Auto"}, RoutingAll)
-	if len(cfgs) != 51 {
-		t.Fatalf("%d configs, want 51", len(cfgs))
+	if len(cfgs) != 101 {
+		t.Fatalf("%d configs, want the auto group, 50 countries and 50 servers", len(cfgs))
 	}
 	// Fifty configs of the same rules stay small enough for an app to fetch: the body is
 	// compact JSON, not an indented one.
@@ -621,7 +621,7 @@ func TestXrayConfigsManyServers(t *testing.T) {
 		}
 		remarks[c.Remarks] = true
 	}
-	if len(remarks) != 51 {
+	if len(remarks) != 101 {
 		t.Fatalf("%d distinct remarks", len(remarks))
 	}
 	// The auto group is off for every server: all of them are in the balancer, as the
@@ -635,9 +635,10 @@ func TestXrayConfigsManyServers(t *testing.T) {
 	}
 }
 
-// The panel serves the config only to INCY with the switch on, only in the link format,
-// and without the routing header — the config carries the routing itself. With the switch
-// off INCY gets the base64 list and the header, as before.
+// The panel serves the configs to Happ and INCY with the switch on, without the routing
+// header — the config carries the routing itself. ?format=uri stays the link list;
+// ?format=xray is the configs even with the switch off. With the switch off the apps get
+// the base64 list and the header, as before.
 func TestINCYFullConfigDelivery(t *testing.T) {
 	ctx := context.Background()
 	now := time.Unix(1_800_000_000, 0)
@@ -680,15 +681,15 @@ func TestINCYFullConfigDelivery(t *testing.T) {
 		Nodes: []Node{{ID: 1, Endpoint: Endpoint{Host: "203.0.113.7"}}},
 	}
 	h := NewHandler(st, func(context.Context) (Config, error) { return cfg, nil }, nil, clock, nil, false)
-	serve := func(ua string) *httptest.ResponseRecorder {
-		req := httptest.NewRequest(http.MethodGet, "https://sub.example.com/"+u.SubToken, nil)
+	serve := func(ua, query string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodGet, "https://sub.example.com/"+u.SubToken+query, nil)
 		req.Header.Set("User-Agent", ua)
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, req)
 		return w
 	}
 
-	w := serve("INCY/2.1.0")
+	w := serve("INCY/2.1.0", "")
 	if w.Code != http.StatusOK {
 		t.Fatalf("status %d: %s", w.Code, w.Body)
 	}
@@ -724,17 +725,42 @@ func TestINCYFullConfigDelivery(t *testing.T) {
 		}
 	}
 
-	// Every other app keeps the link list, header and all.
-	w = serve("Happ/3.4.1")
-	if ct := w.Header().Get("Content-Type"); !strings.HasPrefix(ct, "text/plain") {
+	// Happ gets the same configs: the automatic entries and every server, no routing header.
+	w = serve("Happ/3.4.1", "")
+	if ct := w.Header().Get("Content-Type"); !strings.HasPrefix(ct, "application/json") {
 		t.Fatalf("Happ got %q", ct)
 	}
+	if w.Header().Get("routing") != "" {
+		t.Fatal("Happ's full config must not carry the routing header")
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &cfgs); err != nil || len(cfgs) < 2 {
+		t.Fatalf("Happ got no config array: %v", err)
+	}
+
+	// An explicit ?format=uri is the link list, for either app.
+	w = serve("INCY/2.1.0", "?format=uri")
+	if ct := w.Header().Get("Content-Type"); !strings.HasPrefix(ct, "text/plain") {
+		t.Fatalf("INCY ?format=uri got %q", ct)
+	}
 	if w.Header().Get("routing") == "" {
-		t.Fatal("Happ must keep the routing header")
+		t.Fatal("the link list keeps its routing header")
+	}
+
+	// Every other app keeps the link list.
+	w = serve("v2rayNG/1.10.2", "")
+	if ct := w.Header().Get("Content-Type"); !strings.HasPrefix(ct, "text/plain") {
+		t.Fatalf("v2rayNG got %q", ct)
 	}
 	if _, err := base64.StdEncoding.DecodeString(strings.TrimSpace(w.Body.String())); err != nil {
-		t.Fatalf("Happ got no base64: %v", err)
+		t.Fatalf("v2rayNG got no base64: %v", err)
 	}
+	// The switch off still answers ?format=xray with the configs.
+	cfg.INCYAuto = false
+	w = serve("v2rayNG/1.10.2", "?format=xray")
+	if ct := w.Header().Get("Content-Type"); !strings.HasPrefix(ct, "application/json") {
+		t.Fatalf("?format=xray with the switch off got %q", ct)
+	}
+	cfg.INCYAuto = true
 
 	// A Hysteria2 inbound joins the subscription: Xray cannot run it, so a config would drop
 	// it and the panel serves the list instead — every server stays in the app.
@@ -745,7 +771,7 @@ func TestINCYFullConfigDelivery(t *testing.T) {
 	if _, err := st.Q.CreateInbound(ctx, db.CreateInboundParams{NodeID: 1, Name: "hysteria2 again", Preset: "hysteria2", Port: "443", Config: hy, CreatedAt: now.Unix(), UpdatedAt: now.Unix()}); err != nil {
 		t.Fatal(err)
 	}
-	w = serve("INCY/2.1.0")
+	w = serve("INCY/2.1.0", "")
 	if ct := w.Header().Get("Content-Type"); !strings.HasPrefix(ct, "text/plain") {
 		t.Fatalf("a mixed subscription got %q, want the link list", ct)
 	}
@@ -755,7 +781,7 @@ func TestINCYFullConfigDelivery(t *testing.T) {
 
 	// The switch off: INCY gets the list and the header again.
 	cfg.INCYAuto = false
-	w = serve("INCY/2.1.0")
+	w = serve("INCY/2.1.0", "")
 	if ct := w.Header().Get("Content-Type"); !strings.HasPrefix(ct, "text/plain") {
 		t.Fatalf("INCY with the switch off got %q", ct)
 	}
@@ -844,6 +870,57 @@ func TestXrayConfigsWithoutYouTubeExit(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+// Several nodes: the list starts with the auto group, then a config per country, then every
+// server. Each automatic entry is named by remarks and by its first outbound, so INCY keeps
+// them apart. One node, or countries turned off, has no country entry.
+func TestXrayConfigsListCountries(t *testing.T) {
+	prof := xrayProfile(t)
+	if len(prof.Inbounds) < 2 {
+		t.Fatal("need two servers")
+	}
+	prof.Inbounds[0].NodeID = 1
+	for i := 1; i < len(prof.Inbounds); i++ {
+		prof.Inbounds[i].NodeID = 2
+	}
+	prof.Nodes = []Node{
+		{ID: 1, Name: "Netherlands", Endpoint: Endpoint{Host: "203.0.113.7"}},
+		{ID: 2, Name: "Germany", Endpoint: Endpoint{Host: "203.0.113.8"}},
+	}
+	cfgs := xrayConfigs(t, prof, Groups{Auto: "Auto"}, RoutingAll)
+	if len(cfgs) != len(prof.Inbounds)+3 {
+		t.Fatalf("%d configs, want the auto group, two countries and %d servers", len(cfgs), len(prof.Inbounds))
+	}
+	if cfgs[0].Remarks != "Auto" || cfgs[1].Remarks != "Netherlands" || cfgs[2].Remarks != "Germany" {
+		t.Fatalf("order: %q %q %q", cfgs[0].Remarks, cfgs[1].Remarks, cfgs[2].Remarks)
+	}
+	seen := map[string]bool{}
+	for _, c := range cfgs {
+		if c.Remarks == "" || seen[c.Remarks] || str(c.Outbounds[0]["tag"]) != c.Remarks {
+			t.Fatalf("remarks %q, tag %q", c.Remarks, c.Outbounds[0]["tag"])
+		}
+		seen[c.Remarks] = true
+	}
+	nl := cfgs[1]
+	if str(anyMap(nl.Routing.Balancers[0]["strategy"])["type"]) != "leastPing" {
+		t.Fatalf("a country group is a url-test: %v", nl.Routing.Balancers[0])
+	}
+	var picked bool
+	for _, s := range anyList(nl.Routing.Balancers[0]["selector"]) {
+		if str(s) == "Netherlands" {
+			picked = true
+		}
+	}
+	if !picked {
+		t.Fatalf("the country balancer does not name its entry: %v", nl.Routing.Balancers[0]["selector"])
+	}
+
+	prof.Routes.Servers.NoCountries = true
+	cfgs = xrayConfigs(t, prof, Groups{Auto: "Auto"}, RoutingAll)
+	if len(cfgs) != len(prof.Inbounds)+1 || cfgs[0].Remarks != "Auto" {
+		t.Fatalf("countries off: %d configs, first %q", len(cfgs), cfgs[0].Remarks)
 	}
 }
 

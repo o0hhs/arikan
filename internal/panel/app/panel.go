@@ -109,6 +109,7 @@ type Panel struct {
 	agentAuth *agents.Service
 	st        *store.Store
 	devices   *domain.Devices
+	users     *domain.Users
 	ipLimit   *auth.Limiter
 	userLimit *auth.Limiter
 	now       func() time.Time
@@ -314,7 +315,7 @@ func NewPanel(st *store.Store, o Options) (*Panel, error) {
 	deps.Inbounds.SetResolver(deps.Resolve)
 	deps.Devices = domain.NewDevices(st, pool, changes, o.Now)
 	deps.Devices.SetEvents(hub)
-	p.st, p.devices = st, deps.Devices
+	p.st, p.devices, p.users = st, deps.Devices, deps.Users
 	deps.Packages = domain.NewPackages(st, o.Now)
 	deps.Balancer = domain.NewBalancer(st, o.Now, o.Log)
 	if o.Certs != nil {

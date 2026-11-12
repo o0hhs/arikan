@@ -1272,6 +1272,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/lifecycle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Правила удаления неактивных подписок */
+        get: operations["get-lifecycle"];
+        /**
+         * Изменить правила удаления неактивных подписок
+         * @description Включение удаления и сокращение срока — только сессия админа: ключу API — 403 session_only.
+         */
+        put: operations["update-lifecycle"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/lifecycle/inactive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Кого достаёт удаление неактивных: пробный прогон, ничего не удаляет */
+        get: operations["list-inactive-users"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/logs": {
         parameters: {
             query?: never;
@@ -4658,7 +4696,7 @@ export interface components {
             enabled: boolean;
             name: string;
             /** @enum {string} */
-            trigger: "trial.started" | "user.created" | "user.granted" | "user.expiring" | "user.expired" | "user.inactive" | "traffic.90" | "traffic.100" | "payment.paid" | "payment.failed" | "payment.refunded" | "trial.not_given" | "device.bound" | "device.unbound" | "balance.topup" | "discount.ending" | "node.down" | "node.up";
+            trigger: "trial.started" | "user.created" | "user.granted" | "user.expiring" | "user.expired" | "user.inactive" | "user.removed" | "traffic.90" | "traffic.100" | "payment.paid" | "payment.failed" | "payment.refunded" | "trial.not_given" | "device.bound" | "device.unbound" | "balance.topup" | "discount.ending" | "node.down" | "node.up";
         };
         AutomationRuleUpdateInputBody: {
             actions: unknown;
@@ -4669,7 +4707,7 @@ export interface components {
             enabled: boolean;
             name: string;
             /** @enum {string} */
-            trigger: "trial.started" | "user.created" | "user.granted" | "user.expiring" | "user.expired" | "user.inactive" | "traffic.90" | "traffic.100" | "payment.paid" | "payment.failed" | "payment.refunded" | "trial.not_given" | "device.bound" | "device.unbound" | "balance.topup" | "discount.ending" | "node.down" | "node.up";
+            trigger: "trial.started" | "user.created" | "user.granted" | "user.expiring" | "user.expired" | "user.inactive" | "user.removed" | "traffic.90" | "traffic.100" | "payment.paid" | "payment.failed" | "payment.refunded" | "trial.not_given" | "device.bound" | "device.unbound" | "balance.topup" | "discount.ending" | "node.down" | "node.up";
         };
         AutomationRuleView: {
             /** @description JSON-массив действий: notify_admin, notify_user, extend, grant_traffic, promo, discount */
@@ -4690,7 +4728,7 @@ export interface components {
             /** Format: int64 */
             runs_count: number;
             /** @enum {string} */
-            trigger: "trial.started" | "user.created" | "user.granted" | "user.expiring" | "user.expired" | "user.inactive" | "traffic.90" | "traffic.100" | "payment.paid" | "payment.failed" | "payment.refunded" | "trial.not_given" | "device.bound" | "device.unbound" | "balance.topup" | "discount.ending" | "node.down" | "node.up";
+            trigger: "trial.started" | "user.created" | "user.granted" | "user.expiring" | "user.expired" | "user.inactive" | "user.removed" | "traffic.90" | "traffic.100" | "payment.paid" | "payment.failed" | "payment.refunded" | "trial.not_given" | "device.bound" | "device.unbound" | "balance.topup" | "discount.ending" | "node.down" | "node.up";
             /** Format: date-time */
             updated_at: string;
         };
@@ -6031,6 +6069,49 @@ export interface components {
             /** @description Marzban, PasarGuard: логин администратора */
             username?: string;
         };
+        InactiveOutputBody: {
+            /**
+             * Format: int64
+             * @description Число дней, с которым составлен список
+             */
+            days: number;
+            /**
+             * Format: int64
+             * @description Сколько подписок удалится
+             */
+            due: number;
+            /** @description Первые 200 по сроку, дольше всех кончившиеся первыми */
+            items: components["schemas"]["InactiveView"][];
+            /**
+             * Format: int64
+             * @description Сколько правило достаёт, но оставит
+             */
+            kept: number;
+            /** @description Правило включено: следующий проход удалит тех, кого ничто не держит */
+            on: boolean;
+        };
+        InactiveView: {
+            /**
+             * Format: date-time
+             * @description Когда кончился срок
+             */
+            expires_at: string;
+            /**
+             * @description Почему подписка останется: balance — деньги на балансе привязанного аккаунта, payment — платёж ещё не применён или пополнение ждёт проверки, grant — действуют пакеты трафика; пусто — удалится
+             * @enum {string}
+             */
+            keep: "" | "balance" | "payment" | "grant";
+            /**
+             * Format: date-time
+             * @description Последнее подключение; null — не подключался
+             */
+            online_at: string | null;
+            /** Format: int64 */
+            tariff_id: number | null;
+            /** Format: int64 */
+            user_id: number;
+            user_name: string;
+        };
         InboundView: {
             /** @description Приложения, которым подключение попадает в подписку: mihomo, xray, singbox, stash, other */
             apps: string[];
@@ -6198,6 +6279,9 @@ export interface components {
             path: string;
             /** @description Секрет старой панели задан; сам он не возвращается */
             secret_set: boolean;
+        };
+        Lifecycle: {
+            removal: components["schemas"]["RemovalRules"];
         };
         LiftTorrentOutputBody: {
             /**
@@ -8109,6 +8193,15 @@ export interface components {
             limit: number;
             /** @description Подписчик не меняет ссылку сам, только админ */
             off?: boolean;
+        };
+        RemovalRules: {
+            /**
+             * Format: int64
+             * @description Через сколько дней после конца срока и последнего подключения
+             */
+            days: number;
+            /** @description Удалять неактивные подписки сами */
+            on: boolean;
         };
         RenameDeviceInputBody: {
             /** @description Своё имя устройства, до 40 символов одной строкой; пустое — вернуть имя от приложения */
@@ -12932,6 +13025,100 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InboundView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-lifecycle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Lifecycle"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "update-lifecycle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Lifecycle"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Lifecycle"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-inactive-users": {
+        parameters: {
+            query?: {
+                /** @description Посмотреть, кого достанет правило с этим числом дней; 0 — с сохранённым */
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InactiveOutputBody"];
                 };
             };
             /** @description Error */

@@ -33,6 +33,7 @@ const (
 	TriggerUserExpiring  = events.UserExpiring
 	TriggerUserExpired   = events.UserExpired
 	TriggerUserInactive  = events.UserInactive
+	TriggerUserRemoved   = events.UserRemoved
 	TriggerTraffic90     = events.Traffic90
 	TriggerTraffic100    = events.Traffic100
 	TriggerPaymentPaid   = events.PaymentPaid
@@ -49,7 +50,7 @@ const (
 
 // Triggers are the events a rule may listen to.
 var Triggers = []string{
-	TriggerTrialStarted, TriggerUserCreated, TriggerUserGranted, TriggerUserExpiring, TriggerUserExpired, TriggerUserInactive,
+	TriggerTrialStarted, TriggerUserCreated, TriggerUserGranted, TriggerUserExpiring, TriggerUserExpired, TriggerUserInactive, TriggerUserRemoved,
 	TriggerTraffic90, TriggerTraffic100, TriggerPaymentPaid, TriggerPaymentFailed, TriggerPaymentRefund, TriggerTrialNotGiven,
 	TriggerDeviceBound, TriggerDeviceUnbound, TriggerBalanceTopup, TriggerDiscountEnd, TriggerNodeDown, TriggerNodeUp,
 }

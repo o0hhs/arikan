@@ -303,9 +303,10 @@ func (h *Handler) serveProfile(w http.ResponseWriter, r *http.Request, u db.User
 	}
 	h.userInfoHeaders(w, u, grants.Main(u.ID), cfg, vars)
 	h.operatorHeaders(w, r, u, cfg)
-	// The full config is INCY's alone, and only when it asks for the link format: every
-	// other app, and a forced ?format=, keeps what it got before.
-	serveXray := incyFullConfig(cfg.INCYAuto, format, r.UserAgent())
+	// Happ and INCY get the full config in place of the link list while the switch is on.
+	// An explicit ?format= is that format, including uri for the links and xray for the
+	// configs. A node that serves the subscription itself keeps the link list.
+	serveXray := xrayFullConfig(cfg.INCYAuto, format, r.URL.Query().Get("format"), r.UserAgent())
 	switch ua := r.UserAgent(); {
 	case IsINCY(ua):
 		// INCY reads Happ's routing profile from the same header (docs.incy.cc/en/routing),
@@ -315,11 +316,14 @@ func (h *Handler) serveProfile(w http.ResponseWriter, r *http.Request, u db.User
 			incyRoutingHeader(w, cfg)
 		}
 	case IsHapp(ua):
-		happ := cfg.Happ
-		if happ.Routing == HappRoutingAuto {
-			happ.Routing = happAutoRouting(cfg)
+		// Happ's routing header is the link list's. The full config carries the routing.
+		if !serveXray {
+			happ := cfg.Happ
+			if happ.Routing == HappRoutingAuto {
+				happ.Routing = happAutoRouting(cfg)
+			}
+			happHeaders(w.Header(), happ)
 		}
-		happHeaders(w.Header(), happ)
 	}
 	w.Header().Set("Cache-Control", "no-store")
 	if r.Method == http.MethodHead {
@@ -405,12 +409,12 @@ func (h *Handler) serveProfile(w http.ResponseWriter, r *http.Request, u db.User
 				_, _ = w.Write(body)
 				return
 			case errors.Is(cerr, ErrXrayPartial):
-				h.log.Info("incy autoselect: the profile has servers Xray cannot run; the link list is served", "err", cerr)
+				h.log.Info("xray configs: the profile has servers Xray cannot run; the link list is served", "err", cerr)
 			case !errors.Is(cerr, ErrNoProxies):
 				h.profileFailed(w, u, cfg, format, cerr)
 				return
 			}
-			incyRoutingHeader(w, cfg)
+			h.linkListHeaders(w, cfg, r.UserAgent())
 		}
 		links, ps, err := uris(prof)
 		if err != nil {
@@ -420,6 +424,22 @@ func (h *Handler) serveProfile(w http.ResponseWriter, r *http.Request, u db.User
 		h.mikanGroups(w, r, u, prof, ps)
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		_, _ = w.Write([]byte(base64.StdEncoding.EncodeToString([]byte(links))))
+	}
+}
+
+// linkListHeaders are what the link list carries and a full config does not: Happ's
+// provider headers, or INCY's routing header. A mixed subscription falls back to the list,
+// so the headers come back with it.
+func (h *Handler) linkListHeaders(w http.ResponseWriter, cfg Config, ua string) {
+	switch {
+	case IsINCY(ua):
+		incyRoutingHeader(w, cfg)
+	case IsHapp(ua):
+		happ := cfg.Happ
+		if happ.Routing == HappRoutingAuto {
+			happ.Routing = happAutoRouting(cfg)
+		}
+		happHeaders(w.Header(), happ)
 	}
 }
 
@@ -975,10 +995,19 @@ func (h *Handler) stub(w http.ResponseWriter, u db.User, cfg Config, format stri
 // the app's core can run, not about the format).
 var linkApps = []string{"streisand", "shadowrocket", "foxray"}
 
-// incyFullConfig is the full Xray body. The switch is INCY-only and uri-only: a forced
-// ?format=, and every other app, keeps the body it had before the switch existed.
-func incyFullConfig(on bool, format, userAgent string) bool {
-	return on && format == "uri" && IsINCY(userAgent)
+// xrayFullConfig is the full Xray body. Happ and INCY get it in place of the links they
+// ask for while the switch is on. An explicit ?format= wins: uri stays the link list, xray
+// is the configs even with the switch off. Every other app, and every other format, keeps
+// the body it had before the switch existed. A node that serves the subscription itself
+// keeps the link list either way (nodeserve.go).
+func xrayFullConfig(on bool, format, query, userAgent string) bool {
+	if format == "xray" {
+		return true
+	}
+	if strings.TrimSpace(query) != "" {
+		return false
+	}
+	return on && format == "uri" && (IsINCY(userAgent) || IsHapp(userAgent))
 }
 
 // Format picks the response format: explicit ?format= wins, then the client's User-Agent,
@@ -996,6 +1025,8 @@ func Format(userAgent, accept, query string) string {
 		return "turn"
 	case "html":
 		return "html"
+	case "xray", "xray-json", "xray_json", "v2ray-json", "v2ray_json", "json":
+		return "xray"
 	}
 	app := DetectApp(userAgent)
 	if app.Whole && app.Core.AtLeast(singboxSince) {

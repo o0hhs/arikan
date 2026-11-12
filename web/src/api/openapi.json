@@ -1909,6 +1909,7 @@
               "user.expiring",
               "user.expired",
               "user.inactive",
+              "user.removed",
               "traffic.90",
               "traffic.100",
               "payment.paid",
@@ -1965,6 +1966,7 @@
               "user.expiring",
               "user.expired",
               "user.inactive",
+              "user.removed",
               "traffic.90",
               "traffic.100",
               "payment.paid",
@@ -2037,6 +2039,7 @@
               "user.expiring",
               "user.expired",
               "user.inactive",
+              "user.removed",
               "traffic.90",
               "traffic.100",
               "payment.paid",
@@ -5767,6 +5770,96 @@
         ],
         "type": "object"
       },
+      "InactiveOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "days": {
+            "description": "Число дней, с которым составлен список",
+            "format": "int64",
+            "type": "integer"
+          },
+          "due": {
+            "description": "Сколько подписок удалится",
+            "format": "int64",
+            "type": "integer"
+          },
+          "items": {
+            "description": "Первые 200 по сроку, дольше всех кончившиеся первыми",
+            "items": {
+              "$ref": "#/components/schemas/InactiveView"
+            },
+            "type": "array"
+          },
+          "kept": {
+            "description": "Сколько правило достаёт, но оставит",
+            "format": "int64",
+            "type": "integer"
+          },
+          "on": {
+            "description": "Правило включено: следующий проход удалит тех, кого ничто не держит",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "on",
+          "days",
+          "due",
+          "kept",
+          "items"
+        ],
+        "type": "object"
+      },
+      "InactiveView": {
+        "additionalProperties": false,
+        "properties": {
+          "expires_at": {
+            "description": "Когда кончился срок",
+            "format": "date-time",
+            "type": "string"
+          },
+          "keep": {
+            "description": "Почему подписка останется: balance — деньги на балансе привязанного аккаунта, payment — платёж ещё не применён или пополнение ждёт проверки, grant — действуют пакеты трафика; пусто — удалится",
+            "enum": [
+              "",
+              "balance",
+              "payment",
+              "grant"
+            ],
+            "type": "string"
+          },
+          "online_at": {
+            "description": "Последнее подключение; null — не подключался",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tariff_id": {
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "user_id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "user_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "user_name",
+          "tariff_id",
+          "expires_at",
+          "online_at",
+          "keep"
+        ],
+        "type": "object"
+      },
       "InboundView": {
         "additionalProperties": false,
         "properties": {
@@ -6206,6 +6299,18 @@
           "kind",
           "secret_set",
           "links"
+        ],
+        "type": "object"
+      },
+      "Lifecycle": {
+        "additionalProperties": false,
+        "properties": {
+          "removal": {
+            "$ref": "#/components/schemas/RemovalRules"
+          }
+        },
+        "required": [
+          "removal"
         ],
         "type": "object"
       },
@@ -11183,6 +11288,27 @@
         },
         "required": [
           "limit",
+          "days"
+        ],
+        "type": "object"
+      },
+      "RemovalRules": {
+        "additionalProperties": false,
+        "properties": {
+          "days": {
+            "description": "Через сколько дней после конца срока и последнего подключения",
+            "format": "int64",
+            "maximum": 3650,
+            "minimum": 7,
+            "type": "integer"
+          },
+          "on": {
+            "description": "Удалять неактивные подписки сами",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "on",
           "days"
         ],
         "type": "object"
@@ -19951,6 +20077,123 @@
         "summary": "Скопировать подключение: те же настройки с новыми ключами, на ту же или другую ноду",
         "tags": [
           "inbounds"
+        ]
+      }
+    },
+    "/api/v1/lifecycle": {
+      "get": {
+        "operationId": "get-lifecycle",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Lifecycle"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Правила удаления неактивных подписок",
+        "tags": [
+          "users"
+        ]
+      },
+      "put": {
+        "description": "Включение удаления и сокращение срока — только сессия админа: ключу API — 403 session_only.",
+        "operationId": "update-lifecycle",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Lifecycle"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Lifecycle"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Изменить правила удаления неактивных подписок",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/v1/lifecycle/inactive": {
+      "get": {
+        "operationId": "list-inactive-users",
+        "parameters": [
+          {
+            "description": "Посмотреть, кого достанет правило с этим числом дней; 0 — с сохранённым",
+            "explode": false,
+            "in": "query",
+            "name": "days",
+            "schema": {
+              "description": "Посмотреть, кого достанет правило с этим числом дней; 0 — с сохранённым",
+              "format": "int64",
+              "maximum": 3650,
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InactiveOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Кого достаёт удаление неактивных: пробный прогон, ничего не удаляет",
+        "tags": [
+          "users"
         ]
       }
     },

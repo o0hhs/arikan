@@ -264,6 +264,7 @@
       "expiring": "Subscription is ending",
       "expired": "Subscription ended",
       "inactive": "Client has not connected for 7 days",
+      "removed": "Inactive subscription deleted",
       "traffic90": "90% of traffic used",
       "traffic100": "Traffic exhausted",
       "paid": "Payment received",
@@ -763,6 +764,7 @@
       "bad_bytes": "Size: from 1 GB to 100 TB",
       "bad_lifetime": "Pick how long it is valid",
       "bad_days": "From 1 to 3650 days",
+      "bad_removal_days": "From 7 to 3650 days",
       "bad_price": "The price is out of range",
       "note_too_long": "Up to 200 characters",
       "domain_elsewhere": "The domain points to another server ({value}). Point its A record at this server and wait for DNS to update.",
@@ -1069,6 +1071,40 @@
       "zerossl_eab_failed": "ZeroSSL gave no key for this e-mail. Check the address or try later",
       "google_eab_required": "Google Trust Services needs an EAB key: keyId and HMAC"
     }
+  },
+  "lifecycle": {
+    "open": "Rules",
+    "title": "Inactive subscriptions",
+    "meta": "Automatic removal from the list",
+    "saved": "Rules saved",
+    "removalTitle": "Removal of inactive ones",
+    "removalText": "A subscription is deleted once this many days have passed since its term ended and since its last connection. Not deleted: subscriptions with money on the balance, with a payment not applied yet or a top-up under review, and with running traffic packages. Every removal is written to the journal.",
+    "removalOn": "Delete inactive subscriptions",
+    "removalOnSub": "A pass every 10 minutes. A deletion cannot be undone: the links stop working",
+    "removalDays": "After",
+    "daysUnit": "days",
+    "reachTitle": "Who the rule reaches now",
+    "reachLoading": "Counting who the rule reaches",
+    "reachNone": "Nobody: no subscription ended more than {days} ago.",
+    "reachOn": "Will be deleted in the next pass: {due}. Will stay: {kept}.",
+    "reachOff": "If turned on, will be deleted: {due}. Will stay: {kept}.",
+    "reachMore": "And {n} more",
+    "endedOn": "term ended {date}",
+    "seen": "connected {ago}",
+    "neverSeen": "never connected",
+    "keep": {
+      "balance": "Money on the balance",
+      "payment": "Payment on its way",
+      "grant": "Packages running"
+    },
+    "goes": "Will be deleted",
+    "confirmTitle": "Delete subscriptions after {days}?",
+    "confirmFurtherTitle": "Delete as early as after {days}?",
+    "confirmNobody": "The rule will delete nobody now: it will delete those who become inactive.",
+    "confirmText": "{n, plural, one {# subscription will be deleted} other {# subscriptions will be deleted}} in the next 10 minutes, their links will stop working. This cannot be undone.",
+    "confirmWho": "Among them: {names}.",
+    "confirmKept": "{n, plural, one {# subscription will stay} other {# subscriptions will stay}}: there is still money, payments or packages in them.",
+    "confirm": "Turn on"
   },
   "login": {
     "subtitle": "Sign in to the control panel",
@@ -2339,10 +2375,10 @@
     "announceUrlHint": "Where a tap on the announcement leads: https:// or tg://",
     "appBranding": "Your brand in the apps",
     "appBrandingSub": "ClashFest (Android) and SlothClash (Windows, macOS, Linux) show your name, logo and colour, plus links to support, the bot and renewal.",
-    "incyAuto": "Full config with autoselect in INCY",
-    "incyAutoOn": "INCY gets a whole Xray config: the server list plus an autoselect entry, named after the auto group, that measures the servers and keeps the fastest one. Routing comes from the config itself.",
-    "incyAutoOff": "INCY gets the server list, as every Xray app does.",
-    "incyAutoHint": "If INCY does not take the config, turn this off: the server list comes back at once. Only the panel answers it; nodes that serve subscriptions themselves keep handing out the list. The config is built only when Xray can run every server of the subscription: Hysteria2 and the like are not in it, so a mixed subscription is served as the list — otherwise those servers would disappear from the app.",
+    "incyAuto": "Xray configs for Happ and INCY",
+    "incyAutoOn": "Happ and INCY get whole Xray configs with the panel's routing, DNS and automatic choice. The list starts with the autoselect and the countries, then every server. A link with ?format=uri still gives the server list.",
+    "incyAutoOff": "Happ and INCY get the server list, like the other Xray apps. A link with ?format=xray still gives the configs.",
+    "incyAutoHint": "If an app does not take the config, turn this off: the server list comes back at once. Only the panel answers it; nodes that serve subscriptions themselves keep handing out the list. The config is built only when Xray can run every server of the subscription: Hysteria2 and the like are not in it, so a mixed subscription is served as the list — otherwise those servers would disappear from the app.",
     "happSub": "Happ only: an encrypted link instead of the subscription address, a routing profile and hidden server settings.",
     "happCrypt": "Encrypted link",
     "happCryptOff": "Off",
@@ -5934,7 +5970,8 @@
       "torrent": "Torrents",
       "traffic_detail": "Traffic by site",
       "updates": "Updates",
-      "user": "Clients"
+      "user": "Clients",
+      "lifecycle": "Subscription rules"
     },
     "action": {
       "auth": {
@@ -5966,10 +6003,14 @@
         "reset_path": "Admin address changed in the console",
         "bootstrap": "Panel installed"
       },
+      "lifecycle": {
+        "update": "Inactive-subscription rules changed"
+      },
       "user": {
         "create": "Client created",
         "update": "Client changed",
         "delete": "Client deleted",
+        "remove_inactive": "Inactive subscription deleted",
         "extend": "Subscription extended",
         "reissue": "Subscription link replaced",
         "reset_traffic": "Client traffic reset"

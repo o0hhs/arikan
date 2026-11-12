@@ -44,7 +44,7 @@ function actorText(e: Entry): string {
 /** What the line is about: a client opens in their card (unless the line deleted them). */
 function target(e: Entry): ReactNode {
   if (!e.target_type) return null;
-  if (e.target_type === "user" && /^\d+$/.test(e.target_id) && e.action !== "user.delete") {
+  if (e.target_type === "user" && /^\d+$/.test(e.target_id) && e.action !== "user.delete" && e.action !== "user.remove_inactive") {
     return (
       <Link to="/users" search={{ state: "all", q: "", user: Number(e.target_id) }} className="link-btn">
         {t("audit.target.user", { id: e.target_id })}

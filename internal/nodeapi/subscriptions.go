@@ -20,9 +20,10 @@ import (
 // Accept, or by ?format=; SubFormat says which, and a record without it falls back to
 // SubFormatURI.
 const (
-	SubFormatURI     = "uri"     // base64 share links: v2rayN, Streisand, Shadowrocket, Happ
+	SubFormatURI     = "uri"     // base64 share links: v2rayN, Streisand, Shadowrocket; Happ and INCY too, unless the panel sends them configs
 	SubFormatClash   = "clash"   // the mihomo/Clash profile (YAML)
 	SubFormatSingBox = "singbox" // the sing-box profile (JSON)
+	SubFormatXray    = "xray"    // whole Xray configs; a node has none and answers with the link list
 	SubFormatTurn    = "turn"    // the WL/TURN servers for the client program next to the apps
 	SubFormatHTML    = "html"    // the page a browser gets: what to do with the link
 )
@@ -159,6 +160,8 @@ func SubFormat(query, userAgent, accept string) string {
 		return SubFormatTurn
 	case "html":
 		return SubFormatHTML
+	case "xray", "xray-json", "xray_json", "v2ray-json", "v2ray_json", "json":
+		return SubFormatXray
 	}
 	ua := strings.ToLower(userAgent)
 	has := func(words ...string) bool {

@@ -24,6 +24,8 @@ func TestSubFormatPicksByQueryAgentAndAccept(t *testing.T) {
 		{"", "Rabbit/1.1", "", SubFormatClash},
 		{"", "Hiddify/2.0", "", SubFormatURI},
 		{"", "Happ/3.0", "", SubFormatURI},
+		{"xray", "v2rayNG", "", SubFormatXray},
+		{"json", "", "", SubFormatXray},
 		{"", "Mozilla/5.0", "text/html,application/xhtml+xml", SubFormatHTML},
 		{"", "v2rayN/6.31", "", SubFormatURI},
 		{"", "", "", SubFormatURI},

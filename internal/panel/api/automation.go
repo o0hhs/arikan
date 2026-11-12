@@ -26,7 +26,7 @@ type AutomationRuleView struct {
 	ID              int64           `json:"id"`
 	Name            string          `json:"name"`
 	Enabled         bool            `json:"enabled"`
-	Trigger         string          `json:"trigger" enum:"trial.started,user.created,user.granted,user.expiring,user.expired,user.inactive,traffic.90,traffic.100,payment.paid,payment.failed,payment.refunded,trial.not_given,device.bound,device.unbound,balance.topup,discount.ending,node.down,node.up"`
+	Trigger         string          `json:"trigger" enum:"trial.started,user.created,user.granted,user.expiring,user.expired,user.inactive,user.removed,traffic.90,traffic.100,payment.paid,payment.failed,payment.refunded,trial.not_given,device.bound,device.unbound,balance.topup,discount.ending,node.down,node.up"`
 	Conditions      json.RawMessage `json:"conditions" doc:"JSON: tariff_ids, states, sources, days_left_min/max, traffic_used_min/max"`
 	Actions         json.RawMessage `json:"actions" doc:"JSON-массив действий: notify_admin, notify_user, extend, grant_traffic, promo, discount"`
 	CooldownSeconds int64           `json:"cooldown_seconds"`
@@ -63,7 +63,7 @@ type automationRuleInput struct {
 	Body struct {
 		Name            string          `json:"name" minLength:"1" maxLength:"120"`
 		Enabled         bool            `json:"enabled"`
-		Trigger         string          `json:"trigger" enum:"trial.started,user.created,user.granted,user.expiring,user.expired,user.inactive,traffic.90,traffic.100,payment.paid,payment.failed,payment.refunded,trial.not_given,device.bound,device.unbound,balance.topup,discount.ending,node.down,node.up"`
+		Trigger         string          `json:"trigger" enum:"trial.started,user.created,user.granted,user.expiring,user.expired,user.inactive,user.removed,traffic.90,traffic.100,payment.paid,payment.failed,payment.refunded,trial.not_given,device.bound,device.unbound,balance.topup,discount.ending,node.down,node.up"`
 		Conditions      json.RawMessage `json:"conditions,omitempty"`
 		Actions         json.RawMessage `json:"actions"`
 		CooldownSeconds int64           `json:"cooldown_seconds" minimum:"0" maximum:"31536000"`
@@ -76,7 +76,7 @@ type automationRuleUpdateInput struct {
 	Body struct {
 		Name            string          `json:"name" minLength:"1" maxLength:"120"`
 		Enabled         bool            `json:"enabled"`
-		Trigger         string          `json:"trigger" enum:"trial.started,user.created,user.granted,user.expiring,user.expired,user.inactive,traffic.90,traffic.100,payment.paid,payment.failed,payment.refunded,trial.not_given,device.bound,device.unbound,balance.topup,discount.ending,node.down,node.up"`
+		Trigger         string          `json:"trigger" enum:"trial.started,user.created,user.granted,user.expiring,user.expired,user.inactive,user.removed,traffic.90,traffic.100,payment.paid,payment.failed,payment.refunded,trial.not_given,device.bound,device.unbound,balance.topup,discount.ending,node.down,node.up"`
 		Conditions      json.RawMessage `json:"conditions,omitempty"`
 		Actions         json.RawMessage `json:"actions"`
 		CooldownSeconds int64           `json:"cooldown_seconds" minimum:"0" maximum:"31536000"`

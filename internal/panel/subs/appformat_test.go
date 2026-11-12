@@ -49,6 +49,8 @@ func TestAppFormats(t *testing.T) {
 		{"Mozilla/5.0 (iPhone)", "text/html,application/xhtml+xml", "", "html"},
 		{"Happ/3.4.1", "text/html", "", "uri"},
 		{"Happ/3", "", "clash", "clash"},
+		{"Happ/3", "", "xray", "xray"},
+		{"INCY/2.1.0", "", "json", "xray"},
 		{"INCY/2.1.0", "", "singbox", "singbox"},
 		{"clash-verge/v2", "", " uri ", "uri"},
 		{"", "Text/HTML", "", "html"},
