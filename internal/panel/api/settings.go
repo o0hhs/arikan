@@ -96,7 +96,7 @@ type SettingsView struct {
 	HappHideSettings bool   `json:"happ_hide_settings" doc:"Скрыть в Happ настройки серверов подписки (нужен Provider ID)"`
 	HappCrypt        string `json:"happ_crypt" enum:"off,api,local" doc:"Шифрованная ссылка для кнопки Happ: off — обычная happ://add/, api — через сервис Happ (адрес подписки уходит на crypto.happ.su), local — панель шифрует сама"`
 	// INCYAuto: INCY gets a whole Xray config with the autoselect balancer.
-	INCYAuto bool `json:"incy_autoselect" doc:"INCY получает не список серверов, а полный конфиг Xray: список серверов остаётся, и к нему добавляется запись автовыбора (балансировщик по наименьшему пингу). Отвечает только панель: ноды, отдающие подписку сами, продолжают отдавать список ссылок. Если приложение не принимает конфиг, выключите — вернётся список серверов"`
+	INCYAuto bool `json:"incy_autoselect" doc:"Happ и INCY получают полные конфиги Xray: сначала автовыбор и страны, затем каждый сервер, включая Hysteria2. Включено по умолчанию. Ноды, отдающие подписку сами, отдают те же конфиги. Если приложение не принимает конфиг, выключите — вернётся список ссылок"`
 }
 
 type settingsOutput struct{ Body SettingsView }

@@ -2378,7 +2378,7 @@
     "incyAuto": "Xray configs for Happ and INCY",
     "incyAutoOn": "Happ and INCY get whole Xray configs with the panel's routing, DNS and automatic choice. The list starts with the autoselect and the countries, then every server. A link with ?format=uri still gives the server list.",
     "incyAutoOff": "Happ and INCY get the server list, like the other Xray apps. A link with ?format=xray still gives the configs.",
-    "incyAutoHint": "If an app does not take the config, turn this off: the server list comes back at once. Only the panel answers it; nodes that serve subscriptions themselves keep handing out the list. The config is built only when Xray can run every server of the subscription: Hysteria2 and the like are not in it, so a mixed subscription is served as the list — otherwise those servers would disappear from the app.",
+    "incyAutoHint": "On by default. Happ and INCY get the configs from the panel and from a node that serves the subscription itself. Hysteria2 is in them. TUIC, Hysteria2 Gecko and other protocols Xray cannot run stay in the link list of the other apps and are left out of these configs. If an app does not take the config, turn this off: the server list comes back at once.",
     "happSub": "Happ only: an encrypted link instead of the subscription address, a routing profile and hidden server settings.",
     "happCrypt": "Encrypted link",
     "happCryptOff": "Off",

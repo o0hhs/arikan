@@ -258,8 +258,43 @@ func TestXrayOutboundFromLinks(t *testing.T) {
 			link: "ss://aes-128-cfb:cGFzcw%3D%3D@203.0.113.7:6443#n",
 		},
 		{
-			name: "hysteria2",
-			link: "hysteria2://pass@203.0.113.7:443/?sni=node.example.com&insecure=1&pinSHA256=ab12#n",
+			name:   "hysteria2",
+			link:   "hysteria2://pass@203.0.113.7:443/?sni=node.example.com&insecure=1&pinSHA256=ab12#n",
+			xrayOK: true,
+			want: func(t *testing.T, o map[string]any) {
+				if o["protocol"] != "hysteria" {
+					t.Fatalf("protocol: %v", o)
+				}
+				settings := anyMap(o["settings"])
+				if settings["version"] != 2 || settings["address"] != "203.0.113.7" || settings["port"] != 443 {
+					t.Fatalf("settings: %v", settings)
+				}
+				stream := anyMap(o["streamSettings"])
+				hy := anyMap(stream["hysteriaSettings"])
+				tls := anyMap(stream["tlsSettings"])
+				if stream["network"] != "hysteria" || hy["auth"] != "pass" || hy["version"] != 2 || tls["serverName"] != "node.example.com" || tls["allowInsecure"] != true {
+					t.Fatalf("stream: %v", stream)
+				}
+				if _, ok := tls["pinnedPeerCertSha256"]; ok {
+					t.Fatal("a short pin must not go into the config")
+				}
+			},
+		},
+		{
+			name:   "hysteria2-salamander",
+			link:   "hysteria2://pass@203.0.113.7:443/?sni=node.example.com&obfs=salamander&obfs-password=mask#n",
+			xrayOK: true,
+			want: func(t *testing.T, o map[string]any) {
+				udp := anyList(anyMap(anyMap(o["streamSettings"])["finalmask"])["udp"])
+				mask := anyMap(udp[0])
+				if mask["type"] != "salamander" || anyMap(mask["settings"])["password"] != "mask" {
+					t.Fatalf("mask: %v", mask)
+				}
+			},
+		},
+		{
+			name: "hysteria2-gecko",
+			link: "hysteria2://pass@203.0.113.7:443/?obfs=gecko&obfs-password=mask#n",
 		},
 		{
 			name: "tuic",
@@ -543,38 +578,71 @@ func TestXrayConfigsRemarksStayDistinct(t *testing.T) {
 	}
 }
 
-// Nothing of the profile is an outbound Xray has: the caller serves the link list instead
-// of a config INCY would fail to start.
+// Hysteria2 alone is a config: Xray runs it. TUIC alone is not, and the caller serves the
+// link list.
 func TestXrayConfigsWithoutXrayServers(t *testing.T) {
-	var ins []db.Inbound
-	c, err := presets.NewConfig("hysteria2", "www.example.com:443")
-	if err != nil {
-		t.Fatal(err)
-	}
-	ins = append(ins, db.Inbound{ID: 1, NodeID: 1, Name: "hysteria2", Preset: "hysteria2", Port: "443", Enabled: 1, Config: c})
-	prof := Profile{
-		Slot:     db.Slot{Name: "s000001", Uuid: "0b4ddc4c-7c4f-4a36-9d62-6f1a44b8c4e1", Secret: "S3cr3t"},
-		Inbounds: ins,
-		Nodes:    []Node{{ID: 1, Endpoint: Endpoint{Host: "203.0.113.7"}}},
-	}
-	if _, err := XrayConfigs(prof, Groups{}, RoutingRUDirect); !errors.Is(err, ErrNoProxies) {
-		t.Fatalf("err: %v", err)
-	}
-}
-
-// A profile that mixes what Xray runs with Hysteria2: a whole config would silently drop
-// the Hysteria2 servers from the app's list, so the generator refuses and the caller serves
-// the link list (the delivery test below checks that).
-func TestXrayConfigsRefuseAPartialProfile(t *testing.T) {
-	prof := profile(t, "")
 	hy, err := presets.NewConfig("hysteria2", "www.example.com:443")
 	if err != nil {
 		t.Fatal(err)
 	}
-	prof.Inbounds = append(prof.Inbounds, db.Inbound{ID: 2, NodeID: 2, Name: "NL hysteria2", Preset: "hysteria2", Port: "443", Enabled: 1, Config: hy})
-	prof.Nodes = append(prof.Nodes, Node{ID: 2, Name: "NL", Endpoint: Endpoint{Host: "203.0.113.8"}})
-	if _, err := XrayConfigs(prof, Groups{Auto: "Auto"}, RoutingAll); !errors.Is(err, ErrXrayPartial) {
-		t.Fatalf("err: %v, want ErrXrayPartial", err)
+	prof := Profile{
+		Slot:     db.Slot{Name: "s000001", Uuid: "0b4ddc4c-7c4f-4a36-9d62-6f1a44b8c4e1", Secret: "S3cr3t"},
+		Inbounds: []db.Inbound{{ID: 1, NodeID: 1, Name: "hysteria2", Preset: "hysteria2", Port: "443", Enabled: 1, Config: hy}},
+		Nodes:    []Node{{ID: 1, Endpoint: Endpoint{Host: "203.0.113.7"}}},
+	}
+	cfgs := xrayConfigs(t, prof, Groups{Auto: "Авто"}, RoutingRUDirect)
+	if cfgs[0].Remarks != "Авто" {
+		t.Fatalf("the auto entry: %q", cfgs[0].Remarks)
+	}
+	var saw bool
+	for _, c := range cfgs {
+		for _, p := range xrayProtocols(c) {
+			if p == "hysteria" {
+				saw = true
+			}
+		}
+	}
+	if !saw {
+		t.Fatal("Hysteria2 did not become an Xray outbound")
+	}
+	tuic, err := presets.NewConfig("tuic_v5", "www.example.com:443")
+	if err != nil {
+		t.Fatal(err)
+	}
+	prof.Inbounds = []db.Inbound{{ID: 1, NodeID: 1, Name: "tuic", Preset: "tuic_v5", Port: "8443", Enabled: 1, Config: tuic}}
+	if _, err := XrayConfigs(prof, Groups{}, RoutingRUDirect); !errors.Is(err, ErrNoProxies) {
+		t.Fatalf("tuic: %v, want ErrNoProxies", err)
+	}
+}
+
+// Hysteria2 stays in the JSON next to VLESS. TUIC, which Xray cannot run, is left out and
+// does not turn the whole subscription back into links.
+func TestXrayConfigsKeepHysteria2(t *testing.T) {
+	prof := profile(t, "")
+	raw, err := XrayConfigs(prof, Groups{Auto: "Авто"}, RoutingAll)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var cfgs []xcConfig
+	if err := json.Unmarshal(raw, &cfgs); err != nil {
+		t.Fatal(err)
+	}
+	if cfgs[0].Remarks != "Авто" || len(cfgs[0].Routing.Balancers) == 0 {
+		t.Fatalf("the auto entry is not first: %q", cfgs[0].Remarks)
+	}
+	var hysteria, tuic bool
+	for _, c := range cfgs {
+		for _, p := range xrayProtocols(c) {
+			switch p {
+			case "hysteria":
+				hysteria = true
+			case "tuic":
+				tuic = true
+			}
+		}
+	}
+	if !hysteria || tuic {
+		t.Fatalf("hysteria %v tuic %v", hysteria, tuic)
 	}
 }
 
@@ -762,8 +830,8 @@ func TestINCYFullConfigDelivery(t *testing.T) {
 	}
 	cfg.INCYAuto = true
 
-	// A Hysteria2 inbound joins the subscription: Xray cannot run it, so a config would drop
-	// it and the panel serves the list instead — every server stays in the app.
+	// A Hysteria2 inbound joins the subscription and stays in the JSON: Xray runs it, so the
+	// autoselect entry is not replaced by the link list.
 	hy, err := presets.NewConfig("hysteria2", "www.example.com:443")
 	if err != nil {
 		t.Fatal(err)
@@ -771,12 +839,15 @@ func TestINCYFullConfigDelivery(t *testing.T) {
 	if _, err := st.Q.CreateInbound(ctx, db.CreateInboundParams{NodeID: 1, Name: "hysteria2 again", Preset: "hysteria2", Port: "443", Config: hy, CreatedAt: now.Unix(), UpdatedAt: now.Unix()}); err != nil {
 		t.Fatal(err)
 	}
-	w = serve("INCY/2.1.0", "")
-	if ct := w.Header().Get("Content-Type"); !strings.HasPrefix(ct, "text/plain") {
-		t.Fatalf("a mixed subscription got %q, want the link list", ct)
+	w = serve("Happ/3.4.1", "")
+	if ct := w.Header().Get("Content-Type"); !strings.HasPrefix(ct, "application/json") {
+		t.Fatalf("a subscription with Hysteria2 got %q, want the Xray configs", ct)
 	}
-	if w.Header().Get("routing") == "" {
-		t.Fatal("the link list keeps its routing header")
+	if !strings.Contains(w.Body.String(), `"protocol":"hysteria"`) {
+		t.Fatal("Hysteria2 is missing from the configs")
+	}
+	if w.Header().Get("routing") != "" {
+		t.Fatal("the full config must not carry the routing header")
 	}
 
 	// The switch off: INCY gets the list and the header again.

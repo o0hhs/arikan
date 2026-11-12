@@ -47,7 +47,8 @@ func TestRenameAndBanOverHTTP(t *testing.T) {
 		if hwid != "" {
 			hdr["X-Hwid"], hdr["X-Device-Os"], hdr["X-Device-Model"] = hwid, "Android", "Pixel 9"
 		}
-		resp, body := h.do(http.MethodGet, "/"+subPath+"/"+token, nil, hdr)
+		// ?format=uri keeps the link list. Happ's default answer is the Xray JSON config.
+		resp, body := h.do(http.MethodGet, "/"+subPath+"/"+token+"?format=uri", nil, hdr)
 		links, _ := base64.StdEncoding.DecodeString(string(body))
 		return resp, string(links)
 	}

@@ -105,8 +105,30 @@ func (h *Handler) NodeRecord(ctx context.Context, u db.User) (nodeapi.SubRecord,
 	if len(prof.Turn) > 0 {
 		rec.Bodies = append(rec.Bodies, nodeapi.SubBody{Format: nodeapi.SubFormatTurn, Type: "text/plain; charset=utf-8", Body: []byte(TurnSubscription(prof))})
 	}
+	// Happ and INCY get the same Xray configs the panel serves, so a node that answers the
+	// subscription itself still has the autoselect entry. A profile of nothing Xray can run
+	// leaves the body out, and the node then serves the link list. A body that would push
+	// the record past the node's limit is left out the same way: the links still answer.
+	if cfg.INCYAuto {
+		p := prof
+		p.App = recordAppURI
+		p.Inbounds = forApp(prof.Inbounds, p.App, state)
+		p.Rules, p.Routes, p.Lang = cfg.Rules, cfg.Routes, cfg.Lang
+		if body, err := XrayConfigsVia(p, cfg.Groups, cfg.Routing, cfg.XrayExit); err == nil && xrayBodyFits(rec.Bodies, body) {
+			rec.Bodies = append(rec.Bodies, nodeapi.SubBody{Format: nodeapi.SubFormatXray, Type: "application/json; charset=utf-8", Body: body})
+		}
+	}
 	rec.Bodies = append(rec.Bodies, htmlBody(cfg, state, u, grants.Main(u.ID), now, ""))
 	return rec, nil
+}
+
+// xrayBodyFits says whether adding the Xray JSON keeps the record under the node's limit.
+func xrayBodyFits(bodies []nodeapi.SubBody, body []byte) bool {
+	n := len(body)
+	for _, b := range bodies {
+		n += len(b.Body)
+	}
+	return n <= nodeapi.MaxSubRecordBytes
 }
 
 // profileBody is the body of one of the three profile formats, as the panel writes it.

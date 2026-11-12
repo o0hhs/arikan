@@ -305,7 +305,7 @@ func (h *Handler) serveProfile(w http.ResponseWriter, r *http.Request, u db.User
 	h.operatorHeaders(w, r, u, cfg)
 	// Happ and INCY get the full config in place of the link list while the switch is on.
 	// An explicit ?format= is that format, including uri for the links and xray for the
-	// configs. A node that serves the subscription itself keeps the link list.
+	// configs. A node that serves the subscription itself does the same (nodeserve.go).
 	serveXray := xrayFullConfig(cfg.INCYAuto, format, r.URL.Query().Get("format"), r.UserAgent())
 	switch ua := r.UserAgent(); {
 	case IsINCY(ua):
@@ -396,11 +396,9 @@ func (h *Handler) serveProfile(w http.ResponseWriter, r *http.Request, u db.User
 		_, _ = w.Write([]byte(TurnSubscription(prof)))
 	default:
 		if serveXray {
-			// A whole Xray config with the autoselect balancer (xrayconfig.go). A profile
-			// Xray cannot run whole — a hysteria2-only one, or one that mixes Hysteria2 with
-			// what Xray has — falls back to the link list: a config would quietly drop those
-			// servers from the app's list, and losing half the servers is worse than having
-			// no automatic entry.
+			// A whole Xray config with the autoselect balancer (xrayconfig.go). Hysteria2 is
+			// in it. A profile of nothing Xray can run (TUIC only, for example) falls back to
+			// the link list; one unsupported server does not.
 			prof.Rules, prof.Routes, prof.Lang = cfg.Rules, cfg.Routes, cfg.Lang
 			body, cerr := XrayConfigsVia(prof, cfg.Groups, cfg.Routing, cfg.XrayExit)
 			switch {
@@ -408,8 +406,6 @@ func (h *Handler) serveProfile(w http.ResponseWriter, r *http.Request, u db.User
 				w.Header().Set("Content-Type", "application/json; charset=utf-8")
 				_, _ = w.Write(body)
 				return
-			case errors.Is(cerr, ErrXrayPartial):
-				h.log.Info("xray configs: the profile has servers Xray cannot run; the link list is served", "err", cerr)
 			case !errors.Is(cerr, ErrNoProxies):
 				h.profileFailed(w, u, cfg, format, cerr)
 				return
@@ -999,7 +995,7 @@ var linkApps = []string{"streisand", "shadowrocket", "foxray"}
 // ask for while the switch is on. An explicit ?format= wins: uri stays the link list, xray
 // is the configs even with the switch off. Every other app, and every other format, keeps
 // the body it had before the switch existed. A node that serves the subscription itself
-// keeps the link list either way (nodeserve.go).
+// picks the same JSON for Happ and INCY when the record carries it (nodeserve.go).
 func xrayFullConfig(on bool, format, query, userAgent string) bool {
 	if format == "xray" {
 		return true

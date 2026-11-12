@@ -55,4 +55,27 @@ func TestPickSubBodyFallsBackToTheLinks(t *testing.T) {
 	if _, ok := PickSubBody(nil, "", "", ""); ok {
 		t.Fatal("a record with no bodies has one")
 	}
+	// Happ and INCY take the Xray configs when the record has them. Another app, and an
+	// explicit format, keep what they asked for. Without the configs, they get the links.
+	withXray := []SubBody{{Format: SubFormatURI, Body: []byte("u")}, {Format: SubFormatXray, Body: []byte("[]")}}
+	b, ok = PickSubBody(withXray, "", "Happ/3.4.1", "")
+	if !ok || b.Format != SubFormatXray {
+		t.Fatalf("happ: %+v %v", b, ok)
+	}
+	b, ok = PickSubBody(withXray, "", "INCY/2.1.0", "")
+	if !ok || b.Format != SubFormatXray {
+		t.Fatalf("incy: %+v %v", b, ok)
+	}
+	b, ok = PickSubBody(withXray, "uri", "Happ/3.4.1", "")
+	if !ok || b.Format != SubFormatURI {
+		t.Fatalf("happ ?format=uri: %+v %v", b, ok)
+	}
+	b, ok = PickSubBody(withXray, "", "v2rayNG/1.10.2", "")
+	if !ok || b.Format != SubFormatURI {
+		t.Fatalf("v2rayng: %+v %v", b, ok)
+	}
+	b, ok = PickSubBody(all, "", "Happ/3.4.1", "")
+	if !ok || b.Format != SubFormatURI {
+		t.Fatalf("happ without configs: %+v %v", b, ok)
+	}
 }

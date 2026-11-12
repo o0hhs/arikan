@@ -129,7 +129,8 @@ func TestInboundsBehindAProxy(t *testing.T) {
 
 	// Share links and the Clash profile: the proxy's endpoint, the usual REALITY name.
 	// Xray apps (Happ) get no AnyTLS: its link is checked in the profile.
-	resp, raw = h.do(http.MethodGet, "/"+subPath+"/"+u.SubToken, nil, map[string]string{"User-Agent": "Happ/3.4.1"})
+	// ?format=uri keeps the link list. Happ's default answer is the Xray JSON config.
+	resp, raw = h.do(http.MethodGet, "/"+subPath+"/"+u.SubToken+"?format=uri", nil, map[string]string{"User-Agent": "Happ/3.4.1"})
 	links, err := base64.StdEncoding.DecodeString(string(raw))
 	if resp.StatusCode != http.StatusOK || err != nil {
 		t.Fatalf("subscription: %d %v", resp.StatusCode, err)

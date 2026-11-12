@@ -36,7 +36,8 @@ func TestInactiveServer(t *testing.T) {
 	}
 	fetch := func() string {
 		t.Helper()
-		_, body := h.do(http.MethodGet, "/"+subPath+"/"+u.SubToken, nil, map[string]string{"User-Agent": "Happ/3.4.1"})
+		// ?format=uri keeps the link list. Happ's default answer is the Xray JSON config.
+		_, body := h.do(http.MethodGet, "/"+subPath+"/"+u.SubToken+"?format=uri", nil, map[string]string{"User-Agent": "Happ/3.4.1"})
 		links, _ := base64.StdEncoding.DecodeString(string(body))
 		return string(links)
 	}

@@ -92,9 +92,8 @@ func goldenInbounds(node, firstID int64, more bool) []db.Inbound {
 	return out
 }
 
-// withoutNonXray drops the servers Xray has no outbound for (Hysteria2, TUIC, AnyTLS) and
-// the inbounds of nodes the user is not given: the profile an Xray config is made of at
-// all (ErrXrayPartial otherwise, and the panel then serves the link list). The Clash,
+// withoutNonXray drops the servers Xray has no outbound for (TUIC, AnyTLS) and the
+// inbounds of nodes the user is not given. Hysteria2 stays: Xray runs it. The Clash,
 // sing-box and URI golden files keep the full profile.
 func withoutNonXray(p Profile) Profile {
 	byNode := map[int64]bool{}
@@ -107,7 +106,7 @@ func withoutNonXray(p Profile) Profile {
 			continue
 		}
 		switch in.Preset {
-		case "hysteria2", "tuic_v5", "anytls":
+		case "tuic_v5", "anytls":
 			continue // a protocol Xray has no outbound for
 		}
 		ins = append(ins, in)

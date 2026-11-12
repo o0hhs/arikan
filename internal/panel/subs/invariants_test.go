@@ -23,11 +23,17 @@ func TestSubscriptionInvariants(t *testing.T) {
 	t.Run("mixed", func(t *testing.T) {
 		p := mixedProfile()
 		assertSubscription(t, p)
-		// Hysteria2, TUIC and AnyTLS have no Xray outbound: a whole config would drop them,
-		// so the generator refuses and the panel serves the link list (the delivery test in
-		// xrayconfig_test.go). The config itself is checked on an all-Xray profile below.
-		if _, err := XrayConfigs(p, Groups{}, RoutingRUDirect); !errors.Is(err, ErrXrayPartial) {
-			t.Fatalf("a mixed profile: %v, want ErrXrayPartial", err)
+		// Hysteria2 is in the JSON. TUIC and AnyTLS are not, and that does not refuse the
+		// config: the autoselect entry and the servers Xray can run are still served.
+		raw, err := XrayConfigs(p, Groups{}, RoutingRUDirect)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(raw), `"protocol":"hysteria"`) {
+			t.Fatal("Hysteria2 is missing from the Xray configs")
+		}
+		if strings.Contains(string(raw), `"protocol":"tuic"`) {
+			t.Fatal("TUIC has no Xray outbound and must stay out of the configs")
 		}
 	})
 
@@ -176,22 +182,23 @@ func TestSubscriptionInvariants(t *testing.T) {
 	})
 }
 
-// Hysteria2-only: Xray has no outbound for it, so the full config is refused and the
-// caller serves the link list. Clash and sing-box keep the server.
+// Hysteria2-only is still a full config: the autoselect entry and the server, both JSON.
+// Clash and sing-box keep the server too.
 func TestHysteria2Only(t *testing.T) {
 	p := Profile{
 		Slot:     goldenSlot,
 		Inbounds: []db.Inbound{hy2In(1, 1, "hysteria2", "443", "Hysteria2")},
 		Nodes:    []Node{{ID: 1, Endpoint: Endpoint{Host: "203.0.113.7", SNI: "node.example.com"}}},
 	}
-	if _, err := XrayConfigs(p, Groups{}, RoutingRUDirect); !errors.Is(err, ErrNoProxies) {
-		t.Fatalf("xray: %v", err)
+	raw, err := XrayConfigs(p, Groups{}, RoutingRUDirect)
+	if err != nil || !strings.Contains(string(raw), `"protocol":"hysteria"`) || !strings.Contains(string(raw), `"remarks":"Авто"`) {
+		t.Fatalf("xray: %v %s", err, raw)
 	}
 	links, err := URIs(p)
 	if err != nil || !strings.HasPrefix(links, "hysteria2://") || strings.Contains(links, "\n") {
 		t.Fatalf("links: %q %v", links, err)
 	}
-	raw, err := Mihomo(p, Groups{}, RoutingAll)
+	raw, err = Mihomo(p, Groups{}, RoutingAll)
 	if err != nil || !strings.Contains(string(raw), "hysteria2") {
 		t.Fatalf("clash: %v\n%s", err, raw)
 	}
@@ -600,7 +607,7 @@ func assertXray(t *testing.T, raw []byte, servers int) {
 			tags[tag] = true
 			p := str(o["protocol"])
 			switch p {
-			case "vless", "trojan", "shadowsocks", "freedom", "blackhole":
+			case "vless", "trojan", "shadowsocks", "hysteria", "freedom", "blackhole":
 			default:
 				t.Fatalf("protocol %q", p)
 			}
@@ -652,6 +659,8 @@ func outboundSig(o map[string]any) endpointSig {
 		}
 		m := anyMap(list[0])
 		return endpointSig{str(m["address"]), str(m["port"])}
+	case "hysteria":
+		return endpointSig{str(s["address"]), str(s["port"])}
 	}
 	return endpointSig{}
 }
