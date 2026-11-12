@@ -157,6 +157,8 @@ jobs:
 
   image:
     needs: test
+    # A [fast-release] skips test; the build still runs on what it would have checked.
+    if: ${{ !cancelled() && !failure() }}
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -224,6 +226,7 @@ jobs:
 
   installer:
     needs: test
+    if: ${{ !cancelled() && !failure() }}
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -264,6 +267,7 @@ jobs:
 
   publish:
     needs: [image, installer]
+    if: ${{ !cancelled() && !failure() }}
     runs-on: ubuntu-24.04
     # One release at a time writes the index: the second waits and carries the first on.
     concurrency:
@@ -345,7 +349,7 @@ jobs:
   # nothing is rebuilt.
   latest:
     needs: [image, publish]
-    if: ${{ !contains(github.ref_name, '-') }}
+    if: ${{ !cancelled() && !failure() && !contains(github.ref_name, '-') }}
     runs-on: ubuntu-24.04
     permissions:
       packages: write
