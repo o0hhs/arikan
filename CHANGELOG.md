@@ -3,6 +3,21 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
+## 0.5.5.12
+### en
+**Back on the fork's own base; a node behind a filter reaches its clients, and a paid payment applies.**
+- **The fork is whole again.** The 0.5.5.7+ sync onto upstream's dev dropped the fork's bot, billing, referral programme, partners and front end. This release is built on the 0.5.5.6 base, where they are intact, and carries over only what it lacked.
+- **A node behind a filter is reached through the panel.** Its links point at the panel for the ports it names (Nodes → Edit node → "Ports via the panel"), and the panel forwards each client's connection over the node's own reverse tunnel to the node's loopback: the tunnel now carries two kinds of stream, the node's API and a client's connection (the port named on it). Works for TCP protocols; Hysteria2 and TUIC are UDP.
+- **The tunnel's TLS matches its pin.** The node pins the panel's certificate from its join key, but the tunnel presented the panel's public one, so on a bare-IP panel the node refused it and the tunnel never came up. The tunnel now presents the key's pair, and the node accepts it by that pin (self-signed included).
+- **A paid payment no longer hangs as "not applied (25P02)".** A failed read inside the payment's transaction was swallowed, aborting the whole transaction, and a stray rollback statement ran on the aborted one; the reconcile then retried every minute and the subscription was never granted. The read's error is returned and the stray statement is gone.
+
+### ru
+**Снова на собственной базе форка; нода за фильтром доходит до клиентов, а оплаченный платёж применяется.**
+- **Форк снова цел.** Синхронизация 0.5.5.7+ на upstream dev потеряла бота, биллинг, рефералку, партнёров и верстку форка. Этот релиз собран на базе 0.5.5.6, где они целы, и несёт только то, чего ей не хватало.
+- **Нода за фильтром доступна через панель.** Её ссылки указывают на панель для портов, которые она называет (Ноды → Изменить ноду → «Порты через панель»), и панель пересылает каждое подключение клиента по обратному туннелю ноды к её loopback: туннель теперь несёт два вида потоков — API ноды и подключение клиента (порт назван в потоке). Работает для TCP-протоколов; Hysteria2 и TUIC — это UDP.
+- **TLS туннеля совпадает со своим пином.** Нода пиннит сертификат панели из ключа подключения, а туннель предъявлял публичный сертификат панели: на голом IP нода отвергала панель, и туннель не поднимался. Теперь туннель предъявляет пару из ключа, и нода принимает её по этому пину (самоподписанный в том числе).
+- **Оплаченный платёж больше не висит «не применён (25P02)».** Ошибка чтения внутри транзакции платежа проглатывалась и абортила всю транзакцию, а лишний откат выполнялся на уже аборченной; реконсайл повторял каждую минуту, и подписка не начислялась. Теперь ошибка возвращается, а лишний откат убран.
+
 ## 0.5.5.7
 ### en
 **"YouTube without ads" works again, and its exit is set in one place.**
