@@ -8,7 +8,7 @@
 -- vk_links are the VK call links the clients are told to join, one per line (a call
 -- carries a limited rate, so a panel with many users spreads them over several calls);
 -- an empty list leaves the entry without a link.
-CREATE TABLE node_turn (
+CREATE TABLE IF NOT EXISTS node_turn (
   node_id     BIGINT PRIMARY KEY REFERENCES nodes(id) ON DELETE CASCADE,
   enabled     BIGINT NOT NULL DEFAULT 1 CHECK (enabled IN (0,1)),
   inbound_id  BIGINT NOT NULL REFERENCES "inbounds"(id) ON DELETE CASCADE,

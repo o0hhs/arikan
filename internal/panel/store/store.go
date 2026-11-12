@@ -275,7 +275,13 @@ func postgresProvider(ctx context.Context, conn *sql.DB, fsys fs.FS) (*goose.Pro
 	if err != nil {
 		return nil, err
 	}
-	p, err := goose.NewProvider(goose.DialectPostgres, conn, fsys, goose.WithSessionLocker(locker))
+	p, err := goose.NewProvider(goose.DialectPostgres, conn, fsys, goose.WithSessionLocker(locker),
+		// A panel that ran 0.5.5.7–0.5.5.11 went through the upstream/dev numbering, which cut
+		// some of the fork's migrations (node_turn, 0035, among them) as tombstones: its
+		// goose_db_version has no such version, so the fork's file looks "missing, lower than
+		// the database" and is refused. Applying it out of order brings the fork's schema back
+		// (the tables the 0.5.5.7 sync dropped), and a fresh database is unaffected.
+		goose.WithAllowOutofOrder(true))
 	if err != nil {
 		return nil, fmt.Errorf("PostgreSQL migrations: %w", err)
 	}

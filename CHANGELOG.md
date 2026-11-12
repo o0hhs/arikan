@@ -3,6 +3,15 @@
 Each release has a section in English and in Russian; the release workflow puts them in
 the signed manifest, and the panel shows the one in its language.
 
+## 0.5.5.14
+### en
+**An update from 0.5.5.11 no longer stops on a "missing out-of-order migration".**
+- **The 0.5.5.7–0.5.5.11 sync tombstoned two fork migrations** (node_turn, 35; webhook_events, 80): their files were dropped and their rows removed from goose_db_version, so a database that ran one of those panels is on version 94 yet has no row for 35 or 80. The fork's files then look like migrations missing below the database's version, and the migrator refused the update. Migrations may now run out of order, so those two are applied on top of a synced database; both are made idempotent (CREATE TABLE / ADD COLUMN IF NOT EXISTS) so a schema the sync already built for them is left as it is. A fresh database is unaffected.
+
+### ru
+**Обновление с 0.5.5.11 больше не останавливается на «недостающей миграции не по порядку».**
+- **Синхронизация 0.5.5.7–0.5.5.11 вырезала две миграции форка** (node_turn, 35; webhook_events, 80): их файлы удалили, а записи убрали из goose_db_version, поэтому база, работавшая на такой панели, стоит на версии 94, но записи для 35 и 80 у неё нет. Файлы форка тогда выглядят как миграции, недостающие ниже версии базы, и мигратор отклонял обновление. Теперь миграции могут применяться не по порядку, так что эти две накатываются поверх синкованной базы; обе сделаны идемпотентными (CREATE TABLE / ADD COLUMN IF NOT EXISTS), так что схема, которую синк уже построил для них, остаётся как есть. Чистая база не затронута.
+
 ## 0.5.5.13
 ### en
 **An update from 0.5.5.11 migrates cleanly.**
