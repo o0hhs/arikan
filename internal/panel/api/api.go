@@ -367,6 +367,7 @@ func New(d Deps) (http.Handler, huma.API, error) {
 	api.UseMiddleware(h.middleware)
 	h.registerAuth()
 	h.registerUsers()
+	h.registerLifecycle()
 	h.registerUserDiagnosis()
 	h.registerFolders()
 	h.registerHapp()

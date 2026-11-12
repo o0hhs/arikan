@@ -28,6 +28,8 @@ export const qk = {
   node: ["node"] as const,
   nodes: ["nodes"] as const,
   settings: ["settings"] as const,
+  lifecycle: ["lifecycle"] as const,
+  inactive: ["lifecycle", "inactive"] as const,
   sessions: ["sessions"] as const,
   telegram: ["telegram"] as const,
   updates: ["updates"] as const,
@@ -353,6 +355,19 @@ export function useTorrentHits(user = 0, limit = 50) {
 
 export function useSettings() {
   return useQuery({ queryKey: qk.settings, queryFn: ({ signal }) => unwrap(api.GET("/api/v1/settings", { signal })) });
+}
+
+/** The admin's rules for removing inactive subscriptions. */
+export function useLifecycle() {
+  return useQuery({ queryKey: qk.lifecycle, queryFn: ({ signal }) => unwrap(api.GET("/api/v1/lifecycle", { signal })) });
+}
+
+/** Who the removal would reach after this many days. Nothing is deleted. */
+export function useInactive(days: number) {
+  return useQuery({
+    queryKey: [...qk.inactive, days],
+    queryFn: ({ signal }) => unwrap(api.GET("/api/v1/lifecycle/inactive", { params: { query: { days } }, signal })),
+  });
 }
 
 /** Followed every few seconds while the server updates, hourly otherwise. */

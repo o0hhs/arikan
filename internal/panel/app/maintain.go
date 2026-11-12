@@ -20,6 +20,9 @@ const (
 	// approvalExecutingLease is how long an action may stay claimed before housekeeping
 	// assumes the panel that ran it has stopped and returns it to approved.
 	approvalExecutingLease = 5 * time.Minute
+	// removalsPerRound bounds the inactive subscriptions one round removes: rules turned on
+	// over years of them go over a few rounds, each removal a short transaction of its own.
+	removalsPerRound = 200
 )
 
 // maintain forgets what is too old to matter: daily traffic, the audit journal and devices
@@ -62,5 +65,24 @@ func (p *Panel) maintain(ctx context.Context) {
 	// What the monitoring page's rate limiter remembers of clients long gone.
 	if p.monitor != nil {
 		p.monitor.Sweep()
+	}
+	p.removeInactive(ctx)
+}
+
+// removeInactive deletes the subscriptions the admin's rules reach (domain.RemoveInactive).
+// Off until the admin turns it on, and then at most removalsPerRound a pass.
+func (p *Panel) removeInactive(ctx context.Context) {
+	if p.users == nil {
+		return
+	}
+	rules, err := domain.LoadLifecycle(ctx, p.Settings)
+	if err != nil {
+		p.log.Error("read the removal rules", "err", err)
+		return
+	}
+	if n, err := p.users.RemoveInactive(ctx, rules.Removal, removalsPerRound); err != nil {
+		p.log.Error("remove inactive subscriptions", "removed", n, "err", err)
+	} else if n > 0 {
+		p.log.Info("removed inactive subscriptions", "count", n, "days", rules.Removal.Days)
 	}
 }

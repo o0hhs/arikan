@@ -217,28 +217,33 @@ func TestHysteria2Only(t *testing.T) {
 	}
 }
 
-// The switch is INCY-only and uri-only. Off, and for every other ask, there is no full
-// config; on, the array keeps every Xray server and the auto entry, each with its own name.
+// The switch gives Happ and INCY the full config in place of the links they ask for.
+// An explicit ?format=uri stays the list; ?format=xray is the configs even with the
+// switch off. On, the array keeps every Xray server and the automatic entries, each
+// with its own name.
 func TestINCYAutoselectToggle(t *testing.T) {
 	p := mixedProfile()
 	cases := []struct {
-		on     bool
-		format string
-		ua     string
-		full   bool
+		on            bool
+		format, query string
+		ua            string
+		full          bool
 	}{
-		{true, "uri", "INCY/2.1.0", true},
-		{true, "uri", "incy/1", true},
-		{false, "uri", "INCY/2.1.0", false},
-		{true, "clash", "INCY/2.1.0", false},
-		{true, "singbox", "INCY/2.1.0", false},
-		{true, "uri", "Happ/3.4.1", false},
-		{true, "uri", "v2RayTun/Android", false},
-		{true, "html", "INCY/2.1.0", false},
+		{true, "uri", "", "INCY/2.1.0", true},
+		{true, "uri", "", "incy/1", true},
+		{true, "uri", "", "Happ/3.4.1", true},
+		{true, "uri", "uri", "INCY/2.1.0", false},
+		{true, "uri", "uri", "Happ/3.4.1", false},
+		{false, "xray", "xray", "v2rayNG/1.10.2", true},
+		{false, "uri", "", "INCY/2.1.0", false},
+		{true, "clash", "", "INCY/2.1.0", false},
+		{true, "singbox", "", "INCY/2.1.0", false},
+		{true, "uri", "", "v2RayTun/Android", false},
+		{true, "html", "", "INCY/2.1.0", false},
 	}
 	for _, c := range cases {
-		if got := incyFullConfig(c.on, c.format, c.ua); got != c.full {
-			t.Errorf("on=%v format=%s ua=%s: %v, want %v", c.on, c.format, c.ua, got, c.full)
+		if got := xrayFullConfig(c.on, c.format, c.query, c.ua); got != c.full {
+			t.Errorf("on=%v format=%s query=%s ua=%s: %v, want %v", c.on, c.format, c.query, c.ua, got, c.full)
 		}
 	}
 	raw, err := XrayConfigs(xrayOnlyProfile(t), Groups{}, RoutingAll)
@@ -566,10 +571,12 @@ func xrayProxyProtocols(c xrayDoc) []string {
 func assertXray(t *testing.T, raw []byte, servers int) {
 	t.Helper()
 	cfgs := decodeXray(t, raw)
-	if len(cfgs) != servers+1 {
-		t.Fatalf("%d configs, want %d servers plus the auto entry", len(cfgs), servers)
+	// The auto group, then one config per country when there are several nodes, then one per server.
+	if len(cfgs) < servers+1 || len(cfgs) > servers*2+1 {
+		t.Fatalf("%d configs, want %d servers, the auto entry and at most one country each", len(cfgs), servers)
 	}
 	remarks := map[string]bool{}
+	singles := 0
 	for i, c := range cfgs {
 		if c.Remarks == "" || remarks[c.Remarks] {
 			t.Fatalf("remarks %q", c.Remarks)
@@ -601,25 +608,28 @@ func assertXray(t *testing.T, raw []byte, servers int) {
 		if len(c.Routing.Rules) == 0 || c.Routing.DomainStrategy == "" {
 			t.Fatalf("routing: %+v", c.Routing)
 		}
-		if i == 0 {
-			if c.Observatory["probeUrl"] == "" || len(c.Routing.Balancers) == 0 {
-				t.Fatalf("auto: observatory %v balancers %v", c.Observatory, c.Routing.Balancers)
+		if len(c.Routing.Balancers) > 0 {
+			if c.Observatory["probeUrl"] == "" {
+				t.Fatalf("a balancer config has no observatory: %q", c.Remarks)
 			}
 			b := c.Routing.Balancers[0]
 			if str(anyMap(b["strategy"])["type"]) != "leastPing" {
 				t.Fatalf("balancer: %v", b)
 			}
-			if n := len(xrayProxyProtocols(c)); n != servers {
-				t.Fatalf("the auto config carries %d servers, want %d", n, servers)
+			if i == 0 {
+				if n := len(xrayProxyProtocols(c)); n != servers {
+					t.Fatalf("the auto config carries %d servers, want %d", n, servers)
+				}
 			}
 			continue
 		}
-		if c.Observatory != nil || len(c.Routing.Balancers) != 0 {
-			t.Fatalf("a server config has a balancer: %v %v", c.Observatory, c.Routing.Balancers)
-		}
+		singles++
 		if n := len(xrayProxyProtocols(c)); n != 1 {
 			t.Fatalf("a server config carries %d proxies", n)
 		}
+	}
+	if singles != servers {
+		t.Fatalf("%d server configs, want %d", singles, servers)
 	}
 }
 

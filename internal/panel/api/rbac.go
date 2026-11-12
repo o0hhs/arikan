@@ -166,7 +166,7 @@ func permissionFor(method, path string) string {
 		return area(PermAutomationRead, PermAutomationWrite)
 	case hit(path, "/s3-backup", "/telegram/backup", "/database/backup"):
 		return area(PermBackupsRead, PermBackupsWrite)
-	case hit(path, "/users", "/folders", "/import"):
+	case hit(path, "/users", "/folders", "/import", "/lifecycle"):
 		return area(PermUsersRead, PermUsersWrite)
 	case hit(path, "/settings", "/sub-page", "/sub-docs", "/routes", "/monitor", "/telegram", "/webhooks"):
 		return area(PermSettingsRead, PermSettingsWrite)

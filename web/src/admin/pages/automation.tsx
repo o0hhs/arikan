@@ -57,6 +57,7 @@ const TRIGGERS: { value: Trigger; label: Key }[] = [
   { value: "user.expiring", label: "automation.triggers.expiring" },
   { value: "user.expired", label: "automation.triggers.expired" },
   { value: "user.inactive", label: "automation.triggers.inactive" },
+  { value: "user.removed", label: "automation.triggers.removed" },
   { value: "traffic.90", label: "automation.triggers.traffic90" },
   { value: "traffic.100", label: "automation.triggers.traffic100" },
   { value: "payment.paid", label: "automation.triggers.paid" },

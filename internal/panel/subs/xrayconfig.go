@@ -14,9 +14,10 @@ import (
 // INCY takes a whole Xray config as a subscription: an object with inbounds and outbounds
 // is one server in its list, an array of them is one server per element (docs.incy.cc,
 // "Subscription format" and "Full Xray configurations"). Share links cannot carry a
-// balancer, so this is the only way INCY gets an autoselect entry: the body is that
-// array — the config with every server, an observatory and a leastPing balancer first,
-// then one config per server, so the list stays and the automatic entry joins it.
+// balancer, so this is the only way Happ and INCY get an autoselect entry: the body is
+// that array — a config per automatic group first (the auto group, then one per country
+// when there are several nodes), each with an observatory and a balancer, then one config
+// per server, so the list stays and the automatic entries join it.
 //
 // Each element is named by its top-level remarks. That field is the entry INCY shows and
 // the key it updates the server by; it names the whole config, not an outbound inside a
@@ -72,8 +73,9 @@ func (s xrayServer) tagged(tag string) map[string]any {
 	return m
 }
 
-// XrayConfigs renders the whole subscription body for INCY with the autoselect switch on:
-// a JSON array, the balancer config first, then one full config per server. ErrNoProxies
+// XrayConfigs renders the whole subscription body for Happ and INCY: a JSON array, the
+// automatic groups first (the auto group, then each country), then one full config per
+// server. ErrNoProxies
 // when nothing of the profile is an outbound Xray has, and ErrXrayPartial when only some
 // are: the caller serves the link list in both cases, so no server ever disappears.
 func XrayConfigs(p Profile, g Groups, r Routing) ([]byte, error) {
@@ -185,9 +187,18 @@ func xrayConfigList(exitAddr string, p Profile, g Groups, r Routing) ([]map[stri
 	// automatic entry.
 	groupBalancer := map[string]string{}
 	selector := dedup([]string{"server-", tags[first]})
-	balancers := []map[string]any{
-		{"tag": "auto", "selector": selector, "strategy": map[string]any{"type": "leastPing"}},
+	// url-test is leastPing; fallback is the same with the first server kept for when none
+	// answer (xray keeps no order of its own); load-balance is a random pick. The default,
+	// and every country group, stays leastPing.
+	strategy := map[string]any{"type": "leastPing"}
+	if p.Routes.Servers.Auto == AutoLoadBalance {
+		strategy["type"] = "random"
 	}
+	autoBalancer := map[string]any{"tag": "auto", "selector": selector, "strategy": strategy}
+	if p.Routes.Servers.Auto == AutoFallback {
+		autoBalancer["fallbackTag"] = tags[first]
+	}
+	balancers := []map[string]any{autoBalancer}
 	for _, gr := range rt.groups {
 		ids := map[int64]bool{}
 		for _, x := range anyList(gr["proxies"]) {
@@ -280,7 +291,7 @@ func xrayConfigList(exitAddr string, p Profile, g Groups, r Routing) ([]map[stri
 	cfgs = append(cfgs, auto)
 
 	// One config per server: the same rules, with every proxy target on this very server.
-	// remarks stays unique across the list, including the automatic entry: two configs
+	// remarks stays unique across the list, including the automatic entries: two configs
 	// with one remarks are one server in INCY, and the others disappear.
 	seenRemark := map[string]bool{"direct": true, "block": true}
 	// The same name is the same entry in INCY: a server that took the exit's or the auto
@@ -290,6 +301,15 @@ func xrayConfigList(exitAddr string, p Profile, g Groups, r Routing) ([]map[stri
 	}
 	if via != nil {
 		seenRemark[xrayViaRemark(g.Auto, via.name)] = true
+	}
+	// A country group is an automatic group of its own, as the Clash profile lists it:
+	// after the auto group and before the servers. One node, or countries turned off, has none.
+	for _, c := range xrayCountries(p, g, servers) {
+		if seenRemark[c.name] {
+			continue
+		}
+		seenRemark[c.name] = true
+		cfgs = append(cfgs, xrayCountryConfig(c.name, c.node, servers, tags, texts, probe, viaAddr(via), r, p))
 	}
 	for _, s := range servers {
 		tag := xrayTag(s.name, seenRemark)
@@ -316,6 +336,108 @@ func xrayConfigList(exitAddr string, p Profile, g Groups, r Routing) ([]map[stri
 		})
 	}
 	return cfgs, nil
+}
+
+// xrayCountry is one node's automatic group: the name the app shows, and the node.
+type xrayCountry struct {
+	name string
+	node int64
+}
+
+// xrayCountries are the country groups the Clash profile would list: one per node when
+// there are several, none when the admin turned them off or a name would clash with a
+// server or another group. A node with nothing Xray can run has none.
+func xrayCountries(p Profile, g Groups, servers []xrayServer) []xrayCountry {
+	if p.Routes.Servers.NoCountries || len(p.Nodes) < 2 {
+		return nil
+	}
+	taken := map[string]bool{
+		strings.ToLower(g.Main): true, strings.ToLower(g.Auto): true, strings.ToLower(AliasGroup): true,
+		"direct": true, "block": true, xrayViaTag: true,
+	}
+	for _, s := range servers {
+		taken[strings.ToLower(s.name)] = true
+	}
+	var out []xrayCountry
+	for _, n := range p.Nodes {
+		has := false
+		for _, s := range servers {
+			if s.node == n.ID {
+				has = true
+				break
+			}
+		}
+		label := strings.TrimSpace(strings.ToValidUTF8(n.Name, ""))
+		if !has || ValidName(label) != nil || taken[strings.ToLower(label)] {
+			continue
+		}
+		taken[strings.ToLower(label)] = true
+		out = append(out, xrayCountry{name: label, node: n.ID})
+	}
+	return out
+}
+
+// xrayCountryConfig is the list entry of one country: the same rules as the auto group,
+// with every proxy target going through this country's servers. The first proxy outbound
+// is tagged with the country's name, the same string as remarks, so INCY keeps the entry
+// instead of collapsing it into the auto group. A service the admin pinned to another node
+// stays on the auto group's config; this entry is the choice of the country itself.
+func xrayCountryConfig(name string, node int64, servers []xrayServer, tags []string, texts []string, probe int, via string, r Routing, p Profile) map[string]any {
+	var own []int
+	for i, s := range servers {
+		if s.node == node {
+			own = append(own, i)
+		}
+	}
+	if len(own) == 0 {
+		return nil
+	}
+	used := map[string]bool{"direct": true, "block": true, xrayViaTag: true}
+	remark := xrayTag(name, used)
+	used[remark] = true
+	local := make([]string, len(own))
+	local[0] = remark
+	for i, idx := range own[1:] {
+		local[i+1] = xrayTag(tags[idx], used)
+		used[local[i+1]] = true
+	}
+	outbounds := make([]any, 0, len(own)+3)
+	for i, idx := range own {
+		outbounds = append(outbounds, servers[idx].tagged(local[i]))
+	}
+	outbounds = append(append(outbounds, xrayDirect(), xrayBlock()), xrayViaOut(via)...)
+	sel := dedup(append([]string{fmt.Sprintf("server-%d-", node), fmt.Sprintf("other-%d-", node)}, local...))
+	// A country group is a url-test whatever the auto group was set to.
+	pick := func(target string) (string, string) {
+		switch {
+		case target == "DIRECT":
+			return "direct", ""
+		case strings.HasPrefix(target, "REJECT"):
+			return "block", ""
+		}
+		return "", "auto"
+	}
+	return map[string]any{
+		"remarks":   remark,
+		"log":       map[string]any{"loglevel": "warning"},
+		"dns":       xrayDNS(p.Routes.DNS, r),
+		"inbounds":  xrayInbounds(),
+		"outbounds": outbounds,
+		"routing": map[string]any{
+			"domainStrategy": "IPIfNonMatch",
+			"balancers": []map[string]any{
+				{"tag": "auto", "selector": sel, "strategy": map[string]any{"type": "leastPing"}},
+			},
+			"rules": append(xrayRules(texts, pick), xrayFallbackVia(via, r)...),
+		},
+		"observatory": map[string]any{
+			"subjectSelector":   sel,
+			"probeUrl":          xrayProbeURL,
+			"probeInterval":     strconv.Itoa(probe) + "s",
+			"enableConcurrency": true,
+		},
+		"stats": map[string]any{},
+	}
 }
 
 // xrayViaTag is the tag of the admin's own exit in every Xray config (XrayExit): a proxy

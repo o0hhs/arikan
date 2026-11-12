@@ -1,7 +1,7 @@
 import * as Menu from "@radix-ui/react-dropdown-menu";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import clsx from "clsx";
-import { CalendarPlus, Check, ChevronRight, Eye, EyeOff, FolderCog, FolderInput, Plus, Power, RotateCcw, Search, SlidersHorizontal, Trash2, X } from "lucide-react";
+import { CalendarClock, CalendarPlus, Check, ChevronRight, Eye, EyeOff, FolderCog, FolderInput, Plus, Power, RotateCcw, Search, SlidersHorizontal, Trash2, X } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { basePath, errorText, type Tariff, type User } from "../../api/client";
 import { userActions, useFolders, useOverview, useSettings, useTariffs, useUserMutation, useUsersPages } from "../../api/hooks";
@@ -16,6 +16,7 @@ import { useMediaQuery } from "../../lib/media";
 import { pagedItems } from "../../lib/paging";
 import { useUrlSearchText } from "../../lib/url-search";
 import { USER_HIDDEN, USER_SORTS, USER_SOURCES, USER_STATES, type UsersSearch } from "../search";
+import { LifecycleDrawer } from "./lifecycle";
 import { CreateUserDrawer } from "./user-create";
 import { UserDrawer } from "./user-drawer";
 import { FolderBadge, FolderMark, FolderMenuItems, FoldersDrawer, type Folder } from "./user-folders";
@@ -96,6 +97,7 @@ export function UsersPage() {
   const folders = useFolders();
   const overview = useOverview({ poll: false });
   const [managing, setManaging] = useState(false);
+  const [rules, setRules] = useState(false);
   const [selected, setSelected] = useState<ReadonlySet<number>>(new Set());
   const narrow = useMediaQuery("(max-width: 767px)");
   // With binding a place is a bound device, else an address online (see the drawer). Read
@@ -161,6 +163,10 @@ export function UsersPage() {
         sub={overview.data ? `${t("users.subtitle", { n: overview.data.users_total, active: num(overview.data.users_active) })}${hiddenTotal > 0 ? ` · ${t("users.hiddenCount", { n: hiddenTotal })}` : ""}` : "…"}
         actions={
           <>
+            <Button onClick={() => setRules(true)} aria-label={t("lifecycle.open")}>
+              <CalendarClock size={18} aria-hidden />
+              <span className="max-[760px]:hidden">{t("lifecycle.open")}</span>
+            </Button>
             <Button onClick={() => setManaging(true)} aria-label={t("users.manageFolders")}>
               <FolderCog size={18} aria-hidden />
               <span className="max-[760px]:hidden">{t("users.manageFolders")}</span>
@@ -332,6 +338,7 @@ export function UsersPage() {
       </section>
 
       <BulkBar chosen={chosen} clear={clear} folders={folderList} />
+      <LifecycleDrawer open={rules} onOpenChange={setRules} />
       <FoldersDrawer open={managing} onOpenChange={setManaging} />
       <CreateUserDrawer
         open={!!search.create}

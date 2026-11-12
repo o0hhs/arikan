@@ -7,8 +7,9 @@ package events
 // subscriber asks the Panel API with the permission for it.
 //
 // Delivery is at least once, by pull (GET /events) or push (POST /v2/events), in id order.
-// A deleted subscription's devices are not told unbound (there is no event for the deletion
-// itself): an addon that keeps a copy of a subscriber asks the Panel API when it needs it.
+// A deleted subscription's devices are not told unbound. An admin's deletion has no event of
+// its own; the panel's removal of an inactive one is UserRemoved. An addon that keeps a copy
+// of a subscriber asks the Panel API when it needs it.
 
 // Types of events.
 const (
@@ -21,6 +22,7 @@ const (
 	UserExpiring = "user.expiring"
 	UserExpired  = "user.expired"
 	UserInactive = "user.inactive"
+	UserRemoved  = "user.removed"
 	Traffic90    = "traffic.90"
 	Traffic100   = "traffic.100"
 
@@ -72,6 +74,19 @@ type Inactive struct {
 	Days     int   `json:"days"`
 	LastSeen int64 `json:"last_seen"`
 }
+
+// Removed is the data of UserRemoved: the panel removed a subscription by the admin's rules.
+// The envelope's user_id is the subscription, which the Panel API no longer knows, tg_id the
+// account that was linked to it.
+type Removed struct {
+	By        string `json:"by"`                  // RemovedInactive
+	ExpiredAt int64  `json:"expired_at"`          // unix seconds: when its term ended
+	OnlineAt  int64  `json:"online_at,omitempty"` // unix seconds: its last connection; 0: never
+	Days      int    `json:"days"`                // how many days the rules let pass after both
+}
+
+// RemovedInactive: the term ended so many days ago, and no connection came since.
+const RemovedInactive = "inactive"
 
 // User is the data of UserCreated, for every way a subscription is made except an import
 // (a bulk move from another panel has no one to welcome). The envelope's user_id is the new
@@ -203,6 +218,8 @@ var Docs = []Doc{
 	{UserExpired, "A subscription ended.", Notice{ExpiresAt: 1_800_000_000}},
 	{UserInactive, "A subscription has not connected for a week: a win-back candidate.",
 		Inactive{Days: 7, LastSeen: 1_790_000_000}},
+	{UserRemoved, "The panel removed a subscription by the admin's rules: its term ended so many days ago and it has not connected since.",
+		Removed{By: RemovedInactive, ExpiredAt: 1_790_000_000, OnlineAt: 1_789_000_000, Days: 30}},
 	{Traffic90, "A subscription used 90% of its traffic.", Notice{PeriodFrom: 1_790_000_000}},
 	{Traffic100, "A subscription used all of its traffic.", Notice{PeriodFrom: 1_790_000_000}},
 	{DiscountEnding, "A sale of the panel ends in 3 or 1 days, and the bot says so to its buyers.",
