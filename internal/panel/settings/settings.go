@@ -143,10 +143,11 @@ const (
 	KeyHappProvider = "happ_provider_id"
 	KeyHappHide     = "happ_hide_settings"
 	KeyHappCrypt    = "happ_crypt"
-	// KeyINCYAuto gives INCY a JSON array of Xray configs (subs.XrayConfigs): the autoselect
-	// balancer first, then one config per server, each named by remarks so the servers stay
-	// in the list. Off by default, and only the panel answers it — a node's pre-rendered
-	// record carries the link list.
+	// KeyINCYAuto gives Happ and INCY a JSON array of Xray configs (subs.XrayConfigs): the
+	// autoselect group first, then the countries, then one config per server, Hysteria2
+	// included, each named by remarks so the servers stay in the list. On by default. A
+	// node's pre-rendered record carries the same JSON, and those apps are given it instead
+	// of the link list.
 	KeyINCYAuto = "incy_autoselect"
 	// KeyLegacySubPath is the path of the subscription links of the panel users were
 	// imported from: "sub" for Marzban and PasarGuard, "api/sub" for Remnawave. The old
@@ -190,7 +191,7 @@ var (
 	ShowGoals      = Switch{KeyShowGoals, true}
 	AppBranding    = Switch{KeyAppBranding, false}
 	HappHide       = Switch{KeyHappHide, false}
-	INCYAuto       = Switch{KeyINCYAuto, false}
+	INCYAuto       = Switch{KeyINCYAuto, true}
 	InactiveServer = Switch{KeyInactiveServer, false}
 	TrafficDetail  = Switch{KeyTrafficDetail, false}
 	SupportAccess  = Switch{KeySupportAccess, true}

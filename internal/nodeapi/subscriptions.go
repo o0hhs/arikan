@@ -219,9 +219,17 @@ func subSingboxAtLeast112(ua string) bool {
 	return true
 }
 
+// takesXrayJSON is Happ or INCY: the apps that run a whole Xray config and show it as JSON.
+func takesXrayJSON(userAgent string) bool {
+	ua := strings.ToLower(userAgent)
+	return strings.Contains(ua, "happ") || strings.Contains(ua, "incy")
+}
+
 // PickSubBody is the body of bodies for a request: the one its format asks for, or the link
-// list without it. A record always has a body (the panel sends uri), so false means the
-// record is damaged.
+// list without it. Happ and INCY are given the Xray configs when the record has them and the
+// request did not name another format, which is how the autoselect entry reaches a client
+// whose link is answered by a node. A record always has a body (the panel sends uri), so
+// false means the record is damaged.
 func PickSubBody(bodies []SubBody, query, userAgent, accept string) (SubBody, bool) {
 	want := SubFormat(query, userAgent, accept)
 	find := func(f string) (SubBody, bool) {
@@ -231,6 +239,11 @@ func PickSubBody(bodies []SubBody, query, userAgent, accept string) (SubBody, bo
 			}
 		}
 		return SubBody{}, false
+	}
+	if strings.TrimSpace(query) == "" && want == SubFormatURI && takesXrayJSON(userAgent) {
+		if _, ok := find(SubFormatXray); ok {
+			want = SubFormatXray
+		}
 	}
 	for _, f := range []string{want, SubFormatURI, SubFormatClash, SubFormatSingBox, SubFormatHTML, SubFormatTurn} {
 		if b, ok := find(f); ok {

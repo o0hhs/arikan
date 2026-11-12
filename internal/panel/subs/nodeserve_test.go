@@ -90,6 +90,64 @@ func TestNodeRecordHasEveryFormat(t *testing.T) {
 	}
 }
 
+// With the switch on, the node's record carries the Xray configs, and Happ is given them
+// instead of the link list. Hysteria2 is in the configs. The switch off leaves Happ the links.
+func TestNodeRecordServesXrayJSONToHapp(t *testing.T) {
+	ctx := context.Background()
+	now := time.Unix(1_800_000_000, 0)
+	clock := func() time.Time { return now }
+	st, err := storetest.Open(ctx, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { st.Close() })
+	if err := domain.Seed(ctx, st, now); err != nil {
+		t.Fatal(err)
+	}
+	pool := domain.NewPool(st, clock)
+	users := domain.NewUsers(st, pool, subChanges{}, clock)
+	tariffs, err := st.Q.ListTariffs(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	u, err := users.Create(ctx, domain.CreateInput{Name: "a", TariffID: tariffs[1].ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := Config{Brand: "Test VPN", INCYAuto: true, Groups: Groups{Auto: "Авто"}, Nodes: []Node{{ID: 1, Endpoint: Endpoint{Host: "203.0.113.7"}}}}
+	h := NewHandler(st, func(context.Context) (Config, error) { return cfg, nil }, nil, clock, nil, false)
+	rec, err := h.NodeRecord(ctx, u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var xray []byte
+	for _, b := range rec.Bodies {
+		if b.Format == nodeapi.SubFormatXray {
+			xray = b.Body
+		}
+	}
+	if !strings.Contains(string(xray), `"remarks":"Авто"`) || !strings.Contains(string(xray), `"protocol":"hysteria"`) {
+		t.Fatalf("the node's Xray configs: %.200s", xray)
+	}
+	got, ok := nodeapi.PickSubBody(rec.Bodies, "", "Happ/3.4.1", "")
+	if !ok || got.Format != nodeapi.SubFormatXray {
+		t.Fatalf("Happ got %q", got.Format)
+	}
+	got, ok = nodeapi.PickSubBody(rec.Bodies, "", "v2rayNG/1.10.2", "")
+	if !ok || got.Format != nodeapi.SubFormatURI {
+		t.Fatalf("v2rayNG got %q", got.Format)
+	}
+	cfg.INCYAuto = false
+	rec, err = h.NodeRecord(ctx, u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, ok = nodeapi.PickSubBody(rec.Bodies, "", "Happ/3.4.1", "")
+	if !ok || got.Format != nodeapi.SubFormatURI {
+		t.Fatalf("Happ with the switch off got %q", got.Format)
+	}
+}
+
 // A subscription that cannot connect carries the notice in place of its servers, in the app
 // formats and on the page — and it is still a record: the link keeps answering, and renewing
 // works because the subscriber can read what happened.

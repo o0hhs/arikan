@@ -1,6 +1,7 @@
 package subs
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -25,16 +26,18 @@ import (
 // becomes a single "Авто" entry. The first proxy outbound's tag is the same name, which
 // is what INCY uses when remarks is absent.
 //
-// Only what Xray really runs goes in: VLESS, Trojan and Shadowsocks (its 2022 methods and
-// the classic AEAD ones). Hysteria2 and the newer types stay in the link list the app gets
-// with the switch off: an outbound Xray does not know fails the whole config, not one
-// server. The rules of the panel's profile come over as far as Xray's routing expresses
+// What Xray runs goes in: VLESS, Trojan, Shadowsocks (its 2022 methods and the classic
+// AEAD ones) and Hysteria2 (Xray's hysteria, version 2, including salamander). TUIC, Gecko,
+// AnyTLS and the mihomo-only kinds have no outbound: they are left out of this list, and
+// the link list the other apps get still has them. One server Xray cannot run does not
+// replace the whole list with links. The rules of the panel's profile come over as far as
+// Xray's routing expresses
 // them: processes and the admin's own lists (downloaded Clash lists) have no counterpart
 // and are left out, a geosite or geoip category only when the geodata of Happ and INCY has
 // it (happNames), and a service pinned to a node gets a balancer of that node's servers.
 //
-// The switch is off by default and the panel alone answers it: a node's pre-rendered
-// subscription record carries the link list (nodeserve.go), not this body.
+// On by default. A node's pre-rendered record carries the same JSON when the switch is on
+// (nodeserve.go), and Happ and INCY are given that body instead of the link list.
 
 // xraySocksPort is the local SOCKS port of every config. INCY patches the listens of a
 // config it imports; the same port in every config is fine, one server runs at a time.
@@ -76,8 +79,8 @@ func (s xrayServer) tagged(tag string) map[string]any {
 // XrayConfigs renders the whole subscription body for Happ and INCY: a JSON array, the
 // automatic groups first (the auto group, then each country), then one full config per
 // server. ErrNoProxies
-// when nothing of the profile is an outbound Xray has, and ErrXrayPartial when only some
-// are: the caller serves the link list in both cases, so no server ever disappears.
+// when nothing of the profile is an outbound Xray has: the caller serves the link list.
+// A server Xray cannot run is left out; the rest of the list is still the configs.
 func XrayConfigs(p Profile, g Groups, r Routing) ([]byte, error) {
 	return XrayConfigsVia(p, g, r, "")
 }
@@ -103,26 +106,21 @@ func xrayConfigList(exitAddr string, p Profile, g Groups, r Routing) ([]map[stri
 		return nil, err
 	}
 	servers := make([]xrayServer, 0, len(ps))
-	notXray := 0
 	for _, x := range ps {
 		if x.uri == "" {
 			continue
 		}
 		out, ok := xrayOutbound(x.uri)
 		if !ok {
-			// Hysteria2 and the newer kinds. A whole config has no outbound for them, so
-			// sending it would quietly take those servers out of the app's list: the caller
-			// serves the link list instead (see ErrXrayPartial).
-			notXray++
+			// TUIC, Gecko, AnyTLS and the rest Xray has no outbound for. They stay in the
+			// link list other apps get; this list keeps every server Xray can run, including
+			// Hysteria2, so one of them does not cost the autoselect entry.
 			continue
 		}
 		servers = append(servers, xrayServer{name: x.name, node: x.node, auto: x.auto, out: out})
 	}
 	if len(servers) == 0 {
 		return nil, ErrNoProxies
-	}
-	if notXray > 0 {
-		return nil, fmt.Errorf("%w: %d of %d servers", ErrXrayPartial, notXray, notXray+len(servers))
 	}
 	nodeOfName := make(map[string]int64, len(servers))
 	names := make([]string, len(servers))
@@ -968,8 +966,82 @@ func xrayOutbound(link string) (map[string]any, bool) {
 				"address": u.Hostname(), "port": port, "method": method, "password": key,
 			}}},
 		}, true
+	case "hysteria2", "hy2":
+		return xrayHysteria(u, port, q)
 	}
 	return nil, false
+}
+
+// xrayHysteria is a Hysteria2 link as Xray's hysteria outbound of version 2: the password,
+// TLS (the node's certificate pinned by its SHA-256 when it is self-signed) and salamander
+// when the link has it. Gecko is mihomo's alone, and the port-hopping range stays out: an
+// older core refuses udpHop and would fail the whole config, while the node's own port
+// still connects. A pin that is not a SHA-256 is not written; the link's insecure flag is,
+// so a certificate without a CA still loads.
+func xrayHysteria(u *url.URL, port int, q url.Values) (map[string]any, bool) {
+	pass := u.User.Username()
+	if pass == "" {
+		return nil, false
+	}
+	obfs := strings.ToLower(q.Get("obfs"))
+	switch obfs {
+	case "", "none", "salamander":
+	default:
+		return nil, false
+	}
+	tls := map[string]any{"alpn": []any{"h3"}}
+	if alpn := strings.TrimSpace(q.Get("alpn")); alpn != "" {
+		parts := strings.Split(alpn, ",")
+		list := make([]any, 0, len(parts))
+		for _, p := range parts {
+			if p = strings.TrimSpace(p); p != "" {
+				list = append(list, p)
+			}
+		}
+		if len(list) > 0 {
+			tls["alpn"] = list
+		}
+	}
+	if sni := q.Get("sni"); sni != "" {
+		tls["serverName"] = sni
+	}
+	if fp := q.Get("fp"); fp != "" {
+		tls["fingerprint"] = fp
+	}
+	if pin := xrayCertPin(q.Get("pinSHA256")); pin != "" {
+		tls["pinnedPeerCertSha256"] = pin
+	} else if q.Get("insecure") == "1" || q.Get("allowInsecure") == "1" {
+		tls["allowInsecure"] = true
+	}
+	ss := map[string]any{
+		"network":          "hysteria",
+		"security":         "tls",
+		"tlsSettings":      tls,
+		"hysteriaSettings": map[string]any{"version": 2, "auth": pass},
+	}
+	if obfs == "salamander" {
+		ss["finalmask"] = map[string]any{"udp": []any{map[string]any{
+			"type": "salamander", "settings": map[string]any{"password": q.Get("obfs-password")},
+		}}}
+	}
+	return map[string]any{
+		"protocol":       "hysteria",
+		"settings":       map[string]any{"version": 2, "address": u.Hostname(), "port": port},
+		"streamSettings": ss,
+	}, true
+}
+
+// xrayCertPin is a certificate's SHA-256 in hex, the one form Xray pins by. Anything else
+// (a short test pin, colons) is not one: Xray would refuse the whole config.
+func xrayCertPin(pin string) string {
+	pin = strings.ToLower(strings.ReplaceAll(strings.TrimSpace(pin), ":", ""))
+	if len(pin) != 64 {
+		return ""
+	}
+	if _, err := hex.DecodeString(pin); err != nil {
+		return ""
+	}
+	return pin
 }
 
 // xrayOutboundOf is an outbound with its stream settings: the transport and the TLS or
