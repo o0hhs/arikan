@@ -60,9 +60,9 @@ export type ShopData = {
 };
 type Provider = "stars" | `addon:${string}`;
 
-// YooKassa and CryptoBot keep the words buyers knew them by, and come first.
+// Platega, RollyPay and CryptoBot are the shop's providers. YooKassa keeps the words buyers knew it by.
 const KNOWN: Record<string, Key> = { "addon:yookassa": "sub.shopCard", "addon:cryptobot": "sub.shopCrypto" };
-const rank = (p: string) => (p === "addon:yookassa" ? 0 : p === "addon:cryptobot" ? 1 : 2);
+const rank = (p: string) => (p === "addon:platega" ? 0 : p === "addon:rollypay" ? 1 : p === "addon:cryptobot" ? 2 : p === "addon:yookassa" ? 3 : 4);
 
 const FAIL: Record<string, Key> = {
   not_for_sale: "sub.shopNotForSale",

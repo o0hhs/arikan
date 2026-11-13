@@ -14,6 +14,7 @@ import (
 
 	"mikan/internal/hostname"
 	"mikan/internal/panel/acme"
+	"mikan/internal/panel/billing"
 	"mikan/internal/panel/dnscheck"
 	"mikan/internal/panel/domain"
 	"mikan/internal/panel/secure"
@@ -100,6 +101,9 @@ type SettingsView struct {
 	INCYAuto bool `json:"incy_autoselect" doc:"INCY получает не список серверов, а полный конфиг Xray: список серверов остаётся, и к нему добавляется запись автовыбора (балансировщик по наименьшему пингу). Отвечает только панель: ноды, отдающие подписку сами, продолжают отдавать список ссылок. Если приложение не принимает конфиг, выключите — вернётся список серверов"`
 	// WebShop is the browser checkout. The SMTP password is never included.
 	WebShop webshop.ShopView `json:"web_shop" doc:"Покупка подписки в браузере, без Telegram. Выключено, пока админ не включит. Пароль SMTP не отдаётся"`
+	// Platega and RollyPay are built in. CryptoBot is the marketplace adapter cryptobot.
+	Platega  billing.PlategaPublic `json:"platega" doc:"Platega: MerchantId и секрет из кабинета. Секрет не отдаётся. Адрес колбэка вписать в кабинете Platega"`
+	RollyPay billing.RollyPublic   `json:"rollypay" doc:"RollyPay: API-ключ и секрет подписи кассы. Секреты не отдаются. callback_url кассы — webhook_url"`
 }
 
 type settingsOutput struct{ Body SettingsView }
@@ -113,55 +117,57 @@ type patchSettingsInput struct {
 // patchSettingsBody is the body of PATCH /settings; an alias of the struct, so the API's
 // schema keeps its name (PatchSettingsInputBody). settingFields says how each is written.
 type patchSettingsBody = struct {
-	Brand          *string              `json:"brand,omitempty" maxLength:"40"`
-	PanelAppName   *string              `json:"panel_app_name,omitempty" maxLength:"30" doc:"Пусто — по бренду"`
-	SupportURL     *string              `json:"support_url,omitempty" maxLength:"200" doc:"https://… или tg://…"`
-	SubTitle       *string              `json:"sub_title,omitempty" maxLength:"200" doc:"Переменные — см. SettingsView.sub_title"`
-	Announce       *string              `json:"sub_announce,omitempty" maxLength:"1000" doc:"До 10 строк: страница подписки и Mini App показывают их с переносами, приложения получают одну строку до 200 символов"`
-	AnnounceURL    *string              `json:"sub_announce_url,omitempty" maxLength:"200" doc:"https://… или tg://…"`
-	AppBranding    *bool                `json:"app_branding,omitempty"`
-	InactiveServer *bool                `json:"sub_inactive_server,omitempty"`
-	InactiveText   *string              `json:"sub_inactive_text,omitempty" maxLength:"120"`
-	SiteTemplate   *string              `json:"site_template,omitempty" enum:",maintenance,cats"`
-	BrandAccent    *string              `json:"brand_accent,omitempty" maxLength:"7" doc:"#RRGGBB или пусто"`
-	BrandLogoURL   *string              `json:"brand_logo_url,omitempty" maxLength:"500" doc:"https://… или пусто"`
-	HappRouting    *string              `json:"happ_routing,omitempty" maxLength:"65536" doc:"happ://routing/…, auto — собрать из маршрутизации; пусто — не отдавать"`
-	HappProvider   *string              `json:"happ_provider_id,omitempty" maxLength:"64"`
-	HappHide       *bool                `json:"happ_hide_settings,omitempty"`
-	HappCrypt      *string              `json:"happ_crypt,omitempty" enum:"off,api,local"`
-	INCYAuto       *bool                `json:"incy_autoselect,omitempty"`
-	PublicHost     *string              `json:"public_host,omitempty" maxLength:"253"`
-	Domain         *string              `json:"domain,omitempty" maxLength:"253"`
-	SubDomain      *string              `json:"sub_domain,omitempty" maxLength:"253" doc:"Домен для ссылок подписки, отдельный от домена панели; пусто — убрать. Старые ссылки продолжают работать"`
-	SubsFromNodes  *subs.FromNodes      `json:"subs_from_nodes,omitempty" doc:"Отдавать подписку с нод: {enabled, nodes: [id]}; домен ссылки — sub_domain"`
-	QuietHourUTC   *int                 `json:"quiet_hour_utc,omitempty" minimum:"0" maximum:"23"`
-	SubGroupMain   *string              `json:"sub_group_main,omitempty" maxLength:"200"`
-	SubGroupAuto   *string              `json:"sub_group_auto,omitempty" maxLength:"200"`
-	SubRouting     *string              `json:"sub_routing,omitempty" enum:"ru_direct,all,blocked"`
-	ProtocolOrder  *[]string            `json:"protocol_order,omitempty" maxItems:"16" doc:"Порядок семейств протоколов в подписке; пусто — как были"`
-	MTProto        *[]subs.MTProxy      `json:"mtproto,omitempty" maxItems:"8" doc:"MTProto-прокси для Telegram"`
-	SubRoutes      *subs.Routes         `json:"sub_routes,omitempty"`
-	SubTemplate    *string              `json:"sub_template,omitempty" maxLength:"524288" doc:"Свой профиль Clash; пусто — вернуть встроенный"`
-	SubRules       *string              `json:"sub_rules,omitempty" maxLength:"65536" doc:"Свои правила Clash, до 500 строк; ошибка указывает номер строки"`
-	Fingerprint    *string              `json:"client_fingerprint,omitempty" pattern:"^[a-z0-9_]{1,32}$" doc:"Из списка или своё: латиница в нижнем регистре, цифры и _, до 32 символов"`
-	AutoPort       *bool                `json:"auto_port,omitempty"`
-	AutoSNI        *bool                `json:"auto_sni,omitempty"`
-	AnyPort        *bool                `json:"any_port,omitempty"`
-	SupportAccess  *bool                `json:"support_access,omitempty"`
-	WideScan       *bool                `json:"wide_sni_scan,omitempty"`
-	DeviceBinding  *bool                `json:"device_binding,omitempty"`
-	RequireHWID    *bool                `json:"device_require_hwid,omitempty"`
-	DeviceUnbind   *domain.UnbindRules  `json:"device_unbind,omitempty"`
-	LinkReissue    *domain.ReissueRules `json:"link_reissue,omitempty"`
-	DefaultLang    *string              `json:"default_lang,omitempty" enum:"auto,ru,en"`
-	SubPort        *int                 `json:"sub_port,omitempty" minimum:"0" maximum:"65535" doc:"Отдельный порт подписок на сервере панели; 0 — убрать. 443 — через общий 443 ноды (SNI-роутер), без отдельного слушателя и без порта в ссылках. Ссылки переезжают на порт, старые продолжают работать"`
-	ACMECA         *string              `json:"acme_ca,omitempty" enum:"letsencrypt,zerossl,google" doc:"Смена центра выпускает сертификаты панели и нод заново"`
-	ACMEEmail      *string              `json:"acme_email,omitempty" maxLength:"254"`
-	ACMEEABKID     *string              `json:"acme_eab_kid,omitempty" maxLength:"256"`
-	ACMEEABHMAC    *string              `json:"acme_eab_hmac,omitempty" maxLength:"512" doc:"Ключ HMAC (base64url); пусто — убрать. Обратно не показывается"`
-	WebhookURL     *string              `json:"webhook_url,omitempty" maxLength:"500" doc:"Адрес сайта для вебхуков: https; пусто — не отправлять"`
-	WebhookSecret  *string              `json:"webhook_secret,omitempty" maxLength:"200" doc:"Секретный ключ подписи HMAC-SHA256, от 8 символов; пусто — убрать. Обратно не показывается"`
-	WebShop        *webshop.ShopConfig  `json:"web_shop,omitempty" doc:"Покупка в браузере. Пустой smtp_password оставляет сохранённый"`
+	Brand          *string               `json:"brand,omitempty" maxLength:"40"`
+	PanelAppName   *string               `json:"panel_app_name,omitempty" maxLength:"30" doc:"Пусто — по бренду"`
+	SupportURL     *string               `json:"support_url,omitempty" maxLength:"200" doc:"https://… или tg://…"`
+	SubTitle       *string               `json:"sub_title,omitempty" maxLength:"200" doc:"Переменные — см. SettingsView.sub_title"`
+	Announce       *string               `json:"sub_announce,omitempty" maxLength:"1000" doc:"До 10 строк: страница подписки и Mini App показывают их с переносами, приложения получают одну строку до 200 символов"`
+	AnnounceURL    *string               `json:"sub_announce_url,omitempty" maxLength:"200" doc:"https://… или tg://…"`
+	AppBranding    *bool                 `json:"app_branding,omitempty"`
+	InactiveServer *bool                 `json:"sub_inactive_server,omitempty"`
+	InactiveText   *string               `json:"sub_inactive_text,omitempty" maxLength:"120"`
+	SiteTemplate   *string               `json:"site_template,omitempty" enum:",maintenance,cats"`
+	BrandAccent    *string               `json:"brand_accent,omitempty" maxLength:"7" doc:"#RRGGBB или пусто"`
+	BrandLogoURL   *string               `json:"brand_logo_url,omitempty" maxLength:"500" doc:"https://… или пусто"`
+	HappRouting    *string               `json:"happ_routing,omitempty" maxLength:"65536" doc:"happ://routing/…, auto — собрать из маршрутизации; пусто — не отдавать"`
+	HappProvider   *string               `json:"happ_provider_id,omitempty" maxLength:"64"`
+	HappHide       *bool                 `json:"happ_hide_settings,omitempty"`
+	HappCrypt      *string               `json:"happ_crypt,omitempty" enum:"off,api,local"`
+	INCYAuto       *bool                 `json:"incy_autoselect,omitempty"`
+	PublicHost     *string               `json:"public_host,omitempty" maxLength:"253"`
+	Domain         *string               `json:"domain,omitempty" maxLength:"253"`
+	SubDomain      *string               `json:"sub_domain,omitempty" maxLength:"253" doc:"Домен для ссылок подписки, отдельный от домена панели; пусто — убрать. Старые ссылки продолжают работать"`
+	SubsFromNodes  *subs.FromNodes       `json:"subs_from_nodes,omitempty" doc:"Отдавать подписку с нод: {enabled, nodes: [id]}; домен ссылки — sub_domain"`
+	QuietHourUTC   *int                  `json:"quiet_hour_utc,omitempty" minimum:"0" maximum:"23"`
+	SubGroupMain   *string               `json:"sub_group_main,omitempty" maxLength:"200"`
+	SubGroupAuto   *string               `json:"sub_group_auto,omitempty" maxLength:"200"`
+	SubRouting     *string               `json:"sub_routing,omitempty" enum:"ru_direct,all,blocked"`
+	ProtocolOrder  *[]string             `json:"protocol_order,omitempty" maxItems:"16" doc:"Порядок семейств протоколов в подписке; пусто — как были"`
+	MTProto        *[]subs.MTProxy       `json:"mtproto,omitempty" maxItems:"8" doc:"MTProto-прокси для Telegram"`
+	SubRoutes      *subs.Routes          `json:"sub_routes,omitempty"`
+	SubTemplate    *string               `json:"sub_template,omitempty" maxLength:"524288" doc:"Свой профиль Clash; пусто — вернуть встроенный"`
+	SubRules       *string               `json:"sub_rules,omitempty" maxLength:"65536" doc:"Свои правила Clash, до 500 строк; ошибка указывает номер строки"`
+	Fingerprint    *string               `json:"client_fingerprint,omitempty" pattern:"^[a-z0-9_]{1,32}$" doc:"Из списка или своё: латиница в нижнем регистре, цифры и _, до 32 символов"`
+	AutoPort       *bool                 `json:"auto_port,omitempty"`
+	AutoSNI        *bool                 `json:"auto_sni,omitempty"`
+	AnyPort        *bool                 `json:"any_port,omitempty"`
+	SupportAccess  *bool                 `json:"support_access,omitempty"`
+	WideScan       *bool                 `json:"wide_sni_scan,omitempty"`
+	DeviceBinding  *bool                 `json:"device_binding,omitempty"`
+	RequireHWID    *bool                 `json:"device_require_hwid,omitempty"`
+	DeviceUnbind   *domain.UnbindRules   `json:"device_unbind,omitempty"`
+	LinkReissue    *domain.ReissueRules  `json:"link_reissue,omitempty"`
+	DefaultLang    *string               `json:"default_lang,omitempty" enum:"auto,ru,en"`
+	SubPort        *int                  `json:"sub_port,omitempty" minimum:"0" maximum:"65535" doc:"Отдельный порт подписок на сервере панели; 0 — убрать. 443 — через общий 443 ноды (SNI-роутер), без отдельного слушателя и без порта в ссылках. Ссылки переезжают на порт, старые продолжают работать"`
+	ACMECA         *string               `json:"acme_ca,omitempty" enum:"letsencrypt,zerossl,google" doc:"Смена центра выпускает сертификаты панели и нод заново"`
+	ACMEEmail      *string               `json:"acme_email,omitempty" maxLength:"254"`
+	ACMEEABKID     *string               `json:"acme_eab_kid,omitempty" maxLength:"256"`
+	ACMEEABHMAC    *string               `json:"acme_eab_hmac,omitempty" maxLength:"512" doc:"Ключ HMAC (base64url); пусто — убрать. Обратно не показывается"`
+	WebhookURL     *string               `json:"webhook_url,omitempty" maxLength:"500" doc:"Адрес сайта для вебхуков: https; пусто — не отправлять"`
+	WebhookSecret  *string               `json:"webhook_secret,omitempty" maxLength:"200" doc:"Секретный ключ подписи HMAC-SHA256, от 8 символов; пусто — убрать. Обратно не показывается"`
+	WebShop        *webshop.ShopConfig   `json:"web_shop,omitempty" doc:"Покупка в браузере. Пустой smtp_password оставляет сохранённый"`
+	Platega        *billing.PlategaSetup `json:"platega,omitempty" doc:"Пустой secret оставляет сохранённый"`
+	RollyPay       *billing.RollySetup   `json:"rollypay,omitempty" doc:"Пустые api_key и signing_secret оставляют сохранённые"`
 }
 
 type resetPathOutput struct {
@@ -393,6 +399,18 @@ func (h *handlers) readSettings(ctx context.Context) (SettingsView, error) {
 		return v, err
 	}
 	v.WebShop = webshop.Public(shop)
+	if h.d.Billing != nil {
+		sub := ""
+		if h.d.SubBase != nil {
+			sub = h.d.SubBase(ctx)
+		}
+		if v.Platega, err = h.d.Billing.PlategaView(ctx, sub); err != nil {
+			return v, err
+		}
+		if v.RollyPay, err = h.d.Billing.RollyView(ctx, sub); err != nil {
+			return v, err
+		}
+	}
 	return v, nil
 }
 
@@ -704,6 +722,12 @@ func (h *handlers) updateSettings(ctx context.Context, in *patchSettingsInput) (
 		}
 		return nil
 	})
+	if errors.Is(err, billing.ErrPlategaConfig) {
+		return nil, fieldErrs(fieldDetail("body.platega", "platega_config", nil))
+	}
+	if errors.Is(err, billing.ErrRollyConfig) {
+		return nil, fieldErrs(fieldDetail("body.rollypay", "rollypay_config", nil))
+	}
 	if err != nil {
 		if b.SubPort != nil {
 			if rerr := h.d.SubPort(oldPort); rerr != nil {

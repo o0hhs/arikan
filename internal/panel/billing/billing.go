@@ -169,6 +169,9 @@ type Service struct {
 	trialRefunds keyedLock // by payment: one refund of a trial that may not be given at a time
 	// webReturn is where a browser buyer goes after paying. Nil: the shop on SubBase.
 	webReturn func(ctx context.Context, payload string) string
+	// httpGate is how the built-in Platega and RollyPay clients call their APIs.
+	// Zero: the published hosts.
+	httpGate gateHTTP
 }
 
 func New(d Deps) *Service {
@@ -300,12 +303,23 @@ func (s *Service) Available(ctx context.Context) Available {
 	tg := s.telegram()
 	av := Available{
 		Stars:  c.Stars && tg != nil && tg.BotURL(ctx) != "",
-		Addons: s.availableAddons(ctx),
+		Addons: mergeAddons(s.availableAddons(ctx), s.directAddons(ctx)),
 	}
 	if c.Balance.On() {
 		av.Balance = c.Balance
 	}
 	return av
+}
+
+func mergeAddons(market, direct []string) []string {
+	out := append([]string{}, market...)
+	for _, id := range direct {
+		if !slices.Contains(out, id) {
+			out = append(out, id)
+		}
+	}
+	slices.Sort(out)
+	return out
 }
 
 // Offer is a tariff on sale with the terms a buyer can pay for now. Stars and Rub are

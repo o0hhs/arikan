@@ -7500,11 +7500,15 @@ export interface components {
             mtproto?: components["schemas"]["MTProxy"][];
             /** @description Пусто — по бренду */
             panel_app_name?: string;
+            /** @description Пустой secret оставляет сохранённый */
+            platega?: components["schemas"]["PlategaSetup"];
             /** @description Порядок семейств протоколов в подписке; пусто — как были */
             protocol_order?: string[];
             public_host?: string;
             /** Format: int64 */
             quiet_hour_utc?: number;
+            /** @description Пустые api_key и signing_secret оставляют сохранённые */
+            rollypay?: components["schemas"]["RollySetup"];
             /** @enum {string} */
             site_template?: "" | "maintenance" | "cats";
             /** @description До 10 строк: страница подписки и Mini App показывают их с переносами, приложения получают одну строку до 200 символов */
@@ -7755,6 +7759,21 @@ export interface components {
             items: components["schemas"]["PayoutView"][];
             /** Format: int64 */
             total: number;
+        };
+        PlategaPublic: {
+            enabled: boolean;
+            merchant_id: string;
+            /** Format: int64 */
+            method: number;
+            secret_set: boolean;
+            webhook_url: string;
+        };
+        PlategaSetup: {
+            enabled: boolean;
+            merchant_id: string;
+            /** Format: int64 */
+            method: number;
+            secret?: string;
         };
         PoolInputBody: {
             name: string;
@@ -8253,6 +8272,19 @@ export interface components {
             tls13: boolean;
             x25519: boolean;
         };
+        RollyPublic: {
+            api_key_set: boolean;
+            enabled: boolean;
+            signing_secret_set: boolean;
+            terminal_id: string;
+            webhook_url: string;
+        };
+        RollySetup: {
+            api_key?: string;
+            enabled: boolean;
+            signing_secret?: string;
+            terminal_id: string;
+        };
         RotateMonitorInputBody: {
             /** @description Новый адрес страницы; старый перестаёт работать */
             path: string;
@@ -8562,6 +8594,8 @@ export interface components {
             panel_app_name: string;
             /** Format: int64 */
             panel_port: number;
+            /** @description Platega: MerchantId и секрет из кабинета. Секрет не отдаётся. Адрес колбэка вписать в кабинете Platega */
+            platega: components["schemas"]["PlategaPublic"];
             /** @description Порядок семейств протоколов в подписке, например vless, hysteria2, shadowsocks: внутри ноды подключения идут в нём; не названные — после них, как были */
             protocol_order: string[];
             public_host: string;
@@ -8570,6 +8604,8 @@ export interface components {
              * @description Час (UTC), когда пополняется пул слотов: переподключение QUIC-клиентов
              */
             quiet_hour_utc: number;
+            /** @description RollyPay: API-ключ и секрет подписи кассы. Секреты не отдаются. callback_url кассы — webhook_url */
+            rollypay: components["schemas"]["RollyPublic"];
             /** @description Куда правило может направить трафик: DIRECT, REJECT, REJECT-DROP, PROXY и группы */
             rule_targets: string[];
             /** @description В data/panel/www есть своя страница: шаблон не действует */

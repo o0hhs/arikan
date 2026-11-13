@@ -20,6 +20,16 @@ export function WebShopCard({ s }: { s: Schemas["SettingsView"] }) {
   const [pass, setPass] = useState("");
   const [from, setFrom] = useState(shop.smtp_from);
   const [tls, setTls] = useState(shop.smtp_tls || "starttls");
+  const platega = s.platega;
+  const rolly = s.rollypay;
+  const [plategaOn, setPlategaOn] = useState(platega.enabled);
+  const [merchant, setMerchant] = useState(platega.merchant_id);
+  const [secret, setSecret] = useState("");
+  const [method, setMethod] = useState(String(platega.method || 2));
+  const [rollyOn, setRollyOn] = useState(rolly.enabled);
+  const [apiKey, setApiKey] = useState("");
+  const [sign, setSign] = useState("");
+  const [terminal, setTerminal] = useState(rolly.terminal_id);
   const errors = fieldErrors(save.error);
   const url = s.sub_base_url ? s.sub_base_url.replace(/\/?$/, "/") + "shop" : "";
   const submit = (e: FormEvent) => {
@@ -35,6 +45,18 @@ export function WebShopCard({ s }: { s: Schemas["SettingsView"] }) {
         smtp_from: from.trim(),
         smtp_tls: tls,
         ...(pass.trim() ? { smtp_password: pass.trim() } : {}),
+      },
+      platega: {
+        enabled: plategaOn,
+        merchant_id: merchant.trim(),
+        method: Number(method) || 2,
+        ...(secret.trim() ? { secret: secret.trim() } : {}),
+      },
+      rollypay: {
+        enabled: rollyOn,
+        terminal_id: terminal.trim(),
+        ...(apiKey.trim() ? { api_key: apiKey.trim() } : {}),
+        ...(sign.trim() ? { signing_secret: sign.trim() } : {}),
       },
     });
   };
@@ -87,6 +109,53 @@ export function WebShopCard({ s }: { s: Schemas["SettingsView"] }) {
         </div>
         <p className="mt-3 text-xs text-[var(--md-on-surface-variant)]">{t("settings.webShop.note")}</p>
         <p className="mt-1 text-xs text-[var(--md-on-surface-variant)]">{t("settings.webShop.needSale")}</p>
+        <h3 className="mt-5 mb-2 text-[13px] font-semibold">{t("settings.webShop.pay")}</h3>
+        <SwitchRow label={t("settings.webShop.platega")} sub={t("settings.webShop.plategaSub")} checked={plategaOn} onChange={setPlategaOn} />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label={t("settings.webShop.merchant")} htmlFor="platega-merchant" error={errors.platega}>
+            <input id="platega-merchant" className="input" value={merchant} onChange={(e) => setMerchant(e.target.value)} autoComplete="off" spellCheck={false} />
+          </Field>
+          <Field label={t("settings.webShop.secret")} htmlFor="platega-secret" hint={platega.secret_set ? t("settings.webShop.secretSet") : undefined}>
+            <input id="platega-secret" className="input" type="password" value={secret} onChange={(e) => setSecret(e.target.value)} autoComplete="new-password" />
+          </Field>
+          <Field label={t("settings.webShop.method")} htmlFor="platega-method">
+            <select id="platega-method" className="input" value={method} onChange={(e) => setMethod(e.target.value)}>
+              <option value="2">{t("settings.webShop.methodSbp")}</option>
+              <option value="3">{t("settings.webShop.methodErip")}</option>
+              <option value="11">{t("settings.webShop.methodCard")}</option>
+              <option value="12">{t("settings.webShop.methodIntl")}</option>
+              <option value="13">{t("settings.webShop.methodCrypto")}</option>
+              <option value="14">{t("settings.webShop.methodSber")}</option>
+            </select>
+          </Field>
+        </div>
+        {platega.webhook_url ? (
+          <div className="panel-soft mb-4 p-3">
+            <div className="text-xs text-[var(--md-on-surface-variant)]">{t("settings.webShop.webhook")}</div>
+            <div className="mono break-all text-[13px]">{platega.webhook_url}</div>
+          </div>
+        ) : null}
+        <SwitchRow label={t("settings.webShop.rolly")} sub={t("settings.webShop.rollySub")} checked={rollyOn} onChange={setRollyOn} />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label={t("settings.webShop.apiKey")} htmlFor="rolly-key" hint={rolly.api_key_set ? t("settings.webShop.apiKeySet") : undefined} error={errors.rollypay}>
+            <input id="rolly-key" className="input" type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} autoComplete="new-password" />
+          </Field>
+          <Field label={t("settings.webShop.sign")} htmlFor="rolly-sign" hint={rolly.signing_secret_set ? t("settings.webShop.secretSet") : undefined}>
+            <input id="rolly-sign" className="input" type="password" value={sign} onChange={(e) => setSign(e.target.value)} autoComplete="new-password" />
+          </Field>
+          <Field label={t("settings.webShop.terminal")} htmlFor="rolly-terminal" hint={t("settings.webShop.terminalHint")}>
+            <input id="rolly-terminal" className="input" value={terminal} onChange={(e) => setTerminal(e.target.value)} autoComplete="off" spellCheck={false} />
+          </Field>
+        </div>
+        {rolly.webhook_url ? (
+          <div className="panel-soft mb-4 p-3">
+            <div className="text-xs text-[var(--md-on-surface-variant)]">{t("settings.webShop.webhook")}</div>
+            <div className="mono break-all text-[13px]">{rolly.webhook_url}</div>
+          </div>
+        ) : null}
+        <h3 className="mt-2 mb-1 text-[13px] font-semibold">{t("settings.webShop.crypto")}</h3>
+        <p className="text-xs text-[var(--md-on-surface-variant)]">{t("settings.webShop.cryptoNote")}</p>
+        <p className="mt-2 text-xs text-[var(--md-on-surface-variant)]">{t("settings.webShop.promoLimit")}</p>
         <FormActions saving={save.isPending} />
       </form>
     </section>

@@ -9473,6 +9473,10 @@
             "maxLength": 30,
             "type": "string"
           },
+          "platega": {
+            "$ref": "#/components/schemas/PlategaSetup",
+            "description": "Пустой secret оставляет сохранённый"
+          },
           "protocol_order": {
             "description": "Порядок семейств протоколов в подписке; пусто — как были",
             "items": {
@@ -9490,6 +9494,10 @@
             "maximum": 23,
             "minimum": 0,
             "type": "integer"
+          },
+          "rollypay": {
+            "$ref": "#/components/schemas/RollySetup",
+            "description": "Пустые api_key и signing_secret оставляют сохранённые"
           },
           "site_template": {
             "enum": [
@@ -10096,6 +10104,59 @@
         "required": [
           "items",
           "total"
+        ],
+        "type": "object"
+      },
+      "PlategaPublic": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "merchant_id": {
+            "type": "string"
+          },
+          "method": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "secret_set": {
+            "type": "boolean"
+          },
+          "webhook_url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "enabled",
+          "merchant_id",
+          "secret_set",
+          "method",
+          "webhook_url"
+        ],
+        "type": "object"
+      },
+      "PlategaSetup": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "merchant_id": {
+            "type": "string"
+          },
+          "method": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "secret": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "enabled",
+          "merchant_id",
+          "method"
         ],
         "type": "object"
       },
@@ -11461,6 +11522,56 @@
         ],
         "type": "object"
       },
+      "RollyPublic": {
+        "additionalProperties": false,
+        "properties": {
+          "api_key_set": {
+            "type": "boolean"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "signing_secret_set": {
+            "type": "boolean"
+          },
+          "terminal_id": {
+            "type": "string"
+          },
+          "webhook_url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "enabled",
+          "api_key_set",
+          "signing_secret_set",
+          "terminal_id",
+          "webhook_url"
+        ],
+        "type": "object"
+      },
+      "RollySetup": {
+        "additionalProperties": false,
+        "properties": {
+          "api_key": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "signing_secret": {
+            "type": "string"
+          },
+          "terminal_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "enabled",
+          "terminal_id"
+        ],
+        "type": "object"
+      },
       "RotateMonitorInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -12409,6 +12520,10 @@
             "format": "int64",
             "type": "integer"
           },
+          "platega": {
+            "$ref": "#/components/schemas/PlategaPublic",
+            "description": "Platega: MerchantId и секрет из кабинета. Секрет не отдаётся. Адрес колбэка вписать в кабинете Platega"
+          },
           "protocol_order": {
             "description": "Порядок семейств протоколов в подписке, например vless, hysteria2, shadowsocks: внутри ноды подключения идут в нём; не названные — после них, как были",
             "items": {
@@ -12423,6 +12538,10 @@
             "description": "Час (UTC), когда пополняется пул слотов: переподключение QUIC-клиентов",
             "format": "int64",
             "type": "integer"
+          },
+          "rollypay": {
+            "$ref": "#/components/schemas/RollyPublic",
+            "description": "RollyPay: API-ключ и секрет подписи кассы. Секреты не отдаются. callback_url кассы — webhook_url"
           },
           "rule_targets": {
             "description": "Куда правило может направить трафик: DIRECT, REJECT, REJECT-DROP, PROXY и группы",
@@ -12603,7 +12722,9 @@
           "happ_hide_settings",
           "happ_crypt",
           "incy_autoselect",
-          "web_shop"
+          "web_shop",
+          "platega",
+          "rollypay"
         ],
         "type": "object"
       },

@@ -7,13 +7,13 @@ import { Steps } from '@astrojs/starlight/components';
 
 Where Telegram does not open, a VPN cannot be bought in the bot: buying a VPN would already require a VPN. The shop on the subscription address takes the payment in an ordinary browser. Telegram is not involved.
 
-A purchase follows the same path as the bot. The payment appears under **Payments**, a promo code is reserved with the invoice, the `subscription.paid` webhook goes out once the subscription is granted, and a repeated notice from the payment system does not grant it twice. The browser coming back to the site does not grant anything by itself — the panel asks the adapter about the invoice.
+A purchase follows the same path as the bot. The payment appears under **Payments**, the `subscription.paid` webhook goes out once the subscription is granted, and a repeated notice from the payment system does not grant it twice. The browser coming back to the site does not grant anything by itself — the panel reads the invoice back from the provider and checks the amount and the currency.
 
 ## Turn it on
 
 <Steps>
 
-1. **Settings → Subscription → Buy in the browser.** The switch stays off until you turn it on. Selling, and a ruble provider (an adapter from the marketplace), are switched on separately: without them the shop has nothing to charge.
+1. **Settings → Subscription → Buy in the browser.** The switch stays off until you turn it on. Selling is switched on separately: without it the shop has nothing to charge.
 
 2. Mail for the sign-in code: an SMTP server, a port, a From address and the encryption. The password is not shown back. Without mail a new buyer cannot sign in. A subscription that already exists can still be renewed with its link.
 
@@ -27,7 +27,17 @@ The shop's address is the subscription address plus `shop`. The subscription pag
 
 ## How people buy
 
-A new buyer enters an email and the code from the letter (or opens the link in the letter). The session is an `HttpOnly` cookie, which a script on the page cannot read. They then pick a plan, a term, a device pack and a promo code, and pay with an adapter that is on.
+A new buyer enters an email and the code from the letter (or opens the link in the letter). The session is an `HttpOnly` cookie, which a script on the page cannot read. They then pick a plan, a term and a device pack, and pay.
+
+## What they pay with
+
+The same card holds three providers. The bot lists the same three.
+
+- **Platega.** The merchant id and the secret from the platega.io cabinet, and a payment method from their documentation (SBP by default). The callback address the panel shows is pasted into the Platega cabinet. The callback carries the same merchant id and secret; the panel still reads the invoice back and applies it only when the status is CONFIRMED, the currency is RUB and the amount covers the invoice.
+- **RollyPay.** An API key and the cash register's signing secret. The terminal id is optional when you pay with a key. The callback address is pasted into the cash register as `callback_url`. The signature is HMAC-SHA256 of `timestamp.body` with the cash register's secret. The invoice is paid only after a status call answers `paid`, with the same amount and currency check.
+- **CryptoBot.** This is the marketplace add-on `cryptobot` that already exists; the panel does not implement it again. Install the add-on and enter the Crypto Pay API token from @CryptoBot.
+
+Secrets never reach the browser: an empty field on save keeps the previous one. Platega and RollyPay publish no refund in the API this panel uses, so a promo code is not taken on them — a late discounted payment could not be returned. CryptoBot takes a promo code when the add-on says it can refund.
 
 A renewal does not need an email. The subscription link is enough. It is the same secret the subscription page already trusts.
 

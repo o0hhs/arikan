@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	"mikan/internal/panel/billing"
 	"mikan/internal/panel/domain"
 	"mikan/internal/panel/settings"
 	"mikan/internal/panel/subs"
@@ -130,5 +131,14 @@ var settingFields = []settingField{
 	{name: "web_shop", session: true, given: func(b *patchSettingsBody) bool { return b.WebShop != nil },
 		write: func(ctx context.Context, set *settings.Settings, b *patchSettingsBody) error {
 			return webshop.Save(ctx, set, *b.WebShop)
+		}},
+	// The browser shop and the bot both charge these. A key must not see the secrets.
+	{name: "platega", session: true, given: func(b *patchSettingsBody) bool { return b.Platega != nil },
+		write: func(ctx context.Context, set *settings.Settings, b *patchSettingsBody) error {
+			return billing.SaveProvider(ctx, set, *b.Platega)
+		}},
+	{name: "rollypay", session: true, given: func(b *patchSettingsBody) bool { return b.RollyPay != nil },
+		write: func(ctx context.Context, set *settings.Settings, b *patchSettingsBody) error {
+			return billing.SaveRollyProvider(ctx, set, *b.RollyPay)
 		}},
 }

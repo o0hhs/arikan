@@ -272,7 +272,10 @@ func (s *Service) validatePromoProvider(ctx context.Context, provider string) er
 		return nil
 	}
 	id := model.AddonID(provider)
-	if id == "" || s.d.Addons == nil {
+	if id == "" || directID(id) || s.d.Addons == nil {
+		// Platega and RollyPay have no refund call in the contract this panel
+		// implements, so a discounted invoice is not opened on them: a late
+		// payment could not be given back.
 		return promo.ErrRefundUnsupported
 	}
 	info, err := s.d.Addons.Info(ctx, id)
@@ -287,14 +290,36 @@ func (s *Service) validatePromoProvider(ctx context.Context, provider string) er
 
 // AddonName is the adapter's own name for buyers in lang; its id while it does not answer.
 func (s *Service) AddonName(ctx context.Context, id, lang string) string {
-	if s.d.Addons != nil {
+	if s.d.Addons != nil && !directID(id) {
 		if info, err := s.d.Addons.Info(ctx, id); err == nil {
 			if n := info.Name.In(lang); n != "" {
 				return n
 			}
 		}
 	}
+	if n := directName(id); n != "" {
+		return n
+	}
 	return id
+}
+
+// payReturn is where the buyer goes back, and the subscription root the webhook
+// URL is built on. A browser invoice goes to the shop; a bot invoice goes to the bot.
+func (s *Service) payReturn(ctx context.Context, p db.Payment) (ret, sub string) {
+	ret = "https://t.me"
+	if p.Web {
+		if u := s.webReturnURL(ctx, p.Payload); u != "" {
+			ret = u
+		}
+	} else if tg := s.telegram(); tg != nil {
+		if u := tg.BotURL(ctx); u != "" {
+			ret = u
+		}
+	}
+	if s.d.SubBase != nil {
+		sub = s.d.SubBase(ctx)
+	}
+	return ret, sub
 }
 
 // AddonWebhookURL is where the provider sends its notifications for an adapter: the admin
@@ -309,24 +334,14 @@ func (s *Service) AddonWebhookURL(ctx context.Context, id, subBase string) strin
 
 func (s *Service) openAddonInvoice(ctx context.Context, p db.Payment, description string) (sql.NullString, string, error) {
 	id := model.AddonID(p.Provider)
+	ret, sub := s.payReturn(ctx, p)
+	if directID(id) {
+		ext, url, err := s.directInvoice(ctx, id, p, description, ret)
+		return ext, url, err
+	}
 	cl, cfg, err := s.addonClient(ctx, id)
 	if err != nil {
 		return sql.NullString{}, "", err
-	}
-	// Where the buyer goes back after paying: the bot, or Telegram itself while it is off.
-	// A browser invoice never goes back to the bot — the shop, or the operator's address.
-	ret, sub := "https://t.me", ""
-	if p.Web {
-		if u := s.webReturnURL(ctx, p.Payload); u != "" {
-			ret = u
-		}
-	} else if tg := s.telegram(); tg != nil {
-		if u := tg.BotURL(ctx); u != "" {
-			ret = u
-		}
-	}
-	if s.d.SubBase != nil {
-		sub = s.d.SubBase(ctx)
 	}
 	inv, err := cl.CreateInvoice(ctx, addons.InvoiceRequest{Settings: cfg.Values, PaymentID: p.ID, IdempotencyKey: "mikan-" + strconv.FormatInt(p.ID, 10),
 		Amount: p.Amount, Currency: p.Currency, Description: description, ReturnURL: ret, WebhookURL: s.AddonWebhookURL(ctx, id, sub)})
@@ -339,6 +354,23 @@ func (s *Service) openAddonInvoice(ctx context.Context, p db.Payment, descriptio
 // addonWebhook hands the provider's notification to its adapter, then checks the invoice
 // itself. A 200 goes back only once the payment is recorded, so the provider retries.
 func (s *Service) addonWebhook(ctx context.Context, w http.ResponseWriter, r *http.Request, id string, body []byte) {
+	if directID(id) {
+		ext, err := s.directWebhook(ctx, id, r.Header, body)
+		if errors.Is(err, errHookAuth) || errors.Is(err, errAddonOff) {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+		if err != nil {
+			http.Error(w, "retry", http.StatusServiceUnavailable)
+			return
+		}
+		if err := s.checkAddon(ctx, AddonPrefix+id, ext); err != nil && !errors.Is(err, ErrBadPayment) {
+			http.Error(w, "retry", http.StatusServiceUnavailable)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		return
+	}
 	cl, cfg, err := s.addonClient(ctx, id)
 	if err != nil {
 		http.NotFound(w, r)
@@ -383,11 +415,19 @@ func (s *Service) checkAddon(ctx context.Context, provider, ext string) error {
 // checkAddonPayment is checkAddon for a payment already loaded.
 func (s *Service) checkAddonPayment(ctx context.Context, pay db.Payment) error {
 	provider, ext := pay.Provider, pay.ExternalID.String
-	cl, cfg, err := s.addonClient(ctx, model.AddonID(provider))
-	if err != nil {
-		return err
+	var st addons.Status
+	var err error
+	if directID(model.AddonID(provider)) {
+		st, err = s.directStatus(ctx, model.AddonID(provider), ext)
+	} else {
+		var cl *addons.Client
+		var cfg AddonConfig
+		cl, cfg, err = s.addonClient(ctx, model.AddonID(provider))
+		if err != nil {
+			return err
+		}
+		st, err = cl.Status(ctx, cfg.Values, ext)
 	}
-	st, err := cl.Status(ctx, cfg.Values, ext)
 	if err != nil {
 		return err
 	}

@@ -5,9 +5,10 @@ import { t } from "../i18n";
 import { rubles } from "../lib/format";
 import { shopGet, shopPost, type Me, type Offers, type Order, type PayResult, type ShopConfig, type ShopOffer, type ShopSub, type TgUser } from "./api";
 
-const FAIL: Record<string, "sub.web.fail" | "sub.web.limited" | "sub.web.badCode" | "sub.web.smtp" | "sub.web.none"> = {
+const FAIL: Record<string, "sub.web.fail" | "sub.web.limited" | "sub.web.badCode" | "sub.web.smtp" | "sub.web.none" | "sub.web.noPromo"> = {
   rate_limited: "sub.web.limited",
   promo_try_later: "sub.web.limited",
+  promo_refund_unsupported: "sub.web.noPromo",
   code_invalid: "sub.web.badCode",
   smtp_off: "sub.web.smtp",
   not_for_sale: "sub.web.none",
