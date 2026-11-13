@@ -79,7 +79,19 @@ type RollyPublic struct {
 	WebhookURL string `json:"webhook_url"`
 }
 
-func directID(id string) bool { return id == "platega" || id == "rollypay" }
+// useDirect is true when the panel's own client should take this provider.
+// A marketplace add-on of the same id (the Platega add-on already published)
+// keeps the invoice, the webhook and the status call while this card is off.
+func (s *Service) useDirect(ctx context.Context, id string) bool {
+	switch id {
+	case "platega":
+		return s.plategaOn(ctx)
+	case "rollypay":
+		return s.rollyOn(ctx)
+	default:
+		return false
+	}
+}
 
 func (s *Service) loadPlatega(ctx context.Context) (PlategaSetup, error) {
 	c, _, err := settings.Get[PlategaSetup](ctx, s.d.Settings, keyPlatega)

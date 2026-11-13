@@ -2510,7 +2510,7 @@
       "needSale": "Turn on selling as well, or the shop has nothing to charge.",
       "pay": "How the shop is paid",
       "platega": "Platega",
-      "plategaSub": "SBP, cards and the other methods platega.io documents. Paste the callback address into the Platega cabinet.",
+      "plategaSub": "SBP, cards and the other methods platega.io documents. Paste the callback address into the Platega cabinet. A Platega add-on you already installed keeps working while this is off.",
       "merchant": "Merchant ID",
       "secret": "Secret",
       "secretSet": "A secret is saved. Leave this empty to keep it.",

@@ -272,10 +272,9 @@ func (s *Service) validatePromoProvider(ctx context.Context, provider string) er
 		return nil
 	}
 	id := model.AddonID(provider)
-	if id == "" || directID(id) || s.d.Addons == nil {
-		// Platega and RollyPay have no refund call in the contract this panel
-		// implements, so a discounted invoice is not opened on them: a late
-		// payment could not be given back.
+	// The built-in Platega and RollyPay clients have no refund call. A marketplace
+	// add-on of the same name is asked instead, while the built-in card is off.
+	if id == "" || s.useDirect(ctx, id) || s.d.Addons == nil {
 		return promo.ErrRefundUnsupported
 	}
 	info, err := s.d.Addons.Info(ctx, id)
@@ -290,7 +289,10 @@ func (s *Service) validatePromoProvider(ctx context.Context, provider string) er
 
 // AddonName is the adapter's own name for buyers in lang; its id while it does not answer.
 func (s *Service) AddonName(ctx context.Context, id, lang string) string {
-	if s.d.Addons != nil && !directID(id) {
+	if s.useDirect(ctx, id) {
+		return directName(id)
+	}
+	if s.d.Addons != nil {
 		if info, err := s.d.Addons.Info(ctx, id); err == nil {
 			if n := info.Name.In(lang); n != "" {
 				return n
@@ -335,7 +337,7 @@ func (s *Service) AddonWebhookURL(ctx context.Context, id, subBase string) strin
 func (s *Service) openAddonInvoice(ctx context.Context, p db.Payment, description string) (sql.NullString, string, error) {
 	id := model.AddonID(p.Provider)
 	ret, sub := s.payReturn(ctx, p)
-	if directID(id) {
+	if s.useDirect(ctx, id) {
 		ext, url, err := s.directInvoice(ctx, id, p, description, ret)
 		return ext, url, err
 	}
@@ -354,7 +356,7 @@ func (s *Service) openAddonInvoice(ctx context.Context, p db.Payment, descriptio
 // addonWebhook hands the provider's notification to its adapter, then checks the invoice
 // itself. A 200 goes back only once the payment is recorded, so the provider retries.
 func (s *Service) addonWebhook(ctx context.Context, w http.ResponseWriter, r *http.Request, id string, body []byte) {
-	if directID(id) {
+	if s.useDirect(ctx, id) {
 		ext, err := s.directWebhook(ctx, id, r.Header, body)
 		if errors.Is(err, errHookAuth) || errors.Is(err, errAddonOff) {
 			http.Error(w, "forbidden", http.StatusForbidden)
@@ -417,7 +419,7 @@ func (s *Service) checkAddonPayment(ctx context.Context, pay db.Payment) error {
 	provider, ext := pay.Provider, pay.ExternalID.String
 	var st addons.Status
 	var err error
-	if directID(model.AddonID(provider)) {
+	if s.useDirect(ctx, model.AddonID(provider)) {
 		st, err = s.directStatus(ctx, model.AddonID(provider), ext)
 	} else {
 		var cl *addons.Client

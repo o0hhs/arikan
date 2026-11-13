@@ -33,7 +33,7 @@ A new buyer enters an email and the code from the letter (or opens the link in t
 
 The same card holds three providers. The bot lists the same three.
 
-- **Platega.** The merchant id and the secret from the platega.io cabinet, and a payment method from their documentation (SBP by default). The callback address the panel shows is pasted into the Platega cabinet. The callback carries the same merchant id and secret; the panel still reads the invoice back and applies it only when the status is CONFIRMED, the currency is RUB and the amount covers the invoice.
+- **Platega.** The merchant id and the secret from the platega.io cabinet, and a payment method from their documentation (SBP by default). The callback address the panel shows is pasted into the Platega cabinet. The callback carries the same merchant id and secret; the panel still reads the invoice back and applies it only when the status is CONFIRMED, the currency is RUB and the amount covers the invoice. A Platega add-on already installed keeps the payments while this card is off.
 - **RollyPay.** An API key and the cash register's signing secret. The terminal id is optional when you pay with a key. The callback address is pasted into the cash register as `callback_url`. The signature is HMAC-SHA256 of `timestamp.body` with the cash register's secret. The invoice is paid only after a status call answers `paid`, with the same amount and currency check.
 - **CryptoBot.** This is the marketplace add-on `cryptobot` that already exists; the panel does not implement it again. Install the add-on and enter the Crypto Pay API token from @CryptoBot.
 
