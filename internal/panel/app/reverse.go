@@ -33,6 +33,12 @@ const (
 	// tunnelMaxStreams is how many streams one tunnel may carry at once: the panel's calls are
 	// few and short, and a tunnel that cannot take one falls back to the direct path.
 	tunnelMaxStreams = 32
+	// tunnelMaxData is how many clients' connections (data streams) one tunnel carries at
+	// once. They are counted apart from the API's streams: a node's clients, however many,
+	// never take the places of the panel's own calls, or the panel loses the very node it
+	// carries them to. The node's session takes 1000 streams at most (yamux's
+	// MaxIncomingStreams), so the clients' share leaves the API's tunnelMaxStreams room.
+	tunnelMaxData = 1000 - tunnelMaxStreams - 8
 	// tunnelOpen bounds opening a stream: a session that takes longer is no use to a call.
 	tunnelOpen = 5 * time.Second
 )
@@ -48,7 +54,8 @@ type tunnel struct {
 	since time.Time
 	live  bool
 	last  time.Time // the last stream opened
-	open  int       // streams open now
+	open  int       // API streams open now
+	data  int       // clients' data streams open now
 	err   string    // why the last session ended
 	ended time.Time
 }
@@ -78,7 +85,7 @@ func (t *tunnels) View(id int64) (nodesync.TunnelView, bool) {
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return nodesync.TunnelView{Connected: c.live, Since: c.since, Last: c.last, Ended: c.ended, Streams: c.open, Remote: c.remote, Error: c.err}, true
+	return nodesync.TunnelView{Connected: c.live, Since: c.since, Last: c.last, Ended: c.ended, Streams: c.open + c.data, Remote: c.remote, Error: c.err}, true
 }
 
 // OpenData opens one stream of the node's tunnel for a client's connection to port: the first
@@ -100,32 +107,33 @@ func (t *tunnels) OpenData(ctx context.Context, id int64, port uint16) (net.Conn
 		return nil, false
 	}
 	c.mu.Lock()
-	if c.open >= tunnelMaxStreams {
+	if c.data >= tunnelMaxData {
 		c.mu.Unlock()
 		return nil, false
 	}
-	c.open++
+	c.data++
 	c.mu.Unlock()
+	release := func() {
+		c.mu.Lock()
+		c.data--
+		c.mu.Unlock()
+	}
 	octx, cancel := context.WithTimeout(ctx, tunnelOpen)
 	st, err := sess.OpenStream(octx)
 	cancel()
 	if err != nil {
-		c.mu.Lock()
-		c.open--
-		c.mu.Unlock()
+		release()
 		return nil, false
 	}
 	if err := nodeapi.WriteStreamPort(st, port); err != nil {
-		c.mu.Lock()
-		c.open--
-		c.mu.Unlock()
+		release()
 		_ = st.Close()
 		return nil, false
 	}
 	c.mu.Lock()
 	c.last = t.now()
 	c.mu.Unlock()
-	return &tunnelStream{Stream: st, c: c}, true
+	return &tunnelStream{Stream: st, c: c, data: true}, true
 }
 
 // Open opens one stream of the node's tunnel: the panel's way into a node it cannot reach
@@ -184,13 +192,18 @@ func (t *tunnels) Open(ctx context.Context, id int64) (net.Conn, bool) {
 type tunnelStream struct {
 	*yamux.Stream
 	c    *tunnel
+	data bool // a client's data stream, counted apart from the API's
 	once sync.Once
 }
 
 func (s *tunnelStream) Close() error {
 	s.once.Do(func() {
 		s.c.mu.Lock()
-		s.c.open--
+		if s.data {
+			s.c.data--
+		} else {
+			s.c.open--
+		}
 		s.c.mu.Unlock()
 	})
 	return s.Stream.Close()
